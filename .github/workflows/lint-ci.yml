@@ -1,4 +1,4 @@
-name: Go
+name: lint
 
 on:
   push:
@@ -20,7 +20,11 @@ jobs:
 
     - name: Build
       run: make
+      env:
+        GOPATH: /home/runner/work/go
 
     - name: Run golangci-lint
       uses: golangci/golangci-lint-action@v1.2.1
+      with:
+        version: v1.29
 
