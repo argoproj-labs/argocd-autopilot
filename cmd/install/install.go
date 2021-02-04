@@ -23,7 +23,6 @@ import (
 	"github.com/spf13/viper"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/kubectl/pkg/cmd/util"
 	"sigs.k8s.io/kustomize/api/filesys"
 	"sigs.k8s.io/kustomize/api/krusty"
 )
@@ -115,11 +114,6 @@ func install(ctx context.Context, opts *options) error {
 		return err
 	}
 
-	if opts.dryRun {
-		fmt.Println(string(data))
-		return nil
-	}
-
 	fmt.Println("applying resource to cluster...")
 	err = applyBootstrapResources(ctx, data, opts)
 	if err != nil {
@@ -127,7 +121,7 @@ func install(ctx context.Context, opts *options) error {
 	}
 
 	fmt.Println("waiting for argocd initialization to complete... (might take a few seconds)")
-	err = waitForDeployments(ctx)
+	err = waitForDeployments(ctx, opts)
 	if err != nil {
 		return err
 	}
@@ -146,29 +140,28 @@ func install(ctx context.Context, opts *options) error {
 	if err != nil {
 		return err
 	}
-
-	passwd, err := getArgocdPassword(ctx)
-	if err != nil {
-		return err
+	if opts.dryRun {
+		return nil
 	}
-	fmt.Printf("\n\nargocd initialized. password: %s\n", passwd)
-	fmt.Printf("run: kubectl port-forward -n %s svc/argocd-server 8080:80\n\n", values.Namespace)
+		passwd, err := getArgocdPassword(ctx, opts)
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("\n\nargocd initialized. password: %s\n", passwd)
+		fmt.Printf("run: kubectl port-forward -n %s svc/argocd-server 8080:80\n\n", values.Namespace)
 
 	return nil
 }
 
 func apply(ctx context.Context, opts *options, data []byte) error {
-	d := util.DryRunNone
-	if opts.dryRun {
-		d = util.DryRunClient
-	}
 	return store.Get().NewKubeClient(ctx).Apply(ctx, &kube.ApplyOptions{
 		Manifests:      data,
-		DryRunStrategy: d,
+		DryRun: opts.dryRun,
 	})
 }
 
-func waitForDeployments(ctx context.Context) error {
+func waitForDeployments(ctx context.Context, opts *options) error {
 	deploymentTest := func(ctx context.Context, cs kubernetes.Interface, ns, name string) (bool, error) {
 		d, err := cs.AppsV1().Deployments(ns).Get(ctx, name, v1.GetOptions{})
 		if err != nil {
@@ -192,12 +185,13 @@ func waitForDeployments(ctx context.Context) error {
 				Func:      deploymentTest,
 			},
 		},
+		DryRun: opts.dryRun,
 	}
 
 	return store.Get().NewKubeClient(ctx).Wait(ctx, o)
 }
 
-func getArgocdPassword(ctx context.Context) (string, error) {
+func getArgocdPassword(ctx context.Context, opts *options) (string, error) {
 	cs, err := store.Get().NewKubeClient(ctx).KubernetesClientSet()
 	if err != nil {
 		return "", err
@@ -228,7 +222,8 @@ func createArgocdApp(ctx context.Context, opts *options) error {
 }
 
 func createSealedSecret(ctx context.Context, opts *options) error {
-	s, err := ss.CreateSealedSecretFromSecretFile(ctx, values.Namespace, filepath.Join(values.RepoName, "secret.yaml"))
+	secretPath := filepath.Join(values.RepoName, "secret.yaml")
+	s, err := ss.CreateSealedSecretFromSecretFile(ctx, values.Namespace, secretPath, opts.dryRun)
 	if err != nil {
 		return err
 	}
@@ -259,13 +254,9 @@ func createSealedSecret(ctx context.Context, opts *options) error {
 }
 
 func applyBootstrapResources(ctx context.Context, manifests []byte, opts *options) error {
-	d := util.DryRunNone
-	if opts.dryRun {
-		d = util.DryRunClient
-	}
 	return store.Get().NewKubeClient(ctx).Apply(ctx, &kube.ApplyOptions{
 		Manifests:      manifests,
-		DryRunStrategy: d,
+		DryRun: opts.dryRun,
 	})
 }
 
@@ -308,6 +299,9 @@ func buildBootstrapResources(ctx context.Context, path string) ([]byte, error) {
 }
 
 func persistGitopsRepo(ctx context.Context, opts *options) error {
+	if opts.dryRun {
+		return nil
+	}
 	r, err := git.Init(ctx, opts.repoName)
 	if err != nil {
 		return err
@@ -400,7 +394,7 @@ func cloneBase(ctx context.Context, path string) error {
 }
 
 func cleanup(ctx context.Context, failed bool, opts *options) {
-	if failed {
+	if failed || opts.dryRun {
 		log.G(ctx).Debugf("cleaning local user repo: %s", opts.repoName)
 		if err := os.RemoveAll(opts.repoName); err != nil && !os.IsNotExist(err) {
 			log.G(ctx).WithError(err).Error("failed to clean user local repo")

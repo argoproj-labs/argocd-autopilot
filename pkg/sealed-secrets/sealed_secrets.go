@@ -146,13 +146,15 @@ func (s ByCreationTimestamp) Less(i, j int) bool {
 	return s[i].GetCreationTimestamp().Unix() < s[j].GetCreationTimestamp().Unix()
 }
 
-func CreateSealedSecretFromSecretFile(ctx context.Context, namespace, secretPath string) (*SealedSecret, error) {
-	rsaPub, err := getPubKey(ctx, namespace)
+func CreateSealedSecretFromSecretFile(ctx context.Context, namespace, secretPath string, dryRun bool) (*SealedSecret, error) {
+	s, err := getSecretFromFile(ctx, secretPath)
 	if err != nil {
 		return nil, err
 	}
-
-	s, err := getSecretFromFile(ctx, secretPath)
+	if dryRun {
+		return parseSecret(s), nil
+	}
+	rsaPub, err := getPubKey(ctx, namespace)
 	if err != nil {
 		return nil, err
 	}

@@ -96,15 +96,8 @@ func stripLastAppliedAnnotations(annotations map[string]string) {
 	}
 }
 
-// newSealedSecret creates a new SealedSecret object wrapping the
-// provided secret. This encrypts only the values of each secrets
-// individually, so secrets can be updated one by one.
-func newSealedSecret(codecs runtimeserializer.CodecFactory, pubKey *rsa.PublicKey, secret *v1.Secret) (*SealedSecret, error) {
-	if secretScope(secret) != ClusterWideScope && secret.GetNamespace() == "" {
-		return nil, fmt.Errorf("secret must declare a namespace")
-	}
-
-	s := &SealedSecret{
+func parseSecret(secret *v1.Secret) *SealedSecret {
+	return  &SealedSecret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "SealedSecret",
 			APIVersion: "bitnami.com/v1alpha1",
@@ -121,6 +114,16 @@ func newSealedSecret(codecs runtimeserializer.CodecFactory, pubKey *rsa.PublicKe
 			EncryptedData: map[string]string{},
 		},
 	}
+}
+
+// newSealedSecret creates a new SealedSecret object wrapping the
+// provided secret. This encrypts only the values of each secrets
+// individually, so secrets can be updated one by one.
+func newSealedSecret(codecs runtimeserializer.CodecFactory, pubKey *rsa.PublicKey, secret *v1.Secret) (*SealedSecret, error) {
+	if secretScope(secret) != ClusterWideScope && secret.GetNamespace() == "" {
+		return nil, fmt.Errorf("secret must declare a namespace")
+	}
+	s:= parseSecret(secret)
 	secret.ObjectMeta.DeepCopyInto(&s.Spec.Template.ObjectMeta)
 
 	// the input secret could come from a real secret object applied with `kubectl apply` or similar tools
