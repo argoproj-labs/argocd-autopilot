@@ -8,7 +8,7 @@ on:
 
 jobs:
 
-  build:
+  lint:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -17,14 +17,17 @@ jobs:
       uses: actions/setup-go@v2
       with:
         go-version: 1.15
+        
+    - name: Export gopath
+      run: echo "/home/runner/work/go/bin" >> $GITHUB_PATH
 
     - name: Build
       run: make
       env:
         GOPATH: /home/runner/work/go
 
-    - name: Run golangci-lint
-      uses: golangci/golangci-lint-action@v1.2.1
-      with:
-        version: v1.29
+    - name: Lint
+      run: make lint
+      env:
+        GOPATH: /home/runner/work/go
 

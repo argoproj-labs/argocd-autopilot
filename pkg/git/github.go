@@ -95,3 +95,19 @@ func (g *github) Clone(ctx context.Context, opts *CloneOptions) (Repository, err
 		Auth: auth,
 	})
 }
+
+func (g *github) GetRepository(ctx context.Context, opts *GetRepositoryOptions) (string, error) {
+	if opts == nil {
+		return "", cferrors.ErrNilOpts
+	}
+
+	r, res, err := g.client.Repositories.Get(ctx, opts.Owner, opts.Name)
+	if err != nil && res == nil {
+		return "", err
+	}
+	if res.StatusCode == 404 {
+		return "", ErrRepoNotFound
+	}
+
+	return *r.CloneURL, nil
+}

@@ -17,3 +17,9 @@ func MustContext(ctx context.Context, err error) {
 		log.G(ctx).WithError(err).Fatal("must")
 	}
 }
+
+func CheckErr(err error) {
+	if err != nil {
+		panic(err)
+	}
+}

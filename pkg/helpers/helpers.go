@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
 	"text/template"
@@ -17,22 +18,62 @@ const (
 	envNamePlaceholder = "envName"
 )
 
+func ContextWithCancelOnSignals(ctx context.Context, sigs ...os.Signal) context.Context {
+	ctx, cancel := context.WithCancel(ctx)
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, sigs...)
+
+	go func() {
+		s := <-sig
+		log.G(ctx).Debugf("got signal: %s", s)
+		cancel()
+	}()
+
+	return ctx
+}
+
 func CopyDir(source, destination string) error {
 	return filepath.Walk(source, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
 		var relPath string = strings.Replace(path, source, "", 1)
 		if relPath == "" {
 			return nil
 		}
+
+		absDst := filepath.Join(destination, relPath)
+		if err = ensureDir(absDst); err != nil {
+			return err
+		}
+
 		if info.IsDir() {
-			return os.Mkdir(filepath.Join(destination, relPath), info.Mode())
+			return os.Mkdir(absDst, info.Mode())
 		} else {
-			var data, err1 = ioutil.ReadFile(filepath.Join(source, relPath))
-			if err1 != nil {
-				return err1
+			data, err := ioutil.ReadFile(path)
+			if err != nil {
+				return err
 			}
-			return ioutil.WriteFile(filepath.Join(destination, relPath), data, info.Mode())
+
+			return ioutil.WriteFile(absDst, data, info.Mode())
 		}
 	})
+}
+
+func ensureDir(path string) error {
+	dstDir := filepath.Dir(path)
+	if _, err := os.Stat(dstDir); err != nil {
+		if !os.IsNotExist(err) {
+			return err
+		}
+		err = os.MkdirAll(dstDir, 0755)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func RenderDirRecurse(pattern string, values interface{}) error {
@@ -62,8 +103,7 @@ func RenderDirRecurse(pattern string, values interface{}) error {
 	return nil
 }
 
-// TODO maybe there is a more efficient way to do this
-func RenameEnvNameRecurse(ctx context.Context, path, env string) error {
+func RenameFilesWithEnvName(ctx context.Context, path, env string) error {
 	matches, err := filepathx.Glob(filepath.Join(path, fmt.Sprintf("**/%s", envNamePlaceholder)))
 	if err != nil {
 		return err
@@ -79,7 +119,7 @@ func RenameEnvNameRecurse(ctx context.Context, path, env string) error {
 	}
 
 	// run again to rename nested files with envName
-	matches, err = filepathx.Glob(filepath.Join(path, fmt.Sprintf("**/%s.*", envNamePlaceholder)))
+	matches, err = filepathx.Glob(filepath.Join(path, fmt.Sprintf("**/%s*.*", envNamePlaceholder)))
 	if err != nil {
 		return err
 	}

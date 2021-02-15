@@ -3,8 +3,10 @@ package kube
 import (
 	"context"
 	"errors"
+
 	// "fmt"
 	"os"
+	"time"
 
 	cferrors "github.com/codefresh-io/cf-argo/pkg/errors"
 	"github.com/codefresh-io/cf-argo/pkg/log"
@@ -17,7 +19,12 @@ import (
 	kcmdutil "k8s.io/kubectl/pkg/cmd/util"
 )
 
-func (c *Client) apply(ctx context.Context, opts *ApplyOptions) error {
+const (
+	defaultPollInterval = time.Second * 2
+	defaultPollTimeout  = time.Second * 5
+)
+
+func (c *client) apply(ctx context.Context, opts *ApplyOptions) error {
 	if opts == nil {
 		return cferrors.ErrNilOpts
 	}
@@ -68,7 +75,7 @@ func (c *Client) apply(ctx context.Context, opts *ApplyOptions) error {
 				o.DryRunStrategy = kcmdutil.DryRunClient
 				outputFromat := "yaml"
 				o.PrintFlags.OutputFormat = &outputFromat
-			}			
+			}
 
 			fake := fakeio.StdinBytes([]byte{})
 			defer fake.Restore()
@@ -94,7 +101,7 @@ func (c *Client) apply(ctx context.Context, opts *ApplyOptions) error {
 	return applyCmd.Execute()
 }
 
-func (c *Client) wait(ctx context.Context, opts *WaitOptions) error {
+func (c *client) wait(ctx context.Context, opts *WaitOptions) error {
 	if opts.DryRun {
 		log.G(ctx).Debug("running in dry run mode, no wait")
 		return nil
@@ -111,10 +118,18 @@ func (c *Client) wait(ctx context.Context, opts *WaitOptions) error {
 		rscs[r] = true
 	}
 
-	return wait.PollImmediate(opts.Interval, opts.Timeout, func() (done bool, err error) {
+	interval := defaultPollInterval
+	timeout := defaultPollTimeout
+	if opts.Interval > 0 {
+		interval = opts.Interval
+	}
+	if opts.Timeout > 0 {
+		timeout = opts.Timeout
+	}
+
+	return wait.PollImmediate(interval, timeout, func() (done bool, err error) {
 		itr += 1
 		allReady := true
-		log.G(ctx).Debug("starting new wait poll event")
 		for r := range rscs {
 			ll := log.G(ctx).WithFields(log.Fields{
 				"itr":       itr,

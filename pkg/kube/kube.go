@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"time"
 
-	cferrors "github.com/codefresh-io/cf-argo/pkg/errors"
 	"github.com/codefresh-io/cf-argo/pkg/log"
 
+	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -16,17 +16,17 @@ import (
 	kcmdutil "k8s.io/kubectl/pkg/cmd/util"
 )
 
-const (
-	defaultPollInterval = time.Second * 2
-	defaultPollTimeout  = time.Second * 5
-)
-
 type (
 	Config struct {
 		cfg *genericclioptions.ConfigFlags
 	}
 
-	Client struct {
+	Client interface {
+		kcmdutil.Factory
+		Apply(ctx context.Context, opts *ApplyOptions) error
+		Wait(ctx context.Context, opts *WaitOptions) error
+	}
+	client struct {
 		kcmdutil.Factory
 		log log.Logger
 	}
@@ -57,32 +57,31 @@ func NewConfig() *Config {
 	return &Config{genericclioptions.NewConfigFlags(true)}
 }
 
-func (c *Config) FlagSet(ctx context.Context) *pflag.FlagSet {
+func (c *Config) AddFlagSet(cmd *cobra.Command) {
 	flags := pflag.NewFlagSet("kubernetes", pflag.ContinueOnError)
 
-	cferrors.MustContext(ctx, viper.BindEnv("kubeconfig", "KUBECONFIG"))
+	flags.StringVar(c.cfg.KubeConfig, "kubeconfig", viper.GetString("kubeconfig"), "path to the kubeconfig file [KUBECONFIG] (default: ~/.kube/config)")
+	flags.StringVar(c.cfg.Context, "kube-context", viper.GetString("kube-context"), "name of the kubeconfig context to use (default: current context)")
 	viper.SetDefault("kubeconfig", defaultConfigPath())
+	_ = viper.BindEnv("kubeconfig", "KUBECONFIG")
 
-	flags.StringVar(c.cfg.KubeConfig, "kubeconfig", viper.GetString("kubeconfig"), "path to the kubeconfig file [KUBECONFIG]")
-	flags.StringVar(c.cfg.Context, "kube-context", viper.GetString("kube-context"), "name of the kubeconfig context to use")
-
-	return flags
+	cmd.Flags().AddFlagSet(flags)
 }
 
-func NewForConfig(ctx context.Context, cfg *Config) *Client {
+func NewForConfig(ctx context.Context, cfg *Config) Client {
 	l := log.G(ctx)
 	if *cfg.cfg.Context != "" {
 		l = l.WithField("context", *cfg.cfg.Context)
 	}
 
-	return &Client{kcmdutil.NewFactory(kcmdutil.NewMatchVersionFlags(cfg.cfg)), l}
+	return &client{kcmdutil.NewFactory(kcmdutil.NewMatchVersionFlags(cfg.cfg)), l}
 }
 
-func (c *Client) Apply(ctx context.Context, opts *ApplyOptions) error {
+func (c *client) Apply(ctx context.Context, opts *ApplyOptions) error {
 	return c.apply(ctx, opts)
 }
 
-func (c *Client) Wait(ctx context.Context, opts *WaitOptions) error {
+func (c *client) Wait(ctx context.Context, opts *WaitOptions) error {
 	return c.wait(ctx, opts)
 }
 

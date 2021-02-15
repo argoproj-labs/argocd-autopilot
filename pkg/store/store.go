@@ -36,7 +36,7 @@ func Get() *Store {
 	return &s
 }
 
-func (s *Store) NewKubeClient(ctx context.Context) *kube.Client {
+func (s *Store) NewKubeClient(ctx context.Context) kube.Client {
 	return kube.NewForConfig(ctx, s.KubeConfig)
 }
 
