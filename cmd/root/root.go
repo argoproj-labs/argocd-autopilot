@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/codefresh-io/cf-argo/cmd/install"
+	"github.com/codefresh-io/cf-argo/cmd/uninstall"
 	"github.com/codefresh-io/cf-argo/cmd/version"
 	"github.com/codefresh-io/cf-argo/pkg/store"
 	"github.com/spf13/cobra"
@@ -24,6 +25,7 @@ func New(ctx context.Context) *cobra.Command {
 
 	cmd.AddCommand(version.New(ctx))
 	cmd.AddCommand(install.New(ctx))
+	cmd.AddCommand(uninstall.New(ctx))
 
 	return cmd
 }

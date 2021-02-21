@@ -1,6 +1,7 @@
 package environments_manager
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -11,6 +12,8 @@ import (
 
 	"github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
 	"github.com/codefresh-io/cf-argo/pkg/helpers"
+	"github.com/codefresh-io/cf-argo/pkg/kube"
+	"github.com/codefresh-io/cf-argo/pkg/store"
 	"github.com/ghodss/yaml"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kustomize "sigs.k8s.io/kustomize/api/types"
@@ -45,11 +48,12 @@ type (
 		c                   *Config
 		name                string
 		RootApplicationPath string `json:"rootAppPath"`
+		TemplateRef         string `json:"templateRef"`
 	}
 
 	Application struct {
 		*v1alpha1.Application
-		path string
+		Path string
 	}
 )
 
@@ -89,13 +93,18 @@ func (c *Config) AddEnvironmentP(env *Environment) error {
 }
 
 // DeleteEnvironmentP deletes an environment and persists the config object
-func (c *Config) DeleteEnvironmentP(name string, env Environment) error {
-	if _, exists := c.Environments[name]; !exists {
+func (c *Config) DeleteEnvironmentP(name string) error {
+	env, exists := c.Environments[name]
+	if !exists {
 		return ErrEnvironmentNotExist
 	}
 
-	delete(c.Environments, name)
+	err := env.cleanup()
+	if err != nil {
+		return err
+	}
 
+	delete(c.Environments, name)
 	return c.Persist()
 }
 
@@ -138,6 +147,7 @@ func (c *Config) installEnv(env *Environment) (*Environment, error) {
 	newEnv := &Environment{
 		name:                env.name,
 		c:                   c,
+		TemplateRef:         env.TemplateRef,
 		RootApplicationPath: env.RootApplicationPath,
 	}
 	for _, la := range lapps {
@@ -148,7 +158,14 @@ func (c *Config) installEnv(env *Environment) (*Environment, error) {
 
 	// copy the tpl "argocd-apps" to the matching dir in the dst repo
 	src := filepath.Join(env.c.path, filepath.Dir(env.RootApplicationPath))
-	dst := filepath.Join(c.path, filepath.Dir(c.FirstEnv().RootApplicationPath))
+	var dstApplicationPath string
+	if len(c.Environments) == 0 {
+		dstApplicationPath = filepath.Dir(newEnv.RootApplicationPath)
+	} else {
+		dstApplicationPath = c.FirstEnv().RootApplicationPath
+	}
+
+	dst := filepath.Join(c.path, dstApplicationPath)
 	err = helpers.CopyDir(src, dst)
 	if err != nil {
 		return nil, err
@@ -158,7 +175,7 @@ func (c *Config) installEnv(env *Environment) (*Environment, error) {
 }
 
 func (c *Config) getAppByName(appName string) (*Application, error) {
-	var err error
+	err := ErrAppNotFound
 	var app *Application
 
 	for _, e := range c.Environments {
@@ -166,12 +183,60 @@ func (c *Config) getAppByName(appName string) (*Application, error) {
 		if err != nil && !errors.Is(err, ErrAppNotFound) {
 			return nil, err
 		}
+
 		if app != nil {
 			return app, nil
 		}
 	}
 
 	return app, err
+}
+
+func (e *Environment) ApplyBootstrap(ctx context.Context, values interface{}, dryRun bool) error {
+	manifests, err := kube.KustBuild(e.bootstrapUrl(), values)
+	if err != nil {
+		return err
+	}
+
+	return store.Get().NewKubeClient(ctx).Apply(ctx, &kube.ApplyOptions{
+		Manifests: manifests,
+		DryRun:    dryRun,
+	})
+}
+
+func (e *Environment) DeleteBootstrap(ctx context.Context, values interface{}, dryRun bool) error {
+	manifests, err := kube.KustBuild(e.bootstrapUrl(), values)
+	if err != nil {
+		return err
+	}
+
+	return store.Get().NewKubeClient(ctx).Delete(ctx, &kube.DeleteOptions{
+		Manifests: manifests,
+		DryRun:    dryRun,
+	})
+}
+
+func (e *Environment) UpdateTemplateRef(templateRef string) {
+	e.TemplateRef = templateRef
+}
+
+func (e *Environment) bootstrapUrl() string {
+	parts := strings.Split(e.TemplateRef, "#")
+	bootstrapUrl := fmt.Sprintf("%s/bootstrap", parts[0])
+	if len(parts) > 1 {
+		bootstrapUrl = fmt.Sprintf("%s?ref=%s", bootstrapUrl, parts[1])
+	}
+
+	return bootstrapUrl
+}
+
+func (e *Environment) cleanup() error {
+	rootApp, err := e.getRootApp()
+	if err != nil {
+		return err
+	}
+
+	return rootApp.deleteFromFilesystem(e.c.path)
 }
 
 func (e *Environment) installApp(srcRootPath string, app *Application) error {
@@ -212,44 +277,27 @@ func (e *Environment) installNewApp(srcRootPath string, app *Application) error 
 	return helpers.CopyDir(absSrc, absDst)
 }
 
+func (e *Environment) Uninstall() (*Application, error) {
+	rootApp, err := e.getRootApp()
+	if err != nil {
+		return rootApp, err
+	}
+
+	uninstalled, err := rootApp.uninstall(e.c.path)
+	if uninstalled {
+		return rootApp, createDummy(filepath.Join(e.c.path, rootApp.srcPath()))
+	}
+
+	return nil, err
+}
+
 func (e *Environment) leafApps() ([]*Application, error) {
 	rootApp, err := e.getRootApp()
 	if err != nil {
 		return nil, err
 	}
 
-	return e.leafAppsRecurse(rootApp)
-}
-
-func (e *Environment) leafAppsRecurse(root *Application) ([]*Application, error) {
-	filenames, err := filepath.Glob(filepath.Join(e.c.path, root.Spec.Source.Path, "*.yaml"))
-	if err != nil {
-		return nil, err
-	}
-
-	isLeaf := true
-	res := []*Application{}
-	for _, f := range filenames {
-		childApp, err := getAppFromFile(f)
-		if err != nil {
-			fmt.Printf("file is not an argo-cd application manifest %s\n", f)
-			continue
-		}
-
-		if childApp != nil {
-			isLeaf = false
-			childRes, err := e.leafAppsRecurse(childApp)
-			if err != nil {
-				return nil, err
-			}
-			res = append(res, childRes...)
-		}
-	}
-	if isLeaf {
-		res = append(res, root)
-	}
-
-	return res, nil
+	return rootApp.leafApps(e.c.path)
 }
 
 func (e *Environment) getRootApp() (*Application, error) {
@@ -290,7 +338,7 @@ func (e *Environment) getAppByNameRecurse(root *Application, appName string) (*A
 			continue
 		}
 
-		if !app.isManagedBy() {
+		if !app.isManagedByCf() {
 			continue
 		}
 
@@ -332,6 +380,27 @@ func getAppFromFile(path string) (*Application, error) {
 	return nil, nil
 }
 
+func (a *Application) deleteFromFilesystem(rootPath string) error {
+	srcDir := filepath.Join(rootPath, a.srcPath())
+	err := os.RemoveAll(srcDir)
+	if err != nil {
+		return err
+	}
+
+	projectPath := filepath.Join(filepath.Dir(a.Path), fmt.Sprintf("%s-project.yaml", a.Name))
+	err = os.Remove(projectPath)
+	if err != nil {
+		return err
+	}
+
+	err = os.Remove(a.Path)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (a *Application) srcPath() string {
 	return a.Spec.Source.Path
 }
@@ -344,7 +413,7 @@ func (a *Application) cfName() string {
 	return a.labelValue(labelsCfName)
 }
 
-func (a *Application) isManagedBy() bool {
+func (a *Application) isManagedByCf() bool {
 	return a.labelValue(labelsManagedBy) == "codefresh.io"
 }
 
@@ -378,5 +447,92 @@ func (a *Application) save() error {
 		return err
 	}
 
-	return ioutil.WriteFile(a.path, data, 0644)
+	return ioutil.WriteFile(a.Path, data, 0644)
+}
+
+func (a *Application) leafApps(rootPath string) ([]*Application, error) {
+	childApps, err := a.childApps(rootPath)
+	if err != nil {
+		return nil, err
+	}
+
+	isLeaf := true
+	res := []*Application{}
+	for _, childApp := range childApps {
+		isLeaf = false
+		if childApp.isManagedByCf() {
+			childRes, err := childApp.leafApps(rootPath)
+			if err != nil {
+				return nil, err
+			}
+
+			res = append(res, childRes...)
+		}
+	}
+
+	if isLeaf && a.isManagedByCf() {
+		res = append(res, a)
+	}
+
+	return res, nil
+}
+
+func (a *Application) uninstall(rootPath string) (bool, error) {
+	uninstalled := false
+	childApps, err := a.childApps(rootPath)
+	if err != nil {
+		return uninstalled, err
+	}
+
+	totalUninstalled := 0
+	for _, childApp := range childApps {
+		if childApp.isManagedByCf() {
+			childUninstalled, err := childApp.uninstall(rootPath)
+			if err != nil {
+				return uninstalled, err
+			}
+
+			if childUninstalled {
+				err = os.Remove(childApp.Path)
+				if err != nil {
+					return uninstalled, err
+				}
+
+				totalUninstalled++
+			}
+		}
+	}
+
+	uninstalled = len(childApps) == totalUninstalled
+	return uninstalled, nil
+}
+
+func (a *Application) childApps(rootPath string) ([]*Application, error) {
+	filenames, err := filepath.Glob(filepath.Join(rootPath, a.srcPath(), "*.yaml"))
+	if err != nil {
+		return nil, err
+	}
+
+	res := []*Application{}
+	for _, f := range filenames {
+		childApp, err := getAppFromFile(f)
+		if err != nil {
+			fmt.Printf("file is not an argo-cd application manifest %s\n", f)
+			continue
+		}
+
+		if childApp != nil {
+			res = append(res, childApp)
+		}
+	}
+
+	return res, nil
+}
+
+func createDummy(path string) error {
+	file, err := os.Create(filepath.Join(path, "DUMMY"))
+	if err != nil {
+		return err
+	}
+	return file.Close()
 }

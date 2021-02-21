@@ -1,7 +1,6 @@
 package install
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -10,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"text/template"
 	"time"
 
 	envman "github.com/codefresh-io/cf-argo/pkg/environments-manager"
@@ -25,25 +23,18 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"sigs.k8s.io/kustomize/api/filesys"
-	"sigs.k8s.io/kustomize/api/krusty"
 )
 
 type options struct {
-	repoURL   string
-	repoOwner string
-	repoName  string
-	envName   string
-	gitToken  string
-	baseRepo  string
-	dryRun    bool
+	repoURL  string
+	envName  string
+	gitToken string
+	baseRepo string
+	dryRun   bool
 }
 
 var values struct {
 	BootstrapDir          string
-	GitToken              string
-	EnvName               string
 	Namespace             string
 	RepoOwner             string
 	RepoName              string
@@ -52,13 +43,20 @@ var values struct {
 	GitopsRepo            git.Repository
 }
 
+var renderValues struct {
+	EnvName   string
+	RepoOwner string
+	RepoName  string
+	GitToken  string
+}
+
 func New(ctx context.Context) *cobra.Command {
 	var opts options
 
 	cmd := &cobra.Command{
 		Use:   "install",
-		Short: "installs the Argo Enterprise solution on a specified cluster",
-		Long:  `This command will create a new git repository that manages an Argo Enterprise solution using Argo-CD with gitops.`,
+		Short: "Installs the Argo Enterprise solution on a specified cluster",
+		Long:  "This command will create a new git repository that manages an Argo Enterprise solution using Argo-CD with gitops.",
 		Run: func(cmd *cobra.Command, args []string) {
 			fillValues(&opts)
 			install(ctx, &opts)
@@ -92,15 +90,16 @@ func New(ctx context.Context) *cobra.Command {
 // fill the values used to render the templates
 func fillValues(opts *options) {
 	var err error
-	opts.repoOwner, opts.repoName, err = git.SplitCloneURL(opts.repoURL)
+	values.RepoOwner, values.RepoName, err = git.SplitCloneURL(opts.repoURL)
 	cferrors.CheckErr(err)
 
 	values.BootstrapDir = "bootstrap"
-	values.GitToken = base64.StdEncoding.EncodeToString([]byte(opts.gitToken))
-	values.EnvName = opts.envName
-	values.Namespace = fmt.Sprintf("%s-argocd", values.EnvName)
-	values.RepoOwner = opts.repoOwner
-	values.RepoName = opts.repoName
+	values.Namespace = fmt.Sprintf("%s-argocd", opts.envName)
+
+	renderValues.EnvName = opts.envName
+	renderValues.RepoOwner = values.RepoOwner
+	renderValues.RepoName = values.RepoName
+	renderValues.GitToken = base64.StdEncoding.EncodeToString([]byte(opts.gitToken))
 }
 
 func install(ctx context.Context, opts *options) {
@@ -111,19 +110,16 @@ func install(ctx context.Context, opts *options) {
 		}
 	}()
 
-	tryCloneExistingRepo(ctx, opts)
-
 	log.G(ctx).Printf("cloning template repository...")
+	conf := tryCloneExistingRepo(ctx, opts)
+
 	prepareBase(ctx, opts)
 
-	if values.GitopsRepo == nil {
+	if conf == nil {
 		initializeNewGitopsRepo(ctx, opts)
 	} else {
-		addToExistingGitopsRepo(ctx, opts)
+		addToExistingGitopsRepo(ctx, conf, opts)
 	}
-
-	log.G(ctx).Printf("building bootstrap resources...")
-	installBootstrapResources(ctx, opts)
 
 	log.G(ctx).Printf("waiting for argocd initialization to complete... (might take a few seconds)")
 	waitForDeployments(ctx, opts)
@@ -155,14 +151,14 @@ func prepareBase(ctx context.Context, opts *options) {
 	cferrors.CheckErr(os.RemoveAll(filepath.Join(values.TemplateRepoClonePath, ".git")))
 
 	log.G(ctx).Debug("renaming envName files")
-	cferrors.CheckErr(helpers.RenameFilesWithEnvName(ctx, values.TemplateRepoClonePath, values.EnvName))
+	cferrors.CheckErr(helpers.RenameFilesWithEnvName(ctx, values.TemplateRepoClonePath, opts.envName))
 
 	log.G(ctx).Debug("rendering template values")
-	cferrors.CheckErr(helpers.RenderDirRecurse(filepath.Join(values.TemplateRepoClonePath, "**/*.*"), values))
+	cferrors.CheckErr(helpers.RenderDirRecurse(filepath.Join(values.TemplateRepoClonePath, "**/*.*"), renderValues))
 }
 
-func tryCloneExistingRepo(ctx context.Context, opts *options) {
-	p, err := git.New(&git.Options{
+func tryCloneExistingRepo(ctx context.Context, opts *options) *envman.Config {
+	p, err := git.NewProvider(&git.Options{
 		Type: "github", // only option for now
 		Auth: &git.Auth{
 			Password: opts.gitToken,
@@ -170,41 +166,39 @@ func tryCloneExistingRepo(ctx context.Context, opts *options) {
 	})
 	cferrors.CheckErr(err)
 
-	cloneURL, err := p.GetRepository(ctx, &git.GetRepositoryOptions{
+	values.GitopsRepo, err = p.CloneRepository(ctx, &git.GetRepositoryOptions{
 		Owner: values.RepoOwner,
 		Name:  values.RepoName,
 	})
+
 	if err != nil {
 		if err != git.ErrRepoNotFound {
-			panic(err)
+			cferrors.CheckErr(err)
 		}
 
-		return // we will create it later
+		return nil // we will create it later
 	}
 
-	log.G(ctx).Debug("creating temp dir for gitops repo")
-	values.GitopsRepoClonePath, err = ioutil.TempDir("", "repo-")
-	cferrors.CheckErr(err)
-	log.G(ctx).WithField("location", values.GitopsRepoClonePath).Debug("temp dir created")
-
-	log.G(ctx).Printf("cloning existing gitops repository...")
-
-	values.GitopsRepo, err = p.Clone(ctx, &git.CloneOptions{
-		URL:  cloneURL,
-		Path: values.GitopsRepoClonePath,
-	})
+	values.GitopsRepoClonePath, err = values.GitopsRepo.Root()
 	cferrors.CheckErr(err)
 
 	conf, err := envman.LoadConfig(values.GitopsRepoClonePath)
 	cferrors.CheckErr(err)
 
-	if _, exists := conf.Environments[values.EnvName]; exists {
-		panic(fmt.Errorf("environment with name \"%s\" already exists in target repository", values.EnvName))
+	if _, exists := conf.Environments[opts.envName]; exists {
+		panic(fmt.Errorf("environment with name \"%s\" already exists in target repository", opts.envName))
 	}
+
+	return conf
 }
 
 func waitForDeployments(ctx context.Context, opts *options) {
-	deploymentTest := func(ctx context.Context, cs kubernetes.Interface, ns, name string) (bool, error) {
+	deploymentTest := func(ctx context.Context, c kube.Client, ns, name string) (bool, error) {
+		cs, err := c.KubernetesClientSet()
+		if err != nil {
+			return false, err
+		}
+
 		d, err := cs.AppsV1().Deployments(ns).Get(ctx, name, v1.GetOptions{})
 		if err != nil {
 			return false, err
@@ -215,7 +209,7 @@ func waitForDeployments(ctx context.Context, opts *options) {
 	ns := values.Namespace
 	o := &kube.WaitOptions{
 		Interval: time.Second * 2,
-		Timeout:  time.Minute * 2,
+		Timeout:  time.Minute * 5,
 		Resources: []*kube.ResourceInfo{
 			{
 				Name:      "argocd-server",
@@ -256,12 +250,12 @@ func printArgocdData(ctx context.Context, opts *options) {
 func createArgocdApp(ctx context.Context, opts *options) {
 	tplConf, err := envman.LoadConfig(values.GitopsRepoClonePath)
 	cferrors.CheckErr(err)
-	absArgoAppsDir := filepath.Join(values.GitopsRepoClonePath, filepath.Dir(tplConf.Environments[values.EnvName].RootApplicationPath))
+	absArgoAppsDir := filepath.Join(values.GitopsRepoClonePath, filepath.Dir(tplConf.Environments[opts.envName].RootApplicationPath))
 
-	projData, err := ioutil.ReadFile(filepath.Join(absArgoAppsDir, fmt.Sprintf("%s-project.yaml", values.EnvName)))
+	projData, err := ioutil.ReadFile(filepath.Join(absArgoAppsDir, fmt.Sprintf("%s-project.yaml", opts.envName)))
 	cferrors.CheckErr(err)
 
-	appData, err := ioutil.ReadFile(filepath.Join(absArgoAppsDir, fmt.Sprintf("%s.yaml", values.EnvName)))
+	appData, err := ioutil.ReadFile(filepath.Join(absArgoAppsDir, fmt.Sprintf("%s.yaml", opts.envName)))
 	cferrors.CheckErr(err)
 
 	manifests := []byte(fmt.Sprintf("%s\n\n---\n%s", string(projData), string(appData)))
@@ -287,7 +281,7 @@ func createSealedSecret(ctx context.Context, opts *options) {
 			"components",
 			"argo-cd",
 			"overlays",
-			values.EnvName,
+			opts.envName,
 			"sealed-secret.json",
 		),
 		data,
@@ -295,39 +289,16 @@ func createSealedSecret(ctx context.Context, opts *options) {
 	))
 }
 
-func installBootstrapResources(ctx context.Context, opts *options) {
-	kopts := krusty.MakeDefaultOptions()
-	kopts.DoLegacyResourceSort = true
-
-	k := krusty.MakeKustomizer(filesys.MakeFsOnDisk(), kopts)
-	res, err := k.Run(filepath.Join(values.TemplateRepoClonePath, values.BootstrapDir))
-	cferrors.CheckErr(err)
-
-	data, err := res.AsYaml()
-	cferrors.CheckErr(err)
-
-	tpl, err := template.New("").Parse(string(data))
-	cferrors.CheckErr(err)
-
-	buf := bytes.NewBuffer(make([]byte, 0, 4096))
-
-	cferrors.CheckErr(tpl.Execute(buf, values))
-
-	manifests := buf.Bytes()
-
-	cferrors.CheckErr(apply(ctx, opts, manifests))
-}
-
 func persistGitopsRepo(ctx context.Context, opts *options) {
 	if opts.dryRun {
 		return
 	}
 
-	hasRemotes, err := values.GitopsRepo.HasRemotes()
+	isNewRepo, err := values.GitopsRepo.IsNewRepo()
 	cferrors.CheckErr(err)
 
-	if !hasRemotes {
-		log.G(ctx).Printf("creating gitops repository: %s/%s...", opts.repoOwner, opts.repoName)
+	if isNewRepo {
+		log.G(ctx).Printf("creating gitops repository: %s/%s...", values.RepoOwner, values.RepoName)
 		cloneURL, err := createRemoteRepo(ctx, opts)
 		cferrors.CheckErr(err)
 
@@ -338,7 +309,7 @@ func persistGitopsRepo(ctx context.Context, opts *options) {
 
 	cferrors.CheckErr(values.GitopsRepo.Add(ctx, "."))
 
-	_, err = values.GitopsRepo.Commit(ctx, fmt.Sprintf("added environment %s", values.EnvName))
+	_, err = values.GitopsRepo.Commit(ctx, fmt.Sprintf("added environment %s", opts.envName))
 	cferrors.CheckErr(err)
 
 	log.G(ctx).Printf("pushing to gitops repo...")
@@ -356,20 +327,28 @@ func initializeNewGitopsRepo(ctx context.Context, opts *options) {
 	values.GitopsRepoClonePath = values.TemplateRepoClonePath
 	values.GitopsRepo, err = git.Init(ctx, values.GitopsRepoClonePath)
 	cferrors.CheckErr(err)
-}
-
-func addToExistingGitopsRepo(ctx context.Context, opts *options) {
-	tplConf, err := envman.LoadConfig(values.TemplateRepoClonePath)
-	cferrors.CheckErr(err)
 
 	conf, err := envman.LoadConfig(values.GitopsRepoClonePath)
 	cferrors.CheckErr(err)
 
-	if len(conf.Environments) == 0 {
-		panic(fmt.Errorf("existing repo has no environments in config file"))
-	}
+	env := conf.FirstEnv()
+	env.UpdateTemplateRef(opts.baseRepo)
+	cferrors.CheckErr(conf.Persist())
 
-	cferrors.CheckErr(conf.AddEnvironmentP(tplConf.FirstEnv()))
+	log.G(ctx).Printf("installing bootstrap resources...")
+	cferrors.CheckErr(env.ApplyBootstrap(ctx, renderValues, opts.dryRun))
+}
+
+func addToExistingGitopsRepo(ctx context.Context, conf *envman.Config, opts *options) {
+	tplConf, err := envman.LoadConfig(values.TemplateRepoClonePath)
+	cferrors.CheckErr(err)
+
+	newEnv := tplConf.FirstEnv()
+	newEnv.UpdateTemplateRef(opts.baseRepo)
+	cferrors.CheckErr(conf.AddEnvironmentP(newEnv))
+
+	log.G(ctx).Printf("installing bootstrap resources...")
+	cferrors.CheckErr(newEnv.ApplyBootstrap(ctx, renderValues, opts.dryRun))
 }
 
 func apply(ctx context.Context, opts *options, data []byte) error {
@@ -380,7 +359,7 @@ func apply(ctx context.Context, opts *options, data []byte) error {
 }
 
 func createRemoteRepo(ctx context.Context, opts *options) (string, error) {
-	p, err := git.New(&git.Options{
+	p, err := git.NewProvider(&git.Options{
 		Type: "github", // need to support other types
 		Auth: &git.Auth{
 			Password: opts.gitToken,
@@ -391,8 +370,8 @@ func createRemoteRepo(ctx context.Context, opts *options) (string, error) {
 	}
 
 	cloneURL, err := p.CreateRepository(ctx, &git.CreateRepositoryOptions{
-		Owner:   opts.repoOwner,
-		Name:    opts.repoName,
+		Owner:   values.RepoOwner,
+		Name:    values.RepoName,
 		Private: true,
 	})
 	if err != nil {

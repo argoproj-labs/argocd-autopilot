@@ -16,6 +16,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/kubectl/pkg/cmd/apply"
+
+	kdelete "k8s.io/kubectl/pkg/cmd/delete"
 	kcmdutil "k8s.io/kubectl/pkg/cmd/util"
 )
 
@@ -86,6 +88,8 @@ func (c *client) apply(ctx context.Context, opts *ApplyOptions) error {
 
 			return o.Run()
 		},
+		SilenceErrors: true,
+		SilenceUsage:  true,
 	}
 
 	kcmdutil.AddDryRunFlag(applyCmd)
@@ -101,14 +105,62 @@ func (c *client) apply(ctx context.Context, opts *ApplyOptions) error {
 	return applyCmd.Execute()
 }
 
+func (c *client) delete(ctx context.Context, opts *DeleteOptions) error {
+	if opts == nil {
+		return cferrors.ErrNilOpts
+	}
+
+	if opts.Manifests == nil {
+		return errors.New("no manifests")
+	}
+
+	ios := genericclioptions.IOStreams{
+		In:     os.Stdin,
+		Out:    os.Stdout,
+		ErrOut: os.Stderr,
+	}
+
+	deleteFlags := kdelete.NewDeleteCommandFlags("containing the resource to delete.")
+	deleteCmd := &cobra.Command{
+		Use:   "delete",
+		Short: "Delete resources by filenames, stdin, resources and names, or by resources and label selector",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			o := deleteFlags.ToOptions(nil, ios)
+			fake := fakeio.StdinBytes([]byte{})
+			defer fake.Restore()
+			go func() {
+				fake.StdinBytes(opts.Manifests)
+				fake.CloseStdin()
+			}()
+
+			o.Filenames = []string{"-"}
+			o.WaitForDeletion = true
+			err := o.Complete(c, args, cmd)
+			if err != nil {
+				return err
+			}
+
+			if opts.DryRun {
+				o.DryRunStrategy = kcmdutil.DryRunClient
+			}
+
+			return o.RunDelete(c)
+		},
+		SilenceErrors: true,
+		SilenceUsage:  true,
+	}
+
+	deleteFlags.AddFlags(deleteCmd)
+	kcmdutil.AddDryRunFlag(deleteCmd)
+	deleteCmd.SetArgs([]string{})
+
+	return deleteCmd.Execute()
+}
+
 func (c *client) wait(ctx context.Context, opts *WaitOptions) error {
 	if opts.DryRun {
 		log.G(ctx).Debug("running in dry run mode, no wait")
 		return nil
-	}
-	cs, err := c.KubernetesClientSet()
-	if err != nil {
-		return err
 	}
 
 	itr := 0
@@ -137,7 +189,7 @@ func (c *client) wait(ctx context.Context, opts *WaitOptions) error {
 				"namespace": r.Namespace,
 			})
 			ll.Debug("checking resource readiness")
-			ready, err := r.Func(ctx, cs, r.Namespace, r.Name)
+			ready, err := r.Func(ctx, c, r.Namespace, r.Name)
 			if err != nil {
 				ll.WithError(err).Debug("resource not ready")
 				continue

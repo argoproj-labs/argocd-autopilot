@@ -3,6 +3,7 @@ package git
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 
 	"net/http"
 
@@ -80,7 +81,26 @@ func (g *github) CreateRepository(ctx context.Context, opts *CreateRepositoryOpt
 	return *r.CloneURL, err
 }
 
-func (g *github) Clone(ctx context.Context, opts *CloneOptions) (Repository, error) {
+func (g *github) CloneRepository(ctx context.Context, opts *GetRepositoryOptions) (Repository, error) {
+	cloneURL, err := g.getRepository(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	log.G(ctx).Debug("creating temp dir for gitops repo")
+	clonePath, err := ioutil.TempDir("", "repo-")
+	cferrors.CheckErr(err)
+	log.G(ctx).WithField("location", clonePath).Debug("temp dir created")
+
+	log.G(ctx).Printf("cloning existing gitops repository...")
+
+	return g.clone(ctx, &CloneOptions{
+		URL:  cloneURL,
+		Path: clonePath,
+	})
+}
+
+func (g *github) clone(ctx context.Context, opts *CloneOptions) (Repository, error) {
 	if opts == nil {
 		return nil, cferrors.ErrNilOpts
 	}
@@ -96,7 +116,7 @@ func (g *github) Clone(ctx context.Context, opts *CloneOptions) (Repository, err
 	})
 }
 
-func (g *github) GetRepository(ctx context.Context, opts *GetRepositoryOptions) (string, error) {
+func (g *github) getRepository(ctx context.Context, opts *GetRepositoryOptions) (string, error) {
 	if opts == nil {
 		return "", cferrors.ErrNilOpts
 	}
@@ -105,6 +125,7 @@ func (g *github) GetRepository(ctx context.Context, opts *GetRepositoryOptions) 
 	if err != nil && res == nil {
 		return "", err
 	}
+
 	if res.StatusCode == 404 {
 		return "", ErrRepoNotFound
 	}

@@ -49,7 +49,14 @@ func CopyDir(source, destination string) error {
 		}
 
 		if info.IsDir() {
-			return os.Mkdir(absDst, info.Mode())
+			err = os.Mkdir(absDst, info.Mode())
+			if err != nil {
+				if os.IsExist(err.(*os.PathError).Unwrap()) {
+					return nil
+				}
+			}
+
+			return err
 		} else {
 			data, err := ioutil.ReadFile(path)
 			if err != nil {
@@ -67,10 +74,8 @@ func ensureDir(path string) error {
 		if !os.IsNotExist(err) {
 			return err
 		}
-		err = os.MkdirAll(dstDir, 0755)
-		if err != nil {
-			return err
-		}
+
+		return os.MkdirAll(dstDir, 0755)
 	}
 
 	return nil
@@ -145,4 +150,37 @@ func renameEnvName(ctx context.Context, old, env string) error {
 	}).Debug("renaming with environment name")
 
 	return os.Rename(ap, newName)
+}
+
+func ClearFolder(ctx context.Context, path string) error {
+	err := removeContents(path)
+	if err != nil {
+		return err
+	}
+
+	_, err = os.Create(filepath.Join(path, "DUMMY"))
+	if err != nil {
+		return err
+	}
+
+	log.G(ctx).WithFields(log.Fields{
+		"path": path,
+	}).Debug("cleared folder")
+	return nil
+}
+
+func removeContents(dir string) error {
+	files, err := filepath.Glob(filepath.Join(dir, "*"))
+	if err != nil {
+		return err
+	}
+
+	for _, file := range files {
+		err = os.RemoveAll(file)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
