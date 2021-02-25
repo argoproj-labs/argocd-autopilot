@@ -46,7 +46,20 @@ func newGithub(opts *Options) (Provider, error) {
 	return g, nil
 }
 
-func (g *github) CreateRepository(ctx context.Context, opts *CreateRepositoryOptions) (string, error) {
+func (g *github) GetRepository(ctx context.Context, opts *GetRepoOptions) (string, error) {
+	r, res, err := g.client.Repositories.Get(ctx, opts.Owner, opts.Name)
+
+	if err != nil {
+		if res != nil && res.StatusCode == 404 {
+			return "", ErrRepoNotFound
+		}
+		return "", err
+	}
+
+	return *r.CloneURL, nil
+}
+
+func (g *github) CreateRepository(ctx context.Context, opts *CreateRepoOptions) (string, error) {
 	l := log.G(ctx).WithFields(log.Fields{
 		"owner": opts.Owner,
 		"repo":  opts.Name,
@@ -81,12 +94,7 @@ func (g *github) CreateRepository(ctx context.Context, opts *CreateRepositoryOpt
 	return *r.CloneURL, err
 }
 
-func (g *github) CloneRepository(ctx context.Context, opts *GetRepositoryOptions) (Repository, error) {
-	cloneURL, err := g.getRepository(ctx, opts)
-	if err != nil {
-		return nil, err
-	}
-
+func (g *github) CloneRepository(ctx context.Context, cloneURL string) (Repository, error) {
 	log.G(ctx).Debug("creating temp dir for gitops repo")
 	clonePath, err := ioutil.TempDir("", "repo-")
 	cferrors.CheckErr(err)
@@ -114,21 +122,4 @@ func (g *github) clone(ctx context.Context, opts *CloneOptions) (Repository, err
 		Path: opts.Path,
 		Auth: auth,
 	})
-}
-
-func (g *github) getRepository(ctx context.Context, opts *GetRepositoryOptions) (string, error) {
-	if opts == nil {
-		return "", cferrors.ErrNilOpts
-	}
-
-	r, res, err := g.client.Repositories.Get(ctx, opts.Owner, opts.Name)
-	if err != nil && res == nil {
-		return "", err
-	}
-
-	if res.StatusCode == 404 {
-		return "", ErrRepoNotFound
-	}
-
-	return *r.CloneURL, nil
 }

@@ -1,9 +1,11 @@
+//go:generate mockery -name Provider
+//go:generate mockery -name Repository
+
 package git
 
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/url"
 	"os"
 	"strings"
@@ -39,11 +41,13 @@ type (
 	Provider interface {
 		// CreateRepository creates the repository in the remote provider and returns a
 		// clone url
-		CreateRepository(ctx context.Context, opts *CreateRepositoryOptions) (string, error)
+		CreateRepository(ctx context.Context, opts *CreateRepoOptions) (string, error)
+
+		GetRepository(ctx context.Context, opts *GetRepoOptions) (string, error)
 
 		// CloneRepository tries to clone the repository and return it if it exists or
 		// ErrRepoNotFound if the repo does not exist
-		CloneRepository(ctx context.Context, opts *GetRepositoryOptions) (Repository, error)
+		CloneRepository(ctx context.Context, cloneURL string) (Repository, error)
 	}
 
 	// Options for a new git provider
@@ -72,13 +76,13 @@ type (
 		Auth       *Auth
 	}
 
-	CreateRepositoryOptions struct {
+	CreateRepoOptions struct {
 		Owner   string
 		Name    string
 		Private bool
 	}
 
-	GetRepositoryOptions struct {
+	GetRepoOptions struct {
 		Owner string
 		Name  string
 	}
@@ -94,6 +98,12 @@ var (
 	ErrRepoNotFound         = errors.New("git repository not found")
 )
 
+// go-git functions (we mock those in tests)
+var (
+	plainClone = gg.PlainCloneContext
+	plainInit  = gg.PlainInit
+)
+
 // New creates a new git provider
 func NewProvider(opts *Options) (Provider, error) {
 	switch opts.Type {
@@ -102,27 +112,6 @@ func NewProvider(opts *Options) (Provider, error) {
 	default:
 		return nil, ErrProviderNotSupported
 	}
-}
-
-func SplitCloneURL(cloneURL string) (owner string, repo string, err error) {
-	u, err := url.Parse(cloneURL)
-	if err != nil {
-		return "", "", err
-	}
-
-	switch u.Scheme {
-	case "https", "http", "ssh":
-		parts := strings.Split(u.Path, "/")
-		if len(parts) < 3 {
-			return "", "", fmt.Errorf("malformed repository url")
-		}
-		owner = parts[1]
-		repo = parts[2]
-	default:
-		return "", "", fmt.Errorf("unsupported scheme in clone url \"%s\"", u.Scheme)
-	}
-
-	return
 }
 
 func getRef(cloneURL string) string {
@@ -167,7 +156,7 @@ func Clone(ctx context.Context, opts *CloneOptions) (Repository, error) {
 		return nil, err
 	}
 
-	r, err := gg.PlainCloneContext(ctx, opts.Path, false, cloneOpts)
+	r, err := plainClone(ctx, opts.Path, false, cloneOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -185,7 +174,7 @@ func Init(ctx context.Context, path string) (Repository, error) {
 	})
 
 	l.Debug("initiallizing local repository")
-	r, err := gg.PlainInit(path, false)
+	r, err := plainInit(path, false)
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +207,8 @@ func (r *repo) AddRemote(ctx context.Context, name, url string) error {
 		return err
 	}
 	log.G(ctx).WithFields(log.Fields{
-		"remote": cfg.Name,
+		"remote": name,
+		"url":    url,
 	}).Debug("added new remote")
 
 	return nil
@@ -238,6 +228,7 @@ func (r *repo) Commit(ctx context.Context, msg string) (string, error) {
 	}
 	log.G(ctx).WithFields(log.Fields{
 		"sha": h.String(),
+		"msg": msg,
 	}).Debug("created new commit")
 
 	return h.String(), err

@@ -35,9 +35,6 @@ func (c *client) apply(ctx context.Context, opts *ApplyOptions) error {
 		return errors.New("no manifests")
 	}
 
-	applyWithTrack := ""
-	applyWithStatus := false
-	prune := false
 	ios := genericclioptions.IOStreams{
 		In:     os.Stdin,
 		Out:    os.Stdout,
@@ -52,18 +49,6 @@ func (c *client) apply(ctx context.Context, opts *ApplyOptions) error {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			o.DeleteFlags.FileNameFlags.Filenames = &[]string{"-"}
 			o.Overwrite = true
-			o.Prune = prune
-			o.PruneWhitelist = []string{
-				"/v1/ConfigMap",
-				"/v1/PersistentVolumeClaim",
-				"/v1/Secret",
-				"/v1/Service",
-				"/v1/ServiceAccount",
-				"apps/v1/DaemonSet",
-				"apps/v1/Deployment",
-				"batch/v1beta1/CronJob",
-				// "networking/v1/Ingress",
-			}
 
 			if o.Namespace != "" {
 				o.EnforceNamespace = true
@@ -97,9 +82,6 @@ func (c *client) apply(ctx context.Context, opts *ApplyOptions) error {
 	kcmdutil.AddValidateFlags(applyCmd)
 	kcmdutil.AddFieldManagerFlagVar(applyCmd, &o.FieldManager, apply.FieldManagerClientSideApply)
 
-	applyCmd.Flags().BoolVar(&prune, "prune", false, "")
-	applyCmd.Flags().BoolVar(&applyWithStatus, "status", false, "")
-	applyCmd.Flags().StringVar(&applyWithTrack, "track", "ready", "")
 	applyCmd.SetArgs([]string{})
 
 	return applyCmd.Execute()
@@ -134,6 +116,7 @@ func (c *client) delete(ctx context.Context, opts *DeleteOptions) error {
 			}()
 
 			o.Filenames = []string{"-"}
+			o.IgnoreNotFound = true
 			o.WaitForDeletion = true
 			err := o.Complete(c, args, cmd)
 			if err != nil {

@@ -9,12 +9,12 @@ import (
 var (
 	G = GetLogger
 
-	L Logger = nopLogger{}
+	L Logger = NopLogger{}
 )
 
 type (
 	loggerKey struct{}
-	nopLogger struct{}
+	NopLogger struct{}
 )
 
 type Fields map[string]interface{}
@@ -55,18 +55,18 @@ func GetLogger(ctx context.Context) Logger {
 	return logger.(Logger)
 }
 
-func (nopLogger) AddPFlags(*cobra.Command)               {}
-func (nopLogger) Printf(string, ...interface{})          {}
-func (nopLogger) Debug(...interface{})                   {}
-func (nopLogger) Info(...interface{})                    {}
-func (nopLogger) Warn(...interface{})                    {}
-func (nopLogger) Fatal(...interface{})                   {}
-func (nopLogger) Error(...interface{})                   {}
-func (nopLogger) Debugf(string, ...interface{})          {}
-func (nopLogger) Infof(string, ...interface{})           {}
-func (nopLogger) Warnf(string, ...interface{})           {}
-func (nopLogger) Fatalf(string, ...interface{})          {}
-func (nopLogger) Errorf(string, ...interface{})          {}
-func (l nopLogger) WithField(string, interface{}) Logger { return l }
-func (l nopLogger) WithFields(Fields) Logger             { return l }
-func (l nopLogger) WithError(error) Logger               { return l }
+func (NopLogger) AddPFlags(*cobra.Command)               {}
+func (NopLogger) Printf(string, ...interface{})          {}
+func (NopLogger) Debug(...interface{})                   {}
+func (NopLogger) Info(...interface{})                    {}
+func (NopLogger) Warn(...interface{})                    {}
+func (NopLogger) Fatal(...interface{})                   {}
+func (NopLogger) Error(...interface{})                   {}
+func (NopLogger) Debugf(string, ...interface{})          {}
+func (NopLogger) Infof(string, ...interface{})           {}
+func (NopLogger) Warnf(string, ...interface{})           {}
+func (NopLogger) Fatalf(string, ...interface{})          {}
+func (NopLogger) Errorf(string, ...interface{})          {}
+func (l NopLogger) WithField(string, interface{}) Logger { return l }
+func (l NopLogger) WithFields(Fields) Logger             { return l }
+func (l NopLogger) WithError(error) Logger               { return l }

@@ -11,6 +11,7 @@ import (
 var s Store
 
 var (
+	AppName    = "argo-installer"
 	binaryName = "cf-argo"
 	version    = "v99.99.99"
 	gitCommit  = ""

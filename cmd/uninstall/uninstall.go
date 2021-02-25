@@ -2,7 +2,6 @@ package uninstall
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -32,19 +31,16 @@ type options struct {
 }
 
 var values struct {
-	ArgoAppsDir         string
-	RepoName            string
-	RepoOwner           string
 	GitopsRepoClonePath string
 	GitopsRepo          git.Repository
 	CommitRev           string
 }
 
 var renderValues struct {
-	EnvName   string
-	RepoOwner string
-	RepoName  string
-	GitToken  string
+	EnvName      string
+	RepoURL      string
+	RepoOwnerURL string
+	GitToken     string
 }
 
 func New(ctx context.Context) *cobra.Command {
@@ -79,16 +75,11 @@ func New(ctx context.Context) *cobra.Command {
 	return cmd
 }
 
-// fill the values used to render the templates
 func fillValues(opts *options) {
 	var err error
-	values.RepoOwner, values.RepoName, err = git.SplitCloneURL(opts.repoURL)
 	cferrors.CheckErr(err)
 
 	renderValues.EnvName = opts.envName
-	renderValues.RepoOwner = values.RepoOwner
-	renderValues.RepoName = values.RepoName
-	renderValues.GitToken = base64.StdEncoding.EncodeToString([]byte(opts.gitToken))
 }
 
 func uninstall(ctx context.Context, opts *options) {
@@ -99,42 +90,43 @@ func uninstall(ctx context.Context, opts *options) {
 		}
 	}()
 
-	conf := cloneExistingRepo(ctx, opts)
+	cloneExistingRepo(ctx, opts)
+
+	conf, err := envman.LoadConfig(values.GitopsRepoClonePath)
+	cferrors.CheckErr(err)
 
 	env, exists := conf.Environments[opts.envName]
 	if !exists {
 		panic(envman.ErrEnvironmentNotExist)
 	}
 
-	rootApp, err := env.Uninstall()
+	shouldClean, err := env.Uninstall()
 	cferrors.CheckErr(err)
 
 	persistGitopsRepo(ctx, opts, fmt.Sprintf("uninstalled environment %s", opts.envName))
 
-	log.G(ctx).Printf("waiting for root application sync... (might take a few seconds)")
-	awaitSync(ctx, opts, rootApp)
+	if shouldClean {
+		rootApp, err := env.GetRootApp()
+		cferrors.CheckErr(err)
 
-	if rootApp != nil {
+		log.G(ctx).Printf("waiting for root application sync... (might take a few seconds)")
+		awaitSync(ctx, opts, rootApp)
+
 		log.G(ctx).Printf("deleting root application")
 		deleteArgocdApp(ctx, opts, rootApp)
 
-		log.G(ctx).Printf("cleaning up the repo")
-
-		cferrors.CheckErr(env.DeleteBootstrap(ctx, renderValues, opts.dryRun))
-		cferrors.CheckErr(conf.DeleteEnvironmentP(opts.envName))
+		log.G(ctx).Printf("cleaning up the repository")
+		cferrors.CheckErr(conf.DeleteEnvironmentP(ctx, opts.envName, renderValues, opts.dryRun))
 
 		persistGitopsRepo(ctx, opts, fmt.Sprintf("cleanup %s resources", opts.envName))
 
-		// generate bootstrap manifest ( - need to also fix install to render it from git, instead of local fs)
-		// render manifest in memory
-		// delete manifest from cluster
-		log.G(ctx).Printf("all Codefresh resources in '%s' have been removed, including argo-cd", opts.envName)
+		log.G(ctx).Printf("all managed resources in '%s' have been removed, including argo-cd", opts.envName)
 	} else {
-		log.G(ctx).Printf("all Codefresh resources in '%s' have been removed, argo-cd and user Applications remain on cluster", opts.envName)
+		log.G(ctx).Printf("all managed resources in '%s' have been removed, argo-cd and user Applications remain on cluster", opts.envName)
 	}
 }
 
-func cloneExistingRepo(ctx context.Context, opts *options) *envman.Config {
+func cloneExistingRepo(ctx context.Context, opts *options) {
 	p, err := git.NewProvider(&git.Options{
 		Type: "github", // only option for now
 		Auth: &git.Auth{
@@ -143,19 +135,11 @@ func cloneExistingRepo(ctx context.Context, opts *options) *envman.Config {
 	})
 	cferrors.CheckErr(err)
 
-	values.GitopsRepo, err = p.CloneRepository(ctx, &git.GetRepositoryOptions{
-		Owner: values.RepoOwner,
-		Name:  values.RepoName,
-	})
+	values.GitopsRepo, err = p.CloneRepository(ctx, opts.repoURL)
 	cferrors.CheckErr(err)
 
 	values.GitopsRepoClonePath, err = values.GitopsRepo.Root()
 	cferrors.CheckErr(err)
-
-	conf, err := envman.LoadConfig(values.GitopsRepoClonePath)
-	cferrors.CheckErr(err)
-
-	return conf
 }
 
 func persistGitopsRepo(ctx context.Context, opts *options, msg string) {
