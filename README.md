@@ -1,5 +1,5 @@
 # argo-installer
-
+[![codecov](https://codecov.io/gh/codefresh-io/cf-argo/branch/main/graph/badge.svg?token=R64AZI8NUW)](https://codecov.io/gh/codefresh-io/cf-argo)
 ## Overview:
 The installer utilizes the gitops pattern in order to control the install,uninstall and upgrade flows for kustomize based installations.
 The installer creates (or modifies) a git repository while leverging the Argo CD apps patttern.
