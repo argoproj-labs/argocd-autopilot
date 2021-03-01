@@ -37,6 +37,7 @@ const (
 	configVersion   = "1.0"
 	labelsManagedBy = "app.kubernetes.io/managed-by"
 	labelsName      = "app.kubernetes.io/name"
+	bootstrapDir    = "bootstrap"
 )
 
 type (
@@ -55,7 +56,10 @@ type (
 
 	Application struct {
 		*v1alpha1.Application
+		// Path the path from where the application manifest was read from
 		Path string
+		// env the environment that contains this application
+		env *Environment
 	}
 )
 
@@ -191,8 +195,10 @@ func (c *Config) installEnv(env *Environment) (*Environment, error) {
 		RootApplicationPath: env.RootApplicationPath,
 	}
 	for _, la := range lapps {
-		if err = newEnv.installApp(env.c.path, la); err != nil {
-			return nil, err
+		if la.isManaged() {
+			if err = newEnv.installApp(env.c.path, la); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -248,7 +254,7 @@ func (e *Environment) bootstrapUrl() string {
 		parts = []string{e.TemplateRef}
 	}
 
-	bootstrapUrl := fmt.Sprintf("%s/bootstrap", parts[0])
+	bootstrapUrl := fmt.Sprintf("%s/%s", parts[0], bootstrapDir)
 	if len(parts) > 1 {
 		return fmt.Sprintf("%s?ref=%s", bootstrapUrl, parts[1])
 	}
@@ -262,7 +268,7 @@ func (e *Environment) cleanup() error {
 		return err
 	}
 
-	return rootApp.deleteFromFilesystem(e.c.path)
+	return rootApp.deleteFromFilesystem()
 }
 
 func (e *Environment) installApp(srcRootPath string, app *Application) error {
@@ -276,7 +282,7 @@ func (e *Environment) installApp(srcRootPath string, app *Application) error {
 		return e.installNewApp(srcRootPath, app)
 	}
 
-	baseLocation, err := refApp.getBaseLocation(e.c.path)
+	baseLocation, err := refApp.getBaseLocation()
 	if err != nil {
 		return err
 	}
@@ -311,7 +317,7 @@ func (e *Environment) Uninstall() (bool, error) {
 		return false, err
 	}
 
-	uninstalled, err := rootApp.uninstall(e.c.path)
+	uninstalled, err := rootApp.uninstall()
 	if uninstalled {
 		return true, createDummy(filepath.Join(e.c.path, rootApp.srcPath()))
 	}
@@ -325,11 +331,11 @@ func (e *Environment) leafApps() ([]*Application, error) {
 		return nil, err
 	}
 
-	return rootApp.leafApps(e.c.path)
+	return rootApp.leafApps()
 }
 
 func (e *Environment) GetRootApp() (*Application, error) {
-	return getAppFromFile(filepath.Join(e.c.path, e.RootApplicationPath))
+	return e.getAppFromFile(filepath.Join(e.c.path, e.RootApplicationPath))
 }
 
 func (e *Environment) GetApp(appName string) (*Application, error) {
@@ -360,7 +366,7 @@ func (e *Environment) getAppRecurse(root *Application, appName string) (*Applica
 	}
 
 	for _, f := range filenames {
-		app, err := getAppFromFile(f)
+		app, err := e.getAppFromFile(f)
 		if err != nil || app == nil {
 			// not an argocd app - ignore
 			continue
@@ -379,7 +385,7 @@ func (e *Environment) getAppRecurse(root *Application, appName string) (*Applica
 	return nil, nil
 }
 
-func getAppFromFile(path string) (*Application, error) {
+func (e *Environment) getAppFromFile(path string) (*Application, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -392,24 +398,24 @@ func getAppFromFile(path string) (*Application, error) {
 		u := &unstructured.Unstructured{}
 		err := yaml.Unmarshal([]byte(text), u)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to unmarshal object in %s: %w", path, err)
 		}
 
 		if u.GetKind() == "Application" {
 			app := &v1alpha1.Application{}
-			if err := yaml.Unmarshal(data, app); err != nil {
+			if err := yaml.Unmarshal([]byte(text), app); err != nil {
 				return nil, err
 			}
 
-			return &Application{app, path}, nil
+			return &Application{app, path, e}, nil
 		}
 	}
 
 	return nil, nil
 }
 
-func (a *Application) deleteFromFilesystem(rootPath string) error {
-	srcDir := filepath.Join(rootPath, a.srcPath())
+func (a *Application) deleteFromFilesystem() error {
+	srcDir := filepath.Join(a.env.c.path, a.srcPath())
 	err := os.RemoveAll(srcDir)
 	if err != nil {
 		return err
@@ -453,8 +459,8 @@ func (a *Application) labelValue(label string) string {
 	return a.Labels[label]
 }
 
-func (a *Application) getBaseLocation(absRoot string) (string, error) {
-	refKust := filepath.Join(absRoot, a.srcPath(), "kustomization.yaml")
+func (a *Application) getBaseLocation() (string, error) {
+	refKust := filepath.Join(a.env.c.path, a.srcPath(), "kustomization.yaml")
 	bytes, err := ioutil.ReadFile(refKust)
 	if err != nil {
 		return "", err
@@ -478,8 +484,8 @@ func (a *Application) save() error {
 	return ioutil.WriteFile(a.Path, data, 0644)
 }
 
-func (a *Application) leafApps(rootPath string) ([]*Application, error) {
-	childApps, err := a.childApps(rootPath)
+func (a *Application) leafApps() ([]*Application, error) {
+	childApps, err := a.childApps()
 	if err != nil {
 		return nil, err
 	}
@@ -488,26 +494,24 @@ func (a *Application) leafApps(rootPath string) ([]*Application, error) {
 	res := []*Application{}
 	for _, childApp := range childApps {
 		isLeaf = false
-		if childApp.isManaged() {
-			childRes, err := childApp.leafApps(rootPath)
-			if err != nil {
-				return nil, err
-			}
-
-			res = append(res, childRes...)
+		childRes, err := childApp.leafApps()
+		if err != nil {
+			return nil, err
 		}
+
+		res = append(res, childRes...)
 	}
 
-	if isLeaf && a.isManaged() {
+	if isLeaf {
 		res = append(res, a)
 	}
 
 	return res, nil
 }
 
-func (a *Application) uninstall(rootPath string) (bool, error) {
+func (a *Application) uninstall() (bool, error) {
 	uninstalled := false
-	childApps, err := a.childApps(rootPath)
+	childApps, err := a.childApps()
 	if err != nil {
 		return uninstalled, err
 	}
@@ -515,7 +519,7 @@ func (a *Application) uninstall(rootPath string) (bool, error) {
 	totalUninstalled := 0
 	for _, childApp := range childApps {
 		if childApp.isManaged() {
-			childUninstalled, err := childApp.uninstall(rootPath)
+			childUninstalled, err := childApp.uninstall()
 			if err != nil {
 				return uninstalled, err
 			}
@@ -535,15 +539,15 @@ func (a *Application) uninstall(rootPath string) (bool, error) {
 	return uninstalled, nil
 }
 
-func (a *Application) childApps(rootPath string) ([]*Application, error) {
-	filenames, err := filepath.Glob(filepath.Join(rootPath, a.srcPath(), "*.yaml"))
+func (a *Application) childApps() ([]*Application, error) {
+	filenames, err := filepath.Glob(filepath.Join(a.env.c.path, a.srcPath(), "*.yaml"))
 	if err != nil {
 		return nil, err
 	}
 
 	res := []*Application{}
 	for _, f := range filenames {
-		childApp, err := getAppFromFile(f)
+		childApp, err := a.env.getAppFromFile(f)
 		if err != nil {
 			fmt.Printf("file is not an argo-cd application manifest %s\n", f)
 			continue

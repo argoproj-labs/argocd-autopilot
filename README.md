@@ -91,5 +91,13 @@ We are using https://github.com/golangci/golangci-lint as our linter, you can in
 ],
 ```
 
+### Using [pre-commit](https://pre-commit.com/) hooks:
+When installed correctly, this will run `golangci-lint` before every commit, and `go test` before every push. Any error will cause the commit or push to fail.
+
+1. [Install](https://pre-commit.com/#1-install-pre-commit):  
+   `brew install pre-commit`
+1. [Install the git hook scripts](https://pre-commit.com/#3-install-the-git-hook-scripts):  
+   `pre-commit install -t pre-commit -t pre-push`
+
 ### Bumping template repository version:
 By default the cli will use the repository set in the makefile as `BASE_GIT_URL` as the base template repository, when there is a new version of the template repository, you need to release a new version of the installer and bump the version of the `BASE_GIT_URL` in the makefile. The base repository can also be controlled with the hidden flag `--base-repo`.
