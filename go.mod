@@ -1,31 +1,23 @@
-module github.com/codefresh-io/cf-argo
+module github.com/argoproj/argocd-autopilot
 
 go 1.15
 
 require (
-	github.com/argoproj/argo-cd v1.8.4
-	github.com/bitnami-labs/sealed-secrets v0.14.1
-	github.com/ghodss/yaml v1.0.0
-	github.com/go-git/go-git v4.7.0+incompatible
-	github.com/go-git/go-git/v5 v5.2.0
-	github.com/google/go-github/v32 v32.1.0
-	github.com/rhysd/go-fakeio v1.0.0
-	github.com/sirupsen/logrus v1.6.0
-	github.com/spf13/cobra v1.1.1
-	github.com/spf13/pflag v1.0.5
-	github.com/spf13/viper v1.7.1
-	github.com/stretchr/testify v1.6.1
-	github.com/yargevad/filepathx v0.0.0-20161019152617-907099cb5a62
-	golang.org/x/net v0.0.0-20210119194325-5f4716e94777 // indirect
-	golang.org/x/text v0.3.5 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 // indirect
-	k8s.io/api v0.19.2
-	k8s.io/apimachinery v0.19.2
-	k8s.io/cli-runtime v0.19.2
-	k8s.io/client-go v11.0.1-0.20190816222228-6d55c1b1f1ca+incompatible
-	k8s.io/kubectl v0.19.2
-	sigs.k8s.io/kustomize/api v0.7.2
+	github.com/codefresh-io/gitops-agent v0.0.0-20210310135830-70be56f080b7
+	github.com/codefresh-io/pkg/helpers v0.0.3
+	github.com/codefresh-io/pkg/log v0.0.2
+	github.com/go-openapi/runtime v0.19.26
+	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0
+	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.3.0
+	github.com/sirupsen/logrus v1.8.0
+	github.com/soheilhy/cmux v0.1.4
+	github.com/spf13/cobra v1.1.3
+	google.golang.org/genproto v0.0.0-20210303154014-9728d6b83eeb
+	google.golang.org/grpc v1.36.0
+	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.1.0
+	google.golang.org/protobuf v1.25.1-0.20201208041424-160c7477e0e8
+	k8s.io/apimachinery v0.20.4
 )
 
 replace (
