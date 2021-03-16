@@ -70,9 +70,6 @@ github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1/go.mod h1:Q3SI9o4m/ZMn
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f/go.mod h1:M8M6+tZqaGXZJjfX53e64911xZQV5JYwmTeXPW+k8Sc=
 github.com/cncf/udpa/go v0.0.0-20201120205902-5459f2c99403/go.mod h1:WmhPx2Nbnhtbo57+VJT5O0JRkEi1Wbu0z5j0R8u5Hbk=
-github.com/codefresh-io/gitops-agent v0.0.0-20210310135830-70be56f080b7 h1:aFhqZug/wRFHeFkr6Xn+7f3Hm7jfF6ZgL7bK4O4zEL0=
-github.com/codefresh-io/gitops-agent v0.0.0-20210310135830-70be56f080b7/go.mod h1:x/Bdu+yTVm/9ul+U7pIKgb6vJ2pRpRIMePdJwspn2q4=
-github.com/codefresh-io/pkg/helpers v0.0.2/go.mod h1:zdJgaw4Fg8vxgEm0x2BegKyiHVgfjb38mmbZX10lh7Q=
 github.com/codefresh-io/pkg/helpers v0.0.3 h1:Cms4hhLP0vbWnJwJvBL99mRaQp74175qn4xrFpI1J8c=
 github.com/codefresh-io/pkg/helpers v0.0.3/go.mod h1:zdJgaw4Fg8vxgEm0x2BegKyiHVgfjb38mmbZX10lh7Q=
 github.com/codefresh-io/pkg/log v0.0.0-20210304075943-e0dfb26d4142/go.mod h1:e7j8nc0naY7vzOBgkWscfge93t6PE+WOecTsgBwP5E4=

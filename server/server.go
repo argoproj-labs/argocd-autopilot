@@ -17,9 +17,14 @@ import (
 	"google.golang.org/grpc/reflection"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	v1 "github.com/argoproj/argocd-autopilot/pkg/apis/gitops/v1"
+	gitopsv1 "github.com/argoproj/argocd-autopilot/pkg/apis/gitops/v1"
+	"github.com/argoproj/argocd-autopilot/pkg/apis/version"
+	gitopspkg "github.com/argoproj/argocd-autopilot/server/gitops"
+	versionpkg "github.com/argoproj/argocd-autopilot/server/version"
 	"github.com/codefresh-io/pkg/helpers"
 	"github.com/codefresh-io/pkg/log"
+	"google.golang.org/grpc/health"
+	healthsvc "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 type Server struct {
@@ -116,6 +121,9 @@ func (s *Server) newGRPCServer() *grpc.Server {
 
 	grpcS := grpc.NewServer(sOpts...)
 
+	gitopsv1.RegisterGitopsServer(grpcS, &gitopspkg.Server{})
+	version.RegisterVersionServer(grpcS, &versionpkg.Server{})
+	healthsvc.RegisterHealthServer(grpcS, health.NewServer())
 	grpc_prometheus.Register(grpcS)
 	reflection.Register(grpcS)
 
@@ -139,7 +147,8 @@ func (s *Server) newHTTPServer(ctx context.Context) *http.Server {
 		grpcgw.WithMarshalerOption(grpcgw.MIMEWildcard, &grpcgw.JSONBuiltin{}),
 	)
 
-	helpers.Die(v1.RegisterGitopsHandlerFromEndpoint(ctx, gwmux, addr, dialOps))
+	helpers.Die(gitopsv1.RegisterGitopsHandlerFromEndpoint(ctx, gwmux, addr, dialOps))
+	helpers.Die(version.RegisterVersionHandlerFromEndpoint(ctx, gwmux, addr, dialOps))
 
 	mux.Handle("/api/", gwmux)
 	mux.Handle("/", http.FileServer(http.Dir(StaticAssetsPath)))
@@ -148,6 +157,7 @@ func (s *Server) newHTTPServer(ctx context.Context) *http.Server {
 		Path:     "/swagger-ui",
 		SpecURL:  "/swagger.json",
 	}, http.NotFoundHandler()))
+	RegisterHealthCheck(mux, s.healthCheck)
 
 	return &http.Server{Addr: addr, Handler: mux}
 }
@@ -166,4 +176,8 @@ func (s *Server) checkServerErr(err error) {
 
 		s.log.Infof("graceful shutdown: %v", err)
 	}
+}
+
+func (s *Server) healthCheck(r *http.Request) error {
+	return nil // healthy
 }

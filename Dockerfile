@@ -81,11 +81,11 @@ WORKDIR /go/src/github.com/argoproj/argocd-autopilot
 
 ARG OUT_DIR
 
-# copy ca-certs and user details
 COPY --from=base /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=base /etc/passwd /etc/passwd
 COPY --from=base /etc/group /etc/group
 COPY --chown=autopilot:autopilot --from=gitops-agent-build /go/src/github.com/argoproj/argocd-autopilot/${OUT_DIR}/gitops-agent /usr/local/bin/gitops-agent
+COPY --chown=autopilot:autopilot --from=gitops-agent-build /go/src/github.com/argoproj/argocd-autopilot/server/assets /go/src/github.com/argoproj/argocd-autopilot/server/assets
 
 USER autopilot:autopilot
 

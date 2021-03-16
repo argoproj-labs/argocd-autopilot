@@ -6,9 +6,12 @@ AGENT_NAME=gitops-agent
 IMAGE_NAMESPACE=codefresh-io
 
 CLI_PKGS := $(shell echo cmd/$(CLI_NAME) && go list -f '{{ join .Deps "\n" }}' ./cmd/$(CLI_NAME)/ | grep 'github.com/argoproj/argocd-autopilot/' | cut -c 38-)
+CLI_SRCS := $(foreach dir,$(CLI_PKGS),$(wildcard $(dir)/*.go))
 AGENT_PKGS := $(shell echo cmd/$(AGENT_NAME) && go list -f '{{ join .Deps "\n" }}' ./cmd/$(AGENT_NAME)/ | grep 'github.com/argoproj/argocd-autopilot/' | cut -c 38-)
+AGENT_SRCS := $(foreach dir,$(AGENT_PKGS),$(wildcard $(dir)/*.go))
 
 GIT_COMMIT=$(shell git rev-parse HEAD)
+BUILD_DATE=$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 
 ifndef GOBIN
 $(error GOBIN is not set, please make sure you set your GOBIN correctly!)
@@ -44,8 +47,9 @@ $(OUT_DIR)/$(CLI_NAME)-linux-s390x: GO_FLAGS='GOOS=linux GOARCH=s390x'
 $(OUT_DIR)/$(CLI_NAME)-%.gz: $(OUT_DIR)/$(CLI_NAME)-%
 	gzip --force --keep $(OUT_DIR)/$(CLI_NAME)-$*
 
-$(OUT_DIR)/$(CLI_NAME)-%: $(CLI_PKGS)
+$(OUT_DIR)/$(CLI_NAME)-%: $(CLI_SRCS)
 	@ GO_FLAGS=$(GO_FLAGS) \
+	BUILD_DATE=$(BUILD_DATE) \
 	BINARY_NAME=$(CLI_NAME) \
 	VERSION=$(VERSION) \
 	GIT_COMMIT=$(GIT_COMMIT) \
@@ -58,11 +62,15 @@ cli-image: $(OUT_DIR)/$(CLI_NAME).image
 
 $(OUT_DIR)/$(CLI_NAME).image: $(CLI_PKGS)
 	$(call docker_build,$(CLI_NAME))
-	touch $(OUT_DIR)/$(CLI_NAME).image
+	@mkdir -p $(OUT_DIR)
+	@touch $(OUT_DIR)/$(CLI_NAME).image
 
 .PHONY: agent
-agent: gen-protos $(AGENT_PKGS)
+agent: $(OUT_DIR)/$(AGENT_NAME)
+
+$(OUT_DIR)/$(AGENT_NAME): $(AGENT_SRCS)
 	@ BINARY_NAME=$(AGENT_NAME) \
+	BUILD_DATE=$(BUILD_DATE) \
 	VERSION=$(VERSION) \
 	GIT_COMMIT=$(GIT_COMMIT) \
 	OUT_FILE=$(OUT_DIR)/$(AGENT_NAME) \
@@ -72,9 +80,10 @@ agent: gen-protos $(AGENT_PKGS)
 .PHONY: agent-image
 agent-image: $(OUT_DIR)/$(AGENT_NAME).image
 
-$(OUT_DIR)/$(AGENT_NAME).image: $(AGENT_PKGS)
+$(OUT_DIR)/$(AGENT_NAME).image: agent
 	$(call docker_build,$(AGENT_NAME))
-	touch $(OUT_DIR)/$(AGENT_NAME).image
+	@mkdir -p $(OUT_DIR)
+	@touch $(OUT_DIR)/$(AGENT_NAME).image
 
 .PHONY: lint
 lint: $(GOBIN)/golangci-lint
@@ -87,7 +96,7 @@ test:
 	./hack/test.sh
 
 .PHONY: codegen
-codegen: $(GOBIN)/mockery
+codegen: $(GOBIN)/mockery gen-protos
 	go generate ./...
 
 .PHONY: gen-protos

@@ -8,6 +8,7 @@ fi
 go build -ldflags=" \
     -X 'github.com/argoproj/argocd-autopilot/pkg/store.binaryName=${BINARY_NAME}' \
     -X 'github.com/argoproj/argocd-autopilot/pkg/store.version=${VERSION}' \
+    -X 'github.com/argoproj/argocd-autopilot/pkg/store.buildDate=${BUILD_DATE}' \
     -X 'github.com/argoproj/argocd-autopilot/pkg/store.gitCommit=${GIT_COMMIT}' \
     -X 'github.com/argoproj/argocd-autopilot/pkg/store.baseGitURL=${BASE_GIT_URL}'" \
     -v -i -o ${OUT_FILE} ${MAIN}

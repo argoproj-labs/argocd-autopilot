@@ -1,0 +1,45 @@
+syntax = "proto3";
+option go_package = "github.com/argoproj/argocd-autopilot/pkg/apis/version";
+
+// Version Service
+//
+// Version Service API allows you to check the service version
+package github.com.argoproj.argocd_autopilot.pkg.apis.version;
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+
+
+// Version represents the version of the service
+message VersionResponse {
+    string version = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+        description: "version string",
+    }];
+
+    string build_date = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+        description: "build date",
+    }];
+
+    string git_commit = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+        description: "git commit",
+    }];
+    
+    string go_version = 4 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+        description: "go version",
+    }];
+
+    string go_compiler = 5 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+        description: "go compiler",
+    }];
+}
+
+// Version Service
+service Version {
+    // Get the version of the service
+    rpc Version(google.protobuf.Empty) returns (VersionResponse) {
+        option (google.api.http) = {
+            get: "/api/version"
+        };
+    }
+}

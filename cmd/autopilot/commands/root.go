@@ -20,7 +20,7 @@ func NewRoot(ctx context.Context) *cobra.Command {
 		SilenceErrors: true, // will not use fmt to print errors
 	}
 
-	cmd.AddCommand(NewVersionCommand(ctx))
+	cmd.AddCommand(s.NewVersionCommand())
 
 	return cmd
 }
