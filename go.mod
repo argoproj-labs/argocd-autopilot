@@ -3,24 +3,16 @@ module github.com/argoproj/argocd-autopilot
 go 1.15
 
 require (
-	github.com/codefresh-io/pkg/helpers v0.0.3
-	github.com/codefresh-io/pkg/log v0.0.2
-	github.com/go-openapi/runtime v0.19.26
-	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0
-	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.3.0
+	github.com/go-git/go-billy/v5 v5.1.0
+	github.com/go-git/go-git/v5 v5.3.0
+	github.com/google/go-github/v34 v34.0.0
 	github.com/magefile/mage v1.11.0 // indirect
 	github.com/sirupsen/logrus v1.8.0
-	github.com/soheilhy/cmux v0.1.4
 	github.com/spf13/cobra v1.1.3
-	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110 // indirect
-	golang.org/x/sys v0.0.0-20210304152209-afaa3650a925 // indirect
-	google.golang.org/genproto v0.0.0-20210303154014-9728d6b83eeb
-	google.golang.org/grpc v1.36.0
-	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.1.0
-	google.golang.org/grpc/examples v0.0.0-20210309220351-d5b628860d4e // indirect
-	google.golang.org/protobuf v1.25.1-0.20201208041424-160c7477e0e8
-	k8s.io/apimachinery v0.20.4
+	github.com/spf13/pflag v1.0.5
+	github.com/spf13/viper v1.7.1 // indirect
+	github.com/stretchr/testify v1.7.0
+	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 )
 
 replace (

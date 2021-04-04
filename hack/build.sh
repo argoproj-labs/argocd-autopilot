@@ -1,7 +1,7 @@
 #!/bin/sh
 
 if [[ ! -z "${GO_FLAGS}" ]]; then
-    echo Building with flags: ${GO_FLAGS}
+    echo Building \"${OUT_FILE}\" with flags: \"${GO_FLAGS}\" starting at: \"${MAIN}\"
     export ${GO_FLAGS}
 fi
 
@@ -11,4 +11,4 @@ go build -ldflags=" \
     -X 'github.com/argoproj/argocd-autopilot/pkg/store.buildDate=${BUILD_DATE}' \
     -X 'github.com/argoproj/argocd-autopilot/pkg/store.gitCommit=${GIT_COMMIT}' \
     -X 'github.com/argoproj/argocd-autopilot/pkg/store.baseGitURL=${BASE_GIT_URL}'" \
-    -v -i -o ${OUT_FILE} ${MAIN}
+    -v -o ${OUT_FILE} ${MAIN}

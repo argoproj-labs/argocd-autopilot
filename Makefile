@@ -1,20 +1,23 @@
-VERSION=v0.0.3
+VERSION=v0.0.1
 OUT_DIR=dist
 
 CLI_NAME=autopilot
-AGENT_NAME=gitops-agent
-IMAGE_NAMESPACE=codefresh-io
+IMAGE_NAMESPACE=argoproj
 
-CLI_PKGS := $(shell echo cmd/$(CLI_NAME) && go list -f '{{ join .Deps "\n" }}' ./cmd/$(CLI_NAME)/ | grep 'github.com/argoproj/argocd-autopilot/' | cut -c 38-)
+CLI_PKGS := $(shell echo cmd && go list -f '{{ join .Deps "\n" }}' ./cmd/main.go | grep 'github.com/argoproj/argocd-autopilot/' | cut -c 38-)
 CLI_SRCS := $(foreach dir,$(CLI_PKGS),$(wildcard $(dir)/*.go))
-AGENT_PKGS := $(shell echo cmd/$(AGENT_NAME) && go list -f '{{ join .Deps "\n" }}' ./cmd/$(AGENT_NAME)/ | grep 'github.com/argoproj/argocd-autopilot/' | cut -c 38-)
-AGENT_SRCS := $(foreach dir,$(AGENT_PKGS),$(wildcard $(dir)/*.go))
 
 GIT_COMMIT=$(shell git rev-parse HEAD)
 BUILD_DATE=$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 
 ifndef GOBIN
+ifndef GOPATH
+$(error GOPATH is not set, please make sure you set your GOPATH correctly!)
+endif
+GOBIN=$(GOPATH)/bin
+ifndef GOBIN
 $(error GOBIN is not set, please make sure you set your GOBIN correctly!)
+endif
 endif
 
 define docker_build
@@ -26,16 +29,26 @@ define docker_build
 endef
 
 .PHONY: all
-all: binaries images
+all: bin image
 
-.PHONY: binaries
-binaries: clis agent
+.PHONY: local
+local: bin-local
 
-.PHONY: images
-images: cli-image agent-image
+.PHONY: bin
+bin: cli
 
-.PHONY: clis
-clis: $(OUT_DIR)/$(CLI_NAME)-linux-amd64.gz $(OUT_DIR)/$(CLI_NAME)-linux-arm64.gz $(OUT_DIR)/$(CLI_NAME)-linux-ppc64le.gz $(OUT_DIR)/$(CLI_NAME)-linux-s390x.gz $(OUT_DIR)/$(CLI_NAME)-darwin-amd64.gz $(OUT_DIR)/$(CLI_NAME)-windows-amd64.gz
+.PHONY: bin-local
+bin-local: cli-local
+
+.PHONY: image
+image: cli-image
+
+.PHONY: cli
+cli: $(OUT_DIR)/$(CLI_NAME)-linux-amd64.gz $(OUT_DIR)/$(CLI_NAME)-linux-arm64.gz $(OUT_DIR)/$(CLI_NAME)-linux-ppc64le.gz $(OUT_DIR)/$(CLI_NAME)-linux-s390x.gz $(OUT_DIR)/$(CLI_NAME)-darwin-amd64.gz $(OUT_DIR)/$(CLI_NAME)-windows-amd64.gz
+
+.PHONY: cli-local
+cli-local: $(OUT_DIR)/$(CLI_NAME)-$(shell go env GOOS)-$(shell go env GOARCH).gz
+	@cp $(OUT_DIR)/$(CLI_NAME)-$(shell go env GOOS)-$(shell go env GOARCH) /usr/local/bin/$(CLI_NAME)
 
 $(OUT_DIR)/$(CLI_NAME)-linux-amd64: GO_FLAGS='GOOS=linux GOARCH=amd64'
 $(OUT_DIR)/$(CLI_NAME)-darwin-amd64: GO_FLAGS='GOOS=darwin GOARCH=amd64'
@@ -54,7 +67,7 @@ $(OUT_DIR)/$(CLI_NAME)-%: $(CLI_SRCS)
 	VERSION=$(VERSION) \
 	GIT_COMMIT=$(GIT_COMMIT) \
 	OUT_FILE=$@ \
-	MAIN=./cmd/$(CLI_NAME) \
+	MAIN=./cmd \
 	./hack/build.sh
 
 .PHONY: cli-image
@@ -64,26 +77,6 @@ $(OUT_DIR)/$(CLI_NAME).image: $(CLI_PKGS)
 	$(call docker_build,$(CLI_NAME))
 	@mkdir -p $(OUT_DIR)
 	@touch $(OUT_DIR)/$(CLI_NAME).image
-
-.PHONY: agent
-agent: $(OUT_DIR)/$(AGENT_NAME)
-
-$(OUT_DIR)/$(AGENT_NAME): $(AGENT_SRCS)
-	@ BINARY_NAME=$(AGENT_NAME) \
-	BUILD_DATE=$(BUILD_DATE) \
-	VERSION=$(VERSION) \
-	GIT_COMMIT=$(GIT_COMMIT) \
-	OUT_FILE=$(OUT_DIR)/$(AGENT_NAME) \
-	MAIN=./cmd/$(AGENT_NAME) \
-	./hack/build.sh
-
-.PHONY: agent-image
-agent-image: $(OUT_DIR)/$(AGENT_NAME).image
-
-$(OUT_DIR)/$(AGENT_NAME).image: agent
-	$(call docker_build,$(AGENT_NAME))
-	@mkdir -p $(OUT_DIR)
-	@touch $(OUT_DIR)/$(AGENT_NAME).image
 
 .PHONY: lint
 lint: $(GOBIN)/golangci-lint
@@ -96,14 +89,8 @@ test:
 	./hack/test.sh
 
 .PHONY: codegen
-codegen: $(GOBIN)/mockery gen-protos
+codegen: $(GOBIN)/mockery
 	go generate ./...
-
-.PHONY: gen-protos
-gen-protos: $(GOBIN)/buf
-	BIN_NAME=$(AGENT_NAME) \
-	VERSION=$(VERSION) \
-	./hack/proto_generate.sh
 
 .PHONY: pre-commit
 pre-commit: all lint codegen test
@@ -123,19 +110,5 @@ $(GOBIN)/mockery:
 $(GOBIN)/golangci-lint:
 	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b `go env GOBIN) v1.36.0
 
-$(GOBIN)/buf: $(GOBIN)/protoc-gen-grpc-gateway $(GOBIN)/protoc-gen-openapiv2 $(GOBIN)/protoc-gen-gogofast $(GOBIN)/protoc-gen-go-grpc
-	$(eval BUF_TMP := $(shell mktemp -d))
-	cd $(BUF_TMP); GO111MODULE=on go get github.com/bufbuild/buf/cmd/buf@v0.39.1
-	@rm -rf $(BUF_TMP)
-
-$(GOBIN)/protoc-gen-grpc-gateway:
-	go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway
-
-$(GOBIN)/protoc-gen-openapiv2:
-	go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2
-
-$(GOBIN)/protoc-gen-gogofast:
-	go install github.com/gogo/protobuf/protoc-gen-gogofast
-
-$(GOBIN)/protoc-gen-go-grpc:
-	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc
+$(GOBIN)/interfacer:
+	GO111MODULE=on go get github.com/rjeczalik/interfaces/cmd/interfacer@v0.1.1

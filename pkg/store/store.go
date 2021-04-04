@@ -3,8 +3,6 @@ package store
 import (
 	"fmt"
 	"runtime"
-
-	"github.com/spf13/cobra"
 )
 
 var s Store
@@ -40,33 +38,6 @@ func init() {
 	s.BinaryName = binaryName
 
 	initVersion()
-}
-
-func (s *Store) NewVersionCommand() *cobra.Command {
-	var opts struct {
-		long bool
-	}
-
-	cmd := &cobra.Command{
-		Use:   "version",
-		Short: "show cli version",
-		Run: func(cmd *cobra.Command, args []string) {
-			if opts.long {
-				fmt.Printf("Version: %s\n", s.Version.Version)
-				fmt.Printf("BuildDate: %s\n", s.Version.BuildDate)
-				fmt.Printf("GitCommit: %s\n", s.Version.GitCommit)
-				fmt.Printf("GoVersion: %s\n", s.Version.GoVersion)
-				fmt.Printf("GoCompiler: %s\n", s.Version.GoCompiler)
-				fmt.Printf("Platform: %s\n", s.Version.Platform)
-			} else {
-				fmt.Printf("%+s\n", s.Version.Version)
-			}
-		},
-	}
-
-	cmd.Flags().BoolVar(&opts.long, "long", false, "display full version information")
-
-	return cmd
 }
 
 func initVersion() {

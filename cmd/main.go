@@ -4,9 +4,9 @@ import (
 	"context"
 	"syscall"
 
-	"github.com/argoproj/argocd-autopilot/cmd/gitops-agent/commands"
-	"github.com/codefresh-io/pkg/helpers"
-	"github.com/codefresh-io/pkg/log"
+	"github.com/argoproj/argocd-autopilot/cmd/commands"
+	"github.com/argoproj/argocd-autopilot/pkg/log"
+	"github.com/argoproj/argocd-autopilot/pkg/util"
 	"github.com/sirupsen/logrus"
 )
 
@@ -14,11 +14,10 @@ func main() {
 	ctx := context.Background()
 	lgr := log.FromLogrus(logrus.NewEntry(logrus.StandardLogger()), &log.LogrusConfig{Level: "info"})
 	ctx = log.WithLogger(ctx, lgr)
-	log.SetDefault(lgr)
-	ctx = helpers.ContextWithCancelOnSignals(ctx, syscall.SIGINT, syscall.SIGTERM)
+	ctx = util.ContextWithCancelOnSignals(ctx, syscall.SIGINT, syscall.SIGTERM)
 
-	cmd := commands.NewRoot()
-	lgr.AddPFlags(cmd)
+	c := commands.NewRoot()
+	lgr.AddPFlags(c)
 
 	defer func() {
 		if err := recover(); err != nil {
@@ -26,5 +25,7 @@ func main() {
 		}
 	}()
 
-	helpers.Die(cmd.ExecuteContext(ctx))
+	if err := c.ExecuteContext(ctx); err != nil {
+		log.G(ctx).Fatal(err)
+	}
 }
