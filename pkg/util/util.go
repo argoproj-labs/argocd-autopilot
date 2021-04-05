@@ -10,6 +10,7 @@ import (
 
 	"github.com/argoproj/argocd-autopilot/pkg/log"
 	billy "github.com/go-git/go-billy/v5"
+	"github.com/spf13/pflag"
 )
 
 // ContextWithCancelOnSignals returns a context that is canceled when one of the specified signals
@@ -94,4 +95,18 @@ func Exists(fs billy.Filesystem, path string) (bool, error) {
 	}
 
 	return true, nil
+}
+
+func MustGetString(flags *pflag.FlagSet, flag string) string {
+	value, err := flags.GetString(flag)
+	Die(err)
+
+	return value
+}
+
+func MustGetBool(flags *pflag.FlagSet, flag string) bool {
+	value, err := flags.GetBool(flag)
+	Die(err)
+
+	return value
 }

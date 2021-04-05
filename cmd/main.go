@@ -22,7 +22,7 @@ func main() {
 
 	defer func() {
 		if err := recover(); err != nil {
-			log.G(ctx).Fatal(err)
+			log.G().Fatal(err)
 		}
 	}()
 

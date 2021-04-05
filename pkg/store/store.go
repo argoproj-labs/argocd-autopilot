@@ -12,8 +12,8 @@ var (
 	version                            = "v99.99.99"
 	buildDate                          = ""
 	gitCommit                          = ""
-	installationManifestsURL           = ""
-	installationManifestsNamespacedURL = ""
+	installationManifestsURL           = "manifests"
+	installationManifestsNamespacedURL = "manifests/namespace-install"
 )
 
 type Version struct {

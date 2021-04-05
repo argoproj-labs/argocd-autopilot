@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/url"
 	"os"
-	"strings"
 
 	"github.com/go-git/go-billy/v5"
 	gg "github.com/go-git/go-git/v5"
@@ -35,8 +34,9 @@ type (
 
 	CloneOptions struct {
 		// URL clone url
-		URL  string
-		Auth *Auth
+		URL      string
+		Revision string
+		Auth     *Auth
 	}
 
 	PushOptions struct {
@@ -76,12 +76,8 @@ func Clone(ctx context.Context, fs billy.Filesystem, opts *CloneOptions) (Reposi
 		Tags:         gg.NoTags,
 	}
 
-	if ref := getRef(opts.URL); ref != "" {
-		cloneOpts.ReferenceName = plumbing.NewBranchReferenceName(ref)
-		cloneOpts.URL = opts.URL[:strings.LastIndex(opts.URL, ref)-1]
-	} else if i := strings.LastIndex(opts.URL, "@"); i > -1 {
-		cloneOpts.ReferenceName = plumbing.NewTagReferenceName(opts.URL[i+1:])
-		cloneOpts.URL = opts.URL[:i]
+	if opts.Revision != "" {
+		cloneOpts.ReferenceName = plumbing.NewBranchReferenceName(opts.Revision)
 	}
 
 	err := cloneOpts.Validate()

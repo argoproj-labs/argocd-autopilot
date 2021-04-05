@@ -20,12 +20,12 @@ type factory struct {
 	cmdutil.Factory
 }
 
-func AddKubeConfigFlags(flags *pflag.FlagSet) Factory {
+func AddKubeConfigFlags(flags *pflag.FlagSet) (Factory, *genericclioptions.ConfigFlags) {
 	confFlags := genericclioptions.NewConfigFlags(true)
 	confFlags.AddFlags(flags)
 	mvFlags := cmdutil.NewMatchVersionFlags(confFlags)
 
-	return &factory{cmdutil.NewFactory(mvFlags)}
+	return &factory{cmdutil.NewFactory(mvFlags)}, confFlags
 }
 
 func DefaultIOStreams() genericclioptions.IOStreams {

@@ -29,16 +29,10 @@ func Test_Clone(t *testing.T) {
 			expectedURL:     "https://github.com/foo/bar",
 			expectedRefName: plumbing.HEAD,
 		},
-		"With tag": {
-			opts: &CloneOptions{
-				URL: "https://github.com/foo/bar@tag",
-			},
-			expectedURL:     "https://github.com/foo/bar",
-			expectedRefName: plumbing.NewTagReferenceName("tag"),
-		},
 		"With branch": {
 			opts: &CloneOptions{
-				URL: "https://github.com/foo/bar#branch",
+				URL:      "https://github.com/foo/bar",
+				Revision: "branch",
 			},
 			expectedURL:     "https://github.com/foo/bar",
 			expectedRefName: plumbing.NewBranchReferenceName("branch"),
