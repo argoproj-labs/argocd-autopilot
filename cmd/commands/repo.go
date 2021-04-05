@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
@@ -13,6 +14,7 @@ import (
 	"github.com/argoproj/argocd-autopilot/pkg/log"
 	"github.com/argoproj/argocd-autopilot/pkg/store"
 	"github.com/argoproj/argocd-autopilot/pkg/util"
+	"gopkg.in/yaml.v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	billy "github.com/go-git/go-billy/v5"
@@ -140,7 +142,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 
 			log.G(ctx).WithField("repo", url).Info("cloning repo")
 
-			r, err = git.Clone(ctx, fs, &git.CloneOptions{
+			r, err := git.Clone(ctx, fs, &git.CloneOptions{
 				URL: url,
 				Auth: &git.Auth{
 					Username: "blank",
@@ -168,7 +170,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 			// apply built manifest to k8s cluster
 
 			// save built manifest to "boostrap/argo-cd/manifests.yaml"
-			err = writeManifest(fs, "bootstrap/argo-cd", data)
+			err = writeFile(fs, "bootstrap/argo-cd/argo-cd.yaml", data)
 			util.Die(err)
 
 			// create an argo-cd Application called "Argo-CD" that references "bootstrap/argo-cd"
@@ -176,6 +178,8 @@ func NewRepoBootstrapCommand() *cobra.Command {
 
 			// apply argo-cd Application to k8s cluster
 			// save argo-cd Application manifest to "boostrap/argo-cd.yaml"
+			err = persistArgoCDApplication(fs, "bootstrap/argo-cd.yaml", argoApp)
+			util.Die(err)
 
 			// create and apply an argo-cd Application called "Autopilot-root" that references "envs"
 			// save application manifest to "boostrap/autopilot-root.yaml"
@@ -241,13 +245,14 @@ func checkRepoPath(fs billy.Filesystem, path string) error {
 	return nil
 }
 
-func writeManifest(fs billy.Filesystem, path string, data []byte) error {
-	err := fs.MkdirAll(path)
+func writeFile(fs billy.Filesystem, path string, data []byte) error {
+	folder := filepath.Base(path)
+	err := fs.MkdirAll(folder, os.ModeDir)
 	if err != nil {
 		return err
 	}
 
-	f, err := fs.Create(fs.Join(path, "manifests.yaml"))
+	f, err := fs.Create(path)
 	if err != nil {
 		return err
 	}
@@ -260,7 +265,7 @@ func persistRepoOrDie(ctx context.Context, r git.Repository, token string) error
 	err := r.Add(ctx, ".")
 	util.Die(err)
 
-	err = r.Commit(ctx, "Added stuff")
+	_, err = r.Commit(ctx, "Added stuff")
 	util.Die(err)
 
 	return r.Push(ctx, &git.PushOptions{
@@ -304,6 +309,11 @@ func newArgoCDApplication(name, namespace, url, src string) *v1alpha1.Applicatio
 	}
 }
 
-func persistArgoCDApplication(app *v1alpha1.Application, fs billy.Filesystem, path string) error {
-	return nil
+func persistArgoCDApplication(fs billy.Filesystem, path string, app *v1alpha1.Application) error {
+	data, err := yaml.Marshal(app)
+	if err != nil {
+		return err
+	}
+
+	return writeFile(fs, path, data)
 }
