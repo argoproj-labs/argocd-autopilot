@@ -4,11 +4,24 @@ OUT_DIR=dist
 CLI_NAME=autopilot
 IMAGE_NAMESPACE=argoproj
 
+INSTALLATION_MANIFESTS_URL="https://raw.githubusercontent.com/argoproj/argocd-autopilot/$(VERSION)/manifests/install"
+INSTALLATION_MANIFESTS_NAMESPACED_URL="https://raw.githubusercontent.com/argoproj/argocd-autopilot/$(VERSION)/manifests/namespace-install"
+
+DEV_INSTALLATION_MANIFESTS_URL="manifests/"
+DEV_INSTALLATION_MANIFESTS_NAMESPACED_URL="manifests/namespace-install"
+
 CLI_PKGS := $(shell echo cmd && go list -f '{{ join .Deps "\n" }}' ./cmd/main.go | grep 'github.com/argoproj/argocd-autopilot/' | cut -c 38-)
 CLI_SRCS := $(foreach dir,$(CLI_PKGS),$(wildcard $(dir)/*.go))
 
 GIT_COMMIT=$(shell git rev-parse HEAD)
 BUILD_DATE=$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
+
+DEV_MODE?=true
+
+ifeq (${DEV_MODE},true)
+	INSTALLATION_MANIFESTS_URL=${DEV_INSTALLATION_MANIFESTS_URL}
+	INSTALLATION_MANIFESTS_NAMESPACED_URL=${DEV_INSTALLATION_MANIFESTS_NAMESPACED_URL}
+endif
 
 ifndef GOBIN
 ifndef GOPATH
@@ -24,6 +37,9 @@ define docker_build
 	docker build \
 		--build-arg BIN_NAME=$(1) \
 		--build-arg OUT_DIR=$(OUT_DIR) \
+		--build-arg BASE_ARGO_CD_URL=$(BASE_ARGO_CD_URL) \
+		--build-arg BASE_ARGO_CD_NAMESPACED_URL=$(BASE_ARGO_CD_NAMESPACED_URL) \
+		--build-arg BASE_APPLICATION_SET_URL=$(BASE_APPLICATION_SET_URL) \
 		--target $(1) \
 		-t $(IMAGE_NAMESPACE)/$(1):$(VERSION) .
 endef
@@ -67,6 +83,8 @@ $(OUT_DIR)/$(CLI_NAME)-%: $(CLI_SRCS)
 	VERSION=$(VERSION) \
 	GIT_COMMIT=$(GIT_COMMIT) \
 	OUT_FILE=$@ \
+	INSTALLATION_MANIFESTS_URL=$(INSTALLATION_MANIFESTS_URL) \
+	INSTALLATION_MANIFESTS_NAMESPACED_URL=$(INSTALLATION_MANIFESTS_NAMESPACED_URL) \
 	MAIN=./cmd \
 	./hack/build.sh
 

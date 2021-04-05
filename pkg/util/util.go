@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/argoproj/argocd-autopilot/pkg/log"
+	billy "github.com/go-git/go-billy/v5"
 )
 
 // ContextWithCancelOnSignals returns a context that is canceled when one of the specified signals
@@ -81,4 +82,16 @@ func ensureDir(path string) error {
 	}
 
 	return nil
+}
+
+func Exists(fs billy.Filesystem, path string) (bool, error) {
+	if _, err := fs.Stat(path); err != nil {
+		if !os.IsNotExist(err) {
+			return false, err
+		}
+
+		return false, nil
+	}
+
+	return true, nil
 }

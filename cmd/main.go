@@ -8,6 +8,7 @@ import (
 	"github.com/argoproj/argocd-autopilot/pkg/log"
 	"github.com/argoproj/argocd-autopilot/pkg/util"
 	"github.com/sirupsen/logrus"
+	_ "k8s.io/client-go/plugin/pkg/client/auth" // used for authentication with cloud providers
 )
 
 func main() {

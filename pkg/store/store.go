@@ -8,10 +8,12 @@ import (
 var s Store
 
 var (
-	binaryName = ""
-	version    = "v99.99.99"
-	buildDate  = ""
-	gitCommit  = ""
+	binaryName                         = ""
+	version                            = "v99.99.99"
+	buildDate                          = ""
+	gitCommit                          = ""
+	installationManifestsURL           = ""
+	installationManifestsNamespacedURL = ""
 )
 
 type Version struct {
@@ -24,9 +26,10 @@ type Version struct {
 }
 
 type Store struct {
-	BinaryName string
-	Version    Version
-	BaseGitURL string
+	BinaryName                         string
+	Version                            Version
+	InstallationManifestsURL           string
+	InstallationManifestsNamespacedURL string
 }
 
 // Get returns the global store
@@ -36,6 +39,8 @@ func Get() *Store {
 
 func init() {
 	s.BinaryName = binaryName
+	s.InstallationManifestsURL = installationManifestsURL
+	s.InstallationManifestsNamespacedURL = installationManifestsNamespacedURL
 
 	initVersion()
 }

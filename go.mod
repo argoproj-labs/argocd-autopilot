@@ -3,6 +3,7 @@ module github.com/argoproj/argocd-autopilot
 go 1.15
 
 require (
+	github.com/argoproj/argo-cd v1.8.7
 	github.com/go-git/go-billy/v5 v5.1.0
 	github.com/go-git/go-git/v5 v5.3.0
 	github.com/google/go-github/v34 v34.0.0
@@ -10,9 +11,14 @@ require (
 	github.com/sirupsen/logrus v1.8.0
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/pflag v1.0.5
-	github.com/spf13/viper v1.7.1 // indirect
+	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.7.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
+	k8s.io/apimachinery v0.19.2
+	k8s.io/cli-runtime v0.20.5
+	k8s.io/client-go v11.0.1-0.20190816222228-6d55c1b1f1ca+incompatible
+	k8s.io/kubectl v0.20.5
+	sigs.k8s.io/kustomize/api v0.8.5
 )
 
 replace (
