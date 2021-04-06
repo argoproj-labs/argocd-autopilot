@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/argoproj/argocd-autopilot/pkg/application"
 	"github.com/argoproj/argocd-autopilot/pkg/git"
@@ -21,13 +22,14 @@ import (
 	memfs "github.com/go-git/go-billy/v5/memfs"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 )
 
 var supportedProviders = []string{"github"}
 
-const defaultNamespace = "argo-cd"
+const defaultNamespace = "argocd"
 
 func NewRepoCommand() *cobra.Command {
 	cmd := &cobra.Command{
@@ -113,6 +115,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 		installationPath string
 		token            string
 		namespaced       bool
+		dryRun           bool
 		argocdContext    string
 		appName          string
 		appUrl           string
@@ -130,15 +133,20 @@ func NewRepoBootstrapCommand() *cobra.Command {
 		Short: "Bootstrap a new installation",
 		Run: func(cmd *cobra.Command, args []string) {
 			var (
-				err       error
-				repoURL   = util.MustGetString(cmd.Flags(), "repo")
-				revision  = util.MustGetString(cmd.Flags(), "revision")
-				namespace = util.MustGetString(cmd.Flags(), "namespace")
+				err        error
+				repoURL    = util.MustGetString(cmd.Flags(), "repo")
+				revision   = util.MustGetString(cmd.Flags(), "revision")
+				namespace  = util.MustGetString(cmd.Flags(), "namespace")
+				timeoutStr = util.MustGetString(cmd.Flags(), "request-timeout")
 			)
+
+			timeout, err := time.ParseDuration(timeoutStr)
+			util.Die(err)
 
 			fs := memfs.New()
 			ctx := cmd.Context()
 
+			bootstrapPath := fs.Join(installationPath, "bootstrap") // TODO: magic number
 			if namespace == "" {
 				namespace = defaultNamespace
 			}
@@ -151,31 +159,22 @@ func NewRepoBootstrapCommand() *cobra.Command {
 				}
 			}
 
-			bootstarpApp := appOptions.ParseOrDie()
-			bootstarpApp.ArgoCD().ObjectMeta.Namespace = namespace // override "default" namespace
-			bootstarpApp.ArgoCD().Spec.Destination.Server = "https://kubernetes.default.svc"
-			bootstarpApp.ArgoCD().Spec.Source.Path = "/bootstrap/argo-cd"
+			srcPath := fs.Join(installationPath, "bootstrap/argo-cd") // TODO: magic number
+			bootstarpApp := getBootstarpApp(appOptions, namespace, srcPath)
+			rootAppYAML := createRootApp(namespace, repoURL, installationPath)
+			bootstrapYAML := generateBootstrapManifests(bootstarpApp, namespace)
 
-			bootstrapManifest, err := bootstarpApp.GenerateManifests()
+			argoCDYAML, err := yaml.Marshal(bootstarpApp.ArgoCD())
 			util.Die(err)
 
-			// // create argo-cd Application called "Autopilot-root" that references "envs"
-			rootApp := createRootApp(namespace, repoURL, installationPath)
-
-			dryRun := util.MustGetString(cmd.Flags(), "dry-run")
-			if dryRun == "server" || dryRun == "client" {
-				argoCDYAML, err := yaml.Marshal(bootstarpApp.ArgoCD())
-				util.Die(err)
-
-				rootYAML, err := yaml.Marshal(rootApp)
-				util.Die(err)
-
-				fmt.Printf("%s\n---\n%s\n---\n%s", string(bootstrapManifest), string(rootYAML), string(argoCDYAML))
+			if dryRun {
+				fmt.Printf("%s\n---\n%s\n---\n%s", string(bootstrapYAML), string(argoCDYAML), string(rootAppYAML))
 				os.Exit(0)
 			}
 
 			log.G(ctx).WithField("repo", repoURL).Info("cloning repo")
 
+			// clone GitOps repo
 			r, err := git.Clone(ctx, fs, &git.CloneOptions{
 				URL:      repoURL,
 				Revision: revision,
@@ -192,25 +191,46 @@ func NewRepoBootstrapCommand() *cobra.Command {
 			log.G(ctx).Debug("Repository is OK")
 
 			// apply built manifest to k8s cluster
-			err = f.Apply(ctx, bootstrapManifest)
+			err = f.Apply(ctx, namespace, bootstrapYAML)
 			util.Die(err)
 
 			// save built manifest to "boostrap/argo-cd/manifests.yaml"
-			err = writeFile(fs, "bootstrap/argo-cd/manifests.yaml", bootstrapManifest)
+			err = writeFile(fs, fs.Join(bootstrapPath, "argo-cd/manifests.yaml"), bootstrapYAML) // TODO: magic number
 			util.Die(err)
 
 			// save argo-cd Application manifest to "boostrap/argo-cd.yaml"
-			err = persistArgoCDApplication(fs, "bootstrap/argo-cd.yaml", bootstarpApp.ArgoCD())
+			err = writeFile(fs, fs.Join(bootstrapPath, "argo-cd.yaml"), argoCDYAML) // TODO: magic number
 			util.Die(err)
 
-			// apply "Autopilot-root" that references "envs"
-
-			// save application manifest to "boostrap/autopilot-root.yaml"
-			err = persistArgoCDApplication(fs, "bootstrap/root.yaml", rootApp)
+			// save application manifest to "boostrap/root.yaml"
+			err = writeFile(fs, fs.Join(bootstrapPath, "root.yaml"), rootAppYAML) // TODO: magic number
 			util.Die(err)
 
-			err = persistRepoOrDie(ctx, r, token)
+			err = writeFile(fs, fs.Join(installationPath, "envs", "DUMMY"), []byte{})
 			util.Die(err)
+
+			// wait for argocd to be ready before applying argocd-apps
+			err = f.Wait(ctx, &kube.WaitOptions{
+				Interval: time.Second * 3, // TODO: magic number
+				Timeout:  timeout,
+				Resources: []kube.Resource{
+					{
+						Name:      "argocd-server",
+						Namespace: namespace,
+						WaitFunc:  waitForDeployment,
+					},
+				},
+			})
+			util.Die(err)
+
+			// push results to repo
+			err = persistRepoOrDie(ctx, r, token, installationPath)
+			util.Die(err)
+
+			// apply "Argo-CD" Application that references "bootstrap/argo-cd"
+			err = f.Apply(ctx, namespace, []byte(string(argoCDYAML)+"\n---\n"+string(rootAppYAML)))
+			util.Die(err)
+
 			log.G(ctx).Debug("Finished bootstrap")
 		},
 	}
@@ -219,16 +239,14 @@ func NewRepoBootstrapCommand() *cobra.Command {
 
 	cmd.Flags().StringVar(&installationPath, "installation-path", "/", "The path where we create the installation files (defaults to the root of the repository")
 	cmd.Flags().StringVarP(&token, "git-token", "t", "", "Your git provider api token [GIT_TOKEN]")
-	cmd.Flags().BoolVar(&namespaced, "namespaced", false, "If true we will install a namespaced version of argo-cd (no need for cluster-role)")
-
-	// cmd.Flags().StringVarP(&argocdContext, "argocd-context", "h", "", "argocdContext")
+	cmd.Flags().BoolVar(&namespaced, "namespaced", false, "If true, install a namespaced version of argo-cd (no need for cluster-role)")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "If true, print manifests instead of applying them to the cluster (nothing will be commited to git)")
 
 	// add application flags
-	appOptions = application.AddApplicationFlags(cmd, "argo-cd")
+	appOptions = application.AddFlags(cmd, "argo-cd")
 
 	// add kubernetes flags
-	f, _ = kube.AddKubeConfigFlags(cmd.Flags())
-	cmdutil.AddDryRunFlag(cmd)
+	f = kube.AddFlags(cmd.Flags())
 
 	util.Die(cmd.MarkFlagRequired("repo"))
 	util.Die(cmd.MarkFlagRequired("git-token"))
@@ -284,11 +302,11 @@ func writeFile(fs billy.Filesystem, path string, data []byte) error {
 	return err
 }
 
-func persistRepoOrDie(ctx context.Context, r git.Repository, token string) error {
+func persistRepoOrDie(ctx context.Context, r git.Repository, token, installationPath string) error {
 	err := r.Add(ctx, ".")
 	util.Die(err)
 
-	_, err = r.Commit(ctx, "Added stuff")
+	_, err = r.Commit(ctx, "Autopilot Bootstrap at "+installationPath)
 	util.Die(err)
 
 	return r.Push(ctx, &git.PushOptions{
@@ -299,27 +317,18 @@ func persistRepoOrDie(ctx context.Context, r git.Repository, token string) error
 	})
 }
 
-func persistArgoCDApplication(fs billy.Filesystem, path string, app *v1alpha1.Application) error {
-	data, err := yaml.Marshal(app)
-	if err != nil {
-		return err
-	}
-
-	return writeFile(fs, path, data)
-}
-
-func createRootApp(namespace, repoURL, installationPath string) *v1alpha1.Application {
-	return &v1alpha1.Application{
-		TypeMeta: v1.TypeMeta{
+func createRootApp(namespace, repoURL, installationPath string) []byte {
+	app := &v1alpha1.Application{
+		TypeMeta: metav1.TypeMeta{
 			APIVersion: argocdapp.Group + "/v1alpha1",
 			Kind:       argocdapp.ApplicationKind,
 		},
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      "root",
 			Labels: map[string]string{
-				"app.kubernetes.io/managed-by": "argo-autopilot",
-				"app.kubernetes.io/name":       "root",
+				"app.kubernetes.io/managed-by": "argo-autopilot", // TODO: magic number
+				"app.kubernetes.io/name":       "root",           // TODO: magic number
 			},
 			Finalizers: []string{
 				"resources-finalizer.argocd.argoproj.io",
@@ -328,7 +337,7 @@ func createRootApp(namespace, repoURL, installationPath string) *v1alpha1.Applic
 		Spec: v1alpha1.ApplicationSpec{
 			Source: v1alpha1.ApplicationSource{
 				RepoURL: repoURL,
-				Path:    filepath.Join(installationPath, "envs"),
+				Path:    filepath.Join(installationPath, "envs"), // TODO: magic number
 			},
 			Destination: v1alpha1.ApplicationDestination{
 				Server:    "https://kubernetes.default.svc",
@@ -342,4 +351,57 @@ func createRootApp(namespace, repoURL, installationPath string) *v1alpha1.Applic
 			},
 		},
 	}
+
+	data, err := yaml.Marshal(app)
+	util.Die(err)
+
+	return data
+}
+
+func getBootstarpApp(opts *application.CreateOptions, namespace, srcPath string) application.Application {
+	app := opts.ParseOrDie()
+	app.ArgoCD().ObjectMeta.Namespace = namespace // override "default" namespace
+	app.ArgoCD().Spec.Destination.Server = "https://kubernetes.default.svc"
+	app.ArgoCD().Spec.Destination.Namespace = namespace
+	app.ArgoCD().Spec.Source.Path = srcPath
+
+	return app
+}
+
+func generateBootstrapManifests(app application.Application, namespace string) []byte {
+	// generate bootstrap manifest containing Argo-CD & Application Sets
+	bootstrapManifest, err := app.GenerateManifests()
+	util.Die(err)
+
+	return []byte(string(namespace) + "\n---\n" + string(bootstrapManifest))
+}
+
+func createNamespace(namespace string) []byte {
+	ns := &corev1.Namespace{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Namespace",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: namespace,
+		},
+	}
+	data, err := yaml.Marshal(ns)
+	util.Die(err)
+
+	return data
+}
+
+func waitForDeployment(ctx context.Context, f kube.Factory, ns, name string) (bool, error) {
+	cs, err := f.KubernetesClientSet()
+	if err != nil {
+		return false, err
+	}
+
+	d, err := cs.AppsV1().Deployments(ns).Get(ctx, name, v1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+
+	return d.Status.ReadyReplicas >= *d.Spec.Replicas, nil
 }

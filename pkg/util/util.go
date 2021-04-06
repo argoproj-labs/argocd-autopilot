@@ -2,6 +2,7 @@ package util
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/signal"
@@ -39,8 +40,11 @@ func ContextWithCancelOnSignals(ctx context.Context, sigs ...os.Signal) context.
 }
 
 // Die panics if err is not nil
-func Die(err error) {
+func Die(err error, cause ...string) {
 	if err != nil {
+		if len(cause) > 0 {
+			panic(fmt.Errorf("%s: %w", cause[0], err))
+		}
 		panic(err)
 	}
 }

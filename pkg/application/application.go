@@ -35,7 +35,7 @@ type application struct {
 	argoApp *v1alpha1.Application
 }
 
-func AddApplicationFlags(cmd *cobra.Command, defAppName string) *CreateOptions {
+func AddFlags(cmd *cobra.Command, defAppName string) *CreateOptions {
 	co := &CreateOptions{}
 
 	cmd.Flags().StringVar(&co.AppSpecifier, "app", "", "The application specifier")
