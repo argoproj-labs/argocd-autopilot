@@ -21,9 +21,18 @@ func ContextWithCancelOnSignals(ctx context.Context, sigs ...os.Signal) context.
 	signal.Notify(sig, sigs...)
 
 	go func() {
-		s := <-sig
-		log.G(ctx).Debugf("got signal: %s", s)
-		cancel()
+		cancels := 0
+		for {
+			s := <-sig
+			cancels++
+			if cancels == 1 {
+				log.G(ctx).Printf("got signal: %s", s)
+				cancel()
+			} else {
+				log.G(ctx).Printf("forcing exit")
+				os.Exit(1)
+			}
+		}
 	}()
 
 	return ctx

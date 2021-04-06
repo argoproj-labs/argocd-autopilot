@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 
-	"github.com/argoproj/argocd-autopilot/pkg/log"
 	"github.com/argoproj/argocd-autopilot/pkg/util"
 
 	"github.com/spf13/cobra"
@@ -48,16 +47,16 @@ func (f *factory) KubernetesClientSetOrDie() *kubernetes.Clientset {
 }
 
 func (f *factory) Apply(ctx context.Context, manifests []byte) error {
-	stdin, buf, err := os.Pipe()
+	reader, buf, err := os.Pipe()
 	if err != nil {
 		return err
 	}
 
-	o := apply.NewApplyOptions(genericclioptions.IOStreams{
-		In:     stdin,
-		Out:    os.Stdout,
-		ErrOut: os.Stderr,
-	})
+	o := apply.NewApplyOptions(DefaultIOStreams())
+
+	stdin := os.Stdin
+	os.Stdin = reader
+	defer func() { os.Stdin = stdin }()
 
 	cmd := &cobra.Command{
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -77,12 +76,9 @@ func (f *factory) Apply(ctx context.Context, manifests []byte) error {
 				if _, err = buf.Write(manifests); err != nil {
 					errc <- err
 				}
-				log.G().Info("test")
-
 				if err = buf.Close(); err != nil {
 					errc <- err
 				}
-
 				close(errc)
 			}()
 
