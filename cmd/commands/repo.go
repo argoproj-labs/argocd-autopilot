@@ -22,9 +22,8 @@ import (
 	memfs "github.com/go-git/go-billy/v5/memfs"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var supportedProviders = []string{"github"}
@@ -160,15 +159,19 @@ func NewRepoBootstrapCommand() *cobra.Command {
 			}
 
 			srcPath := fs.Join(installationPath, "bootstrap/argo-cd") // TODO: magic number
-			bootstarpApp := getBootstarpApp(appOptions, namespace, srcPath)
+			
+			bootstarpApp := opts.ParseOrDie(true)
 			rootAppYAML := createRootApp(namespace, repoURL, installationPath)
-			bootstrapYAML := generateBootstrapManifests(bootstarpApp, namespace)
+			repoCredsYAML = getRepoCredsSecret(token, namespace)
+			bootstrapYAML, err := bootstarpApp.GenerateManifests()
+			util.Die(err)
 
 			argoCDYAML, err := yaml.Marshal(bootstarpApp.ArgoCD())
 			util.Die(err)
 
+
 			if dryRun {
-				fmt.Printf("%s\n---\n%s\n---\n%s", string(bootstrapYAML), string(argoCDYAML), string(rootAppYAML))
+				log.G().Printf("%s", util.JoinManifests(bootstrapYAML, argoCDYAML, rootAppYAML))
 				os.Exit(0)
 			}
 
@@ -228,7 +231,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 			util.Die(err)
 
 			// apply "Argo-CD" Application that references "bootstrap/argo-cd"
-			err = f.Apply(ctx, namespace, []byte(string(argoCDYAML)+"\n---\n"+string(rootAppYAML)))
+			err = f.Apply(ctx, namespace, util.JoinManifests(argoCDYAML,rootAppYAML))
 			util.Die(err)
 
 			log.G(ctx).Debug("Finished bootstrap")
@@ -359,21 +362,12 @@ func createRootApp(namespace, repoURL, installationPath string) []byte {
 }
 
 func getBootstarpApp(opts *application.CreateOptions, namespace, srcPath string) application.Application {
-	app := opts.ParseOrDie()
 	app.ArgoCD().ObjectMeta.Namespace = namespace // override "default" namespace
 	app.ArgoCD().Spec.Destination.Server = "https://kubernetes.default.svc"
 	app.ArgoCD().Spec.Destination.Namespace = namespace
 	app.ArgoCD().Spec.Source.Path = srcPath
 
 	return app
-}
-
-func generateBootstrapManifests(app application.Application, namespace string) []byte {
-	// generate bootstrap manifest containing Argo-CD & Application Sets
-	bootstrapManifest, err := app.GenerateManifests()
-	util.Die(err)
-
-	return []byte(string(namespace) + "\n---\n" + string(bootstrapManifest))
 }
 
 func createNamespace(namespace string) []byte {
@@ -398,10 +392,30 @@ func waitForDeployment(ctx context.Context, f kube.Factory, ns, name string) (bo
 		return false, err
 	}
 
-	d, err := cs.AppsV1().Deployments(ns).Get(ctx, name, v1.GetOptions{})
+	d, err := cs.AppsV1().Deployments(ns).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return false, err
 	}
 
 	return d.Status.ReadyReplicas >= *d.Spec.Replicas, nil
+}
+
+func getRepoCredsSecret(token, namespace string) []byte {
+	res, err := yaml.Marshal(&v1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Secret",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "autopilot-secret" // TODO: magic number
+			Namespace: namespace,
+		},
+		Data: map[string][]byte{
+			"git_username": []byte("username"), // TODO: magic number
+			"git_token": []byte(token),
+		}
+	})
+	util.Die(err)
+
+	return res
 }
