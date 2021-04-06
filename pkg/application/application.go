@@ -2,6 +2,7 @@ package application
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/argoproj/argocd-autopilot/pkg/log"
 	"github.com/argoproj/argocd-autopilot/pkg/util"
@@ -12,7 +13,8 @@ import (
 	argocdsettings "github.com/argoproj/argo-cd/v2/util/settings"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/kustomize/api/filesys"
 	"sigs.k8s.io/kustomize/api/krusty"
 	kusttypes "sigs.k8s.io/kustomize/api/types"
@@ -26,6 +28,7 @@ type Application interface {
 type CreateOptions struct {
 	AppSpecifier   string
 	AppName        string
+	SrcPath        string
 	argoAppOptions argocdutil.AppOptions
 	flags          *pflag.FlagSet
 }
@@ -41,7 +44,7 @@ type application struct {
 }
 
 type bootstrapApp struct {
-	application
+	*application
 }
 
 func AddFlags(cmd *cobra.Command, defAppName string) *CreateOptions {
@@ -84,21 +87,23 @@ func (o *CreateOptions) Parse(bootstrap bool) (Application, error) {
 		},
 	}
 
-	if bootstrap {
-		return &bootstrapApp{
-			path:      o.AppSpecifier, // TODO: supporting only path for now
-			namespace: namespace,
-			fs:        filesys.MakeFsOnDisk(),
-			argoApp:   argoApp,
-		}, nil
-	}
-
-	return &application{
+	app := &application{
 		path:      o.AppSpecifier, // TODO: supporting only path for now
 		namespace: namespace,
 		fs:        filesys.MakeFsOnDisk(),
 		argoApp:   argoApp,
-	}, nil
+	}
+
+	if bootstrap {
+		app.argoApp.ObjectMeta.Namespace = namespace // override "default" namespace
+		app.argoApp.Spec.Destination.Server = "https://kubernetes.default.svc"
+		app.argoApp.Spec.Destination.Namespace = namespace
+		app.argoApp.Spec.Source.Path = o.SrcPath
+
+		return &bootstrapApp{application: app}, nil
+	}
+
+	return app, nil
 }
 
 func (o *CreateOptions) ParseOrDie(bootstrap bool) Application {
@@ -128,25 +133,19 @@ func (app *application) ArgoCD() *v1alpha1.Application {
 func (app *bootstrapApp) GenerateManifests() ([]byte, error) {
 	secret := argocdsettings.Repository{
 		URL: "github.com/whatever", //TODO: get real url
-		UsernameSecret: &corev1.SecretKeySelector{
+		UsernameSecret: &v1.SecretKeySelector{
 			Key: "git_username",
 		},
-		PasswordSecret: &corev1.SecretKeySelector{
+		PasswordSecret: &v1.SecretKeySelector{
 			Key: "git_token",
 		},
 	}
 	secret.UsernameSecret.Name = "autopilot-secrets"
 	secret.PasswordSecret.Name = "autopilot-secrets"
+
 	credentials, err := yaml.Marshal(secret)
 	if err != nil {
 		return nil, err
-	}
-
-	cm := kusttypes.ConfigMapArgs{}
-	cm.Name = "argocd-cm"
-	cm.Behavior = kusttypes.BehaviorMerge.String()
-	cm.LiteralSources = []string{
-		"repository.credentials=" + string(credentials),
 	}
 
 	k := &kusttypes.Kustomization{
@@ -156,13 +155,27 @@ func (app *bootstrapApp) GenerateManifests() ([]byte, error) {
 		},
 		Resources: []string{app.path},
 		ConfigMapGenerator: []kusttypes.ConfigMapArgs{
-			cm,
+			{
+				GeneratorArgs: kusttypes.GeneratorArgs{
+					Name:     "argocd-cm",
+					Behavior: kusttypes.BehaviorMerge.String(),
+					KvPairSources: kusttypes.KvPairSources{
+						LiteralSources: []string{
+							"repository.credentials=" + string(credentials),
+						},
+					},
+				},
+			},
 		},
-		Namespace: "argocd", // TODO: replace with namespace value
+		Namespace: app.namespace,
 	}
 
-	return nil, nil
+	res, err := runKustomization(k)
+	if err != nil {
+		return nil, err
+	}
 
+	return util.JoinManifests(res, createNamespace(app.namespace)), nil
 }
 
 func getLabels(appName string) []string {
@@ -170,4 +183,53 @@ func getLabels(appName string) []string {
 		"app.kubernetes.io/managed-by=argo-autopilot",
 		"app.kubernetes.io/name=" + appName,
 	}
+}
+
+func createNamespace(namespace string) []byte {
+	ns := &v1.Namespace{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Namespace",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: namespace,
+		},
+	}
+	data, err := yaml.Marshal(ns)
+	util.Die(err)
+
+	return data
+}
+
+func runKustomization(k *kusttypes.Kustomization) ([]byte, error) {
+	k.FixKustomizationPostUnmarshalling()
+	errs := k.EnforceFields()
+	if len(errs) > 0 {
+		return nil, fmt.Errorf("kustomization errors: %s", strings.Join(errs, "\n"))
+	}
+	k.FixKustomizationPreMarshalling()
+
+	kyaml, err := yaml.Marshal(k)
+	if err != nil {
+		return nil, err
+	}
+
+	kust := krusty.MakeKustomizer(&krusty.Options{})
+	fs := filesys.MakeFsInMemory()
+	f, err := fs.Create("kustomization.yaml")
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = f.Write(kyaml)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := kust.Run(fs, "kustomization.yaml")
+	if err != nil {
+		return nil, err
+	}
+
+	return res.AsYaml()
 }

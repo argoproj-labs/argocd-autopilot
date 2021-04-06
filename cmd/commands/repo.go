@@ -146,6 +146,8 @@ func NewRepoBootstrapCommand() *cobra.Command {
 			ctx := cmd.Context()
 
 			bootstrapPath := fs.Join(installationPath, "bootstrap") // TODO: magic number
+			appOptions.SrcPath = fs.Join(bootstrapPath, "argo-cd")  // TODO: magic number
+
 			if namespace == "" {
 				namespace = defaultNamespace
 			}
@@ -158,20 +160,17 @@ func NewRepoBootstrapCommand() *cobra.Command {
 				}
 			}
 
-			srcPath := fs.Join(installationPath, "bootstrap/argo-cd") // TODO: magic number
-			
-			bootstarpApp := opts.ParseOrDie(true)
+			bootstarpApp := appOptions.ParseOrDie(true)
 			rootAppYAML := createRootApp(namespace, repoURL, installationPath)
-			repoCredsYAML = getRepoCredsSecret(token, namespace)
+			repoCredsYAML := getRepoCredsSecret(token, namespace)
 			bootstrapYAML, err := bootstarpApp.GenerateManifests()
 			util.Die(err)
 
 			argoCDYAML, err := yaml.Marshal(bootstarpApp.ArgoCD())
 			util.Die(err)
 
-
 			if dryRun {
-				log.G().Printf("%s", util.JoinManifests(bootstrapYAML, argoCDYAML, rootAppYAML))
+				log.G().Printf("%s", util.JoinManifests(bootstrapYAML, repoCredsYAML, argoCDYAML, rootAppYAML))
 				os.Exit(0)
 			}
 
@@ -188,13 +187,11 @@ func NewRepoBootstrapCommand() *cobra.Command {
 			})
 			util.Die(err)
 
-			log.G(ctx).Debug("Cloned Repository")
 			util.Die(checkRepoPath(fs, installationPath))
-
-			log.G(ctx).Debug("Repository is OK")
+			log.G(ctx).Debug("repository is ok")
 
 			// apply built manifest to k8s cluster
-			err = f.Apply(ctx, namespace, bootstrapYAML)
+			err = f.Apply(ctx, namespace, util.JoinManifests(bootstrapYAML, repoCredsYAML))
 			util.Die(err)
 
 			// save built manifest to "boostrap/argo-cd/manifests.yaml"
@@ -231,7 +228,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 			util.Die(err)
 
 			// apply "Argo-CD" Application that references "bootstrap/argo-cd"
-			err = f.Apply(ctx, namespace, util.JoinManifests(argoCDYAML,rootAppYAML))
+			err = f.Apply(ctx, namespace, util.JoinManifests(argoCDYAML, rootAppYAML))
 			util.Die(err)
 
 			log.G(ctx).Debug("Finished bootstrap")
@@ -361,31 +358,6 @@ func createRootApp(namespace, repoURL, installationPath string) []byte {
 	return data
 }
 
-func getBootstarpApp(opts *application.CreateOptions, namespace, srcPath string) application.Application {
-	app.ArgoCD().ObjectMeta.Namespace = namespace // override "default" namespace
-	app.ArgoCD().Spec.Destination.Server = "https://kubernetes.default.svc"
-	app.ArgoCD().Spec.Destination.Namespace = namespace
-	app.ArgoCD().Spec.Source.Path = srcPath
-
-	return app
-}
-
-func createNamespace(namespace string) []byte {
-	ns := &corev1.Namespace{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "v1",
-			Kind:       "Namespace",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: namespace,
-		},
-	}
-	data, err := yaml.Marshal(ns)
-	util.Die(err)
-
-	return data
-}
-
 func waitForDeployment(ctx context.Context, f kube.Factory, ns, name string) (bool, error) {
 	cs, err := f.KubernetesClientSet()
 	if err != nil {
@@ -407,13 +379,13 @@ func getRepoCredsSecret(token, namespace string) []byte {
 			Kind:       "Secret",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "autopilot-secret" // TODO: magic number
+			Name:      "autopilot-secret", // TODO: magic number
 			Namespace: namespace,
 		},
 		Data: map[string][]byte{
 			"git_username": []byte("username"), // TODO: magic number
-			"git_token": []byte(token),
-		}
+			"git_token":    []byte(token),
+		},
 	})
 	util.Die(err)
 
