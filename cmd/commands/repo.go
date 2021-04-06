@@ -124,7 +124,6 @@ func NewRepoBootstrapCommand() *cobra.Command {
 	_ = argocdContext
 	_ = appName
 	_ = appUrl
-	_ = f
 
 	cmd := &cobra.Command{
 		Use:   "bootstrap",
@@ -139,10 +138,6 @@ func NewRepoBootstrapCommand() *cobra.Command {
 
 			fs := memfs.New()
 			ctx := cmd.Context()
-
-			// cs := f.KubernetesClientSetOrDie()
-			// ns, err := cs.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
-			// util.Die(err)
 
 			if namespace == "" {
 				namespace = defaultNamespace
@@ -161,7 +156,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 			bootstarpApp.ArgoCD().Spec.Destination.Server = "https://kubernetes.default.svc"
 			bootstarpApp.ArgoCD().Spec.Source.Path = "/bootstrap/argo-cd"
 
-			data, err := bootstarpApp.GenerateManifests()
+			bootstrapManifest, err := bootstarpApp.GenerateManifests()
 			util.Die(err)
 
 			// // create argo-cd Application called "Autopilot-root" that references "envs"
@@ -175,11 +170,10 @@ func NewRepoBootstrapCommand() *cobra.Command {
 				rootYAML, err := yaml.Marshal(rootApp)
 				util.Die(err)
 
-				fmt.Printf("%s\n---\n%s\n---\n%s", string(data), string(rootYAML), string(argoCDYAML))
+				fmt.Printf("%s\n---\n%s\n---\n%s", string(bootstrapManifest), string(rootYAML), string(argoCDYAML))
 				os.Exit(0)
 			}
 
-			// apply built manifest to k8s cluster
 			log.G(ctx).WithField("repo", repoURL).Info("cloning repo")
 
 			r, err := git.Clone(ctx, fs, &git.CloneOptions{
@@ -197,17 +191,21 @@ func NewRepoBootstrapCommand() *cobra.Command {
 
 			log.G(ctx).Debug("Repository is OK")
 
-			// save built manifest to "boostrap/argo-cd/manifests.yaml"
-			err = writeFile(fs, "bootstrap/argo-cd/manifests.yaml", data)
+			// apply built manifest to k8s cluster
+			err = f.Apply(ctx, bootstrapManifest)
 			util.Die(err)
 
-			// // save argo-cd Application manifest to "boostrap/argo-cd.yaml"
+			// save built manifest to "boostrap/argo-cd/manifests.yaml"
+			err = writeFile(fs, "bootstrap/argo-cd/manifests.yaml", bootstrapManifest)
+			util.Die(err)
+
+			// save argo-cd Application manifest to "boostrap/argo-cd.yaml"
 			err = persistArgoCDApplication(fs, "bootstrap/argo-cd.yaml", bootstarpApp.ArgoCD())
 			util.Die(err)
 
-			// // apply "Autopilot-root" that references "envs"
+			// apply "Autopilot-root" that references "envs"
 
-			// // save application manifest to "boostrap/autopilot-root.yaml"
+			// save application manifest to "boostrap/autopilot-root.yaml"
 			err = persistArgoCDApplication(fs, "bootstrap/root.yaml", rootApp)
 			util.Die(err)
 
