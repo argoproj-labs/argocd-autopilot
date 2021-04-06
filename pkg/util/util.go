@@ -14,6 +14,8 @@ import (
 	"github.com/spf13/pflag"
 )
 
+const yamlSeperator = "\n---\n"
+
 // ContextWithCancelOnSignals returns a context that is canceled when one of the specified signals
 // are received
 func ContextWithCancelOnSignals(ctx context.Context, sigs ...os.Signal) context.Context {
@@ -122,4 +124,12 @@ func MustGetBool(flags *pflag.FlagSet, flag string) bool {
 	Die(err)
 
 	return value
+}
+
+func JoinManifests(manifests ...[]byte) []byte {
+	res := make([]string, 0, len(manifests))
+	for _, m := range manifests {
+		res = append(res, string(m))
+	}
+	return []byte(strings.Join(res, yamlSeperator))
 }
