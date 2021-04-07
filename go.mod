@@ -4,6 +4,7 @@ go 1.15
 
 require (
 	github.com/argoproj/argo-cd/v2 v2.0.0-rc3
+	github.com/briandowns/spinner v1.12.0 // indirect
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-git/go-billy/v5 v5.1.0
 	github.com/go-git/go-git/v5 v5.3.0

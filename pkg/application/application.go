@@ -3,7 +3,6 @@ package application
 import (
 	"fmt"
 	"io/ioutil"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,6 +12,7 @@ import (
 	"github.com/ghodss/yaml"
 
 	argocdutil "github.com/argoproj/argo-cd/v2/cmd/util"
+	argocdapp "github.com/argoproj/argo-cd/v2/pkg/apis/application"
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	argocdsettings "github.com/argoproj/argo-cd/v2/util/settings"
 	"github.com/spf13/cobra"
@@ -124,6 +124,7 @@ func (app *application) kustomizeBuild() ([]byte, error) {
 	kopts.DoLegacyResourceSort = true
 
 	k := krusty.MakeKustomizer(kopts)
+
 	log.G().WithField("path", app.path).Debug("running kustomize")
 	res, err := k.Run(app.fs, app.path)
 	if err != nil {
@@ -162,9 +163,8 @@ func (app *bootstrapApp) GenerateManifests() ([]byte, error) {
 
 	log.G().WithFields(log.Fields{
 		"bootstrapKustPath": kustPath,
-		"bootstrapKust":     string(kyaml),
 		"resourcePath":      resourcePath,
-	}).Debug("running bootstrap kustomize")
+	}).Debugf("running bootstrap kustomization: %s\n", string(kyaml))
 
 	res, err := kust.Run(fs, kustPathDir)
 	if err != nil {
@@ -203,19 +203,21 @@ func createNamespace(namespace string) []byte {
 }
 
 func createCreds(repoUrl string) ([]byte, error) {
-	creds := argocdsettings.Repository{
-		URL: repoUrl,
-		UsernameSecret: &v1.SecretKeySelector{
-			LocalObjectReference: v1.LocalObjectReference{
-				Name: "autopilot-secret",
+	creds := []argocdsettings.Repository{
+		{
+			URL: repoUrl,
+			UsernameSecret: &v1.SecretKeySelector{
+				LocalObjectReference: v1.LocalObjectReference{
+					Name: "autopilot-secret",
+				},
+				Key: "git_username",
 			},
-			Key: "git_username",
-		},
-		PasswordSecret: &v1.SecretKeySelector{
-			LocalObjectReference: v1.LocalObjectReference{
-				Name: "autopilot-secret",
+			PasswordSecret: &v1.SecretKeySelector{
+				LocalObjectReference: v1.LocalObjectReference{
+					Name: "autopilot-secret",
+				},
+				Key: "git_token",
 			},
-			Key: "git_token",
 		},
 	}
 
@@ -274,12 +276,6 @@ func getBootstrapPaths(path string) (string, string, error) {
 		return kustPath, path, nil
 	}
 
-	// for example: https://github.com/codefresh-io/argocd-autopilot/manifests
-	_, err = url.Parse(path)
-	if err == nil {
-		return kustPath, path, nil
-	}
-
 	// local file (in the filesystem)
 	absPath, err := filepath.Abs(path)
 	if err != nil {
@@ -292,4 +288,43 @@ func getBootstrapPaths(path string) (string, string, error) {
 	}
 
 	return kustPath, resourcePath, nil
+}
+
+func NewRootApp(namespace, repoURL, srcPath, revision string) Application {
+	return &application{
+		argoApp: &v1alpha1.Application{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: argocdapp.Group + "/v1alpha1",
+				Kind:       argocdapp.ApplicationKind,
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: namespace,
+				Name:      "root",
+				Labels: map[string]string{
+					"app.kubernetes.io/managed-by": "argo-autopilot", // TODO: magic number
+					"app.kubernetes.io/name":       "root",           // TODO: magic number
+				},
+				Finalizers: []string{
+					"resources-finalizer.argocd.argoproj.io",
+				},
+			},
+			Spec: v1alpha1.ApplicationSpec{
+				Source: v1alpha1.ApplicationSource{
+					RepoURL:        repoURL,
+					Path:           srcPath,
+					TargetRevision: revision,
+				},
+				Destination: v1alpha1.ApplicationDestination{
+					Server:    "https://kubernetes.default.svc",
+					Namespace: namespace,
+				},
+				SyncPolicy: &v1alpha1.SyncPolicy{
+					Automated: &v1alpha1.SyncPolicyAutomated{
+						SelfHeal: true,
+						Prune:    true,
+					},
+				},
+			},
+		},
+	}
 }

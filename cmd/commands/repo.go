@@ -15,8 +15,6 @@ import (
 	"github.com/argoproj/argocd-autopilot/pkg/store"
 	"github.com/argoproj/argocd-autopilot/pkg/util"
 
-	argocdapp "github.com/argoproj/argo-cd/v2/pkg/apis/application"
-	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/ghodss/yaml"
 	billy "github.com/go-git/go-billy/v5"
 	memfs "github.com/go-git/go-billy/v5/memfs"
@@ -118,6 +116,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 		argocdContext    string
 		appName          string
 		appUrl           string
+		hidePassword     bool
 		f                kube.Factory
 		appOptions       *application.CreateOptions
 	)
@@ -136,6 +135,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 				repoURL    = util.MustGetString(cmd.Flags(), "repo")
 				revision   = util.MustGetString(cmd.Flags(), "revision")
 				namespace  = util.MustGetString(cmd.Flags(), "namespace")
+				context    = util.MustGetString(cmd.Flags(), "context")
 				timeoutStr = util.MustGetString(cmd.Flags(), "request-timeout")
 			)
 
@@ -160,8 +160,15 @@ func NewRepoBootstrapCommand() *cobra.Command {
 				}
 			}
 
+			log.G().WithFields(log.Fields{
+				"repoURL":      repoURL,
+				"revision":     revision,
+				"namespace":    namespace,
+				"kube-context": context,
+			}).Debug("starting with options: ")
+
 			bootstarpApp := appOptions.ParseOrDie(true)
-			rootAppYAML := createRootApp(namespace, repoURL, fs.Join(installationPath, "envs")) // TODO: magic number
+			rootAppYAML := createRootApp(namespace, repoURL, fs.Join(installationPath, "envs"), revision) // TODO: magic number
 			repoCredsYAML := getRepoCredsSecret(token, namespace)
 			bootstrapYAML, err := bootstarpApp.GenerateManifests()
 			util.Die(err)
@@ -174,7 +181,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 				os.Exit(0)
 			}
 
-			log.G(ctx).WithField("repo", repoURL).Info("cloning repo")
+			log.G().Infof("cloning repo: %s", repoURL)
 
 			// clone GitOps repo
 			r, err := git.Clone(ctx, fs, &git.CloneOptions{
@@ -187,10 +194,13 @@ func NewRepoBootstrapCommand() *cobra.Command {
 			})
 			util.Die(err)
 
+			log.G().Infof("using revision: \"%s\", installation path: \"%s\"", revision, installationPath)
 			checkRepoPath(fs, installationPath)
-			log.G(ctx).Debug("repository is ok")
+			log.G().Debug("repository is ok")
 
 			// apply built manifest to k8s cluster
+			log.G().Infof("using context: \"%s\", namespace: \"%s\"", context, namespace)
+			log.G().Infof("applying bootstrap manifests to cluster...")
 			util.Die(f.Apply(ctx, namespace, util.JoinManifests(bootstrapYAML, repoCredsYAML)))
 
 			writeFile(fs, fs.Join(bootstrapPath, "argo-cd/manifests.yaml"), bootstrapYAML) // TODO: magic number
@@ -199,13 +209,21 @@ func NewRepoBootstrapCommand() *cobra.Command {
 			writeFile(fs, fs.Join(installationPath, "envs", "DUMMY"), []byte{})            // TODO: magic number
 
 			// wait for argocd to be ready before applying argocd-apps
+			stop := util.WithSpinner(ctx, "waiting for argo-cd to be ready")
 			waitClusterReady(ctx, f, timeout, namespace)
+			stop()
 
 			// push results to repo
-			persistRepoOrDie(ctx, r, token, installationPath)
+			log.G().Infof("pushing bootstrap manifests to repo")
+			persistRepo(ctx, r, token, "Autopilot Bootstrap at "+installationPath)
 
 			// apply "Argo-CD" Application that references "bootstrap/argo-cd"
+			log.G().Infof("applying argo-cd bootstrap application")
 			util.Die(f.Apply(ctx, namespace, util.JoinManifests(argoCDYAML, rootAppYAML)))
+
+			if !hidePassword {
+				printInitialPassword(ctx, f, namespace)
+			}
 		},
 	}
 
@@ -215,6 +233,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 	cmd.Flags().StringVarP(&token, "git-token", "t", "", "Your git provider api token [GIT_TOKEN]")
 	cmd.Flags().BoolVar(&namespaced, "namespaced", false, "If true, install a namespaced version of argo-cd (no need for cluster-role)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "If true, print manifests instead of applying them to the cluster (nothing will be commited to git)")
+	cmd.Flags().BoolVar(&hidePassword, "hide-password", false, "If true, will not print initial argo cd password")
 
 	// add application flags
 	appOptions = application.AddFlags(cmd, "argo-cd")
@@ -229,19 +248,13 @@ func NewRepoBootstrapCommand() *cobra.Command {
 }
 
 func validateProvider(provider string) {
-	log := log.G()
-	found := false
-
 	for _, p := range supportedProviders {
 		if p == provider {
-			found = true
-			break
+			return
 		}
 	}
 
-	if !found {
-		log.Fatalf("provider not supported: %v", provider)
-	}
+	log.G().Fatalf("provider not supported: %v", provider)
 }
 
 func checkRepoPath(fs billy.Filesystem, path string) {
@@ -251,7 +264,7 @@ func checkRepoPath(fs billy.Filesystem, path string) {
 		util.Die(err)
 
 		if exists {
-			util.Die(fmt.Errorf("folder %s already exist", folder))
+			util.Die(fmt.Errorf("folder %s already exist in: %s", folder, fs.Join(path, folder)))
 		}
 	}
 }
@@ -267,10 +280,10 @@ func writeFile(fs billy.Filesystem, path string, data []byte) {
 	util.Die(err)
 }
 
-func persistRepoOrDie(ctx context.Context, r git.Repository, token, installationPath string) {
+func persistRepo(ctx context.Context, r git.Repository, token, msg string) {
 	util.Die(r.Add(ctx, "."))
 
-	_, err := r.Commit(ctx, "Autopilot Bootstrap at "+installationPath)
+	_, err := r.Commit(ctx, msg)
 	util.Die(err)
 
 	util.Die(r.Push(ctx, &git.PushOptions{
@@ -281,42 +294,9 @@ func persistRepoOrDie(ctx context.Context, r git.Repository, token, installation
 	}))
 }
 
-func createRootApp(namespace, repoURL, srcPath string) []byte {
-	app := &v1alpha1.Application{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: argocdapp.Group + "/v1alpha1",
-			Kind:       argocdapp.ApplicationKind,
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      "root",
-			Labels: map[string]string{
-				"app.kubernetes.io/managed-by": "argo-autopilot", // TODO: magic number
-				"app.kubernetes.io/name":       "root",           // TODO: magic number
-			},
-			Finalizers: []string{
-				"resources-finalizer.argocd.argoproj.io",
-			},
-		},
-		Spec: v1alpha1.ApplicationSpec{
-			Source: v1alpha1.ApplicationSource{
-				RepoURL: repoURL,
-				Path:    srcPath, // TODO: magic number
-			},
-			Destination: v1alpha1.ApplicationDestination{
-				Server:    "https://kubernetes.default.svc",
-				Namespace: namespace,
-			},
-			SyncPolicy: &v1alpha1.SyncPolicy{
-				Automated: &v1alpha1.SyncPolicyAutomated{
-					SelfHeal: true,
-					Prune:    true,
-				},
-			},
-		},
-	}
-
-	data, err := yaml.Marshal(app)
+func createRootApp(namespace, repoURL, srcPath, revision string) []byte {
+	app := application.NewRootApp(namespace, repoURL, srcPath, revision)
+	data, err := yaml.Marshal(app.ArgoCD())
 	util.Die(err)
 
 	return data
@@ -366,4 +346,19 @@ func getRepoCredsSecret(token, namespace string) []byte {
 	util.Die(err)
 
 	return res
+}
+
+func printInitialPassword(ctx context.Context, f kube.Factory, namespace string) {
+	cs := f.KubernetesClientSetOrDie()
+	secret, err := cs.CoreV1().Secrets(namespace).Get(ctx, "argocd-initial-admin-secret", metav1.GetOptions{})
+	util.Die(err)
+
+	passwd, ok := secret.Data["password"]
+	if !ok {
+		util.Die(fmt.Errorf("argocd initial password not found"))
+	}
+
+	log.G(ctx).Printf("\n")
+	log.G(ctx).Infof("argocd initialized. password: %s", passwd)
+	log.G(ctx).Infof("run:\n\n    kubectl port-forward -n %s svc/argocd-server 8080:80\n\n", namespace)
 }

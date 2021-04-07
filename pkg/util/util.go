@@ -8,13 +8,20 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/argoproj/argocd-autopilot/pkg/log"
+	"github.com/briandowns/spinner"
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/spf13/pflag"
 )
 
 const yamlSeperator = "\n---\n"
+
+var (
+	spinnerCharSet  = spinner.CharSets[26]
+	spinnerDuration = time.Millisecond * 500
+)
 
 // ContextWithCancelOnSignals returns a context that is canceled when one of the specified signals
 // are received
@@ -85,6 +92,33 @@ func CopyDir(source, destination string) error {
 			return ioutil.WriteFile(absDst, data, info.Mode())
 		}
 	})
+}
+
+func WithSpinner(ctx context.Context, msg ...string) func() {
+	if os.Getenv("NO_COLOR") != "" { // https://no-color.org/
+		log.G(ctx).Info(msg)
+		return func() {}
+	}
+
+	ctx, cancel := context.WithCancel(ctx)
+	s := spinner.New(
+		spinnerCharSet,
+		spinnerDuration,
+	)
+	if len(msg) > 0 {
+		s.Prefix = msg[0]
+	}
+	go func() {
+		s.Start()
+		<-ctx.Done()
+		s.Stop()
+		fmt.Println("")
+	}()
+
+	return func() {
+		cancel()
+		time.Sleep(time.Millisecond * 100)
+	}
 }
 
 func ensureDir(path string) error {
