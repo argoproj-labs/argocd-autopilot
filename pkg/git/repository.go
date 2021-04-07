@@ -3,10 +3,10 @@ package git
 import (
 	"context"
 	"errors"
-	"net/url"
 	"os"
 
-	"github.com/go-git/go-billy/v5"
+	"github.com/argoproj/argocd-autopilot/pkg/log"
+	billy "github.com/go-git/go-billy/v5"
 	gg "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -18,18 +18,8 @@ import (
 type (
 	// Repository represents a git repository
 	Repository interface {
-		Add(ctx context.Context, pattern string) error
-
-		AddRemote(ctx context.Context, name, url string) error
-
-		// Commits all files and returns the commit sha
-		Commit(ctx context.Context, msg string) (string, error)
-
-		Push(context.Context, *PushOptions) error
-
-		IsNewRepo() (bool, error)
-
-		Root() (string, error)
+		// Persist runs add, commit and push to the repository default remote
+		Persist(ctx context.Context, opts *PushOptions) error
 	}
 
 	CloneOptions struct {
@@ -37,14 +27,17 @@ type (
 		URL      string
 		Revision string
 		Auth     *Auth
+		FS       billy.Filesystem
 	}
 
 	PushOptions struct {
-		Auth *Auth
+		AddGlobPattern string
+		CommitMsg      string
 	}
 
 	repo struct {
-		r *gg.Repository
+		*gg.Repository
+		auth *Auth
 	}
 )
 
@@ -56,20 +49,35 @@ var (
 
 // go-git functions (we mock those in tests)
 var (
-	clone    = gg.CloneContext
-	initRepo = gg.Init
+	ggClone    = gg.CloneContext
+	ggInitRepo = gg.Init
 )
 
-func Clone(ctx context.Context, fs billy.Filesystem, opts *CloneOptions) (Repository, error) {
+func Clone(ctx context.Context, opts *CloneOptions) (Repository, error) {
+	r, err := clone(ctx, opts.FS, &CloneOptions{
+		URL:      opts.URL,
+		Revision: opts.Revision,
+		Auth:     opts.Auth,
+	})
+	if err != nil {
+		if err == transport.ErrEmptyRemoteRepository {
+			log.G(ctx).Debug("empty repository, initializing new one with specified remote")
+			return initRepo(ctx, opts)
+		}
+		return nil, err
+	}
+
+	return r, nil
+}
+
+func clone(ctx context.Context, fs billy.Filesystem, opts *CloneOptions) (*repo, error) {
 	if opts == nil {
 		return nil, ErrNilOpts
 	}
 
-	auth := getAuth(opts.Auth)
-
 	cloneOpts := &gg.CloneOptions{
 		URL:          opts.URL,
-		Auth:         auth,
+		Auth:         getAuth(opts.Auth),
 		SingleBranch: true,
 		Depth:        1,
 		Progress:     os.Stderr,
@@ -80,49 +88,65 @@ func Clone(ctx context.Context, fs billy.Filesystem, opts *CloneOptions) (Reposi
 		cloneOpts.ReferenceName = plumbing.NewBranchReferenceName(opts.Revision)
 	}
 
-	err := cloneOpts.Validate()
+	log.G(ctx).WithFields(log.Fields{
+		"url": opts.URL,
+		"rev": opts.Revision,
+	}).Debug("cloning git repo")
+	r, err := ggClone(ctx, memory.NewStorage(), fs, cloneOpts)
 	if err != nil {
 		return nil, err
 	}
 
-	r, err := clone(ctx, memory.NewStorage(), fs, cloneOpts)
-	if err != nil {
-		return nil, err
-	}
-
-	return &repo{r}, nil
+	return &repo{Repository: r, auth: opts.Auth}, nil
 }
 
-func Init(fs billy.Filesystem) (Repository, error) {
-	r, err := initRepo(memory.NewStorage(), fs)
-	if err != nil {
-		return nil, err
+func (r *repo) Persist(ctx context.Context, opts *PushOptions) error {
+	if opts == nil {
+		return ErrNilOpts
+	}
+	addPattern := "."
+
+	if opts.AddGlobPattern != "" {
+		addPattern = opts.AddGlobPattern
 	}
 
-	return &repo{r}, err
-}
-
-func (r *repo) Add(ctx context.Context, pattern string) error {
-	w, err := r.r.Worktree()
+	w, err := r.Worktree()
 	if err != nil {
 		return err
 	}
 
-	return w.AddGlob(pattern)
+	if err := w.AddGlob(addPattern); err != nil {
+		return err
+	}
+
+	if _, err = r.commit(ctx, opts.CommitMsg); err != nil {
+		return err
+	}
+
+	return r.push(ctx)
 }
 
-func (r *repo) AddRemote(ctx context.Context, name, url string) error {
+func initRepo(ctx context.Context, opts *CloneOptions) (Repository, error) {
+	ggr, err := ggInitRepo(memory.NewStorage(), opts.FS)
+	if err != nil {
+		return nil, err
+	}
+
+	r := &repo{Repository: ggr, auth: opts.Auth}
+	if err = r.addRemote(ctx, "origin", opts.URL); err != nil {
+		return nil, err
+	}
+
+	return r, r.checkout(ctx, opts.Revision)
+}
+
+func (r *repo) addRemote(ctx context.Context, name, url string) error {
 	cfg := &config.RemoteConfig{
 		Name: name,
 		URLs: []string{url},
 	}
 
-	err := cfg.Validate()
-	if err != nil {
-		return err
-	}
-
-	_, err = r.r.CreateRemote(cfg)
+	_, err := r.CreateRemote(cfg)
 	if err != nil {
 		return err
 	}
@@ -130,8 +154,38 @@ func (r *repo) AddRemote(ctx context.Context, name, url string) error {
 	return nil
 }
 
-func (r *repo) Commit(ctx context.Context, msg string) (string, error) {
-	wt, err := r.r.Worktree()
+func (r *repo) checkout(ctx context.Context, branchName string) error {
+	log.G(ctx).WithField("branch", branchName).Debug("creating branch")
+	b := plumbing.NewBranchReferenceName(branchName)
+	err := r.CreateBranch(&config.Branch{
+		Name:   branchName,
+		Remote: "origin",
+		Merge:  b,
+	})
+	if err != nil {
+		return err
+	}
+
+	wt, err := r.Worktree()
+	if err != nil {
+		return err
+	}
+
+	hs, err := wt.Commit("initial commit", &gg.CommitOptions{})
+	if err != nil {
+		return err
+	}
+	hs.String()
+
+	log.G(ctx).WithField("branch", branchName).Debug("checking out branch")
+	return wt.Checkout(&gg.CheckoutOptions{
+		Branch: b,
+		Create: true,
+	})
+}
+
+func (r *repo) commit(ctx context.Context, msg string) (string, error) {
+	wt, err := r.Worktree()
 	if err != nil {
 		return "", err
 	}
@@ -146,53 +200,18 @@ func (r *repo) Commit(ctx context.Context, msg string) (string, error) {
 	return h.String(), err
 }
 
-func (r *repo) Push(ctx context.Context, opts *PushOptions) error {
-	if opts == nil {
-		return ErrNilOpts
-	}
-
-	auth := getAuth(opts.Auth)
-	pushOpts := &gg.PushOptions{
-		Auth:     auth,
+func (r *repo) push(ctx context.Context) error {
+	return r.PushContext(ctx, &gg.PushOptions{
+		Auth:     getAuth(r.auth),
 		Progress: os.Stdout,
-	}
-
-	err := pushOpts.Validate()
-	if err != nil {
-		return err
-	}
-
-	err = r.r.PushContext(ctx, pushOpts)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (r *repo) IsNewRepo() (bool, error) {
-	remotes, err := r.r.Remotes()
-	if err != nil {
-		return false, err
-	}
-
-	return len(remotes) == 0, nil
-}
-
-func (r *repo) Root() (string, error) {
-	wt, err := r.r.Worktree()
-	if err != nil {
-		return "", err
-	}
-
-	return wt.Filesystem.Root(), nil
+	})
 }
 
 func getAuth(auth *Auth) transport.AuthMethod {
 	if auth != nil {
 		username := auth.Username
 		if username == "" {
-			username = "codefresh"
+			username = "git"
 		}
 
 		return &http.BasicAuth{
@@ -202,13 +221,4 @@ func getAuth(auth *Auth) transport.AuthMethod {
 	}
 
 	return nil
-}
-
-func getRef(cloneURL string) string {
-	u, err := url.Parse(cloneURL)
-	if err != nil {
-		return ""
-	}
-
-	return u.Fragment
 }

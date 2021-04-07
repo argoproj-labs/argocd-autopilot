@@ -50,22 +50,31 @@ func NewRepoCreateCommand() *cobra.Command {
 		owner    string
 		repo     string
 		token    string
-		private  bool
+		public   bool
 		host     string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "create",
-		Short: "Creates a new gitops repository",
-		Example: `
+		Short: "Create a new gitops repository",
+		Example: util.Doc(`
+# To run this command you need to create a personal access token for your git provider
+# and provide it using:
+	
+    export GIT_TOKEN=<token>
+
+# or with the flag:
+	
+    --token <token>
+
 # Create a new gitops repository on github
     
-    autopilot repo create --owner foo --repo bar --token abc123
+    <BIN> repo create --owner foo --repo bar --token abc123
 
 # Create a public gitops repository on github
     
-    autopilot repo create --owner foo --repo bar --token abc123 --private=false
-`,
+    <BIN> repo create --owner foo --repo bar --token abc123 --public
+`),
 		Run: func(cmd *cobra.Command, args []string) {
 			validateProvider(provider)
 
@@ -79,15 +88,15 @@ func NewRepoCreateCommand() *cobra.Command {
 			})
 			util.Die(err)
 
-			log.G().Printf("creating repo: %s/%s", owner, repo)
+			log.G().Infof("creating repo: %s/%s", owner, repo)
 			repoUrl, err := p.CreateRepository(cmd.Context(), &git.CreateRepoOptions{
 				Owner:   owner,
 				Name:    repo,
-				Private: private,
+				Private: !public,
 			})
 			util.Die(err)
 
-			log.G().Printf("repo created at: %s", repoUrl)
+			log.G().Infof("repo created at: %s", repoUrl)
 		},
 	}
 
@@ -98,7 +107,7 @@ func NewRepoCreateCommand() *cobra.Command {
 	cmd.Flags().StringVarP(&repo, "repo", "r", "", "The name of the repository")
 	cmd.Flags().StringVarP(&token, "git-token", "t", "", "Your git provider api token [GIT_TOKEN]")
 	cmd.Flags().StringVar(&host, "host", "", "The git provider address (for on-premise git providers)")
-	cmd.Flags().BoolVar(&private, "private", true, "If false, will create the repository as private (default is true)")
+	cmd.Flags().BoolVar(&public, "public", false, "If true, will create the repository as public (default is false)")
 
 	util.Die(cmd.MarkFlagRequired("owner"))
 	util.Die(cmd.MarkFlagRequired("repo"))
@@ -129,6 +138,24 @@ func NewRepoBootstrapCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "bootstrap",
 		Short: "Bootstrap a new installation",
+		Example: util.Doc(`
+# To run this command you need to create a personal access token for your git provider
+# and provide it using:
+	
+    export GIT_TOKEN=<token>
+
+# or with the flag:
+	
+    --token <token>
+		
+# Create a new gitops repository on github
+	
+	<BIN> repo bootstrap --repo https://github.com/example/repo
+
+# Create a public gitops repository on github
+	
+	<BIN> repo create --owner foo --repo bar --token abc123 --private=false
+`),
 		Run: func(cmd *cobra.Command, args []string) {
 			var (
 				err        error
@@ -160,6 +187,8 @@ func NewRepoBootstrapCommand() *cobra.Command {
 				}
 			}
 
+			appOptions.Namespace = namespace
+
 			log.G().WithFields(log.Fields{
 				"repoURL":      repoURL,
 				"revision":     revision,
@@ -184,13 +213,14 @@ func NewRepoBootstrapCommand() *cobra.Command {
 			log.G().Infof("cloning repo: %s", repoURL)
 
 			// clone GitOps repo
-			r, err := git.Clone(ctx, fs, &git.CloneOptions{
+			r, err := git.Clone(ctx, &git.CloneOptions{
 				URL:      repoURL,
 				Revision: revision,
 				Auth: &git.Auth{
-					Username: "blank",
+					Username: "username",
 					Password: token,
 				},
+				FS: fs,
 			})
 			util.Die(err)
 
@@ -215,7 +245,9 @@ func NewRepoBootstrapCommand() *cobra.Command {
 
 			// push results to repo
 			log.G().Infof("pushing bootstrap manifests to repo")
-			persistRepo(ctx, r, token, "Autopilot Bootstrap at "+installationPath)
+			util.Die(r.Persist(ctx, &git.PushOptions{
+				CommitMsg: "Autopilot Bootstrap at " + installationPath,
+			}))
 
 			// apply "Argo-CD" Application that references "bootstrap/argo-cd"
 			log.G().Infof("applying argo-cd bootstrap application")
@@ -228,8 +260,9 @@ func NewRepoBootstrapCommand() *cobra.Command {
 	}
 
 	util.Die(viper.BindEnv("git-token", "GIT_TOKEN"))
+	util.Die(viper.BindEnv("repo", "GIT_REPO"))
 
-	cmd.Flags().StringVar(&installationPath, "installation-path", "/", "The path where we create the installation files (defaults to the root of the repository")
+	cmd.Flags().StringVar(&installationPath, "installation-path", "", "The path where we create the installation files (defaults to the root of the repository")
 	cmd.Flags().StringVarP(&token, "git-token", "t", "", "Your git provider api token [GIT_TOKEN]")
 	cmd.Flags().BoolVar(&namespaced, "namespaced", false, "If true, install a namespaced version of argo-cd (no need for cluster-role)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "If true, print manifests instead of applying them to the cluster (nothing will be commited to git)")
@@ -278,20 +311,6 @@ func writeFile(fs billy.Filesystem, path string, data []byte) {
 
 	_, err = f.Write(data)
 	util.Die(err)
-}
-
-func persistRepo(ctx context.Context, r git.Repository, token, msg string) {
-	util.Die(r.Add(ctx, "."))
-
-	_, err := r.Commit(ctx, msg)
-	util.Die(err)
-
-	util.Die(r.Push(ctx, &git.PushOptions{
-		Auth: &git.Auth{
-			Username: "blank",
-			Password: token,
-		},
-	}))
 }
 
 func createRootApp(namespace, repoURL, srcPath, revision string) []byte {

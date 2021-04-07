@@ -33,6 +33,7 @@ type CreateOptions struct {
 	AppSpecifier   string
 	AppName        string
 	SrcPath        string
+	Namespace      string
 	argoAppOptions argocdutil.AppOptions
 	flags          *pflag.FlagSet
 }
@@ -73,11 +74,6 @@ func (o *CreateOptions) Parse(bootstrap bool) (Application, error) {
 		return nil, fmt.Errorf("empty app specifier not allowed")
 	}
 
-	namespace, err := o.flags.GetString("namespace")
-	if err != nil {
-		return nil, err
-	}
-
 	argoApp, err := argocdutil.ConstructApp("", o.AppName, getLabels(o.AppName), []string{}, o.argoAppOptions, o.flags)
 	if err != nil {
 		return nil, err
@@ -93,15 +89,15 @@ func (o *CreateOptions) Parse(bootstrap bool) (Application, error) {
 
 	app := &application{
 		path:      o.AppSpecifier, // TODO: supporting only path for now
-		namespace: namespace,
+		namespace: o.Namespace,
 		fs:        filesys.MakeFsOnDisk(),
 		argoApp:   argoApp,
 	}
 
 	if bootstrap {
-		app.argoApp.ObjectMeta.Namespace = namespace // override "default" namespace
+		app.argoApp.ObjectMeta.Namespace = app.name
 		app.argoApp.Spec.Destination.Server = "https://kubernetes.default.svc"
-		app.argoApp.Spec.Destination.Namespace = namespace
+		app.argoApp.Spec.Destination.Namespace = app.name
 		app.argoApp.Spec.Source.Path = o.SrcPath
 
 		return &bootstrapApp{

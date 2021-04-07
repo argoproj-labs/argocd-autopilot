@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/argoproj/argocd-autopilot/pkg/log"
+	"github.com/argoproj/argocd-autopilot/pkg/store"
 	"github.com/briandowns/spinner"
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/spf13/pflag"
@@ -119,6 +120,11 @@ func WithSpinner(ctx context.Context, msg ...string) func() {
 		cancel()
 		time.Sleep(time.Millisecond * 100)
 	}
+}
+
+// Doc returns a string where the <BIN> is replaced with the binary name
+func Doc(doc string) string {
+	return strings.ReplaceAll(doc, "<BIN>", store.Get().BinaryName)
 }
 
 func ensureDir(path string) error {

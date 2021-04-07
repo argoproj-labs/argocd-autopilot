@@ -44,4 +44,5 @@ func presetRequiredFlags(cmd *cobra.Command) {
 			util.Die(cmd.Flags().Set(f.Name, viper.GetString(f.Name)))
 		}
 	})
+	cmd.Flags().SortFlags = false
 }
