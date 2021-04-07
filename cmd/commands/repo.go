@@ -161,7 +161,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 			}
 
 			bootstarpApp := appOptions.ParseOrDie(true)
-			rootAppYAML := createRootApp(namespace, repoURL, installationPath)
+			rootAppYAML := createRootApp(namespace, repoURL, fs.Join(installationPath, "envs")) // TODO: magic number
 			repoCredsYAML := getRepoCredsSecret(token, namespace)
 			bootstrapYAML, err := bootstarpApp.GenerateManifests()
 			util.Die(err)
@@ -187,51 +187,25 @@ func NewRepoBootstrapCommand() *cobra.Command {
 			})
 			util.Die(err)
 
-			util.Die(checkRepoPath(fs, installationPath))
+			checkRepoPath(fs, installationPath)
 			log.G(ctx).Debug("repository is ok")
 
 			// apply built manifest to k8s cluster
-			err = f.Apply(ctx, namespace, util.JoinManifests(bootstrapYAML, repoCredsYAML))
-			util.Die(err)
+			util.Die(f.Apply(ctx, namespace, util.JoinManifests(bootstrapYAML, repoCredsYAML)))
 
-			// save built manifest to "boostrap/argo-cd/manifests.yaml"
-			err = writeFile(fs, fs.Join(bootstrapPath, "argo-cd/manifests.yaml"), bootstrapYAML) // TODO: magic number
-			util.Die(err)
-
-			// save argo-cd Application manifest to "boostrap/argo-cd.yaml"
-			err = writeFile(fs, fs.Join(bootstrapPath, "argo-cd.yaml"), argoCDYAML) // TODO: magic number
-			util.Die(err)
-
-			// save application manifest to "boostrap/root.yaml"
-			err = writeFile(fs, fs.Join(bootstrapPath, "root.yaml"), rootAppYAML) // TODO: magic number
-			util.Die(err)
-
-			err = writeFile(fs, fs.Join(installationPath, "envs", "DUMMY"), []byte{})
-			util.Die(err)
+			writeFile(fs, fs.Join(bootstrapPath, "argo-cd/manifests.yaml"), bootstrapYAML) // TODO: magic number
+			writeFile(fs, fs.Join(bootstrapPath, "argo-cd.yaml"), argoCDYAML)              // TODO: magic number
+			writeFile(fs, fs.Join(bootstrapPath, "root.yaml"), rootAppYAML)                // TODO: magic number
+			writeFile(fs, fs.Join(installationPath, "envs", "DUMMY"), []byte{})            // TODO: magic number
 
 			// wait for argocd to be ready before applying argocd-apps
-			err = f.Wait(ctx, &kube.WaitOptions{
-				Interval: time.Second * 3, // TODO: magic number
-				Timeout:  timeout,
-				Resources: []kube.Resource{
-					{
-						Name:      "argocd-server",
-						Namespace: namespace,
-						WaitFunc:  waitForDeployment,
-					},
-				},
-			})
-			util.Die(err)
+			waitClusterReady(ctx, f, timeout, namespace)
 
 			// push results to repo
-			err = persistRepoOrDie(ctx, r, token, installationPath)
-			util.Die(err)
+			persistRepoOrDie(ctx, r, token, installationPath)
 
 			// apply "Argo-CD" Application that references "bootstrap/argo-cd"
-			err = f.Apply(ctx, namespace, util.JoinManifests(argoCDYAML, rootAppYAML))
-			util.Die(err)
-
-			log.G(ctx).Debug("Finished bootstrap")
+			util.Die(f.Apply(ctx, namespace, util.JoinManifests(argoCDYAML, rootAppYAML)))
 		},
 	}
 
@@ -270,54 +244,44 @@ func validateProvider(provider string) {
 	}
 }
 
-func checkRepoPath(fs billy.Filesystem, path string) error {
+func checkRepoPath(fs billy.Filesystem, path string) {
 	folders := []string{"bootstrap", "envs", "kustomize"}
 	for _, folder := range folders {
 		exists, err := util.Exists(fs, fs.Join(path, folder))
-		if err != nil {
-			return err
-		}
+		util.Die(err)
 
 		if exists {
-			return fmt.Errorf("folder %s already exist", folder)
+			util.Die(fmt.Errorf("folder %s already exist", folder))
 		}
 	}
-
-	return nil
 }
 
-func writeFile(fs billy.Filesystem, path string, data []byte) error {
+func writeFile(fs billy.Filesystem, path string, data []byte) {
 	folder := filepath.Base(path)
-	err := fs.MkdirAll(folder, os.ModeDir)
-	if err != nil {
-		return err
-	}
+	util.Die(fs.MkdirAll(folder, os.ModeDir))
 
 	f, err := fs.Create(path)
-	if err != nil {
-		return err
-	}
+	util.Die(err)
 
 	_, err = f.Write(data)
-	return err
+	util.Die(err)
 }
 
-func persistRepoOrDie(ctx context.Context, r git.Repository, token, installationPath string) error {
-	err := r.Add(ctx, ".")
+func persistRepoOrDie(ctx context.Context, r git.Repository, token, installationPath string) {
+	util.Die(r.Add(ctx, "."))
+
+	_, err := r.Commit(ctx, "Autopilot Bootstrap at "+installationPath)
 	util.Die(err)
 
-	_, err = r.Commit(ctx, "Autopilot Bootstrap at "+installationPath)
-	util.Die(err)
-
-	return r.Push(ctx, &git.PushOptions{
+	util.Die(r.Push(ctx, &git.PushOptions{
 		Auth: &git.Auth{
 			Username: "blank",
 			Password: token,
 		},
-	})
+	}))
 }
 
-func createRootApp(namespace, repoURL, installationPath string) []byte {
+func createRootApp(namespace, repoURL, srcPath string) []byte {
 	app := &v1alpha1.Application{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: argocdapp.Group + "/v1alpha1",
@@ -337,7 +301,7 @@ func createRootApp(namespace, repoURL, installationPath string) []byte {
 		Spec: v1alpha1.ApplicationSpec{
 			Source: v1alpha1.ApplicationSource{
 				RepoURL: repoURL,
-				Path:    filepath.Join(installationPath, "envs"), // TODO: magic number
+				Path:    srcPath, // TODO: magic number
 			},
 			Destination: v1alpha1.ApplicationDestination{
 				Server:    "https://kubernetes.default.svc",
@@ -358,18 +322,30 @@ func createRootApp(namespace, repoURL, installationPath string) []byte {
 	return data
 }
 
-func waitForDeployment(ctx context.Context, f kube.Factory, ns, name string) (bool, error) {
-	cs, err := f.KubernetesClientSet()
-	if err != nil {
-		return false, err
-	}
+func waitClusterReady(ctx context.Context, f kube.Factory, timeout time.Duration, namespace string) {
+	util.Die(f.Wait(ctx, &kube.WaitOptions{
+		Interval: time.Second * 3, // TODO: magic number
+		Timeout:  timeout,
+		Resources: []kube.Resource{
+			{
+				Name:      "argocd-server",
+				Namespace: namespace,
+				WaitFunc: func(ctx context.Context, f kube.Factory, ns, name string) (bool, error) {
+					cs, err := f.KubernetesClientSet()
+					if err != nil {
+						return false, err
+					}
 
-	d, err := cs.AppsV1().Deployments(ns).Get(ctx, name, metav1.GetOptions{})
-	if err != nil {
-		return false, err
-	}
+					d, err := cs.AppsV1().Deployments(ns).Get(ctx, name, metav1.GetOptions{})
+					if err != nil {
+						return false, err
+					}
 
-	return d.Status.ReadyReplicas >= *d.Spec.Replicas, nil
+					return d.Status.ReadyReplicas >= *d.Spec.Replicas, nil
+				},
+			},
+		},
+	}))
 }
 
 func getRepoCredsSecret(token, namespace string) []byte {

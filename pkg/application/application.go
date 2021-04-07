@@ -2,6 +2,10 @@ package application
 
 import (
 	"fmt"
+	"io/ioutil"
+	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/argoproj/argocd-autopilot/pkg/log"
@@ -37,7 +41,6 @@ type application struct {
 	tag       string
 	name      string
 	namespace string
-	url       string
 	path      string
 	fs        filesys.FileSystem
 	argoApp   *v1alpha1.Application
@@ -45,6 +48,7 @@ type application struct {
 
 type bootstrapApp struct {
 	*application
+	repoUrl string
 }
 
 func AddFlags(cmd *cobra.Command, defAppName string) *CreateOptions {
@@ -100,7 +104,10 @@ func (o *CreateOptions) Parse(bootstrap bool) (Application, error) {
 		app.argoApp.Spec.Destination.Namespace = namespace
 		app.argoApp.Spec.Source.Path = o.SrcPath
 
-		return &bootstrapApp{application: app}, nil
+		return &bootstrapApp{
+			application: app,
+			repoUrl:     util.MustGetString(o.flags, "repo"),
+		}, nil
 	}
 
 	return app, nil
@@ -131,51 +138,45 @@ func (app *application) ArgoCD() *v1alpha1.Application {
 }
 
 func (app *bootstrapApp) GenerateManifests() ([]byte, error) {
-	secret := argocdsettings.Repository{
-		URL: "github.com/whatever", //TODO: get real url
-		UsernameSecret: &v1.SecretKeySelector{
-			Key: "git_username",
-		},
-		PasswordSecret: &v1.SecretKeySelector{
-			Key: "git_token",
-		},
-	}
-	secret.UsernameSecret.Name = "autopilot-secrets"
-	secret.PasswordSecret.Name = "autopilot-secrets"
+	opts := krusty.MakeDefaultOptions()
+	opts.DoLegacyResourceSort = true
+	kust := krusty.MakeKustomizer(opts)
+	fs := filesys.MakeFsOnDisk()
 
-	credentials, err := yaml.Marshal(secret)
+	kustPath, resourcePath, err := getBootstrapPaths(app.path)
+	if err != nil {
+		return nil, err
+	}
+	kustPathDir := filepath.Dir(kustPath)
+	defer os.RemoveAll(kustPathDir)
+
+	kyaml, err := createBootstrapKustomization(resourcePath, app.repoUrl, app.namespace)
 	if err != nil {
 		return nil, err
 	}
 
-	k := &kusttypes.Kustomization{
-		TypeMeta: kusttypes.TypeMeta{
-			APIVersion: kusttypes.KustomizationVersion,
-			Kind:       kusttypes.KustomizationKind,
-		},
-		Resources: []string{app.path},
-		ConfigMapGenerator: []kusttypes.ConfigMapArgs{
-			{
-				GeneratorArgs: kusttypes.GeneratorArgs{
-					Name:     "argocd-cm",
-					Behavior: kusttypes.BehaviorMerge.String(),
-					KvPairSources: kusttypes.KvPairSources{
-						LiteralSources: []string{
-							"repository.credentials=" + string(credentials),
-						},
-					},
-				},
-			},
-		},
-		Namespace: app.namespace,
-	}
-
-	res, err := runKustomization(k)
+	err = ioutil.WriteFile(kustPath, kyaml, 0400)
 	if err != nil {
 		return nil, err
 	}
 
-	return util.JoinManifests(res, createNamespace(app.namespace)), nil
+	log.G().WithFields(log.Fields{
+		"bootstrapKustPath": kustPath,
+		"bootstrapKust":     string(kyaml),
+		"resourcePath":      resourcePath,
+	}).Debug("running bootstrap kustomize")
+
+	res, err := kust.Run(fs, kustPathDir)
+	if err != nil {
+		return nil, err
+	}
+
+	bootstrapManifests, err := res.AsYaml()
+	if err != nil {
+		return nil, err
+	}
+
+	return util.JoinManifests(createNamespace(app.namespace), bootstrapManifests), nil
 }
 
 func getLabels(appName string) []string {
@@ -201,7 +202,54 @@ func createNamespace(namespace string) []byte {
 	return data
 }
 
-func runKustomization(k *kusttypes.Kustomization) ([]byte, error) {
+func createCreds(repoUrl string) ([]byte, error) {
+	creds := argocdsettings.Repository{
+		URL: repoUrl,
+		UsernameSecret: &v1.SecretKeySelector{
+			LocalObjectReference: v1.LocalObjectReference{
+				Name: "autopilot-secret",
+			},
+			Key: "git_username",
+		},
+		PasswordSecret: &v1.SecretKeySelector{
+			LocalObjectReference: v1.LocalObjectReference{
+				Name: "autopilot-secret",
+			},
+			Key: "git_token",
+		},
+	}
+
+	return yaml.Marshal(creds)
+}
+
+func createBootstrapKustomization(resourcePath, repoURL, namespace string) ([]byte, error) {
+	credsYAML, err := createCreds(repoURL)
+	if err != nil {
+		return nil, err
+	}
+
+	k := &kusttypes.Kustomization{
+		Resources: []string{resourcePath},
+		TypeMeta: kusttypes.TypeMeta{
+			APIVersion: kusttypes.KustomizationVersion,
+			Kind:       kusttypes.KustomizationKind,
+		},
+		ConfigMapGenerator: []kusttypes.ConfigMapArgs{
+			{
+				GeneratorArgs: kusttypes.GeneratorArgs{
+					Name:     "argocd-cm",
+					Behavior: kusttypes.BehaviorMerge.String(),
+					KvPairSources: kusttypes.KvPairSources{
+						LiteralSources: []string{
+							"repository.credentials=" + string(credsYAML),
+						},
+					},
+				},
+			},
+		},
+		Namespace: namespace,
+	}
+
 	k.FixKustomizationPostUnmarshalling()
 	errs := k.EnforceFields()
 	if len(errs) > 0 {
@@ -209,27 +257,39 @@ func runKustomization(k *kusttypes.Kustomization) ([]byte, error) {
 	}
 	k.FixKustomizationPreMarshalling()
 
-	kyaml, err := yaml.Marshal(k)
+	return yaml.Marshal(k)
+}
+
+func getBootstrapPaths(path string) (string, string, error) {
+	var err error
+	td, err := ioutil.TempDir("", "auto-pilot")
 	if err != nil {
-		return nil, err
+		return "", "", err
 	}
 
-	kust := krusty.MakeKustomizer(&krusty.Options{})
-	fs := filesys.MakeFsInMemory()
-	f, err := fs.Create("kustomization.yaml")
-	if err != nil {
-		return nil, err
+	kustPath := filepath.Join(td, "kustomization.yaml")
+
+	// for example: github.com/codefresh-io/argocd-autopilot/manifests
+	if _, err = os.Stat(path); err != nil && os.IsNotExist(err) {
+		return kustPath, path, nil
 	}
 
-	_, err = f.Write(kyaml)
-	if err != nil {
-		return nil, err
+	// for example: https://github.com/codefresh-io/argocd-autopilot/manifests
+	_, err = url.Parse(path)
+	if err == nil {
+		return kustPath, path, nil
 	}
 
-	res, err := kust.Run(fs, "kustomization.yaml")
+	// local file (in the filesystem)
+	absPath, err := filepath.Abs(path)
 	if err != nil {
-		return nil, err
+		return "", "", err
 	}
 
-	return res.AsYaml()
+	resourcePath, err := filepath.Rel(kustPath, absPath)
+	if err != nil {
+		return "", "", err
+	}
+
+	return kustPath, resourcePath, nil
 }
