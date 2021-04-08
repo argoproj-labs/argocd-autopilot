@@ -233,9 +233,10 @@ func NewRepoBootstrapCommand() *cobra.Command {
 			log.G().Infof("applying bootstrap manifests to cluster...")
 			util.Die(f.Apply(ctx, namespace, util.JoinManifests(bootstrapYAML, repoCredsYAML)))
 
-			writeFile(fs, fs.Join(bootstrapPath, store.Common.ArgoCDName, store.Common.ManifestName+".yaml"), bootstrapYAML)
-			writeFile(fs, fs.Join(bootstrapPath, store.Common.ArgoCDName+".yaml"), argoCDYAML)
-			writeFile(fs, fs.Join(bootstrapPath, store.Common.RootName+".yaml"), rootAppYAML)
+			bootstrapKust, err := bootstarpApp.Kustomization()
+			util.Die(err)
+
+			writeFile(fs, fs.Join(bootstrapPath, store.Common.KustomizationName), bootstrapKust)
 			writeFile(fs, fs.Join(installationPath, store.Common.EnvsDir, store.Common.DummyName), []byte{})
 
 			// wait for argocd to be ready before applying argocd-apps

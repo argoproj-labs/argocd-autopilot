@@ -39,7 +39,7 @@ var Common = struct {
 	DummyName         string
 	EnvsDir           string
 	KustomizationsDir string
-	ManifestName      string
+	KustomizationName string
 	ManagedBy         string
 	RootName          string
 	SecretName        string
@@ -51,7 +51,7 @@ var Common = struct {
 	"DUMMY",
 	"envs",
 	"kustomizations",
-	"manifest",
+	"kustomization.yaml",
 	"argo-autopilot",
 	"root",
 	"autopilot-secret",

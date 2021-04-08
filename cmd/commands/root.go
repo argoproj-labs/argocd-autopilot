@@ -23,6 +23,7 @@ func NewRoot() *cobra.Command {
 
 	cmd.AddCommand(NewVersionCommand())
 	cmd.AddCommand(NewRepoCommand())
+	cmd.AddCommand(NewEnvCommand())
 
 	cobra.OnInitialize(func() { postInitCommands(cmd.Commands()) })
 

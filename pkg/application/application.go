@@ -28,6 +28,7 @@ import (
 type Application interface {
 	GenerateManifests() ([]byte, error)
 	ArgoCD() *v1alpha1.Application
+	Kustomization() ([]byte, error)
 }
 
 type CreateOptions struct {
@@ -135,20 +136,19 @@ func (app *application) ArgoCD() *v1alpha1.Application {
 	return app.argoApp
 }
 
-func (app *bootstrapApp) GenerateManifests() ([]byte, error) {
-	opts := krusty.MakeDefaultOptions()
-	opts.DoLegacyResourceSort = true
-	kust := krusty.MakeKustomizer(opts)
-	fs := filesys.MakeFsOnDisk()
+func (app *application) Kustomization() ([]byte, error) {
+	return nil, nil
+}
 
-	kustPath, resourcePath, err := getBootstrapPaths(app.path)
+func (app *bootstrapApp) GenerateManifests() ([]byte, error) {
+	td, err := ioutil.TempDir("", "auto-pilot")
 	if err != nil {
 		return nil, err
 	}
-	kustPathDir := filepath.Dir(kustPath)
-	defer os.RemoveAll(kustPathDir)
 
-	kyaml, err := createBootstrapKustomization(resourcePath, app.repoUrl, app.namespace)
+	defer os.RemoveAll(td)
+	kustPath := filepath.Join(td, "kustomization.yaml")
+	kyaml, err := app.Kustomization()
 	if err != nil {
 		return nil, err
 	}
@@ -160,10 +160,14 @@ func (app *bootstrapApp) GenerateManifests() ([]byte, error) {
 
 	log.G().WithFields(log.Fields{
 		"bootstrapKustPath": kustPath,
-		"resourcePath":      resourcePath,
+		"resourcePath":      app.path,
 	}).Debugf("running bootstrap kustomization: %s\n", string(kyaml))
 
-	res, err := kust.Run(fs, kustPathDir)
+	opts := krusty.MakeDefaultOptions()
+	opts.DoLegacyResourceSort = true
+	kust := krusty.MakeKustomizer(opts)
+	fs := filesys.MakeFsOnDisk()
+	res, err := kust.Run(fs, filepath.Dir(kustPath))
 	if err != nil {
 		return nil, err
 	}
@@ -174,6 +178,44 @@ func (app *bootstrapApp) GenerateManifests() ([]byte, error) {
 	}
 
 	return util.JoinManifests(createNamespace(app.namespace), bootstrapManifests), nil
+}
+
+func (app *bootstrapApp) Kustomization() ([]byte, error) {
+	credsYAML, err := createCreds(app.repoUrl)
+	if err != nil {
+		return nil, err
+	}
+
+	k := &kusttypes.Kustomization{
+		Resources: []string{app.path},
+		TypeMeta: kusttypes.TypeMeta{
+			APIVersion: kusttypes.KustomizationVersion,
+			Kind:       kusttypes.KustomizationKind,
+		},
+		ConfigMapGenerator: []kusttypes.ConfigMapArgs{
+			{
+				GeneratorArgs: kusttypes.GeneratorArgs{
+					Name:     "argocd-cm",
+					Behavior: kusttypes.BehaviorMerge.String(),
+					KvPairSources: kusttypes.KvPairSources{
+						LiteralSources: []string{
+							"repository.credentials=" + string(credsYAML),
+						},
+					},
+				},
+			},
+		},
+		Namespace: app.namespace,
+	}
+
+	k.FixKustomizationPostUnmarshalling()
+	errs := k.EnforceFields()
+	if len(errs) > 0 {
+		return nil, fmt.Errorf("kustomization errors: %s", strings.Join(errs, "\n"))
+	}
+	k.FixKustomizationPreMarshalling()
+
+	return yaml.Marshal(k)
 }
 
 func getLabels(appName string) []string {
@@ -219,72 +261,6 @@ func createCreds(repoUrl string) ([]byte, error) {
 	}
 
 	return yaml.Marshal(creds)
-}
-
-func createBootstrapKustomization(resourcePath, repoURL, namespace string) ([]byte, error) {
-	credsYAML, err := createCreds(repoURL)
-	if err != nil {
-		return nil, err
-	}
-
-	k := &kusttypes.Kustomization{
-		Resources: []string{resourcePath},
-		TypeMeta: kusttypes.TypeMeta{
-			APIVersion: kusttypes.KustomizationVersion,
-			Kind:       kusttypes.KustomizationKind,
-		},
-		ConfigMapGenerator: []kusttypes.ConfigMapArgs{
-			{
-				GeneratorArgs: kusttypes.GeneratorArgs{
-					Name:     "argocd-cm",
-					Behavior: kusttypes.BehaviorMerge.String(),
-					KvPairSources: kusttypes.KvPairSources{
-						LiteralSources: []string{
-							"repository.credentials=" + string(credsYAML),
-						},
-					},
-				},
-			},
-		},
-		Namespace: namespace,
-	}
-
-	k.FixKustomizationPostUnmarshalling()
-	errs := k.EnforceFields()
-	if len(errs) > 0 {
-		return nil, fmt.Errorf("kustomization errors: %s", strings.Join(errs, "\n"))
-	}
-	k.FixKustomizationPreMarshalling()
-
-	return yaml.Marshal(k)
-}
-
-func getBootstrapPaths(path string) (string, string, error) {
-	var err error
-	td, err := ioutil.TempDir("", "auto-pilot")
-	if err != nil {
-		return "", "", err
-	}
-
-	kustPath := filepath.Join(td, "kustomization.yaml")
-
-	// for example: github.com/codefresh-io/argocd-autopilot/manifests
-	if _, err = os.Stat(path); err != nil && os.IsNotExist(err) {
-		return kustPath, path, nil
-	}
-
-	// local file (in the filesystem)
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		return "", "", err
-	}
-
-	resourcePath, err := filepath.Rel(kustPath, absPath)
-	if err != nil {
-		return "", "", err
-	}
-
-	return kustPath, resourcePath, nil
 }
 
 func NewRootApp(namespace, repoURL, srcPath, revision string) Application {

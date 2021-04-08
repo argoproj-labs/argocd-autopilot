@@ -3,6 +3,8 @@ module github.com/argoproj/argocd-autopilot
 go 1.15
 
 require (
+	github.com/argoproj-labs/applicationset v0.1.0 // indirect
+	github.com/argoproj/argo-cd v1.8.1 // indirect
 	github.com/argoproj/argo-cd/v2 v2.0.0-rc3
 	github.com/briandowns/spinner v1.12.0 // indirect
 	github.com/ghodss/yaml v1.0.0
