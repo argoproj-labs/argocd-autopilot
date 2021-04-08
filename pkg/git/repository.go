@@ -123,7 +123,10 @@ func (r *repo) Persist(ctx context.Context, opts *PushOptions) error {
 		return err
 	}
 
-	return r.push(ctx)
+	return r.PushContext(ctx, &gg.PushOptions{
+		Auth:     getAuth(r.auth),
+		Progress: os.Stdout,
+	})
 }
 
 func initRepo(ctx context.Context, opts *CloneOptions) (Repository, error) {
@@ -155,29 +158,18 @@ func (r *repo) addRemote(ctx context.Context, name, url string) error {
 }
 
 func (r *repo) checkout(ctx context.Context, branchName string) error {
-	log.G(ctx).WithField("branch", branchName).Debug("creating branch")
-	b := plumbing.NewBranchReferenceName(branchName)
-	err := r.CreateBranch(&config.Branch{
-		Name:   branchName,
-		Remote: "origin",
-		Merge:  b,
-	})
-	if err != nil {
-		return err
-	}
-
 	wt, err := r.Worktree()
 	if err != nil {
 		return err
 	}
 
-	hs, err := wt.Commit("initial commit", &gg.CommitOptions{})
+	_, err = wt.Commit("initial commit", &gg.CommitOptions{})
 	if err != nil {
 		return err
 	}
-	hs.String()
 
 	log.G(ctx).WithField("branch", branchName).Debug("checking out branch")
+	b := plumbing.NewBranchReferenceName(branchName)
 	return wt.Checkout(&gg.CheckoutOptions{
 		Branch: b,
 		Create: true,
@@ -198,13 +190,6 @@ func (r *repo) commit(ctx context.Context, msg string) (string, error) {
 	}
 
 	return h.String(), err
-}
-
-func (r *repo) push(ctx context.Context) error {
-	return r.PushContext(ctx, &gg.PushOptions{
-		Auth:     getAuth(r.auth),
-		Progress: os.Stdout,
-	})
 }
 
 func getAuth(auth *Auth) transport.AuthMethod {

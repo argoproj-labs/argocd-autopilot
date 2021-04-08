@@ -172,8 +172,8 @@ func NewRepoBootstrapCommand() *cobra.Command {
 			fs := memfs.New()
 			ctx := cmd.Context()
 
-			bootstrapPath := fs.Join(installationPath, "bootstrap") // TODO: magic number
-			appOptions.SrcPath = fs.Join(bootstrapPath, "argo-cd")  // TODO: magic number
+			bootstrapPath := fs.Join(installationPath, store.Common.BootsrtrapDir)
+			appOptions.SrcPath = fs.Join(bootstrapPath, store.Common.ArgoCDName)
 
 			if namespace == "" {
 				namespace = defaultNamespace
@@ -197,7 +197,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 			}).Debug("starting with options: ")
 
 			bootstarpApp := appOptions.ParseOrDie(true)
-			rootAppYAML := createRootApp(namespace, repoURL, fs.Join(installationPath, "envs"), revision) // TODO: magic number
+			rootAppYAML := createRootApp(namespace, repoURL, fs.Join(installationPath, store.Common.EnvsDir), revision)
 			repoCredsYAML := getRepoCredsSecret(token, namespace)
 			bootstrapYAML, err := bootstarpApp.GenerateManifests()
 			util.Die(err)
@@ -233,10 +233,10 @@ func NewRepoBootstrapCommand() *cobra.Command {
 			log.G().Infof("applying bootstrap manifests to cluster...")
 			util.Die(f.Apply(ctx, namespace, util.JoinManifests(bootstrapYAML, repoCredsYAML)))
 
-			writeFile(fs, fs.Join(bootstrapPath, "argo-cd/manifests.yaml"), bootstrapYAML) // TODO: magic number
-			writeFile(fs, fs.Join(bootstrapPath, "argo-cd.yaml"), argoCDYAML)              // TODO: magic number
-			writeFile(fs, fs.Join(bootstrapPath, "root.yaml"), rootAppYAML)                // TODO: magic number
-			writeFile(fs, fs.Join(installationPath, "envs", "DUMMY"), []byte{})            // TODO: magic number
+			writeFile(fs, fs.Join(bootstrapPath, store.Common.ArgoCDName, store.Common.ManifestName+".yaml"), bootstrapYAML)
+			writeFile(fs, fs.Join(bootstrapPath, store.Common.ArgoCDName+".yaml"), argoCDYAML)
+			writeFile(fs, fs.Join(bootstrapPath, store.Common.RootName+".yaml"), rootAppYAML)
+			writeFile(fs, fs.Join(installationPath, store.Common.EnvsDir, store.Common.DummyName), []byte{})
 
 			// wait for argocd to be ready before applying argocd-apps
 			stop := util.WithSpinner(ctx, "waiting for argo-cd to be ready")
@@ -323,7 +323,7 @@ func createRootApp(namespace, repoURL, srcPath, revision string) []byte {
 
 func waitClusterReady(ctx context.Context, f kube.Factory, timeout time.Duration, namespace string) {
 	util.Die(f.Wait(ctx, &kube.WaitOptions{
-		Interval: time.Second * 3, // TODO: magic number
+		Interval: store.Common.WaitInterval,
 		Timeout:  timeout,
 		Resources: []kube.Resource{
 			{
@@ -354,11 +354,11 @@ func getRepoCredsSecret(token, namespace string) []byte {
 			Kind:       "Secret",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "autopilot-secret", // TODO: magic number
+			Name:      store.Common.SecretName,
 			Namespace: namespace,
 		},
 		Data: map[string][]byte{
-			"git_username": []byte("username"), // TODO: magic number
+			"git_username": []byte(store.Common.SecretName),
 			"git_token":    []byte(token),
 		},
 	})

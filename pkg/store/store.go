@@ -3,6 +3,7 @@ package store
 import (
 	"fmt"
 	"runtime"
+	"time"
 )
 
 var s Store
@@ -32,8 +33,35 @@ type Store struct {
 	InstallationManifestsNamespacedURL string
 }
 
+var Common = struct {
+	ArgoCDName        string
+	BootsrtrapDir     string
+	DummyName         string
+	EnvsDir           string
+	KustomizationsDir string
+	ManifestName      string
+	ManagedBy         string
+	RootName          string
+	SecretName        string
+	Username          string
+	WaitInterval      time.Duration
+}{
+	"argo-cd",
+	"bootstrap",
+	"DUMMY",
+	"envs",
+	"kustomizations",
+	"manifest",
+	"argo-autopilot",
+	"root",
+	"autopilot-secret",
+	"username",
+	time.Second * 3,
+}
+
 // Get returns the global store
 func Get() *Store {
+
 	return &s
 }
 

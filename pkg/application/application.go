@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/argoproj/argocd-autopilot/pkg/log"
+	"github.com/argoproj/argocd-autopilot/pkg/store"
 	"github.com/argoproj/argocd-autopilot/pkg/util"
 	"github.com/ghodss/yaml"
 
@@ -297,8 +298,8 @@ func NewRootApp(namespace, repoURL, srcPath, revision string) Application {
 				Namespace: namespace,
 				Name:      "root",
 				Labels: map[string]string{
-					"app.kubernetes.io/managed-by": "argo-autopilot", // TODO: magic number
-					"app.kubernetes.io/name":       "root",           // TODO: magic number
+					"app.kubernetes.io/managed-by": store.Common.ManagedBy,
+					"app.kubernetes.io/name":       store.Common.RootName,
 				},
 				Finalizers: []string{
 					"resources-finalizer.argocd.argoproj.io",
