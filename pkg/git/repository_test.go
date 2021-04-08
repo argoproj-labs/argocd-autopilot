@@ -1,17 +1,55 @@
 package git
 
-// import (
-// 	"context"
-// 	"errors"
-// 	"testing"
+// type mockRepo struct {
+// 	mock.Mock
+// 	*mockRepo
+// 	*repo
+// }
 
-// 	billy "github.com/go-git/go-billy/v5"
-// 	gg "github.com/go-git/go-git/v5"
-// 	"github.com/go-git/go-git/v5/plumbing"
-// 	"github.com/go-git/go-git/v5/plumbing/transport/http"
-// 	"github.com/go-git/go-git/v5/storage"
-// 	"github.com/stretchr/testify/assert"
-// )
+// type mockWorktree struct {
+// 	mock.Mock
+// }
+
+// func (r *mockRepo) PushContext(ctx context.Context, opts *PushOptions) (*gg.Remote, error) {
+// 	ret := r.Called(ctx, opts)
+// 	return nil, ret.Error(0)
+// }
+
+// func (r *mockRepo) CreateRemote(cfg *config.RemoteConfig) error {
+// 	ret := r.Called(cfg)
+// 	return ret.Error(0)
+// }
+
+// func (wt *mockWorktree) AddGlob(pattern string) error {
+// 	ret := wt.Called(pattern)
+// 	return ret.Error(0)
+// }
+
+// func (wt *mockWorktree) Commit(msg string, opts *gg.CommitOptions) (plumbing.Hash, error) {
+// 	ret := wt.Called(msg, opts)
+// 	return plumbing.Hash{}, ret.Error(0)
+// }
+
+// func (wt *mockWorktree) Checkout(opts *gg.CheckoutOptions) error {
+// 	ret := wt.Called(opts)
+// 	return ret.Error(0)
+// }
+
+// func Test_AddRemote(t *testing.T) {
+// 	r := newMockRepo()
+// 	r.On("CreateRemote", mock.Anything).Return(nil, nil)
+
+// 	remoteName := "test"
+// 	remoteURL := "http://test"
+// 	err := r.addRemote(context.Background(), remoteName, remoteURL)
+// 	assert.NoError(t, err)
+
+// 	r.AssertNumberOfCalls(t, "CreateRemote", 1)
+// 	cfg := r.Calls[0].Arguments.Get(0).(*config.RemoteConfig)
+// 	assert.Equal(t, cfg.Name, remoteName)
+// 	assert.Equal(t, len(cfg.URLs), 1)
+// 	assert.Equal(t, cfg.URLs[0], remoteURL)
+// }
 
 // // func Test_Clone(t *testing.T) {
 // // 	tests := map[string]struct {

@@ -110,7 +110,7 @@ func (r *repo) Persist(ctx context.Context, opts *PushOptions) error {
 		addPattern = opts.AddGlobPattern
 	}
 
-	w, err := r.Worktree()
+	w, err := worktree(r.Repository)
 	if err != nil {
 		return err
 	}
@@ -136,29 +136,28 @@ func initRepo(ctx context.Context, opts *CloneOptions) (Repository, error) {
 	}
 
 	r := &repo{Repository: ggr, auth: opts.Auth}
-	if err = r.addRemote(ctx, "origin", opts.URL); err != nil {
+	if err = r.addRemote("origin", opts.URL); err != nil {
 		return nil, err
 	}
 
 	return r, r.checkout(ctx, opts.Revision)
 }
 
-func (r *repo) addRemote(ctx context.Context, name, url string) error {
+func (r *repo) addRemote(name, url string) error {
 	cfg := &config.RemoteConfig{
 		Name: name,
 		URLs: []string{url},
 	}
 
-	_, err := r.CreateRemote(cfg)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	_, err := createRemote(r, cfg)
+	return err
 }
 
 func (r *repo) checkout(ctx context.Context, branchName string) error {
-	wt, err := r.Worktree()
+	log.G(ctx).WithField("branch", branchName).Debug("creating branch")
+	b := plumbing.NewBranchReferenceName(branchName)
+
+	wt, err := worktree(r.Repository)
 	if err != nil {
 		return err
 	}
@@ -177,12 +176,12 @@ func (r *repo) checkout(ctx context.Context, branchName string) error {
 }
 
 func (r *repo) commit(ctx context.Context, msg string) (string, error) {
-	wt, err := r.Worktree()
+	wt, err := worktree(r.Repository)
 	if err != nil {
 		return "", err
 	}
 
-	h, err := wt.Commit(msg, &gg.CommitOptions{
+	h, err := wtCommit(wt, msg, &gg.CommitOptions{
 		All: true,
 	})
 	if err != nil {
@@ -190,6 +189,22 @@ func (r *repo) commit(ctx context.Context, msg string) (string, error) {
 	}
 
 	return h.String(), err
+}
+
+var worktree = func(r *gg.Repository) (*gg.Worktree, error) {
+	return r.Worktree()
+}
+
+var addGlob = func(wt *gg.Worktree, pattern string) error {
+	return wt.AddGlob(pattern)
+}
+
+var wtCommit = func(wt *gg.Worktree, msg string, opts *gg.CommitOptions) (plumbing.Hash, error) {
+	return wt.Commit(msg, opts)
+}
+
+var createRemote = func(r *repo, cfg *config.RemoteConfig) (*gg.Remote, error) {
+	return r.CreateRemote(cfg)
 }
 
 func getAuth(auth *Auth) transport.AuthMethod {
