@@ -1,166 +1,397 @@
 package git
 
-// type mockRepo struct {
-// 	mock.Mock
-// 	*mockRepo
-// 	*repo
-// }
+import (
+	"context"
+	"fmt"
+	"os"
+	"reflect"
+	"testing"
 
-// type mockWorktree struct {
-// 	mock.Mock
-// }
+	"github.com/argoproj/argocd-autopilot/pkg/git/gogit"
+	"github.com/argoproj/argocd-autopilot/pkg/git/gogit/mocks"
+	billy "github.com/go-git/go-billy/v5"
+	gg "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/transport"
+	"github.com/go-git/go-git/v5/plumbing/transport/http"
+	"github.com/go-git/go-git/v5/storage"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+)
 
-// func (r *mockRepo) PushContext(ctx context.Context, opts *PushOptions) (*gg.Remote, error) {
-// 	ret := r.Called(ctx, opts)
-// 	return nil, ret.Error(0)
-// }
+func Test_repo_addRemote(t *testing.T) {
+	type args struct {
+		name string
+		url  string
+	}
+	tests := map[string]struct {
+		args        args
+		expectedCfg *config.RemoteConfig
+		retErr      error
+		wantErr     bool
+	}{
+		"Basic": {
+			args: args{
+				name: "test",
+				url:  "http://test",
+			},
+			expectedCfg: &config.RemoteConfig{
+				Name: "test",
+				URLs: []string{"http://test"},
+			},
+			wantErr: false,
+		},
+		"Error": {
+			args: args{
+				name: "test",
+				url:  "http://test",
+			},
+			expectedCfg: &config.RemoteConfig{
+				Name: "test",
+				URLs: []string{"http://test"},
+			},
+			retErr:  fmt.Errorf("error"),
+			wantErr: true,
+		},
+	}
 
-// func (r *mockRepo) CreateRemote(cfg *config.RemoteConfig) error {
-// 	ret := r.Called(cfg)
-// 	return ret.Error(0)
-// }
+	for tname, tt := range tests {
+		t.Run(tname, func(t *testing.T) {
+			mockRepo := &mocks.Repository{}
+			mockRepo.On("CreateRemote", mock.Anything).Return(nil, tt.retErr)
 
-// func (wt *mockWorktree) AddGlob(pattern string) error {
-// 	ret := wt.Called(pattern)
-// 	return ret.Error(0)
-// }
+			r := &repo{Repository: mockRepo}
+			if err := r.addRemote(tt.args.name, tt.args.url); (err != nil) != tt.wantErr {
+				t.Errorf("repo.addRemote() error = %v, wantErr %v", err, tt.wantErr)
+			}
 
-// func (wt *mockWorktree) Commit(msg string, opts *gg.CommitOptions) (plumbing.Hash, error) {
-// 	ret := wt.Called(msg, opts)
-// 	return plumbing.Hash{}, ret.Error(0)
-// }
+			mockRepo.AssertCalled(t, "CreateRemote", mock.Anything)
 
-// func (wt *mockWorktree) Checkout(opts *gg.CheckoutOptions) error {
-// 	ret := wt.Called(opts)
-// 	return ret.Error(0)
-// }
+			actualCfg := mockRepo.Calls[0].Arguments.Get(0).(*config.RemoteConfig)
+			assert.Equal(t, tt.expectedCfg.Name, actualCfg.Name)
+		})
+	}
+}
 
-// func Test_AddRemote(t *testing.T) {
-// 	r := newMockRepo()
-// 	r.On("CreateRemote", mock.Anything).Return(nil, nil)
+func Test_getAuth(t *testing.T) {
+	tests := map[string]struct {
+		auth *Auth
+		want transport.AuthMethod
+	}{
+		"Basic": {
+			auth: &Auth{
+				Password: "123",
+			},
+			want: &http.BasicAuth{
+				Username: "git",
+				Password: "123",
+			},
+		},
+		"Username": {
+			auth: &Auth{
+				Username: "test",
+				Password: "123",
+			},
+			want: &http.BasicAuth{
+				Username: "test",
+				Password: "123",
+			},
+		},
+		"nil": {
+			auth: nil,
+			want: nil,
+		},
+	}
+	t.Parallel()
+	for tname, tt := range tests {
+		t.Run(tname, func(t *testing.T) {
+			t.Parallel()
+			if got := getAuth(tt.auth); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("getAuth() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
 
-// 	remoteName := "test"
-// 	remoteURL := "http://test"
-// 	err := r.addRemote(context.Background(), remoteName, remoteURL)
-// 	assert.NoError(t, err)
+func Test_repo_initBranch(t *testing.T) {
+	type args struct {
+		ctx        context.Context
+		branchName string
+	}
+	tests := map[string]struct {
+		args     args
+		wantErr  bool
+		retErr   error
+		assertFn func(t *testing.T, r *mocks.Repository, wt *mocks.Worktree)
+	}{
+		"Init current branch": {
+			args: args{
+				ctx:        context.Background(),
+				branchName: "",
+			},
+			assertFn: func(t *testing.T, r *mocks.Repository, wt *mocks.Worktree) {
+				r.AssertNotCalled(t, "Worktree")
+				wt.AssertCalled(t, "Commit", "initial commit", mock.Anything)
+				wt.AssertNotCalled(t, "Checkout")
+			},
+		},
+		"Init and checkout branch": {
+			args: args{
+				ctx: context.Background(),
+			},
+			assertFn: func(t *testing.T, r *mocks.Repository, wt *mocks.Worktree) {
+				wt.AssertCalled(t, "Commit", "initial commit", mock.Anything)
+				b := plumbing.NewBranchReferenceName("test")
+				wt.AssertCalled(t, "Checkout", &gg.CheckoutOptions{
+					Branch: b,
+					Create: true,
+				})
+			},
+		},
+		"Error": {
+			args: args{
+				ctx:        context.Background(),
+				branchName: "test",
+			},
+			wantErr: true,
+			retErr:  fmt.Errorf("error"),
+			assertFn: func(t *testing.T, r *mocks.Repository, wt *mocks.Worktree) {
+				wt.AssertCalled(t, "Commit", "initial commit", mock.Anything)
+				wt.AssertNotCalled(t, "Checkout")
+			},
+		},
+	}
 
-// 	r.AssertNumberOfCalls(t, "CreateRemote", 1)
-// 	cfg := r.Calls[0].Arguments.Get(0).(*config.RemoteConfig)
-// 	assert.Equal(t, cfg.Name, remoteName)
-// 	assert.Equal(t, len(cfg.URLs), 1)
-// 	assert.Equal(t, cfg.URLs[0], remoteURL)
-// }
+	orgWorktree := worktree
+	defer func() { worktree = orgWorktree }()
+	for tname, tt := range tests {
+		t.Run(tname, func(t *testing.T) {
+			t.Parallel()
+			mockRepo := &mocks.Repository{}
+			mockWt := &mocks.Worktree{}
+			mockWt.On("Commit", mock.Anything, mock.Anything).Return(nil, tt.retErr)
+			mockWt.On("Checkout", mock.Anything).Return(tt.retErr)
 
-// // func Test_Clone(t *testing.T) {
-// // 	tests := map[string]struct {
-// // 		opts             *CloneOptions
-// // 		mockError        error
-// // 		expectedURL      string
-// // 		expectedPassword string
-// // 		expectedRefName  plumbing.ReferenceName
-// // 		expectedErr      string
-// // 	}{
-// // 		"Simple": {
-// // 			opts: &CloneOptions{
-// // 				URL: "https://github.com/foo/bar",
-// // 			},
-// // 			expectedURL:     "https://github.com/foo/bar",
-// // 			expectedRefName: plumbing.HEAD,
-// // 		},
-// // 		"With branch": {
-// // 			opts: &CloneOptions{
-// // 				URL:      "https://github.com/foo/bar",
-// // 				Revision: "branch",
-// // 			},
-// // 			expectedURL:     "https://github.com/foo/bar",
-// // 			expectedRefName: plumbing.NewBranchReferenceName("branch"),
-// // 		},
-// // 		"With token": {
-// // 			opts: &CloneOptions{
-// // 				URL: "https://github.com/foo/bar",
-// // 				Auth: &Auth{
-// // 					Password: "password",
-// // 				},
-// // 			},
-// // 			expectedURL:      "https://github.com/foo/bar",
-// // 			expectedPassword: "password",
-// // 			expectedRefName:  plumbing.HEAD,
-// // 		},
-// // 		"Empty URL": {
-// // 			opts: &CloneOptions{
-// // 				URL: "",
-// // 			},
-// // 			expectedErr: "URL field is required",
-// // 		},
-// // 		"No Options": {
-// // 			expectedErr: "options cannot be nil",
-// // 		},
-// // 		"Clone error": {
-// // 			opts: &CloneOptions{
-// // 				URL: "https://github.com/foo/bar",
-// // 			},
-// // 			mockError:       errors.New("some error"),
-// // 			expectedURL:     "https://github.com/foo/bar",
-// // 			expectedRefName: plumbing.HEAD,
-// // 			expectedErr:     "some error",
-// // 		},
-// // 	}
+			worktree = func(r gogit.Repository) (gogit.Worktree, error) { return mockWt, nil }
 
-// // 	orig := clone
+			r := &repo{Repository: mockRepo}
 
-// // 	defer func() { clone = orig }()
+			if err := r.initBranch(tt.args.ctx, tt.args.branchName); (err != nil) != tt.wantErr {
+				t.Errorf("repo.checkout() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
 
-// // 	for name, test := range tests {
-// // 		clone = func(ctx context.Context, s storage.Storer, worktree billy.Filesystem, o *gg.CloneOptions) (*gg.Repository, error) {
-// // 			assert.Equal(t, test.expectedURL, o.URL)
-// // 			assert.Equal(t, test.expectedRefName, o.ReferenceName)
-// // 			assert.True(t, o.SingleBranch)
-// // 			assert.Equal(t, 1, o.Depth)
-// // 			assert.Equal(t, gg.NoTags, o.Tags)
+func Test_initRepo(t *testing.T) {
+	type args struct {
+		ctx  context.Context
+		opts *CloneOptions
+	}
+	tests := map[string]struct {
+		args     args
+		want     Repository
+		wantErr  bool
+		retErr   error
+		assertFn func(t *testing.T, r *mocks.Repository, w *mocks.Worktree)
+	}{
+		"Basic": {
+			args: args{
+				ctx: context.Background(),
+				opts: &CloneOptions{
+					URL:      "http://test",
+					Revision: "test",
+				},
+			},
+			assertFn: func(t *testing.T, r *mocks.Repository, w *mocks.Worktree) {
+				r.AssertCalled(t, "CreateRemote")
+				w.AssertCalled(t, "Commit")
+				w.AssertCalled(t, "Commit")
+			},
+		},
+		"Error": {
+			args: args{
+				ctx: context.Background(),
+				opts: &CloneOptions{
+					URL:      "http://test",
+					Revision: "test",
+				},
+			},
+			retErr:  fmt.Errorf("error"),
+			wantErr: true,
+			assertFn: func(t *testing.T, r *mocks.Repository, w *mocks.Worktree) {
+				r.AssertCalled(t, "CreateRemote", mock.Anything)
+				w.AssertNotCalled(t, "Commit")
+				w.AssertNotCalled(t, "Commit")
+			},
+		},
+	}
 
-// // 			if o.Auth != nil {
-// // 				bauth, _ := o.Auth.(*http.BasicAuth)
-// // 				assert.Equal(t, test.expectedPassword, bauth.Password)
-// // 			}
+	orgInitRepo := ggInitRepo
+	defer func() { ggInitRepo = orgInitRepo }()
+	orgWorktree := worktree
+	defer func() { worktree = orgWorktree }()
+	for tname, tt := range tests {
+		t.Run(tname, func(t *testing.T) {
+			mockRepo := &mocks.Repository{}
+			mockRepo.On("CreateRemote", mock.Anything).Return(nil, tt.retErr)
+			mockWt := &mocks.Worktree{}
+			mockWt.On("Commit", mock.Anything, mock.Anything).Return(nil, tt.retErr)
+			mockWt.On("Checkout", mock.Anything).Return(tt.retErr)
 
-// // 			return nil, test.mockError
-// // 		}
+			ggInitRepo = func(s storage.Storer, worktree billy.Filesystem) (gogit.Repository, error) { return mockRepo, nil }
+			worktree = func(r gogit.Repository) (gogit.Worktree, error) { return mockWt, nil }
 
-// // 		t.Run(name, func(t *testing.T) {
-// // 			_, err := Clone(context.Background(), nil, test.opts)
-// // 			if test.expectedErr != "" {
-// // 				assert.EqualError(t, err, test.expectedErr)
-// // 			}
-// // 		})
-// // 	}
-// // }
+			got, err := initRepo(tt.args.ctx, tt.args.opts)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("initRepo() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr {
+				assert.NotNil(t, got)
+			}
+		})
+	}
+}
 
-// // func Test_repo_Add(t *testing.T) {
-// // 	type fields struct {
-// // 		r *gg.Repository
-// // 	}
+func Test_clone(t *testing.T) {
+	type args struct {
+		ctx  context.Context
+		fs   billy.Filesystem
+		opts *CloneOptions
+	}
+	tests := map[string]struct {
+		args         args
+		retErr       error
+		wantErr      bool
+		assertFn     func(*testing.T, *repo)
+		expectedOpts *gg.CloneOptions
+	}{
+		"NilOpts": {
+			args: args{
+				ctx:  context.Background(),
+				fs:   nil,
+				opts: nil,
+			},
+			wantErr: true,
+			assertFn: func(t *testing.T, r *repo) {
+				assert.Nil(t, r)
+			},
+		},
+		"No Auth": {
+			args: args{
+				ctx: context.Background(),
+				fs:  nil,
+				opts: &CloneOptions{
+					URL: "https://test",
+				},
+			},
+			expectedOpts: &gg.CloneOptions{
+				URL:          "https://test",
+				Auth:         nil,
+				SingleBranch: true,
+				Depth:        1,
+				Progress:     os.Stderr,
+				Tags:         gg.NoTags,
+			},
+			assertFn: func(t *testing.T, r *repo) {
+				assert.NotNil(t, r)
+			},
+		},
+		"With Auth": {
+			args: args{
+				ctx: context.Background(),
+				fs:  nil,
+				opts: &CloneOptions{
+					URL: "https://test",
+					Auth: &Auth{
+						Username: "asd",
+						Password: "123",
+					},
+				},
+			},
+			expectedOpts: &gg.CloneOptions{
+				URL: "https://test",
+				Auth: &http.BasicAuth{
+					Username: "asd",
+					Password: "123",
+				},
+				SingleBranch: true,
+				Depth:        1,
+				Progress:     os.Stderr,
+				Tags:         gg.NoTags,
+			},
+			assertFn: func(t *testing.T, r *repo) {
+				assert.NotNil(t, r)
+			},
+		},
+		"Error": {
+			args: args{
+				ctx: context.Background(),
+				fs:  nil,
+				opts: &CloneOptions{
+					URL: "https://test",
+				},
+			},
+			expectedOpts: &gg.CloneOptions{
+				URL:          "https://test",
+				SingleBranch: true,
+				Depth:        1,
+				Progress:     os.Stderr,
+				Tags:         gg.NoTags,
+			},
+			retErr:  fmt.Errorf("error"),
+			wantErr: true,
+			assertFn: func(t *testing.T, r *repo) {
+				assert.Nil(t, r)
+			},
+		},
+		"With Revision": {
+			args: args{
+				ctx: context.Background(),
+				fs:  nil,
+				opts: &CloneOptions{
+					URL:      "https://test",
+					Revision: "test",
+				},
+			},
+			expectedOpts: &gg.CloneOptions{
+				URL:           "https://test",
+				SingleBranch:  true,
+				Depth:         1,
+				Progress:      os.Stderr,
+				Tags:          gg.NoTags,
+				ReferenceName: plumbing.NewBranchReferenceName("test"),
+			},
+			assertFn: func(t *testing.T, r *repo) {
+				assert.NotNil(t, r)
+			},
+		},
+	}
 
-// // 	type args struct {
-// // 		ctx     context.Context
-// // 		pattern string
-// // 	}
+	orgClone := ggClone
+	defer func() { ggClone = orgClone }()
 
-// // 	tests := []struct {
-// // 		name    string
-// // 		fields  fields
-// // 		args    args
-// // 		wantErr bool
-// // 	}{}
+	for tname, tt := range tests {
+		t.Run(tname, func(t *testing.T) {
+			mockRepo := &mocks.Repository{}
+			ggClone = func(ctx context.Context, s storage.Storer, worktree billy.Filesystem, o *gg.CloneOptions) (gogit.Repository, error) {
+				if tt.expectedOpts != nil {
+					assert.True(t, reflect.DeepEqual(o, tt.expectedOpts), "opts not equal")
+				}
+				if tt.retErr != nil {
+					return nil, tt.retErr
+				}
+				return mockRepo, nil
+			}
 
-// // 	for _, tt := range tests {
-// // 		t.Run(tt.name, func(t *testing.T) {
-// // 			r := &repo{
-// // 				r: tt.fields.r,
-// // 			}
-
-// // 			if err := r.Add(tt.args.ctx, tt.args.pattern); (err != nil) != tt.wantErr {
-// // 				t.Errorf("repo.Add() error = %v, wantErr %v", err, tt.wantErr)
-// // 			}
-// // 		})
-// // 	}
-// // }
+			got, err := clone(tt.args.ctx, tt.args.fs, tt.args.opts)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("clone() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			tt.assertFn(t, got)
+		})
+	}
+}

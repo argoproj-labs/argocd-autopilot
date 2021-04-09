@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/argoproj/argocd-autopilot/pkg/git/mocks"
+	"github.com/argoproj/argocd-autopilot/pkg/git/github/mocks"
 	gh "github.com/google/go-github/v34/github"
 	"github.com/stretchr/testify/assert"
 )
@@ -156,11 +156,18 @@ func Test_github_CreateRepository(t *testing.T) {
 			mockUsers := new(mocks.Users)
 			mockRepo := new(mocks.Repositories)
 			ctx := context.Background()
-			mockUsers.On("Get", ctx, "").Return(tt.user, nil, tt.userErr)
+
+			mockUsers.On("Get", ctx, "").Return(tt.user, &gh.Response{Response: &http.Response{
+				StatusCode: 200,
+			}}, tt.userErr)
+
 			mockRepo.On("Create", ctx, tt.org, &gh.Repository{
 				Name:    gh.String(tt.opts.Name),
 				Private: gh.Bool(tt.opts.Private),
-			}).Return(tt.repo, nil, tt.repoErr)
+			}).Return(tt.repo, &gh.Response{Response: &http.Response{
+				StatusCode: 200,
+			}}, tt.repoErr)
+
 			g := &github{
 				Repositories: mockRepo,
 				Users:        mockUsers,
