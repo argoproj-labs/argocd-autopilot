@@ -103,10 +103,8 @@ func Test_getAuth(t *testing.T) {
 			want: nil,
 		},
 	}
-	t.Parallel()
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
-			t.Parallel()
 			if got := getAuth(tt.auth); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("getAuth() = %v, want %v", got, tt.want)
 			}
@@ -167,7 +165,6 @@ func Test_repo_initBranch(t *testing.T) {
 	defer func() { worktree = orgWorktree }()
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
-			t.Parallel()
 			mockRepo := &mocks.Repository{}
 			mockWt := &mocks.Worktree{}
 			mockWt.On("Commit", mock.Anything, mock.Anything).Return(nil, tt.retErr)
