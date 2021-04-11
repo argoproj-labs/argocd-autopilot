@@ -395,3 +395,189 @@ func Test_clone(t *testing.T) {
 		})
 	}
 }
+
+func TestClone(t *testing.T) {
+	type args struct {
+		ctx  context.Context
+		opts *CloneOptions
+	}
+	tests := map[string]struct {
+		args             args
+		wantErr          bool
+		cloneErr         error
+		initErr          error
+		expectInitCalled bool
+		assertFn         func(*testing.T, Repository)
+	}{
+		"No error": {
+			args: args{
+				ctx: context.Background(),
+				opts: &CloneOptions{
+					URL: "http://test",
+				},
+			},
+			assertFn: func(t *testing.T, r Repository) {
+				assert.NotNil(t, r)
+			},
+			expectInitCalled: false,
+		},
+		"NilOpts": {
+			args: args{
+				ctx:  context.Background(),
+				opts: nil,
+			},
+			assertFn: func(t *testing.T, r Repository) {
+				assert.Nil(t, r)
+			},
+			wantErr: true,
+		},
+		"EmptyRepo": {
+			args: args{
+				ctx: context.Background(),
+				opts: &CloneOptions{
+					URL: "http://test",
+				},
+			},
+			assertFn: func(t *testing.T, r Repository) {
+				assert.NotNil(t, r)
+			},
+			cloneErr:         transport.ErrEmptyRemoteRepository,
+			wantErr:          false,
+			expectInitCalled: true,
+		},
+		"AnotherErr": {
+			args: args{
+				ctx: context.Background(),
+				opts: &CloneOptions{
+					URL: "http://test",
+				},
+			},
+			assertFn: func(t *testing.T, r Repository) {
+				assert.Nil(t, r)
+			},
+			cloneErr:         fmt.Errorf("error"),
+			wantErr:          true,
+			expectInitCalled: false,
+		},
+	}
+
+	orgClone := clone
+	orgInit := initRepo
+	defer func() { clone = orgClone }()
+	defer func() { initRepo = orgInit }()
+
+	for tname, tt := range tests {
+		t.Run(tname, func(t *testing.T) {
+			r := &repo{}
+			clone = func(ctx context.Context, fs billy.Filesystem, opts *CloneOptions) (*repo, error) {
+				if tt.cloneErr != nil {
+					return nil, tt.cloneErr
+				}
+				return r, tt.cloneErr
+			}
+			initRepo = func(ctx context.Context, opts *CloneOptions) (Repository, error) {
+				if !tt.expectInitCalled {
+					t.Errorf("expectInitCalled = false, but it was called")
+				}
+				if tt.initErr != nil {
+					return nil, tt.initErr
+				}
+				return r, tt.initErr
+			}
+
+			got, err := Clone(tt.args.ctx, tt.args.opts)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Clone() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			tt.assertFn(t, got)
+		})
+	}
+}
+
+func Test_repo_Persist(t *testing.T) {
+	type args struct {
+		ctx  context.Context
+		opts *PushOptions
+	}
+	tests := map[string]struct {
+		args     args
+		wantErr  bool
+		retErr   error
+		assertFn func(t *testing.T, r *mocks.Repository, w *mocks.Worktree)
+	}{
+		"NilOpts": {
+			args: args{
+				ctx:  context.Background(),
+				opts: nil,
+			},
+			wantErr: true,
+			assertFn: func(t *testing.T, r *mocks.Repository, w *mocks.Worktree) {
+				r.AssertNotCalled(t, "PushContext")
+			},
+		},
+		"Default add pattern": {
+			args: args{
+				ctx: context.Background(),
+				opts: &PushOptions{
+					AddGlobPattern: "",
+					CommitMsg:      "hello",
+				},
+			},
+			wantErr: false,
+			assertFn: func(t *testing.T, r *mocks.Repository, w *mocks.Worktree) {
+				r.AssertCalled(t, "PushContext", mock.Anything, mock.Anything)
+				assert.True(t, reflect.DeepEqual(r.Calls[0].Arguments[1], &gg.PushOptions{
+					Auth:     nil,
+					Progress: os.Stderr,
+				}))
+				w.AssertCalled(t, "AddGlob", ".")
+				w.AssertCalled(t, "Commit", "hello", mock.Anything)
+			},
+		},
+		"With add pattern": {
+			args: args{
+				ctx: context.Background(),
+				opts: &PushOptions{
+					AddGlobPattern: "test",
+					CommitMsg:      "hello",
+				},
+			},
+			wantErr: false,
+			assertFn: func(t *testing.T, r *mocks.Repository, w *mocks.Worktree) {
+				r.AssertCalled(t, "PushContext", mock.Anything, mock.Anything)
+				assert.True(t, reflect.DeepEqual(r.Calls[0].Arguments[1], &gg.PushOptions{
+					Auth:     nil,
+					Progress: os.Stderr,
+				}))
+				w.AssertCalled(t, "AddGlob", "test")
+				w.AssertCalled(t, "Commit", "hello", mock.Anything)
+			},
+		},
+	}
+
+	worktreeOrg := worktree
+	defer func() { worktree = worktreeOrg }()
+
+	for tname, tt := range tests {
+		t.Run(tname, func(t *testing.T) {
+			mockRepo := &mocks.Repository{}
+			mockRepo.On("PushContext", mock.Anything, mock.Anything).Return(tt.retErr)
+
+			mockWt := &mocks.Worktree{}
+			mockWt.On("AddGlob", mock.Anything).Return(tt.retErr)
+			mockWt.On("Commit", mock.Anything, mock.Anything).Return(nil, tt.retErr)
+
+			r := &repo{Repository: mockRepo}
+			worktree = func(r gogit.Repository) (gogit.Worktree, error) {
+				return mockWt, tt.retErr
+			}
+
+			if err := r.Persist(tt.args.ctx, tt.args.opts); (err != nil) != tt.wantErr {
+				t.Errorf("repo.Persist() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			tt.assertFn(t, mockRepo, mockWt)
+		})
+	}
+}

@@ -69,6 +69,9 @@ var (
 )
 
 func Clone(ctx context.Context, opts *CloneOptions) (Repository, error) {
+	if opts == nil {
+		return nil, ErrNilOpts
+	}
 	r, err := clone(ctx, opts.FS, &CloneOptions{
 		URL:      opts.URL,
 		Revision: opts.Revision,
@@ -110,11 +113,11 @@ func (r *repo) Persist(ctx context.Context, opts *PushOptions) error {
 
 	return r.PushContext(ctx, &gg.PushOptions{
 		Auth:     getAuth(r.auth),
-		Progress: os.Stdout,
+		Progress: os.Stderr,
 	})
 }
 
-func clone(ctx context.Context, fs billy.Filesystem, opts *CloneOptions) (*repo, error) {
+var clone = func(ctx context.Context, fs billy.Filesystem, opts *CloneOptions) (*repo, error) {
 	if opts == nil {
 		return nil, ErrNilOpts
 	}
@@ -144,7 +147,7 @@ func clone(ctx context.Context, fs billy.Filesystem, opts *CloneOptions) (*repo,
 	return &repo{Repository: r, auth: opts.Auth}, nil
 }
 
-func initRepo(ctx context.Context, opts *CloneOptions) (Repository, error) {
+var initRepo = func(ctx context.Context, opts *CloneOptions) (Repository, error) {
 	ggr, err := ggInitRepo(memory.NewStorage(), opts.FS)
 	if err != nil {
 		return nil, err
