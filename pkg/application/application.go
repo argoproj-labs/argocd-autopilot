@@ -25,10 +25,39 @@ import (
 	kusttypes "sigs.k8s.io/kustomize/api/types"
 )
 
+const (
+	defaultDestServer = "https://kubernetes.default.svc"
+)
+
 type Application interface {
+	// GenerateManifests runs kustomize build on the app and returns the result.
 	GenerateManifests() ([]byte, error)
+
+	// ArgoCD parses the app flags and returns the constructed argo-cd application.
 	ArgoCD() *v1alpha1.Application
+
+	// Kustomization returns the marshaled kustomization file for the bootstrap
+	// application. only available when creating bootstrap application.
 	Kustomization() ([]byte, error)
+
+	// Base returns the base kustomization file for this app.
+	Base() *kusttypes.Kustomization
+
+	// Overlay returns the overlay kustomization object that is looking on this
+	// app.Base() file.
+	Overlay() *kusttypes.Kustomization
+
+	// Config returns this app's config.json file that should be next to the overlay
+	// kustomization.yaml file. This is used by the environment's application set
+	// to generate the final argo-cd application.
+	ConfigJson() *Config
+}
+
+type Config struct {
+	AppName       string `json:"appName,omitempty"`
+	UserGivenName string `json:"userGivenName,omitempty"`
+	DestNamespace string `json:"destNamespace,omitempty"`
+	DestServer    string `json:"destServer,omitempty"`
 }
 
 type CreateOptions struct {
@@ -67,10 +96,9 @@ func AddFlags(cmd *cobra.Command, defAppName string) *CreateOptions {
 	return co
 }
 
-func (app *application) GenerateManifests() ([]byte, error) {
-	return app.kustomizeBuild() // TODO: supporting only kustomize for now
-}
-
+/*********************************/
+/*       CreateOptions impl      */
+/*********************************/
 func (o *CreateOptions) Parse(bootstrap bool) (Application, error) {
 	if o.AppSpecifier == "" {
 		return nil, fmt.Errorf("empty app specifier not allowed")
@@ -97,9 +125,9 @@ func (o *CreateOptions) Parse(bootstrap bool) (Application, error) {
 	}
 
 	if bootstrap {
-		app.argoApp.ObjectMeta.Namespace = app.name
-		app.argoApp.Spec.Destination.Server = "https://kubernetes.default.svc"
-		app.argoApp.Spec.Destination.Namespace = app.name
+		app.argoApp.ObjectMeta.Namespace = app.namespace
+		app.argoApp.Spec.Destination.Server = defaultDestServer
+		app.argoApp.Spec.Destination.Namespace = app.namespace
 		app.argoApp.Spec.Source.Path = o.SrcPath
 
 		return &bootstrapApp{
@@ -117,6 +145,51 @@ func (o *CreateOptions) ParseOrDie(bootstrap bool) Application {
 	return app
 }
 
+/*********************************/
+/*        Application impl       */
+/*********************************/
+
+func (app *application) GenerateManifests() ([]byte, error) {
+	return app.kustomizeBuild() // TODO: supporting only kustomize for now
+}
+
+func (app *application) ArgoCD() *v1alpha1.Application {
+	return app.argoApp
+}
+
+func (app *application) Kustomization() ([]byte, error) {
+	return nil, nil
+}
+
+func (app *application) Overlay() *kusttypes.Kustomization {
+	return &kusttypes.Kustomization{
+		Resources: []string{"../base"},
+		TypeMeta: kusttypes.TypeMeta{
+			APIVersion: kusttypes.KustomizationVersion,
+			Kind:       kusttypes.KustomizationKind,
+		},
+	}
+}
+
+func (app *application) Base() *kusttypes.Kustomization {
+	return &kusttypes.Kustomization{
+		Resources: []string{app.path},
+		TypeMeta: kusttypes.TypeMeta{
+			APIVersion: kusttypes.KustomizationVersion,
+			Kind:       kusttypes.KustomizationKind,
+		},
+	}
+}
+
+func (app *application) ConfigJson() *Config {
+	return &Config{
+		AppName:       app.name,
+		UserGivenName: app.ArgoCD().Name,
+		DestNamespace: app.ArgoCD().Spec.Destination.Namespace,
+		DestServer:    app.ArgoCD().Spec.Destination.Server,
+	}
+}
+
 func (app *application) kustomizeBuild() ([]byte, error) {
 	kopts := krusty.MakeDefaultOptions()
 	kopts.DoLegacyResourceSort = true
@@ -132,13 +205,9 @@ func (app *application) kustomizeBuild() ([]byte, error) {
 	return res.AsYaml()
 }
 
-func (app *application) ArgoCD() *v1alpha1.Application {
-	return app.argoApp
-}
-
-func (app *application) Kustomization() ([]byte, error) {
-	return nil, nil
-}
+/*********************************/
+/*   Bootstrap application impl  */
+/*********************************/
 
 func (app *bootstrapApp) GenerateManifests() ([]byte, error) {
 	td, err := ioutil.TempDir("", "auto-pilot")
@@ -216,6 +285,18 @@ func (app *bootstrapApp) Kustomization() ([]byte, error) {
 	k.FixKustomizationPreMarshalling()
 
 	return yaml.Marshal(k)
+}
+
+func (app *bootstrapApp) Overlay() *kusttypes.Kustomization {
+	return nil
+}
+
+func (app *bootstrapApp) Base() *kusttypes.Kustomization {
+	return nil
+}
+
+func (app *bootstrapApp) ConfigJson() *Config {
+	return nil
 }
 
 func getLabels(appName string) []string {

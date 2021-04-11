@@ -122,18 +122,10 @@ func NewRepoBootstrapCommand() *cobra.Command {
 		token            string
 		namespaced       bool
 		dryRun           bool
-		argocdContext    string
-		appName          string
-		appUrl           string
 		hidePassword     bool
 		f                kube.Factory
 		appOptions       *application.CreateOptions
 	)
-
-	// TODO: remove this
-	_ = argocdContext
-	_ = appName
-	_ = appUrl
 
 	cmd := &cobra.Command{
 		Use:   "bootstrap",
@@ -148,13 +140,10 @@ func NewRepoBootstrapCommand() *cobra.Command {
 	
     --token <token>
 		
-# Create a new gitops repository on github
+# Installs argo-cd on the current kubernetes context in the argocd namespace
+# and persists the bootstrap manifests in the gitops repository
 	
 	<BIN> repo bootstrap --repo https://github.com/example/repo
-
-# Create a public gitops repository on github
-	
-	<BIN> repo create --owner foo --repo bar --token abc123 --private=false
 `),
 		Run: func(cmd *cobra.Command, args []string) {
 			var (
@@ -236,7 +225,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 			bootstrapKust, err := bootstarpApp.Kustomization()
 			util.Die(err)
 
-			writeFile(fs, fs.Join(bootstrapPath, store.Common.KustomizationName), bootstrapKust)
+			writeFile(fs, fs.Join(bootstrapPath, "kustomization.yaml"), bootstrapKust)
 			writeFile(fs, fs.Join(installationPath, store.Common.EnvsDir, store.Common.DummyName), []byte{})
 
 			// wait for argocd to be ready before applying argocd-apps

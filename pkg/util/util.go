@@ -173,3 +173,17 @@ func JoinManifests(manifests ...[]byte) []byte {
 	}
 	return []byte(strings.Join(res, yamlSeperator))
 }
+
+func EnvValidateOrDie(fs billy.Filesystem, envName string) {
+	if ok, err := Exists(fs, fs.Join(store.Common.EnvsDir, fmt.Sprintf("%s.yaml", envName))); err != nil {
+		Die(err)
+	} else if !ok {
+		Die(fmt.Errorf("environment does not exist: %s", envName))
+	}
+}
+
+func MustChroot(fs billy.Filesystem, path string) billy.Filesystem {
+	newFS, err := fs.Chroot(path)
+	Die(err)
+	return newFS
+}

@@ -17,8 +17,9 @@ import (
 
 func NewEnvCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "env",
-		Short: "Manage environments",
+		Use:     "environment",
+		Aliases: []string{"env"},
+		Short:   "Manage environments",
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.HelpFunc()(cmd, args)
 			os.Exit(1)

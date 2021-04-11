@@ -34,29 +34,27 @@ type Store struct {
 }
 
 var Common = struct {
-	ArgoCDName        string
-	BootsrtrapDir     string
-	DummyName         string
-	EnvsDir           string
-	KustomizationsDir string
-	KustomizationName string
-	ManagedBy         string
-	RootName          string
-	SecretName        string
-	Username          string
-	WaitInterval      time.Duration
+	ArgoCDName    string
+	BootsrtrapDir string
+	DummyName     string
+	EnvsDir       string
+	KustomizeDir  string
+	ManagedBy     string
+	RootName      string
+	SecretName    string
+	Username      string
+	WaitInterval  time.Duration
 }{
-	"argo-cd",
-	"bootstrap",
-	"DUMMY",
-	"envs",
-	"kustomizations",
-	"kustomization.yaml",
-	"argo-autopilot",
-	"root",
-	"autopilot-secret",
-	"username",
-	time.Second * 3,
+	ArgoCDName:    "argo-cd",
+	BootsrtrapDir: "bootstrap",
+	DummyName:     "DUMMY",
+	EnvsDir:       "envs",
+	KustomizeDir:  "kustomize",
+	ManagedBy:     "argo-autopilot",
+	RootName:      "root",
+	SecretName:    "autopilot-secret",
+	Username:      "username",
+	WaitInterval:  time.Second * 3,
 }
 
 // Get returns the global store
