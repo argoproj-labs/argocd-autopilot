@@ -5,7 +5,7 @@ go 1.15
 require (
 	github.com/argoproj-labs/applicationset v0.1.0
 	github.com/argoproj/argo-cd v1.8.1
-	github.com/argoproj/argo-cd/v2 v2.0.0-rc3
+	github.com/argoproj/argo-cd/v2 v2.0.0
 	github.com/briandowns/spinner v1.12.0
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-git/go-billy/v5 v5.1.0

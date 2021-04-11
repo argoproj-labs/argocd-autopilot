@@ -6,6 +6,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+
+	cmdutil "github.com/argoproj/argo-cd/v2/cmd/util"
 )
 
 const (
@@ -49,20 +51,10 @@ func GetLogrusEntry(l Logger) (*logrus.Entry, error) {
 
 func (l *logrusAdapter) AddPFlags(cmd *cobra.Command) {
 	flags := pflag.NewFlagSet("logrus", pflag.ContinueOnError)
-	flags.StringVar(&l.c.Level, "log-level", l.c.Level, `set the log level, e.g. "debug", "info", "warn", "error"`)
-	format := flags.String("log-format", defaultFormatter, `set the log format: "text", "json" (defaults to text)`)
 
+	flags.StringVar(&cmdutil.LogFormat, "log-format", "text", "Set the logging format. One of: text|json")
+	flags.StringVar(&cmdutil.LogLevel, "log-level", "info", "Set the logging level. One of: debug|info|warn|error")
 	cmd.PersistentFlags().AddFlagSet(flags)
-	cmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-		switch *format {
-		case string(FormatterJSON), string(FormatterText):
-			l.c.Format = LogrusFormatter(*format)
-		default:
-			return fmt.Errorf("invalid log format: %s", *format)
-		}
-
-		return l.configure(flags)
-	}
 }
 
 func (l *logrusAdapter) Printf(format string, args ...interface{}) {
