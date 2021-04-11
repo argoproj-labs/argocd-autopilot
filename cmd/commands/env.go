@@ -1,12 +1,15 @@
 package commands
 
 import (
+	"fmt"
 	"os"
 
+	"github.com/argoproj/argocd-autopilot/pkg/git"
 	"github.com/argoproj/argocd-autopilot/pkg/log"
 	"github.com/argoproj/argocd-autopilot/pkg/store"
 	"github.com/argoproj/argocd-autopilot/pkg/util"
 	"github.com/ghodss/yaml"
+	memfs "github.com/go-git/go-billy/v5/memfs"
 
 	appset "github.com/argoproj-labs/applicationset/api/v1alpha1"
 	v1alpha1 "github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
@@ -51,24 +54,58 @@ func NewEnvCreateCommand() *cobra.Command {
 				err error
 			)
 
-			// fs := memfs.New()
-			// ctx := cmd.Context()
-
 			log.G().WithFields(log.Fields{
 				"env":      envName,
 				"repoURL":  repoURL,
 				"revision": revision,
 			}).Debug("starting with options: ")
 
-			env := generateAppSet(envName, namespace, repoURL, revision)
-
-			envYAML, err := yaml.Marshal(env)
+			envYAML, err := generateAppSet(envName, namespace, repoURL, revision)
 			util.Die(err)
 
 			if dryRun {
 				log.G().Printf("%s", envYAML)
 				os.Exit(0)
 			}
+
+			fs := memfs.New()
+			ctx := cmd.Context()
+
+			bootstrapPath := fs.Join(installationPath, store.Common.BootsrtrapDir)
+
+			log.G().Infof("cloning repo: %s", repoURL)
+
+			// clone GitOps repo
+			r, err := git.Clone(ctx, &git.CloneOptions{
+				URL:      repoURL,
+				Revision: revision,
+				Auth: &git.Auth{
+					Username: "username",
+					Password: token,
+				},
+				FS: fs,
+			})
+			util.Die(err)
+
+			log.G().Infof("using revision: \"%s\", installation path: \"%s\"", revision, installationPath)
+			exists, err := util.Exists(fs, bootstrapPath)
+			util.Die(err)
+
+			if !exists {
+				util.Die(fmt.Errorf("Bootstrap folder not found, please execute `repo bootstrap --installation-path %s` command", installationPath))
+			}
+
+			log.G().Debug("repository is ok")
+
+			envsPath := fs.Join(installationPath, store.Common.EnvsDir)
+			writeFile(fs, fs.Join(envsPath, envName+".yaml"), envYAML)
+
+			log.G().Infof("pushing new env manifest to repo")
+			util.Die(r.Persist(ctx, &git.PushOptions{
+				CommitMsg: "Added env " + envName,
+			}))
+
+			log.G().Infof("Done creating %s environment", envName)
 		},
 	}
 	//<env-name> --repo-url [--token|--secret] [--namespace] [--argocd-context] [--env-kube-context] [--dry-run]
@@ -89,8 +126,8 @@ func NewEnvCreateCommand() *cobra.Command {
 	return cmd
 }
 
-func generateAppSet(envName, namespace, repoURL, revision string) *appset.ApplicationSet {
-	return &appset.ApplicationSet{
+func generateAppSet(envName, namespace, repoURL, revision string) ([]byte, error) {
+	appSet := &appset.ApplicationSet{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ApplicationSet",
 			APIVersion: appset.GroupVersion.Version,
@@ -129,4 +166,5 @@ func generateAppSet(envName, namespace, repoURL, revision string) *appset.Applic
 			},
 		},
 	}
+	return yaml.Marshal(appSet)
 }
