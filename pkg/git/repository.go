@@ -71,7 +71,7 @@ var (
 	}
 )
 
-func AddFlags(cmd *cobra.Command, fs billy.Filesystem) (*CloneOptions, error) {
+func AddFlags(cmd *cobra.Command) (*CloneOptions, error) {
 	co := &CloneOptions{}
 
 	cmd.Flags().StringVar(&co.URL, "repo", "", "Repository URL [GIT_REPO]")

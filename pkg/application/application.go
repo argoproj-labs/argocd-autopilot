@@ -54,16 +54,13 @@ type BootstrapApplication interface {
 	// GenerateManifests runs kustomize build on the app and returns the result.
 	GenerateManifests() ([]byte, error)
 
-	// ArgoCD parses the app flags and returns the constructed argo-cd application.
-	ArgoCD() *v1alpha1.Application
-
 	// Kustomization returns the kustomization for the bootstrap application.
 	//  only available when creating bootstrap application.
 	Kustomization() (*kusttypes.Kustomization, error)
 
-	// RootApp returns the root application that watches the envs/ directory
-	// to create new environments application-sets.
-	RootApp(revision, srcPath string) *v1alpha1.Application
+	// CreateApp returns an argocd application that watches the gitops
+	// repo at the specified path and revision
+	CreateApp(name, revision, srcPath string) *v1alpha1.Application
 }
 
 type Config struct {
@@ -88,6 +85,7 @@ type application struct {
 	name      string
 	namespace string
 	path      string
+	kustPath  string
 	fs        filesys.FileSystem
 	argoApp   *v1alpha1.Application
 }
@@ -122,10 +120,6 @@ func (o *CreateOptions) ParseBootstrap() (BootstrapApplication, error) {
 	if err != nil {
 		return nil, err
 	}
-	app.argoApp.ObjectMeta.Namespace = app.namespace
-	app.argoApp.Spec.Destination.Server = defaultDestServer
-	app.argoApp.Spec.Destination.Namespace = app.namespace
-	app.argoApp.Spec.Source.Path = o.SrcPath
 
 	return &bootstrapApp{
 		application: app,
@@ -218,13 +212,6 @@ func (app *application) kustomizeBuild() ([]byte, error) {
 /*********************************/
 
 func (app *bootstrapApp) GenerateManifests() ([]byte, error) {
-	td, err := ioutil.TempDir("", "auto-pilot")
-	if err != nil {
-		return nil, err
-	}
-
-	defer os.RemoveAll(td)
-	kustPath := filepath.Join(td, "kustomization.yaml")
 	k, err := app.Kustomization()
 	if err != nil {
 		return nil, err
@@ -235,13 +222,12 @@ func (app *bootstrapApp) GenerateManifests() ([]byte, error) {
 		return nil, err
 	}
 
-	err = ioutil.WriteFile(kustPath, kyaml, 0400)
-	if err != nil {
+	if err = ioutil.WriteFile(app.kustPath, kyaml, 0400); err != nil {
 		return nil, err
 	}
 
 	log.G().WithFields(log.Fields{
-		"bootstrapKustPath": kustPath,
+		"bootstrapKustPath": app.kustPath,
 		"resourcePath":      app.path,
 	}).Debugf("running bootstrap kustomization: %s\n", string(kyaml))
 
@@ -249,7 +235,7 @@ func (app *bootstrapApp) GenerateManifests() ([]byte, error) {
 	opts.DoLegacyResourceSort = true
 	kust := krusty.MakeKustomizer(opts)
 	fs := filesys.MakeFsOnDisk()
-	res, err := kust.Run(fs, filepath.Dir(kustPath))
+	res, err := kust.Run(fs, filepath.Dir(app.kustPath))
 	if err != nil {
 		return nil, err
 	}
@@ -268,8 +254,17 @@ func (app *bootstrapApp) Kustomization() (*kusttypes.Kustomization, error) {
 		return nil, err
 	}
 
+	td, err := ioutil.TempDir("", "auto-pilot")
+	if err != nil {
+		return nil, err
+	}
+
+	app.kustPath = filepath.Join(td, "kustomization.yaml")
+
+	srcPath, err := getBootstrapPaths(app.path, app.kustPath)
+
 	k := &kusttypes.Kustomization{
-		Resources: []string{app.path},
+		Resources: []string{srcPath},
 		TypeMeta: kusttypes.TypeMeta{
 			APIVersion: kusttypes.KustomizationVersion,
 			Kind:       kusttypes.KustomizationKind,
@@ -300,11 +295,7 @@ func (app *bootstrapApp) Kustomization() (*kusttypes.Kustomization, error) {
 	return k, nil
 }
 
-func (app *bootstrapApp) ArgoCD() *v1alpha1.Application {
-	return app.argoApp
-}
-
-func (app *bootstrapApp) RootApp(revision, srcPath string) *v1alpha1.Application {
+func (app *bootstrapApp) CreateApp(name, revision, srcPath string) *v1alpha1.Application {
 	return &v1alpha1.Application{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: argocdapp.Group + "/v1alpha1",
@@ -312,16 +303,17 @@ func (app *bootstrapApp) RootApp(revision, srcPath string) *v1alpha1.Application
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: app.namespace,
-			Name:      "root",
+			Name:      name,
 			Labels: map[string]string{
 				"app.kubernetes.io/managed-by": store.Common.ManagedBy,
-				"app.kubernetes.io/name":       store.Common.RootName,
+				"app.kubernetes.io/name":       name,
 			},
 			Finalizers: []string{
 				"resources-finalizer.argocd.argoproj.io",
 			},
 		},
 		Spec: v1alpha1.ApplicationSpec{
+			Project: "default",
 			Source: v1alpha1.ApplicationSource{
 				RepoURL:        app.repoUrl,
 				Path:           srcPath,
@@ -335,6 +327,15 @@ func (app *bootstrapApp) RootApp(revision, srcPath string) *v1alpha1.Application
 				Automated: &v1alpha1.SyncPolicyAutomated{
 					SelfHeal: true,
 					Prune:    true,
+				},
+			},
+			IgnoreDifferences: []v1alpha1.ResourceIgnoreDifferences{
+				{
+					Group: "argoproj.io",
+					Kind:  "Application",
+					JSONPointers: []string{
+						"/status",
+					},
 				},
 			},
 		},
@@ -384,4 +385,24 @@ func createCreds(repoUrl string) ([]byte, error) {
 	}
 
 	return yaml.Marshal(creds)
+}
+
+func getBootstrapPaths(path, kustPath string) (string, error) {
+	// for example: github.com/codefresh-io/argocd-autopilot/manifests
+	if _, err := os.Stat(path); err != nil && os.IsNotExist(err) {
+		return path, nil
+	}
+
+	// local file (in the filesystem)
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+
+	resourcePath, err := filepath.Rel(kustPath, absPath)
+	if err != nil {
+		return "", err
+	}
+
+	return resourcePath, nil
 }

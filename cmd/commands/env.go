@@ -10,7 +10,6 @@ import (
 	"github.com/argoproj/argocd-autopilot/pkg/store"
 	"github.com/argoproj/argocd-autopilot/pkg/util"
 	"github.com/ghodss/yaml"
-	"github.com/go-git/go-billy/v5"
 	memfs "github.com/go-git/go-billy/v5/memfs"
 
 	appset "github.com/argoproj-labs/applicationset/api/v1alpha1"
@@ -37,16 +36,12 @@ func NewEnvCommand() *cobra.Command {
 
 func NewEnvCreateCommand() *cobra.Command {
 	var (
-		envName          string
-		repoURL          string
-		revision         string
-		installationPath string
-		namespace        string
-		envKubeContext   string
-		dryRun           bool
-		addCmd           argocd.AddClusterCmd
-		repoOpts         *git.CloneOptions
-		fs               billy.Filesystem
+		envName        string
+		namespace      string
+		envKubeContext string
+		dryRun         bool
+		addCmd         argocd.AddClusterCmd
+		repoOpts       *git.CloneOptions
 	)
 
 	cmd := &cobra.Command{
@@ -56,7 +51,13 @@ func NewEnvCreateCommand() *cobra.Command {
 `),
 		Run: func(cmd *cobra.Command, args []string) {
 			var (
-				err error
+				err              error
+				repoURL          = cmd.Flag("repo").Value.String()
+				installationPath = cmd.Flag("installation-path").Value.String()
+				revision         = cmd.Flag("revision").Value.String()
+				namespace        = cmd.Flag("namespace").Value.String()
+				fs               = memfs.New()
+				ctx              = cmd.Context()
 			)
 
 			log.G().WithFields(log.Fields{
@@ -65,11 +66,10 @@ func NewEnvCreateCommand() *cobra.Command {
 				"revision": revision,
 			}).Debug("starting with options: ")
 
-			srcPath := fs.Join(installationPath, "kustomize/{{appName}}/overlays/", envName)
-			envYAML, err := generateAppSet(envName, namespace, repoURL, revision, srcPath, envKubeContext)
+			genPath := fs.Join(installationPath, "kustomize/{{appName}}/overlays", envName, "config.json")
+			srcPath := fs.Join(installationPath, "kustomize/{{appName}}/overlays", envName)
+			envYAML, err := generateAppSet(envName, namespace, repoURL, revision, genPath, srcPath, envKubeContext)
 			util.Die(err)
-
-			ctx := cmd.Context()
 
 			if dryRun {
 				log.G().Printf("%s", envYAML)
@@ -79,7 +79,6 @@ func NewEnvCreateCommand() *cobra.Command {
 			bootstrapPath := fs.Join(installationPath, store.Common.BootsrtrapDir)
 
 			log.G().Infof("cloning repo: %s", repoURL)
-			fs = memfs.New()
 
 			// clone GitOps repo
 			r, err := repoOpts.Clone(ctx, fs)
@@ -119,7 +118,7 @@ func NewEnvCreateCommand() *cobra.Command {
 	addCmd, err := argocd.AddClusterAddFlags(cmd)
 	util.Die(err)
 
-	repoOpts, err = git.AddFlags(cmd, fs)
+	repoOpts, err = git.AddFlags(cmd)
 	util.Die(err)
 
 	util.Die(cmd.MarkFlagRequired("env"))
@@ -127,11 +126,11 @@ func NewEnvCreateCommand() *cobra.Command {
 	return cmd
 }
 
-func generateAppSet(envName, namespace, repoURL, revision, srcPath, server string) ([]byte, error) {
+func generateAppSet(envName, namespace, repoURL, revision, genPath, srcPath, server string) ([]byte, error) {
 	appSet := &appset.ApplicationSet{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ApplicationSet",
-			APIVersion: appset.GroupVersion.Version,
+			APIVersion: appset.GroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      envName,
@@ -145,7 +144,7 @@ func generateAppSet(envName, namespace, repoURL, revision, srcPath, server strin
 						Revision: revision,
 						Files: []appset.GitFileGeneratorItem{
 							{
-								Path: fmt.Sprintf("kustomize/**/overlays/%s/config.json", envName),
+								Path: genPath,
 							},
 						},
 					},

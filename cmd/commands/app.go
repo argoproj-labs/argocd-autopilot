@@ -38,7 +38,6 @@ func NewAppCreateCommand() *cobra.Command {
 		envName    string
 		appOptions *application.CreateOptions
 		repoOpts   *git.CloneOptions
-		fs         billy.Filesystem
 	)
 
 	cmd := &cobra.Command{
@@ -124,7 +123,7 @@ func NewAppCreateCommand() *cobra.Command {
 	cmd.Flags().StringVar(&envName, "env", "", "Environment name")
 
 	appOptions = application.AddFlags(cmd, "")
-	repoOpts, err := git.AddFlags(cmd, fs)
+	repoOpts, err := git.AddFlags(cmd)
 	util.Die(err)
 
 	return cmd

@@ -88,6 +88,12 @@ func Doc(doc string) string {
 	return strings.ReplaceAll(doc, "<BIN>", store.Get().BinaryName)
 }
 
+func MustParseDuration(dur string) time.Duration {
+	d, err := time.ParseDuration(dur)
+	Die(err)
+	return d
+}
+
 func Exists(fs billy.Filesystem, path string) (bool, error) {
 	if _, err := fs.Stat(path); err != nil {
 		if !os.IsNotExist(err) {

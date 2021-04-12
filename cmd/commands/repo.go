@@ -28,6 +28,11 @@ var supportedProviders = []string{"github"}
 
 const defaultNamespace = "argocd"
 
+const (
+	installationModeFlat   = "flat"
+	installationModeNormal = "normal"
+)
+
 func NewRepoCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "repo",
@@ -118,13 +123,13 @@ func NewRepoCreateCommand() *cobra.Command {
 
 func NewRepoBootstrapCommand() *cobra.Command {
 	var (
-		namespaced   bool
-		dryRun       bool
-		hidePassword bool
-		f            kube.Factory
-		appOptions   *application.CreateOptions
-		repoOpts     *git.CloneOptions
-		fs           billy.Filesystem
+		namespaced       bool
+		dryRun           bool
+		hidePassword     bool
+		installationMode string
+		f                kube.Factory
+		appOptions       *application.CreateOptions
+		repoOpts         *git.CloneOptions
 	)
 
 	cmd := &cobra.Command{
@@ -154,17 +159,17 @@ func NewRepoBootstrapCommand() *cobra.Command {
 				revision         = cmd.Flag("revision").Value.String()
 				namespace        = cmd.Flag("namespace").Value.String()
 				context          = cmd.Flag("context").Value.String()
-				timeoutStr       = cmd.Flag("request-timeout").Value.String()
+				timeout          = util.MustParseDuration(cmd.Flag("request-timeout").Value.String())
+				fs               = memfs.New()
+				ctx              = cmd.Context()
 			)
 
-			timeout, err := time.ParseDuration(timeoutStr)
-			util.Die(err)
-
-			ctx := cmd.Context()
-			fs = memfs.New()
+			parseInstallationMode(installationMode)
 
 			bootstrapPath := fs.Join(installationPath, store.Common.BootsrtrapDir)
-			appOptions.SrcPath = fs.Join(bootstrapPath, store.Common.ArgoCDName)
+			argocdPath := fs.Join(bootstrapPath, store.Common.ArgoCDName)
+			envsPath := fs.Join(installationPath, store.Common.EnvsDir)
+			appOptions.SrcPath = argocdPath
 
 			if namespace == "" {
 				namespace = defaultNamespace
@@ -176,6 +181,11 @@ func NewRepoBootstrapCommand() *cobra.Command {
 				} else {
 					appOptions.AppSpecifier = store.Get().InstallationManifestsURL
 				}
+			}
+
+			if _, err := os.Stat(appOptions.AppSpecifier); err == nil {
+				log.G().Warnf("detected local bootstrap manifests, using 'flat' installation mode")
+				installationMode = installationModeFlat
 			}
 
 			appOptions.Namespace = namespace
@@ -190,16 +200,33 @@ func NewRepoBootstrapCommand() *cobra.Command {
 			bootstrapApp, err := appOptions.ParseBootstrap()
 			util.Die(err, "failed to parse application from flags")
 
-			rootAppYAML := createRootApp(bootstrapApp, revision, fs.Join(installationPath, store.Common.EnvsDir))
+			bootstrapAppYAML := createApp(
+				bootstrapApp,
+				store.Common.BootsrtrapAppName,
+				revision,
+				bootstrapPath,
+			)
+			rootAppYAML := createApp(
+				bootstrapApp,
+				store.Common.RootAppName,
+				revision,
+				envsPath,
+			)
+
+			argoCDAppYAML := createApp(
+				bootstrapApp,
+				store.Common.ArgoCDName,
+				revision,
+				argocdPath,
+			)
+
 			repoCredsYAML := getRepoCredsSecret(gitToken, namespace)
+
 			bootstrapYAML, err := bootstrapApp.GenerateManifests()
 			util.Die(err)
 
-			argoCDYAML, err := yaml.Marshal(bootstrapApp.ArgoCD())
-			util.Die(err)
-
 			if dryRun {
-				log.G().Printf("%s", util.JoinManifests(bootstrapYAML, repoCredsYAML, argoCDYAML, rootAppYAML))
+				log.G().Printf("%s", util.JoinManifests(bootstrapYAML, repoCredsYAML, bootstrapAppYAML, argoCDAppYAML, rootAppYAML))
 				os.Exit(0)
 			}
 
@@ -224,8 +251,21 @@ func NewRepoBootstrapCommand() *cobra.Command {
 			bootstrapKustYAML, err := yaml.Marshal(bootstrapKust)
 			util.Die(err)
 
-			writeFile(fs, fs.Join(bootstrapPath, "kustomization.yaml"), bootstrapKustYAML)
-			writeFile(fs, fs.Join(installationPath, store.Common.EnvsDir, store.Common.DummyName), []byte{})
+			// write argocd manifests
+			if installationMode == installationModeNormal {
+				writeFile(fs, fs.Join(argocdPath, "kustomization.yaml"), bootstrapKustYAML)
+			} else {
+				writeFile(fs, fs.Join(argocdPath, "install.yaml"), bootstrapYAML)
+			}
+
+			// write envs root app
+			writeFile(fs, fs.Join(bootstrapPath, store.Common.RootAppName+".yaml"), rootAppYAML)
+
+			// write argocd app
+			writeFile(fs, fs.Join(bootstrapPath, store.Common.ArgoCDName+".yaml"), argoCDAppYAML)
+
+			// write ./envs/Dummy
+			writeFile(fs, fs.Join(envsPath, store.Common.DummyName), []byte{})
 
 			// wait for argocd to be ready before applying argocd-apps
 			stop := util.WithSpinner(ctx, "waiting for argo-cd to be ready")
@@ -240,7 +280,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 
 			// apply "Argo-CD" Application that references "bootstrap/argo-cd"
 			log.G().Infof("applying argo-cd bootstrap application")
-			util.Die(f.Apply(ctx, namespace, util.JoinManifests(argoCDYAML, rootAppYAML)))
+			util.Die(f.Apply(ctx, namespace, util.JoinManifests(bootstrapAppYAML)))
 
 			if !hidePassword {
 				printInitialPassword(ctx, f, namespace)
@@ -254,10 +294,12 @@ func NewRepoBootstrapCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&namespaced, "namespaced", false, "If true, install a namespaced version of argo-cd (no need for cluster-role)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "If true, print manifests instead of applying them to the cluster (nothing will be commited to git)")
 	cmd.Flags().BoolVar(&hidePassword, "hide-password", false, "If true, will not print initial argo cd password")
+	cmd.Flags().StringVar(&installationMode, "installation-mode", "normal", "One of: normal|flat. "+
+		"If flat, will commit the bootstrap manifests, otherwise will commit the bootstrap kustomization.yaml")
 
 	// add application flags
 	appOptions = application.AddFlags(cmd, "argo-cd")
-	repoOpts, err := git.AddFlags(cmd, fs)
+	repoOpts, err := git.AddFlags(cmd)
 	util.Die(err)
 
 	// add kubernetes flags
@@ -302,8 +344,8 @@ func writeFile(fs billy.Filesystem, path string, data []byte) {
 	util.Die(err)
 }
 
-func createRootApp(bootstrapApp application.BootstrapApplication, revision, srcPath string) []byte {
-	app := bootstrapApp.RootApp(revision, srcPath)
+func createApp(bootstrapApp application.BootstrapApplication, name, revision, srcPath string) []byte {
+	app := bootstrapApp.CreateApp(name, revision, srcPath)
 	data, err := yaml.Marshal(app)
 	util.Die(err)
 
@@ -369,4 +411,13 @@ func printInitialPassword(ctx context.Context, f kube.Factory, namespace string)
 	log.G(ctx).Printf("\n")
 	log.G(ctx).Infof("argocd initialized. password: %s", passwd)
 	log.G(ctx).Infof("run:\n\n    kubectl port-forward -n %s svc/argocd-server 8080:80\n\n", namespace)
+}
+
+func parseInstallationMode(installationMode string) {
+	switch installationMode {
+	case installationModeFlat:
+	case installationModeNormal:
+	default:
+		util.Die(fmt.Errorf("unknown installation mode: %s", installationMode))
+	}
 }
