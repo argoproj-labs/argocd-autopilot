@@ -1,10 +1,10 @@
 package commands
 
 import (
-	"context"
 	"fmt"
 	"os"
 
+	"github.com/argoproj/argocd-autopilot/pkg/argocd"
 	"github.com/argoproj/argocd-autopilot/pkg/git"
 	"github.com/argoproj/argocd-autopilot/pkg/log"
 	"github.com/argoproj/argocd-autopilot/pkg/store"
@@ -14,12 +14,9 @@ import (
 
 	appset "github.com/argoproj-labs/applicationset/api/v1alpha1"
 	v1alpha1 "github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
-	argocmds "github.com/argoproj/argo-cd/v2/cmd/argocd/commands"
-	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 func NewEnvCommand() *cobra.Command {
@@ -48,6 +45,7 @@ func NewEnvCreateCommand() *cobra.Command {
 		namespace        string
 		envKubeContext   string
 		dryRun           bool
+		addcmd           *cobra.Command
 	)
 
 	cmd := &cobra.Command{
@@ -70,10 +68,6 @@ func NewEnvCreateCommand() *cobra.Command {
 			util.Die(err)
 
 			ctx := cmd.Context()
-
-			if envKubeContext != "https://kubernetes.default.svc" {
-				util.Die(addCluster2(ctx, envKubeContext))
-			}
 
 			if dryRun {
 				log.G().Printf("%s", envYAML)
@@ -107,6 +101,15 @@ func NewEnvCreateCommand() *cobra.Command {
 
 			log.G().Debug("repository is ok")
 
+			if envKubeContext != "https://kubernetes.default.svc" {
+				addcmd.SetArgs([]string{
+					"cluster",
+					"add",
+					envKubeContext,
+				})
+				util.Die(addcmd.ExecuteContext(ctx))
+			}
+
 			envsPath := fs.Join(installationPath, store.Common.EnvsDir)
 			writeFile(fs, fs.Join(envsPath, envName+".yaml"), envYAML)
 
@@ -129,6 +132,9 @@ func NewEnvCreateCommand() *cobra.Command {
 	cmd.Flags().StringVar(&namespace, "namespace", "argocd", "Namespace")
 	cmd.Flags().StringVar(&envKubeContext, "env-kube-context", "https://kubernetes.default.svc", "env kube context")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "If true, print manifests instead of applying them to the cluster (nothing will be commited to git)")
+
+	addcmd, err := argocd.AddClusterAddFlags(cmd)
+	util.Die(err)
 
 	util.Die(cmd.MarkFlagRequired("env"))
 	util.Die(cmd.MarkFlagRequired("repo"))
@@ -190,36 +196,4 @@ func generateAppSet(envName, namespace, repoURL, revision, server string) ([]byt
 		},
 	}
 	return yaml.Marshal(appSet)
-}
-
-// func addCluster(ctx context.Context, clusterName string) error {
-// 	client := apiclient.NewClientOrDie(&apiclient.ClientOptions{
-// 		ConfigPath:           "/Users/noamgal/.argocd/config",
-// 		PortForward:          true,
-// 		PortForwardNamespace: "argocd",
-// 	})
-// 	_, cclient := client.NewClusterClientOrDie()
-// 	ccr := &cluster.ClusterCreateRequest{
-// 		Cluster: &v1alpha1v2.Cluster{
-// 			Name: clusterName,
-// 		},
-// 	}
-// 	cluster, err := cclient.Create(ctx, ccr)
-// 	log.G().WithFields(log.Fields{
-// 		"cluster": cluster,
-// 		"error":   err,
-// 	}).Info("Created cluster")
-// 	return err
-// }
-
-func addCluster2(ctx context.Context, cluster string) error {
-	cmd := argocmds.NewClusterAddCommand(&apiclient.ClientOptions{
-		PortForward:          true,
-		PortForwardNamespace: "argocd",
-	}, clientcmd.NewDefaultPathOptions())
-	cmd.SetArgs([]string{
-		cluster,
-	})
-	err := cmd.ExecuteContext(ctx)
-	return err
 }
