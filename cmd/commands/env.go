@@ -10,12 +10,12 @@ import (
 	"github.com/argoproj/argocd-autopilot/pkg/store"
 	"github.com/argoproj/argocd-autopilot/pkg/util"
 	"github.com/ghodss/yaml"
+	"github.com/go-git/go-billy/v5"
 	memfs "github.com/go-git/go-billy/v5/memfs"
 
 	appset "github.com/argoproj-labs/applicationset/api/v1alpha1"
 	v1alpha1 "github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -41,11 +41,12 @@ func NewEnvCreateCommand() *cobra.Command {
 		repoURL          string
 		revision         string
 		installationPath string
-		token            string
 		namespace        string
 		envKubeContext   string
 		dryRun           bool
-		addcmd           *cobra.Command
+		addCmd           argocd.AddClusterCmd
+		repoOpts         *git.CloneOptions
+		fs               billy.Filesystem
 	)
 
 	cmd := &cobra.Command{
@@ -64,7 +65,8 @@ func NewEnvCreateCommand() *cobra.Command {
 				"revision": revision,
 			}).Debug("starting with options: ")
 
-			envYAML, err := generateAppSet(envName, namespace, repoURL, revision, envKubeContext)
+			srcPath := fs.Join(installationPath, "kustomize/{{appName}}/overlays/", envName)
+			envYAML, err := generateAppSet(envName, namespace, repoURL, revision, srcPath, envKubeContext)
 			util.Die(err)
 
 			ctx := cmd.Context()
@@ -74,21 +76,13 @@ func NewEnvCreateCommand() *cobra.Command {
 				os.Exit(0)
 			}
 
-			fs := memfs.New()
 			bootstrapPath := fs.Join(installationPath, store.Common.BootsrtrapDir)
 
 			log.G().Infof("cloning repo: %s", repoURL)
+			fs = memfs.New()
 
 			// clone GitOps repo
-			r, err := git.Clone(ctx, &git.CloneOptions{
-				URL:      repoURL,
-				Revision: revision,
-				Auth: &git.Auth{
-					Username: "username",
-					Password: token,
-				},
-				FS: fs,
-			})
+			r, err := repoOpts.Clone(ctx, fs)
 			util.Die(err)
 
 			log.G().Infof("using revision: \"%s\", installation path: \"%s\"", revision, installationPath)
@@ -102,12 +96,7 @@ func NewEnvCreateCommand() *cobra.Command {
 			log.G().Debug("repository is ok")
 
 			if envKubeContext != "https://kubernetes.default.svc" {
-				addcmd.SetArgs([]string{
-					"cluster",
-					"add",
-					envKubeContext,
-				})
-				util.Die(addcmd.ExecuteContext(ctx))
+				util.Die(addCmd.Execute(ctx, envKubeContext), "failed to add new cluster credentials")
 			}
 
 			envsPath := fs.Join(installationPath, store.Common.EnvsDir)
@@ -121,29 +110,24 @@ func NewEnvCreateCommand() *cobra.Command {
 			log.G().Infof("Done creating %s environment", envName)
 		},
 	}
-	//<env-name> --repo-url [--token|--secret] [--namespace] [--argocd-context] [--env-kube-context] [--dry-run]
-	util.Die(viper.BindEnv("git-token", "GIT_TOKEN"))
 
 	cmd.Flags().StringVar(&envName, "env", "", "Environment name")
-	cmd.Flags().StringVar(&repoURL, "repo", "", "Repository URL")
-	cmd.Flags().StringVar(&revision, "revision", "", "Repository branch")
-	cmd.Flags().StringVar(&installationPath, "installation-path", "", "The path where we create the installation files (defaults to the root of the repository")
-	cmd.Flags().StringVarP(&token, "git-token", "t", "", "Your git provider api token [GIT_TOKEN]")
 	cmd.Flags().StringVar(&namespace, "namespace", "argocd", "Namespace")
 	cmd.Flags().StringVar(&envKubeContext, "env-kube-context", "https://kubernetes.default.svc", "env kube context")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "If true, print manifests instead of applying them to the cluster (nothing will be commited to git)")
 
-	addcmd, err := argocd.AddClusterAddFlags(cmd)
+	addCmd, err := argocd.AddClusterAddFlags(cmd)
+	util.Die(err)
+
+	repoOpts, err = git.AddFlags(cmd, fs)
 	util.Die(err)
 
 	util.Die(cmd.MarkFlagRequired("env"))
-	util.Die(cmd.MarkFlagRequired("repo"))
-	util.Die(cmd.MarkFlagRequired("git-token"))
 
 	return cmd
 }
 
-func generateAppSet(envName, namespace, repoURL, revision, server string) ([]byte, error) {
+func generateAppSet(envName, namespace, repoURL, revision, srcPath, server string) ([]byte, error) {
 	appSet := &appset.ApplicationSet{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ApplicationSet",
@@ -179,7 +163,7 @@ func generateAppSet(envName, namespace, repoURL, revision, server string) ([]byt
 					Source: v1alpha1.ApplicationSource{
 						RepoURL:        repoURL,
 						TargetRevision: revision,
-						Path:           "kustomize/{{appName}}/overlays/" + envName,
+						Path:           srcPath,
 					},
 					Destination: v1alpha1.ApplicationDestination{
 						Server:    server,

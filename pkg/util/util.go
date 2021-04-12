@@ -12,7 +12,6 @@ import (
 	"github.com/argoproj/argocd-autopilot/pkg/store"
 	"github.com/briandowns/spinner"
 	billy "github.com/go-git/go-billy/v5"
-	"github.com/spf13/pflag"
 )
 
 const yamlSeperator = "\n---\n"
@@ -99,20 +98,6 @@ func Exists(fs billy.Filesystem, path string) (bool, error) {
 	}
 
 	return true, nil
-}
-
-func MustGetString(flags *pflag.FlagSet, flag string) string {
-	value, err := flags.GetString(flag)
-	Die(err)
-
-	return value
-}
-
-func MustGetBool(flags *pflag.FlagSet, flag string) bool {
-	value, err := flags.GetBool(flag)
-	Die(err)
-
-	return value
 }
 
 func JoinManifests(manifests ...[]byte) []byte {

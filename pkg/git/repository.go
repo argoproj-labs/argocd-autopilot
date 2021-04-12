@@ -15,6 +15,8 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/storage"
 	"github.com/go-git/go-git/v5/storage/memory"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 //go:generate interfacer -for github.com/go-git/go-git/v5.Repository -as gogit.Repository -o gogit/repo.go
@@ -32,8 +34,9 @@ type (
 		// URL clone url
 		URL      string
 		Revision string
-		Auth     *Auth
-		FS       billy.Filesystem
+		RepoRoot string
+		Auth     Auth
+		fs       billy.Filesystem
 	}
 
 	PushOptions struct {
@@ -43,7 +46,7 @@ type (
 
 	repo struct {
 		gogit.Repository
-		auth *Auth
+		auth Auth
 	}
 )
 
@@ -68,19 +71,44 @@ var (
 	}
 )
 
-func Clone(ctx context.Context, opts *CloneOptions) (Repository, error) {
-	if opts == nil {
+func AddFlags(cmd *cobra.Command, fs billy.Filesystem) (*CloneOptions, error) {
+	co := &CloneOptions{}
+
+	cmd.Flags().StringVar(&co.URL, "repo", "", "Repository URL [GIT_REPO]")
+	cmd.Flags().StringVar(&co.Revision, "revision", "", "Repository branch, tag or commit hash (defaults to HEAD)")
+	cmd.Flags().StringVar(&co.RepoRoot, "installation-path", "", "The path where we of the installation files (defaults to the root of the repository")
+	cmd.Flags().StringVarP(&co.Auth.Password, "git-token", "t", "", "Your git provider api token [GIT_TOKEN]")
+
+	if err := viper.BindEnv("git-token", "GIT_TOKEN"); err != nil {
+		return nil, err
+	}
+
+	if err := viper.BindEnv("repo", "GIT_REPO"); err != nil {
+		return nil, err
+	}
+
+	if err := cmd.MarkFlagRequired("repo"); err != nil {
+		return nil, err
+	}
+
+	if err := cmd.MarkFlagRequired("git-token"); err != nil {
+		return nil, err
+	}
+
+	return co, nil
+}
+
+func (o *CloneOptions) Clone(ctx context.Context, fs billy.Filesystem) (Repository, error) {
+	if o == nil {
 		return nil, ErrNilOpts
 	}
-	r, err := clone(ctx, opts.FS, &CloneOptions{
-		URL:      opts.URL,
-		Revision: opts.Revision,
-		Auth:     opts.Auth,
-	})
+
+	o.fs = fs
+	r, err := clone(ctx, o)
 	if err != nil {
 		if err == transport.ErrEmptyRemoteRepository {
 			log.G(ctx).Debug("empty repository, initializing new one with specified remote")
-			return initRepo(ctx, opts)
+			return initRepo(ctx, o)
 		}
 		return nil, err
 	}
@@ -117,7 +145,7 @@ func (r *repo) Persist(ctx context.Context, opts *PushOptions) error {
 	})
 }
 
-var clone = func(ctx context.Context, fs billy.Filesystem, opts *CloneOptions) (*repo, error) {
+var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 	if opts == nil {
 		return nil, ErrNilOpts
 	}
@@ -139,7 +167,7 @@ var clone = func(ctx context.Context, fs billy.Filesystem, opts *CloneOptions) (
 		"url": opts.URL,
 		"rev": opts.Revision,
 	}).Debug("cloning git repo")
-	r, err := ggClone(ctx, memory.NewStorage(), fs, cloneOpts)
+	r, err := ggClone(ctx, memory.NewStorage(), opts.fs, cloneOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +176,7 @@ var clone = func(ctx context.Context, fs billy.Filesystem, opts *CloneOptions) (
 }
 
 var initRepo = func(ctx context.Context, opts *CloneOptions) (Repository, error) {
-	ggr, err := ggInitRepo(memory.NewStorage(), opts.FS)
+	ggr, err := ggInitRepo(memory.NewStorage(), opts.fs)
 	if err != nil {
 		return nil, err
 	}
@@ -189,8 +217,8 @@ func (r *repo) initBranch(ctx context.Context, branchName string) error {
 	})
 }
 
-func getAuth(auth *Auth) transport.AuthMethod {
-	if auth == nil {
+func getAuth(auth Auth) transport.AuthMethod {
+	if auth.Password == "" {
 		return nil
 	}
 

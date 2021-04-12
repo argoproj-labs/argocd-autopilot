@@ -69,11 +69,11 @@ func NewRepoCreateCommand() *cobra.Command {
 
 # Create a new gitops repository on github
     
-    <BIN> repo create --owner foo --repo bar --token abc123
+    <BIN> repo create --owner foo --name bar --token abc123
 
 # Create a public gitops repository on github
     
-    <BIN> repo create --owner foo --repo bar --token abc123 --public
+    <BIN> repo create --owner foo --name bar --token abc123 --public
 `),
 		Run: func(cmd *cobra.Command, args []string) {
 			validateProvider(provider)
@@ -104,13 +104,13 @@ func NewRepoCreateCommand() *cobra.Command {
 
 	cmd.Flags().StringVarP(&provider, "provider", "p", "github", "The git provider, "+fmt.Sprintf("one of: %v", strings.Join(supportedProviders, "|")))
 	cmd.Flags().StringVarP(&owner, "owner", "o", "", "The name of the owner or organiaion")
-	cmd.Flags().StringVarP(&repo, "repo", "r", "", "The name of the repository")
+	cmd.Flags().StringVarP(&repo, "name", "r", "", "The name of the repository")
 	cmd.Flags().StringVarP(&token, "git-token", "t", "", "Your git provider api token [GIT_TOKEN]")
 	cmd.Flags().StringVar(&host, "host", "", "The git provider address (for on-premise git providers)")
 	cmd.Flags().BoolVar(&public, "public", false, "If true, will create the repository as public (default is false)")
 
 	util.Die(cmd.MarkFlagRequired("owner"))
-	util.Die(cmd.MarkFlagRequired("repo"))
+	util.Die(cmd.MarkFlagRequired("name"))
 	util.Die(cmd.MarkFlagRequired("git-token"))
 
 	return cmd
@@ -118,13 +118,13 @@ func NewRepoCreateCommand() *cobra.Command {
 
 func NewRepoBootstrapCommand() *cobra.Command {
 	var (
-		installationPath string
-		token            string
-		namespaced       bool
-		dryRun           bool
-		hidePassword     bool
-		f                kube.Factory
-		appOptions       *application.CreateOptions
+		namespaced   bool
+		dryRun       bool
+		hidePassword bool
+		f            kube.Factory
+		appOptions   *application.CreateOptions
+		repoOpts     *git.CloneOptions
+		fs           billy.Filesystem
 	)
 
 	cmd := &cobra.Command{
@@ -147,19 +147,21 @@ func NewRepoBootstrapCommand() *cobra.Command {
 `),
 		Run: func(cmd *cobra.Command, args []string) {
 			var (
-				err        error
-				repoURL    = util.MustGetString(cmd.Flags(), "repo")
-				revision   = util.MustGetString(cmd.Flags(), "revision")
-				namespace  = util.MustGetString(cmd.Flags(), "namespace")
-				context    = util.MustGetString(cmd.Flags(), "context")
-				timeoutStr = util.MustGetString(cmd.Flags(), "request-timeout")
+				err              error
+				repoURL          = cmd.Flag("repo").Value.String()
+				gitToken         = cmd.Flag("git-token").Value.String()
+				installationPath = cmd.Flag("installation-path").Value.String()
+				revision         = cmd.Flag("revision").Value.String()
+				namespace        = cmd.Flag("namespace").Value.String()
+				context          = cmd.Flag("context").Value.String()
+				timeoutStr       = cmd.Flag("request-timeout").Value.String()
 			)
 
 			timeout, err := time.ParseDuration(timeoutStr)
 			util.Die(err)
 
-			fs := memfs.New()
 			ctx := cmd.Context()
+			fs = memfs.New()
 
 			bootstrapPath := fs.Join(installationPath, store.Common.BootsrtrapDir)
 			appOptions.SrcPath = fs.Join(bootstrapPath, store.Common.ArgoCDName)
@@ -185,13 +187,15 @@ func NewRepoBootstrapCommand() *cobra.Command {
 				"kube-context": context,
 			}).Debug("starting with options: ")
 
-			bootstarpApp := appOptions.ParseOrDie(true)
-			rootAppYAML := createRootApp(namespace, repoURL, fs.Join(installationPath, store.Common.EnvsDir), revision)
-			repoCredsYAML := getRepoCredsSecret(token, namespace)
-			bootstrapYAML, err := bootstarpApp.GenerateManifests()
+			bootstrapApp, err := appOptions.ParseBootstrap()
+			util.Die(err, "failed to parse application from flags")
+
+			rootAppYAML := createRootApp(bootstrapApp, revision, fs.Join(installationPath, store.Common.EnvsDir))
+			repoCredsYAML := getRepoCredsSecret(gitToken, namespace)
+			bootstrapYAML, err := bootstrapApp.GenerateManifests()
 			util.Die(err)
 
-			argoCDYAML, err := yaml.Marshal(bootstarpApp.ArgoCD())
+			argoCDYAML, err := yaml.Marshal(bootstrapApp.ArgoCD())
 			util.Die(err)
 
 			if dryRun {
@@ -202,15 +206,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 			log.G().Infof("cloning repo: %s", repoURL)
 
 			// clone GitOps repo
-			r, err := git.Clone(ctx, &git.CloneOptions{
-				URL:      repoURL,
-				Revision: revision,
-				Auth: &git.Auth{
-					Username: "username",
-					Password: token,
-				},
-				FS: fs,
-			})
+			r, err := repoOpts.Clone(ctx, fs)
 			util.Die(err)
 
 			log.G().Infof("using revision: \"%s\", installation path: \"%s\"", revision, installationPath)
@@ -222,10 +218,13 @@ func NewRepoBootstrapCommand() *cobra.Command {
 			log.G().Infof("applying bootstrap manifests to cluster...")
 			util.Die(f.Apply(ctx, namespace, util.JoinManifests(bootstrapYAML, repoCredsYAML)))
 
-			bootstrapKust, err := bootstarpApp.Kustomization()
+			bootstrapKust, err := bootstrapApp.Kustomization()
 			util.Die(err)
 
-			writeFile(fs, fs.Join(bootstrapPath, "kustomization.yaml"), bootstrapKust)
+			bootstrapKustYAML, err := yaml.Marshal(bootstrapKust)
+			util.Die(err)
+
+			writeFile(fs, fs.Join(bootstrapPath, "kustomization.yaml"), bootstrapKustYAML)
 			writeFile(fs, fs.Join(installationPath, store.Common.EnvsDir, store.Common.DummyName), []byte{})
 
 			// wait for argocd to be ready before applying argocd-apps
@@ -252,14 +251,14 @@ func NewRepoBootstrapCommand() *cobra.Command {
 	util.Die(viper.BindEnv("git-token", "GIT_TOKEN"))
 	util.Die(viper.BindEnv("repo", "GIT_REPO"))
 
-	cmd.Flags().StringVar(&installationPath, "installation-path", "", "The path where we create the installation files (defaults to the root of the repository")
-	cmd.Flags().StringVarP(&token, "git-token", "t", "", "Your git provider api token [GIT_TOKEN]")
 	cmd.Flags().BoolVar(&namespaced, "namespaced", false, "If true, install a namespaced version of argo-cd (no need for cluster-role)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "If true, print manifests instead of applying them to the cluster (nothing will be commited to git)")
 	cmd.Flags().BoolVar(&hidePassword, "hide-password", false, "If true, will not print initial argo cd password")
 
 	// add application flags
 	appOptions = application.AddFlags(cmd, "argo-cd")
+	repoOpts, err := git.AddFlags(cmd, fs)
+	util.Die(err)
 
 	// add kubernetes flags
 	f = kube.AddFlags(cmd.Flags())
@@ -303,9 +302,9 @@ func writeFile(fs billy.Filesystem, path string, data []byte) {
 	util.Die(err)
 }
 
-func createRootApp(namespace, repoURL, srcPath, revision string) []byte {
-	app := application.NewRootApp(namespace, repoURL, srcPath, revision)
-	data, err := yaml.Marshal(app.ArgoCD())
+func createRootApp(bootstrapApp application.BootstrapApplication, revision, srcPath string) []byte {
+	app := bootstrapApp.RootApp(revision, srcPath)
+	data, err := yaml.Marshal(app)
 	util.Die(err)
 
 	return data

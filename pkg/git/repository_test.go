@@ -76,11 +76,11 @@ func Test_repo_addRemote(t *testing.T) {
 
 func Test_getAuth(t *testing.T) {
 	tests := map[string]struct {
-		auth *Auth
+		auth Auth
 		want transport.AuthMethod
 	}{
 		"Basic": {
-			auth: &Auth{
+			auth: Auth{
 				Password: "123",
 			},
 			want: &http.BasicAuth{
@@ -89,7 +89,7 @@ func Test_getAuth(t *testing.T) {
 			},
 		},
 		"Username": {
-			auth: &Auth{
+			auth: Auth{
 				Username: "test",
 				Password: "123",
 			},
@@ -97,10 +97,6 @@ func Test_getAuth(t *testing.T) {
 				Username: "test",
 				Password: "123",
 			},
-		},
-		"nil": {
-			auth: nil,
-			want: nil,
 		},
 	}
 	for tname, tt := range tests {
@@ -255,7 +251,6 @@ func Test_initRepo(t *testing.T) {
 func Test_clone(t *testing.T) {
 	type args struct {
 		ctx  context.Context
-		fs   billy.Filesystem
 		opts *CloneOptions
 	}
 	tests := map[string]struct {
@@ -268,7 +263,6 @@ func Test_clone(t *testing.T) {
 		"NilOpts": {
 			args: args{
 				ctx:  context.Background(),
-				fs:   nil,
 				opts: nil,
 			},
 			wantErr: true,
@@ -279,7 +273,6 @@ func Test_clone(t *testing.T) {
 		"No Auth": {
 			args: args{
 				ctx: context.Background(),
-				fs:  nil,
 				opts: &CloneOptions{
 					URL: "https://test",
 				},
@@ -299,10 +292,9 @@ func Test_clone(t *testing.T) {
 		"With Auth": {
 			args: args{
 				ctx: context.Background(),
-				fs:  nil,
 				opts: &CloneOptions{
 					URL: "https://test",
-					Auth: &Auth{
+					Auth: Auth{
 						Username: "asd",
 						Password: "123",
 					},
@@ -326,7 +318,6 @@ func Test_clone(t *testing.T) {
 		"Error": {
 			args: args{
 				ctx: context.Background(),
-				fs:  nil,
 				opts: &CloneOptions{
 					URL: "https://test",
 				},
@@ -347,7 +338,6 @@ func Test_clone(t *testing.T) {
 		"With Revision": {
 			args: args{
 				ctx: context.Background(),
-				fs:  nil,
 				opts: &CloneOptions{
 					URL:      "https://test",
 					Revision: "test",
@@ -383,7 +373,7 @@ func Test_clone(t *testing.T) {
 				return mockRepo, nil
 			}
 
-			got, err := clone(tt.args.ctx, tt.args.fs, tt.args.opts)
+			got, err := clone(tt.args.ctx, tt.args.opts)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("clone() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -466,7 +456,7 @@ func TestClone(t *testing.T) {
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
 			r := &repo{}
-			clone = func(ctx context.Context, fs billy.Filesystem, opts *CloneOptions) (*repo, error) {
+			clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 				if tt.cloneErr != nil {
 					return nil, tt.cloneErr
 				}
@@ -482,7 +472,7 @@ func TestClone(t *testing.T) {
 				return r, tt.initErr
 			}
 
-			got, err := Clone(tt.args.ctx, tt.args.opts)
+			got, err := tt.args.opts.Clone(tt.args.ctx, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Clone() error = %v, wantErr %v", err, tt.wantErr)
 				return

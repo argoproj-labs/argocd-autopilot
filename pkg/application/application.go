@@ -1,6 +1,7 @@
 package application
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -29,17 +30,13 @@ const (
 	defaultDestServer = "https://kubernetes.default.svc"
 )
 
+var (
+	// Errors
+	ErrEmptyAppSpecifier = errors.New("empty app specifier not allowed")
+	ErrEmptyAppName      = errors.New("app name cannot be empty, please specify application name with: --app-name")
+)
+
 type Application interface {
-	// GenerateManifests runs kustomize build on the app and returns the result.
-	GenerateManifests() ([]byte, error)
-
-	// ArgoCD parses the app flags and returns the constructed argo-cd application.
-	ArgoCD() *v1alpha1.Application
-
-	// Kustomization returns the marshaled kustomization file for the bootstrap
-	// application. only available when creating bootstrap application.
-	Kustomization() ([]byte, error)
-
 	// Base returns the base kustomization file for this app.
 	Base() *kusttypes.Kustomization
 
@@ -51,6 +48,22 @@ type Application interface {
 	// kustomization.yaml file. This is used by the environment's application set
 	// to generate the final argo-cd application.
 	ConfigJson() *Config
+}
+
+type BootstrapApplication interface {
+	// GenerateManifests runs kustomize build on the app and returns the result.
+	GenerateManifests() ([]byte, error)
+
+	// ArgoCD parses the app flags and returns the constructed argo-cd application.
+	ArgoCD() *v1alpha1.Application
+
+	// Kustomization returns the kustomization for the bootstrap application.
+	//  only available when creating bootstrap application.
+	Kustomization() (*kusttypes.Kustomization, error)
+
+	// RootApp returns the root application that watches the envs/ directory
+	// to create new environments application-sets.
+	RootApp(revision, srcPath string) *v1alpha1.Application
 }
 
 type Config struct {
@@ -65,6 +78,7 @@ type CreateOptions struct {
 	AppName        string
 	SrcPath        string
 	Namespace      string
+	Server         string
 	argoAppOptions argocdutil.AppOptions
 	flags          *pflag.FlagSet
 }
@@ -86,10 +100,10 @@ type bootstrapApp struct {
 func AddFlags(cmd *cobra.Command, defAppName string) *CreateOptions {
 	co := &CreateOptions{}
 
-	cmd.Flags().StringVar(&co.AppSpecifier, "app", "", "The application specifier")
+	cmd.Flags().StringVar(&co.AppSpecifier, "app", "", "The application specifier (e.g. argocd@v1.0.2 | https://github.com")
 	cmd.Flags().StringVar(&co.AppName, "app-name", defAppName, "The application name")
-
-	argocdutil.AddAppFlags(cmd, &co.argoAppOptions)
+	cmd.Flags().StringVar(&co.Server, "dest-server", "", "K8s cluster URL (e.g. https://kubernetes.default.svc)")
+	cmd.Flags().StringVar(&co.Namespace, "dest-namespace", "", "K8s target namespace (overrides the namespace specified in the ksonnet app.yaml)")
 
 	co.flags = cmd.Flags()
 
@@ -99,9 +113,33 @@ func AddFlags(cmd *cobra.Command, defAppName string) *CreateOptions {
 /*********************************/
 /*       CreateOptions impl      */
 /*********************************/
-func (o *CreateOptions) Parse(bootstrap bool) (Application, error) {
+func (o *CreateOptions) Parse() (Application, error) {
+	return parseApplication(o)
+}
+
+func (o *CreateOptions) ParseBootstrap() (BootstrapApplication, error) {
+	app, err := parseApplication(o)
+	if err != nil {
+		return nil, err
+	}
+	app.argoApp.ObjectMeta.Namespace = app.namespace
+	app.argoApp.Spec.Destination.Server = defaultDestServer
+	app.argoApp.Spec.Destination.Namespace = app.namespace
+	app.argoApp.Spec.Source.Path = o.SrcPath
+
+	return &bootstrapApp{
+		application: app,
+		repoUrl:     o.flags.Lookup("repo").Value.String(),
+	}, nil
+}
+
+func parseApplication(o *CreateOptions) (*application, error) {
 	if o.AppSpecifier == "" {
-		return nil, fmt.Errorf("empty app specifier not allowed")
+		return nil, ErrEmptyAppSpecifier
+	}
+
+	if o.AppName == "" {
+		return nil, ErrEmptyAppName
 	}
 
 	argoApp, err := argocdutil.ConstructApp("", o.AppName, getLabels(o.AppName), []string{}, o.argoAppOptions, o.flags)
@@ -118,59 +156,19 @@ func (o *CreateOptions) Parse(bootstrap bool) (Application, error) {
 	}
 
 	app := &application{
+		name:      o.AppName,
 		path:      o.AppSpecifier, // TODO: supporting only path for now
 		namespace: o.Namespace,
 		fs:        filesys.MakeFsOnDisk(),
 		argoApp:   argoApp,
 	}
 
-	if bootstrap {
-		app.argoApp.ObjectMeta.Namespace = app.namespace
-		app.argoApp.Spec.Destination.Server = defaultDestServer
-		app.argoApp.Spec.Destination.Namespace = app.namespace
-		app.argoApp.Spec.Source.Path = o.SrcPath
-
-		return &bootstrapApp{
-			application: app,
-			repoUrl:     util.MustGetString(o.flags, "repo"),
-		}, nil
-	}
-
 	return app, nil
-}
-
-func (o *CreateOptions) ParseOrDie(bootstrap bool) Application {
-	app, err := o.Parse(bootstrap)
-	util.Die(err)
-	return app
 }
 
 /*********************************/
 /*        Application impl       */
 /*********************************/
-
-func (app *application) GenerateManifests() ([]byte, error) {
-	return app.kustomizeBuild() // TODO: supporting only kustomize for now
-}
-
-func (app *application) ArgoCD() *v1alpha1.Application {
-	return app.argoApp
-}
-
-func (app *application) Kustomization() ([]byte, error) {
-	return nil, nil
-}
-
-func (app *application) Overlay() *kusttypes.Kustomization {
-	return &kusttypes.Kustomization{
-		Resources: []string{"../base"},
-		TypeMeta: kusttypes.TypeMeta{
-			APIVersion: kusttypes.KustomizationVersion,
-			Kind:       kusttypes.KustomizationKind,
-		},
-	}
-}
-
 func (app *application) Base() *kusttypes.Kustomization {
 	return &kusttypes.Kustomization{
 		Resources: []string{app.path},
@@ -181,12 +179,22 @@ func (app *application) Base() *kusttypes.Kustomization {
 	}
 }
 
+func (app *application) Overlay() *kusttypes.Kustomization {
+	return &kusttypes.Kustomization{
+		Resources: []string{"../../base"},
+		TypeMeta: kusttypes.TypeMeta{
+			APIVersion: kusttypes.KustomizationVersion,
+			Kind:       kusttypes.KustomizationKind,
+		},
+	}
+}
+
 func (app *application) ConfigJson() *Config {
 	return &Config{
-		AppName:       app.name,
-		UserGivenName: app.ArgoCD().Name,
-		DestNamespace: app.ArgoCD().Spec.Destination.Namespace,
-		DestServer:    app.ArgoCD().Spec.Destination.Server,
+		AppName:       app.argoApp.Name,
+		UserGivenName: app.argoApp.Name,
+		DestNamespace: app.argoApp.Spec.Destination.Namespace,
+		DestServer:    app.argoApp.Spec.Destination.Server,
 	}
 }
 
@@ -217,7 +225,12 @@ func (app *bootstrapApp) GenerateManifests() ([]byte, error) {
 
 	defer os.RemoveAll(td)
 	kustPath := filepath.Join(td, "kustomization.yaml")
-	kyaml, err := app.Kustomization()
+	k, err := app.Kustomization()
+	if err != nil {
+		return nil, err
+	}
+
+	kyaml, err := yaml.Marshal(k)
 	if err != nil {
 		return nil, err
 	}
@@ -249,7 +262,7 @@ func (app *bootstrapApp) GenerateManifests() ([]byte, error) {
 	return util.JoinManifests(createNamespace(app.namespace), bootstrapManifests), nil
 }
 
-func (app *bootstrapApp) Kustomization() ([]byte, error) {
+func (app *bootstrapApp) Kustomization() (*kusttypes.Kustomization, error) {
 	credsYAML, err := createCreds(app.repoUrl)
 	if err != nil {
 		return nil, err
@@ -284,19 +297,48 @@ func (app *bootstrapApp) Kustomization() ([]byte, error) {
 	}
 	k.FixKustomizationPreMarshalling()
 
-	return yaml.Marshal(k)
+	return k, nil
 }
 
-func (app *bootstrapApp) Overlay() *kusttypes.Kustomization {
-	return nil
+func (app *bootstrapApp) ArgoCD() *v1alpha1.Application {
+	return app.argoApp
 }
 
-func (app *bootstrapApp) Base() *kusttypes.Kustomization {
-	return nil
-}
-
-func (app *bootstrapApp) ConfigJson() *Config {
-	return nil
+func (app *bootstrapApp) RootApp(revision, srcPath string) *v1alpha1.Application {
+	return &v1alpha1.Application{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: argocdapp.Group + "/v1alpha1",
+			Kind:       argocdapp.ApplicationKind,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: app.namespace,
+			Name:      "root",
+			Labels: map[string]string{
+				"app.kubernetes.io/managed-by": store.Common.ManagedBy,
+				"app.kubernetes.io/name":       store.Common.RootName,
+			},
+			Finalizers: []string{
+				"resources-finalizer.argocd.argoproj.io",
+			},
+		},
+		Spec: v1alpha1.ApplicationSpec{
+			Source: v1alpha1.ApplicationSource{
+				RepoURL:        app.repoUrl,
+				Path:           srcPath,
+				TargetRevision: revision,
+			},
+			Destination: v1alpha1.ApplicationDestination{
+				Server:    "https://kubernetes.default.svc",
+				Namespace: app.namespace,
+			},
+			SyncPolicy: &v1alpha1.SyncPolicy{
+				Automated: &v1alpha1.SyncPolicyAutomated{
+					SelfHeal: true,
+					Prune:    true,
+				},
+			},
+		},
+	}
 }
 
 func getLabels(appName string) []string {
@@ -342,43 +384,4 @@ func createCreds(repoUrl string) ([]byte, error) {
 	}
 
 	return yaml.Marshal(creds)
-}
-
-func NewRootApp(namespace, repoURL, srcPath, revision string) Application {
-	return &application{
-		argoApp: &v1alpha1.Application{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: argocdapp.Group + "/v1alpha1",
-				Kind:       argocdapp.ApplicationKind,
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: namespace,
-				Name:      "root",
-				Labels: map[string]string{
-					"app.kubernetes.io/managed-by": store.Common.ManagedBy,
-					"app.kubernetes.io/name":       store.Common.RootName,
-				},
-				Finalizers: []string{
-					"resources-finalizer.argocd.argoproj.io",
-				},
-			},
-			Spec: v1alpha1.ApplicationSpec{
-				Source: v1alpha1.ApplicationSource{
-					RepoURL:        repoURL,
-					Path:           srcPath,
-					TargetRevision: revision,
-				},
-				Destination: v1alpha1.ApplicationDestination{
-					Server:    "https://kubernetes.default.svc",
-					Namespace: namespace,
-				},
-				SyncPolicy: &v1alpha1.SyncPolicy{
-					Automated: &v1alpha1.SyncPolicyAutomated{
-						SelfHeal: true,
-						Prune:    true,
-					},
-				},
-			},
-		},
-	}
 }

@@ -15,7 +15,7 @@ func NewVersionCommand() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "version",
-		Short: "show cli version",
+		Short: "Show cli version",
 		Run: func(cmd *cobra.Command, args []string) {
 			s := store.Get()
 

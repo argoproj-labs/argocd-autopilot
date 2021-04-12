@@ -15,7 +15,6 @@ import (
 	memfs "github.com/go-git/go-billy/v5/memfs"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 func NewAppCommand() *cobra.Command {
@@ -36,26 +35,24 @@ func NewAppCommand() *cobra.Command {
 
 func NewAppCreateCommand() *cobra.Command {
 	var (
-		installationPath string
-		token            string
-		envName          string
-		appOptions       *application.CreateOptions
+		envName    string
+		appOptions *application.CreateOptions
+		repoOpts   *git.CloneOptions
+		fs         billy.Filesystem
 	)
 
 	cmd := &cobra.Command{
-		Use:   "create [APPNAME]",
+		Use:   "create",
 		Short: "Add an application to an environment",
-		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			var (
-				repoURL  = util.MustGetString(cmd.Flags(), "repo")
-				revision = util.MustGetString(cmd.Flags(), "revision")
+				repoURL          = cmd.Flag("repo").Value.String()
+				installationPath = cmd.Flag("installation-path").Value.String()
+				revision         = cmd.Flag("revision").Value.String()
+				appName          = cmd.Flag("app-name").Value.String()
+				ctx              = cmd.Context()
+				fs               = memfs.New()
 			)
-
-			ctx := cmd.Context()
-			fs := memfs.New()
-
-			appName := args[0]
 
 			log.G().WithFields(log.Fields{
 				"repoURL":  repoURL,
@@ -65,21 +62,14 @@ func NewAppCreateCommand() *cobra.Command {
 
 			// clone repo
 			log.G().Infof("cloning git repository: %s", repoURL)
-			r, err := git.Clone(ctx, &git.CloneOptions{
-				URL:      repoURL,
-				FS:       fs,
-				Revision: revision,
-				Auth: &git.Auth{
-					Username: "username",
-					Password: token,
-				},
-			})
+			r, err := repoOpts.Clone(ctx, fs)
 			util.Die(err)
 
 			log.G().Infof("using installation path: %s", installationPath)
 			fs = util.MustChroot(fs, installationPath)
 
-			app := appOptions.ParseOrDie(false)
+			app, err := appOptions.Parse()
+			util.Die(err, "failed to parse application from flags")
 
 			// get application files
 			basePath := fs.Join(store.Common.KustomizeDir, appName, "base", "kustomization.yaml")
@@ -131,17 +121,11 @@ func NewAppCreateCommand() *cobra.Command {
 		},
 	}
 
-	util.Die(viper.BindEnv("git-token", "GIT_TOKEN"))
-	util.Die(viper.BindEnv("repo", "GIT_REPO"))
-
-	cmd.Flags().StringVar(&installationPath, "installation-path", "", "The path where we create the installation files (defaults to the root of the repository")
-	cmd.Flags().StringVarP(&token, "git-token", "t", "", "Your git provider api token [GIT_TOKEN]")
-	cmd.Flags().StringVar(&envName, "environment", "", "Environment name")
+	cmd.Flags().StringVar(&envName, "env", "", "Environment name")
 
 	appOptions = application.AddFlags(cmd, "")
-
-	util.Die(cmd.MarkFlagRequired("repo"))
-	util.Die(cmd.MarkFlagRequired("git-token"))
+	repoOpts, err := git.AddFlags(cmd, fs)
+	util.Die(err)
 
 	return cmd
 }
