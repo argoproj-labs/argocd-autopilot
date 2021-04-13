@@ -19,7 +19,6 @@ import (
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	argocdsettings "github.com/argoproj/argo-cd/v2/util/settings"
 	"github.com/ghodss/yaml"
-	"github.com/go-git/go-billy/v5"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	v1 "k8s.io/api/core/v1"
@@ -30,13 +29,14 @@ import (
 )
 
 const (
-	defaultDestServer = "https://kubernetes.default.svc"
+	DefaultDestServer = "https://kubernetes.default.svc"
 )
 
 var (
 	// Errors
-	ErrEmptyAppSpecifier = errors.New("empty app specifier not allowed")
-	ErrEmptyAppName      = errors.New("app name cannot be empty, please specify application name with: --app-name")
+	ErrEmptyAppSpecifier                         = errors.New("empty app specifier not allowed")
+	ErrEmptyAppName                              = errors.New("app name cannot be empty, please specify application name with: --app-name")
+	DefaultApplicationSetGeneratorInterval int64 = 30
 )
 
 type (
@@ -85,21 +85,23 @@ type (
 	}
 
 	GenerateAppSetOptions struct {
-		FS        billy.Filesystem
-		Name      string
-		Namespace string
-		RepoURL   string
-		Revision  string
+		Name              string
+		Namespace         string
+		DefaultDestServer string
+		RepoURL           string
+		Revision          string
+		InstallationPath  string
 	}
 
 	application struct {
-		tag       string
-		name      string
-		namespace string
-		path      string
-		kustPath  string
-		fs        filesys.FileSystem
-		argoApp   *v1alpha1.Application
+		tag        string
+		name       string
+		namespace  string
+		destServer string
+		path       string
+		kustPath   string
+		fs         filesys.FileSystem
+		argoApp    *v1alpha1.Application
 	}
 
 	bootstrapApp struct {
@@ -112,9 +114,10 @@ func AddFlags(cmd *cobra.Command, defAppName string) *CreateOptions {
 	co := &CreateOptions{}
 
 	cmd.Flags().StringVar(&co.AppSpecifier, "app", "", "The application specifier (e.g. argocd@v1.0.2 | https://github.com")
-	cmd.Flags().StringVar(&co.AppName, "app-name", defAppName, "The application name")
-	cmd.Flags().StringVar(&co.Server, "dest-server", "", fmt.Sprintf("K8s cluster URL (e.g. %s)", defaultDestServer))
-	cmd.Flags().StringVar(&co.Namespace, "dest-namespace", "", "K8s target namespace (overrides the namespace specified in the ksonnet app.yaml)")
+	cmd.Flags().StringVar(&co.Server, "dest-server", DefaultDestServer, fmt.Sprintf("K8s cluster URL (e.g. %s)", DefaultDestServer))
+	cmd.Flags().StringVar(&co.Namespace, "dest-namespace", "default", "K8s target namespace (overrides the namespace specified in the ksonnet app.yaml)")
+
+	util.Die(cmd.MarkFlagRequired("app"))
 
 	co.flags = cmd.Flags()
 
@@ -164,15 +167,26 @@ func (app *application) Overlay() *kusttypes.Kustomization {
 			APIVersion: kusttypes.KustomizationVersion,
 			Kind:       kusttypes.KustomizationKind,
 		},
+		Namespace: app.namespace,
 	}
 }
 
 func (app *application) ConfigJson() *Config {
+	destNs := ""
+	destServer := ""
+	if app.namespace != "default" {
+		destNs = app.namespace
+	}
+
+	if app.destServer != DefaultDestServer {
+		destServer = app.destServer
+	}
+
 	return &Config{
 		AppName:       app.argoApp.Name,
 		UserGivenName: app.argoApp.Name,
-		DestNamespace: app.argoApp.Spec.Destination.Namespace,
-		DestServer:    app.argoApp.Spec.Destination.Server,
+		DestNamespace: destNs,
+		DestServer:    destServer,
 	}
 }
 
@@ -304,13 +318,16 @@ func (app *bootstrapApp) CreateApp(name, revision, srcPath string) *v1alpha1.App
 				TargetRevision: revision,
 			},
 			Destination: v1alpha1.ApplicationDestination{
-				Server:    defaultDestServer,
+				Server:    DefaultDestServer,
 				Namespace: app.namespace,
 			},
 			SyncPolicy: &v1alpha1.SyncPolicy{
 				Automated: &v1alpha1.SyncPolicyAutomated{
 					SelfHeal: true,
 					Prune:    true,
+				},
+				SyncOptions: []string{
+					"allowEmpty=true",
 				},
 			},
 			IgnoreDifferences: []v1alpha1.ResourceIgnoreDifferences{
@@ -349,11 +366,12 @@ func parseApplication(o *CreateOptions) (*application, error) {
 	}
 
 	app := &application{
-		name:      o.AppName,
-		path:      o.AppSpecifier, // TODO: supporting only path for now
-		namespace: o.Namespace,
-		fs:        filesys.MakeFsOnDisk(),
-		argoApp:   argoApp,
+		name:       o.AppName,
+		path:       o.AppSpecifier, // TODO: supporting only path for now
+		namespace:  o.Namespace,
+		destServer: o.Server,
+		fs:         filesys.MakeFsOnDisk(),
+		argoApp:    argoApp,
 	}
 
 	return app, nil
@@ -377,9 +395,17 @@ func generateAppSet(o *GenerateAppSetOptions) *appset.ApplicationSet {
 						Revision: o.Revision,
 						Files: []appset.GitFileGeneratorItem{
 							{
-								Path: o.FS.Join("kustomize", "**", "overlays", o.Name, "config.json"),
+								Path: filepath.Join(o.InstallationPath, "kustomize", "**", "overlays", o.Name, "config.json"),
 							},
 						},
+						Template: appset.ApplicationSetTemplate{
+							Spec: appsetv1alpha1.ApplicationSpec{
+								Destination: appsetv1alpha1.ApplicationDestination{
+									Server: o.DefaultDestServer,
+								},
+							},
+						},
+						RequeueAfterSeconds: &DefaultApplicationSetGeneratorInterval,
 					},
 				},
 			},
@@ -395,7 +421,7 @@ func generateAppSet(o *GenerateAppSetOptions) *appset.ApplicationSet {
 					Source: appsetv1alpha1.ApplicationSource{
 						RepoURL:        o.RepoURL,
 						TargetRevision: o.Revision,
-						Path:           o.FS.Join("kustomize", "{{appName}}", "overlays", o.Name),
+						Path:           filepath.Join(o.InstallationPath, "kustomize", "{{appName}}", "overlays", o.Name),
 					},
 					Destination: appsetv1alpha1.ApplicationDestination{
 						Server:    "{{destServer}}",
@@ -405,9 +431,6 @@ func generateAppSet(o *GenerateAppSetOptions) *appset.ApplicationSet {
 						Automated: &appsetv1alpha1.SyncPolicyAutomated{
 							SelfHeal: true,
 							Prune:    true,
-						},
-						SyncOptions: []string{
-							"CreateNamespace=true",
 						},
 					},
 				},

@@ -43,12 +43,13 @@ func NewEnvCreateCommand() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "create",
+		Use:   "create [ENV]",
 		Short: "Create a new environment",
 		Example: util.Doc(`
 `),
 		Run: func(cmd *cobra.Command, args []string) {
 			var (
+				err              error
 				repoURL          = cmd.Flag("repo").Value.String()
 				installationPath = cmd.Flag("installation-path").Value.String()
 				revision         = cmd.Flag("revision").Value.String()
@@ -58,6 +59,11 @@ func NewEnvCreateCommand() *cobra.Command {
 				ctx = cmd.Context()
 			)
 
+			if len(args) < 1 {
+				log.G().Fatal("must enter environment name")
+			}
+			envName = args[0]
+
 			log.G().WithFields(log.Fields{
 				"env":          envName,
 				"repoURL":      repoURL,
@@ -65,14 +71,19 @@ func NewEnvCreateCommand() *cobra.Command {
 				"installation": installationPath,
 			}).Debug("starting with options: ")
 
-			util.MustChroot(fs, installationPath)
+			destServer := application.DefaultDestServer
+			if envKubeContext != "" {
+				destServer, err = util.KubeContextToServer(envKubeContext)
+				util.Die(err)
+			}
 
 			envApp := application.GenerateApplicationSet(&application.GenerateAppSetOptions{
-				FS:        fs,
-				Name:      envName,
-				Namespace: namespace,
-				RepoURL:   repoURL,
-				Revision:  revision,
+				Name:              envName,
+				Namespace:         namespace,
+				RepoURL:           repoURL,
+				Revision:          revision,
+				InstallationPath:  installationPath,
+				DefaultDestServer: destServer,
 			})
 
 			envAppYAML, err := yaml.Marshal(envApp)
@@ -89,11 +100,18 @@ func NewEnvCreateCommand() *cobra.Command {
 			r, err := repoOpts.Clone(ctx, fs)
 			util.Die(err)
 
+			fs = util.MustChroot(fs, installationPath)
+
 			log.G().Infof("using installation path: %s", installationPath)
 			util.MustExists(fs, store.Default.BootsrtrapDir, fmt.Sprintf("Bootstrap folder not found, please execute `repo bootstrap --installation-path %s` command", installationPath))
+			envExists := util.MustCheckEnvExists(fs, envName)
+			if envExists {
+				log.G().Fatalf("env '%s' already exists", envName)
+			}
+
 			log.G().Debug("repository is ok")
 
-			if envKubeContext != "https://kubernetes.default.svc" {
+			if envKubeContext != "" {
 				log.G().Infof("adding cluster: %s", envKubeContext)
 				util.Die(addCmd.Execute(ctx, envKubeContext), "failed to add new cluster credentials")
 			}
@@ -105,13 +123,12 @@ func NewEnvCreateCommand() *cobra.Command {
 				CommitMsg: "Added env " + envName,
 			}))
 
-			log.G().Infof("Done creating %s environment", envName)
+			log.G().Infof("done creating %s environment", envName)
 		},
 	}
 
-	cmd.Flags().StringVar(&envName, "env", "", "Environment name")
-	cmd.Flags().StringVar(&namespace, "namespace", "argocd", "Namespace")
-	cmd.Flags().StringVar(&envKubeContext, "env-kube-context", "https://kubernetes.default.svc", "env kube context")
+	cmd.Flags().StringVar(&namespace, "namespace", "argocd", "The argo-cd namespace")
+	cmd.Flags().StringVar(&envKubeContext, "env-kube-context", "", "The default destination kubernetes context for applications on this environment")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "If true, print manifests instead of applying them to the cluster (nothing will be commited to git)")
 
 	addCmd, err := argocd.AddClusterAddFlags(cmd)
@@ -119,8 +136,6 @@ func NewEnvCreateCommand() *cobra.Command {
 
 	repoOpts, err = git.AddFlags(cmd)
 	util.Die(err)
-
-	util.Die(cmd.MarkFlagRequired("env"))
 
 	return cmd
 }

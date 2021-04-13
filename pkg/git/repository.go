@@ -76,7 +76,7 @@ func AddFlags(cmd *cobra.Command) (*CloneOptions, error) {
 
 	cmd.Flags().StringVar(&co.URL, "repo", "", "Repository URL [GIT_REPO]")
 	cmd.Flags().StringVar(&co.Revision, "revision", "", "Repository branch, tag or commit hash (defaults to HEAD)")
-	cmd.Flags().StringVar(&co.RepoRoot, "installation-path", "", "The path where we of the installation files (defaults to the root of the repository")
+	cmd.Flags().StringVar(&co.RepoRoot, "installation-path", "", "The path where we of the installation files (defaults to the root of the repository [GIT_INSTALLATION_PATH]")
 	cmd.Flags().StringVarP(&co.Auth.Password, "git-token", "t", "", "Your git provider api token [GIT_TOKEN]")
 
 	if err := viper.BindEnv("git-token", "GIT_TOKEN"); err != nil {
@@ -84,6 +84,10 @@ func AddFlags(cmd *cobra.Command) (*CloneOptions, error) {
 	}
 
 	if err := viper.BindEnv("repo", "GIT_REPO"); err != nil {
+		return nil, err
+	}
+
+	if err := viper.BindEnv("installation-path", "GIT_INSTALLATION_PATH"); err != nil {
 		return nil, err
 	}
 

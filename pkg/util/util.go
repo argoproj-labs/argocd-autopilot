@@ -12,6 +12,7 @@ import (
 	"github.com/argoproj/argocd-autopilot/pkg/store"
 	"github.com/briandowns/spinner"
 	billy "github.com/go-git/go-billy/v5"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 const yamlSeperator = "\n---\n"
@@ -46,7 +47,32 @@ func ContextWithCancelOnSignals(ctx context.Context, sigs ...os.Signal) context.
 	return ctx
 }
 
-// Die panics if err is not nil
+func CurrentContextOrDie() string {
+	configAccess := clientcmd.NewDefaultPathOptions()
+	conf, err := configAccess.GetStartingConfig()
+	Die(err)
+
+	return conf.CurrentContext
+}
+
+func KubeContextToServer(contextName string) (string, error) {
+	configAccess := clientcmd.NewDefaultPathOptions()
+	conf, err := configAccess.GetStartingConfig()
+	if err != nil {
+		return "", err
+	}
+	ctx := conf.Contexts[contextName]
+	if ctx == nil {
+		return "", fmt.Errorf("Context %s does not exist in kubeconfig", contextName)
+	}
+	cluster := conf.Clusters[ctx.Cluster]
+	if cluster == nil {
+		return "", fmt.Errorf("Cluster %s does not exist in kubeconfig", ctx.Cluster)
+	}
+
+	return cluster.Server, nil
+}
+
 func Die(err error, cause ...string) {
 	if err != nil {
 		if len(cause) > 0 {
@@ -130,12 +156,12 @@ func MustExists(fs billy.Filesystem, path string, notExistsMsg ...string) {
 }
 
 // MustEnvExists fails if the provided env does not exist on the provided filesystem.
-func MustEnvExists(fs billy.Filesystem, envName string) {
-	if ok, err := Exists(fs, fs.Join(store.Default.EnvsDir, fmt.Sprintf("%s.yaml", envName))); err != nil {
+func MustCheckEnvExists(fs billy.Filesystem, envName string) bool {
+	ok, err := Exists(fs, fs.Join(store.Default.EnvsDir, fmt.Sprintf("%s.yaml", envName)))
+	if err != nil {
 		Die(err)
-	} else if !ok {
-		Die(fmt.Errorf("environment does not exist: %s", envName))
 	}
+	return ok
 }
 
 // MustChroot changes the filesystem's root and panics if it fails

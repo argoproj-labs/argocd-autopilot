@@ -41,23 +41,27 @@ func NewAppCreateCommand() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "create",
+		Use:   "create [APP_NAME]",
 		Short: "Add an application to an environment",
 		Run: func(cmd *cobra.Command, args []string) {
 			var (
 				repoURL          = cmd.Flag("repo").Value.String()
 				revision         = cmd.Flag("revision").Value.String()
-				appName          = cmd.Flag("app-name").Value.String()
 				installationPath = cmd.Flag("installation-path").Value.String()
 
 				ctx = cmd.Context()
 				fs  = memfs.New()
 			)
 
+			if len(args) < 1 {
+				log.G().Fatal("must enter application name")
+			}
+			appOptions.AppName = args[0]
+
 			log.G().WithFields(log.Fields{
 				"repoURL":  repoURL,
 				"revision": revision,
-				"appName":  appName,
+				"appName":  appOptions.AppName,
 			}).Debug("starting with options: ")
 
 			// clone repo
@@ -68,19 +72,27 @@ func NewAppCreateCommand() *cobra.Command {
 			log.G().Infof("using installation path: %s", installationPath)
 			fs = util.MustChroot(fs, installationPath)
 
+			util.MustExists(fs, store.Default.BootsrtrapDir, util.Doc(fmt.Sprintf("Bootstrap folder not found, please execute `<BIN> repo bootstrap --installation-path %s`", installationPath)))
+			envExists := util.MustCheckEnvExists(fs, envName)
+			if !envExists {
+				log.G().Fatalf(util.Doc(fmt.Sprintf("env '%[1]s' not found, please execute `<BIN> env create %[1]s`", envName)))
+			}
+
+			log.G().Debug("repository is ok")
+
 			app, err := appOptions.Parse()
 			util.Die(err, "failed to parse application from flags")
 
 			// get application files
-			basePath := fs.Join(store.Default.KustomizeDir, appName, "base", "kustomization.yaml")
+			basePath := fs.Join(store.Default.KustomizeDir, appOptions.AppName, "base", "kustomization.yaml")
 			baseYAML, err := yaml.Marshal(app.Base())
 			util.Die(err, "failed to marshal app base kustomization")
 
-			overlayPath := fs.Join(store.Default.KustomizeDir, appName, "overlays", envName, "kustomization.yaml")
+			overlayPath := fs.Join(store.Default.KustomizeDir, appOptions.AppName, "overlays", envName, "kustomization.yaml")
 			overlayYAML, err := yaml.Marshal(app.Overlay())
 			util.Die(err, "failed to marshal app overlay kustomization")
 
-			configJSONPath := fs.Join(store.Default.KustomizeDir, appName, "overlays", envName, "config.json")
+			configJSONPath := fs.Join(store.Default.KustomizeDir, appOptions.AppName, "overlays", envName, "config.json")
 			configJSON, err := json.Marshal(app.ConfigJson())
 			util.Die(err, "failed to marshal app config.json")
 
@@ -98,7 +110,7 @@ func NewAppCreateCommand() *cobra.Command {
 				log.G().Infof("created application overlay file at: %s", overlayPath)
 			} else {
 				// application already exists
-				log.G().Infof("app \"%s\" already installed on env: %s", appName, envName)
+				log.G().Infof("app \"%s\" already installed on env: %s", appOptions.AppName, envName)
 				log.G().Infof("found overlay on: %s", overlayPath)
 				os.Exit(1)
 			}
@@ -110,7 +122,7 @@ func NewAppCreateCommand() *cobra.Command {
 				log.G().Infof("application base file exists on: %s", configJSONPath)
 			}
 
-			commitMsg := fmt.Sprintf("installed app \"%s\" on environment \"%s\"", appName, envName)
+			commitMsg := fmt.Sprintf("installed app \"%s\" on environment \"%s\"", appOptions.AppName, envName)
 			if installationPath != "" {
 				commitMsg += fmt.Sprintf(" installation-path: %s", installationPath)
 			}
@@ -122,6 +134,7 @@ func NewAppCreateCommand() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&envName, "env", "", "Environment name")
+	util.Die(cmd.MarkFlagRequired("env"))
 
 	appOptions = application.AddFlags(cmd, "")
 	repoOpts, err := git.AddFlags(cmd)
