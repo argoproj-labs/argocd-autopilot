@@ -24,20 +24,37 @@ const (
 
 type Factory interface {
 	cmdutil.Factory
+
+	// KubernetesClientSetOrDie calls KubernetesClientSet() and panics if it returns an error
 	KubernetesClientSetOrDie() *kubernetes.Clientset
+
+	// Apply applies the provided manifests on the specified namespace
 	Apply(ctx context.Context, namespace string, manifests []byte) error
+
+	// Wait waits for all of the provided `Resources` to be ready by calling
+	// the `WaitFunc` of each resource until all of them returns `true`
 	Wait(context.Context, *WaitOptions) error
 }
 
 type Resource struct {
 	Name      string
 	Namespace string
-	WaitFunc  func(ctx context.Context, f Factory, ns, name string) (bool, error)
+
+	// WaitFunc will be called to check if the resources is ready. Should return (true, nil)
+	// if the resources is ready, (false, nil) if the resource is not ready yet, or (false, err)
+	// if some error occured (in that case the `Wait` will fail with that error).
+	WaitFunc func(ctx context.Context, f Factory, ns, name string) (bool, error)
 }
 
 type WaitOptions struct {
-	Interval  time.Duration
-	Timeout   time.Duration
+	// Inverval the duration between each iteration of calling all of the resources' `WaitFunc`s.
+	Interval time.Duration
+
+	// Timeout the max time to wait for all of the resources to be ready. If not all of the
+	// resourecs are ready at time this will cause `Wait` to return an error.
+	Timeout time.Duration
+
+	// Resources the list of resources to wait for.
 	Resources []Resource
 }
 
@@ -128,7 +145,7 @@ func (f *factory) Apply(ctx context.Context, namespace string, manifests []byte)
 func (f *factory) Wait(ctx context.Context, opts *WaitOptions) error {
 	itr := 0
 	resources := map[*Resource]bool{}
-	for i, _ := range opts.Resources {
+	for i := range opts.Resources {
 		resources[&opts.Resources[i]] = true
 	}
 

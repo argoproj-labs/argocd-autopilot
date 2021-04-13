@@ -10,10 +10,10 @@ import (
 	"github.com/argoproj/argocd-autopilot/pkg/log"
 	"github.com/argoproj/argocd-autopilot/pkg/store"
 	"github.com/argoproj/argocd-autopilot/pkg/util"
+
 	"github.com/ghodss/yaml"
 	"github.com/go-git/go-billy/v5"
 	memfs "github.com/go-git/go-billy/v5/memfs"
-
 	"github.com/spf13/cobra"
 )
 
@@ -71,15 +71,15 @@ func NewAppCreateCommand() *cobra.Command {
 			util.Die(err, "failed to parse application from flags")
 
 			// get application files
-			basePath := fs.Join(store.Common.KustomizeDir, appName, "base", "kustomization.yaml")
+			basePath := fs.Join(store.Default.KustomizeDir, appName, "base", "kustomization.yaml")
 			baseYAML, err := yaml.Marshal(app.Base())
 			util.Die(err, "failed to marshal app base kustomization")
 
-			overlayPath := fs.Join(store.Common.KustomizeDir, appName, "overlays", envName, "kustomization.yaml")
+			overlayPath := fs.Join(store.Default.KustomizeDir, appName, "overlays", envName, "kustomization.yaml")
 			overlayYAML, err := yaml.Marshal(app.Overlay())
 			util.Die(err, "failed to marshal app overlay kustomization")
 
-			configJSONPath := fs.Join(store.Common.KustomizeDir, appName, "overlays", envName, "config.json")
+			configJSONPath := fs.Join(store.Default.KustomizeDir, appName, "overlays", envName, "config.json")
 			configJSON, err := json.Marshal(app.ConfigJson())
 			util.Die(err, "failed to marshal app config.json")
 

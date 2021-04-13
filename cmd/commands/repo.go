@@ -166,9 +166,9 @@ func NewRepoBootstrapCommand() *cobra.Command {
 
 			parseInstallationMode(installationMode)
 
-			bootstrapPath := fs.Join(installationPath, store.Common.BootsrtrapDir)
-			argocdPath := fs.Join(bootstrapPath, store.Common.ArgoCDName)
-			envsPath := fs.Join(installationPath, store.Common.EnvsDir)
+			bootstrapPath := fs.Join(installationPath, store.Default.BootsrtrapDir)
+			argocdPath := fs.Join(bootstrapPath, store.Default.ArgoCDName)
+			envsPath := fs.Join(installationPath, store.Default.EnvsDir)
 			appOptions.SrcPath = argocdPath
 
 			if namespace == "" {
@@ -202,20 +202,20 @@ func NewRepoBootstrapCommand() *cobra.Command {
 
 			bootstrapAppYAML := createApp(
 				bootstrapApp,
-				store.Common.BootsrtrapAppName,
+				store.Default.BootsrtrapAppName,
 				revision,
 				bootstrapPath,
 			)
 			rootAppYAML := createApp(
 				bootstrapApp,
-				store.Common.RootAppName,
+				store.Default.RootAppName,
 				revision,
 				envsPath,
 			)
 
 			argoCDAppYAML := createApp(
 				bootstrapApp,
-				store.Common.ArgoCDName,
+				store.Default.ArgoCDName,
 				revision,
 				argocdPath,
 			)
@@ -259,13 +259,13 @@ func NewRepoBootstrapCommand() *cobra.Command {
 			}
 
 			// write envs root app
-			writeFile(fs, fs.Join(bootstrapPath, store.Common.RootAppName+".yaml"), rootAppYAML)
+			writeFile(fs, fs.Join(bootstrapPath, store.Default.RootAppName+".yaml"), rootAppYAML)
 
 			// write argocd app
-			writeFile(fs, fs.Join(bootstrapPath, store.Common.ArgoCDName+".yaml"), argoCDAppYAML)
+			writeFile(fs, fs.Join(bootstrapPath, store.Default.ArgoCDName+".yaml"), argoCDAppYAML)
 
 			// write ./envs/Dummy
-			writeFile(fs, fs.Join(envsPath, store.Common.DummyName), []byte{})
+			writeFile(fs, fs.Join(envsPath, store.Default.DummyName), []byte{})
 
 			// wait for argocd to be ready before applying argocd-apps
 			stop := util.WithSpinner(ctx, "waiting for argo-cd to be ready")
@@ -354,7 +354,7 @@ func createApp(bootstrapApp application.BootstrapApplication, name, revision, sr
 
 func waitClusterReady(ctx context.Context, f kube.Factory, timeout time.Duration, namespace string) {
 	util.Die(f.Wait(ctx, &kube.WaitOptions{
-		Interval: store.Common.WaitInterval,
+		Interval: store.Default.WaitInterval,
 		Timeout:  timeout,
 		Resources: []kube.Resource{
 			{
@@ -385,11 +385,11 @@ func getRepoCredsSecret(token, namespace string) []byte {
 			Kind:       "Secret",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      store.Common.SecretName,
+			Name:      store.Default.RepoCredsSecretName,
 			Namespace: namespace,
 		},
 		Data: map[string][]byte{
-			"git_username": []byte(store.Common.SecretName),
+			"git_username": []byte(store.Default.GitUsername),
 			"git_token":    []byte(token),
 		},
 	})

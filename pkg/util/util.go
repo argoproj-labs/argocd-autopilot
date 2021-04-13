@@ -56,6 +56,8 @@ func Die(err error, cause ...string) {
 	}
 }
 
+// WithSpinner create a spinner that prints a message and canceled if the
+// given context is canceled or the returned stop function is called.
 func WithSpinner(ctx context.Context, msg ...string) func() {
 	if os.Getenv("NO_COLOR") != "" { // https://no-color.org/
 		log.G(ctx).Info(msg)
@@ -88,12 +90,23 @@ func Doc(doc string) string {
 	return strings.ReplaceAll(doc, "<BIN>", store.Get().BinaryName)
 }
 
+// MustParseDuration parses the given string as "time.Duration", or panic.
 func MustParseDuration(dur string) time.Duration {
 	d, err := time.ParseDuration(dur)
 	Die(err)
 	return d
 }
 
+// JoinManifests concats all of the provided yaml manifests with a yaml separator.
+func JoinManifests(manifests ...[]byte) []byte {
+	res := make([]string, 0, len(manifests))
+	for _, m := range manifests {
+		res = append(res, string(m))
+	}
+	return []byte(strings.Join(res, yamlSeperator))
+}
+
+// Exists checks if the provided path exists in the provided filesystem.
 func Exists(fs billy.Filesystem, path string) (bool, error) {
 	if _, err := fs.Stat(path); err != nil {
 		if !os.IsNotExist(err) {
@@ -106,22 +119,26 @@ func Exists(fs billy.Filesystem, path string) (bool, error) {
 	return true, nil
 }
 
-func JoinManifests(manifests ...[]byte) []byte {
-	res := make([]string, 0, len(manifests))
-	for _, m := range manifests {
-		res = append(res, string(m))
+// Exists checks if the provided path exists in the provided filesystem.
+func MustExists(fs billy.Filesystem, path string, notExistsMsg ...string) {
+	exists, err := Exists(fs, path)
+	Die(err)
+
+	if !exists {
+		Die(fmt.Errorf("path does not exist: %s", path), notExistsMsg...)
 	}
-	return []byte(strings.Join(res, yamlSeperator))
 }
 
-func EnvValidateOrDie(fs billy.Filesystem, envName string) {
-	if ok, err := Exists(fs, fs.Join(store.Common.EnvsDir, fmt.Sprintf("%s.yaml", envName))); err != nil {
+// MustEnvExists fails if the provided env does not exist on the provided filesystem.
+func MustEnvExists(fs billy.Filesystem, envName string) {
+	if ok, err := Exists(fs, fs.Join(store.Default.EnvsDir, fmt.Sprintf("%s.yaml", envName))); err != nil {
 		Die(err)
 	} else if !ok {
 		Die(fmt.Errorf("environment does not exist: %s", envName))
 	}
 }
 
+// MustChroot changes the filesystem's root and panics if it fails
 func MustChroot(fs billy.Filesystem, path string) billy.Filesystem {
 	newFS, err := fs.Chroot(path)
 	Die(err)
