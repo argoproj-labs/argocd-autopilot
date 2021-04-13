@@ -68,6 +68,7 @@ func NewEnvCreateCommand() *cobra.Command {
 			util.MustChroot(fs, installationPath)
 
 			envApp := application.GenerateApplicationSet(&application.GenerateAppSetOptions{
+				FS:        fs,
 				Name:      envName,
 				Namespace: namespace,
 				RepoURL:   repoURL,

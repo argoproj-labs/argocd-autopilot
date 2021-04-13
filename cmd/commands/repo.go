@@ -205,12 +205,14 @@ func NewRepoBootstrapCommand() *cobra.Command {
 				store.Default.BootsrtrapAppName,
 				revision,
 				bootstrapPath,
+				false,
 			)
 			rootAppYAML := createApp(
 				bootstrapApp,
 				store.Default.RootAppName,
 				revision,
 				envsPath,
+				false,
 			)
 
 			argoCDAppYAML := createApp(
@@ -218,6 +220,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 				store.Default.ArgoCDName,
 				revision,
 				argocdPath,
+				true,
 			)
 
 			repoCredsYAML := getRepoCredsSecret(gitToken, namespace)
@@ -344,8 +347,11 @@ func writeFile(fs billy.Filesystem, path string, data []byte) {
 	util.Die(err)
 }
 
-func createApp(bootstrapApp application.BootstrapApplication, name, revision, srcPath string) []byte {
+func createApp(bootstrapApp application.BootstrapApplication, name, revision, srcPath string, noFinalizer bool) []byte {
 	app := bootstrapApp.CreateApp(name, revision, srcPath)
+	if noFinalizer {
+		app.ObjectMeta.Finalizers = []string{}
+	}
 	data, err := yaml.Marshal(app)
 	util.Die(err)
 

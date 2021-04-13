@@ -20,12 +20,6 @@ func main() {
 	c := commands.NewRoot()
 	lgr.AddPFlags(c)
 
-	defer func() {
-		if err := recover(); err != nil {
-			log.G().Fatal(err)
-		}
-	}()
-
 	if err := c.ExecuteContext(ctx); err != nil {
 		log.G(ctx).Fatal(err)
 	}

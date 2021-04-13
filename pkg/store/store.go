@@ -34,24 +34,28 @@ type Store struct {
 }
 
 var Default = struct {
-	ArgoCDName          string
 	BootsrtrapDir       string
+	KustomizeDir        string
+	OverlaysDir         string
+	BaseDir             string
+	ArgoCDName          string
 	BootsrtrapAppName   string
 	DummyName           string
 	EnvsDir             string
-	KustomizeDir        string
 	ManagedBy           string
 	RootAppName         string
 	RepoCredsSecretName string
 	GitUsername         string
 	WaitInterval        time.Duration
 }{
-	ArgoCDName:          "argo-cd",
+	KustomizeDir:        "kustomize",
 	BootsrtrapDir:       "bootstrap",
+	OverlaysDir:         "overlays",
+	BaseDir:             "base",
+	ArgoCDName:          "argo-cd",
 	BootsrtrapAppName:   "autopilot-bootstrap",
 	DummyName:           "DUMMY",
 	EnvsDir:             "envs",
-	KustomizeDir:        "kustomize",
 	ManagedBy:           "argo-autopilot",
 	RootAppName:         "root",
 	RepoCredsSecretName: "autopilot-secret",

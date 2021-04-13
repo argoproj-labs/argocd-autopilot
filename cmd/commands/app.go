@@ -46,11 +46,12 @@ func NewAppCreateCommand() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			var (
 				repoURL          = cmd.Flag("repo").Value.String()
-				installationPath = cmd.Flag("installation-path").Value.String()
 				revision         = cmd.Flag("revision").Value.String()
 				appName          = cmd.Flag("app-name").Value.String()
-				ctx              = cmd.Context()
-				fs               = memfs.New()
+				installationPath = cmd.Flag("installation-path").Value.String()
+
+				ctx = cmd.Context()
+				fs  = memfs.New()
 			)
 
 			log.G().WithFields(log.Fields{
