@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/argoproj/argo-cd/v2/cmd/argocd/commands"
+	"github.com/argoproj/argocd-autopilot/pkg/util"
 )
 
 type AddClusterCmd interface {
@@ -25,8 +26,12 @@ func AddClusterAddFlags(cmd *cobra.Command) (AddClusterCmd, error) {
 		return nil, err
 	}
 
-	cmd.Flags().AddFlagSet(addcmd.Flags())
-	cmd.Flags().AddFlagSet(addcmd.InheritedFlags())
+	fs, err := util.StealFlags(addcmd, []string{"logformat", "loglevel"})
+	if err != nil {
+		return nil, err
+	}
+	//cmd.Flags().AddFlagSet(addcmd.Flags())
+	cmd.Flags().AddFlagSet(fs)
 
 	return &addClusterImpl{root, args}, nil
 }

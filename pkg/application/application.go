@@ -36,7 +36,7 @@ var (
 	// Errors
 	ErrEmptyAppSpecifier                         = errors.New("empty app specifier not allowed")
 	ErrEmptyAppName                              = errors.New("app name cannot be empty, please specify application name with: --app-name")
-	DefaultApplicationSetGeneratorInterval int64 = 30
+	DefaultApplicationSetGeneratorInterval int64 = 20
 )
 
 type (
@@ -113,14 +113,12 @@ type (
 	}
 )
 
-func AddFlags(cmd *cobra.Command, defAppName string) *CreateOptions {
+func AddFlags(cmd *cobra.Command) *CreateOptions {
 	co := &CreateOptions{}
 
-	cmd.Flags().StringVar(&co.AppSpecifier, "app", "", "The application specifier (e.g. argocd@v1.0.2 | https://github.com")
+	cmd.Flags().StringVar(&co.AppSpecifier, "app", "", "The application specifier (e.g. argocd@v1.0.2)")
 	cmd.Flags().StringVar(&co.Server, "dest-server", DefaultDestServer, fmt.Sprintf("K8s cluster URL (e.g. %s)", DefaultDestServer))
 	cmd.Flags().StringVar(&co.Namespace, "dest-namespace", "default", "K8s target namespace (overrides the namespace specified in the ksonnet app.yaml)")
-
-	util.Die(cmd.MarkFlagRequired("app"))
 
 	co.flags = cmd.Flags()
 
@@ -425,7 +423,8 @@ func generateAppSet(o *GenerateAppSetOptions) *appset.ApplicationSet {
 						Template: appset.ApplicationSetTemplate{
 							Spec: appsetv1alpha1.ApplicationSpec{
 								Destination: appsetv1alpha1.ApplicationDestination{
-									Server: o.DefaultDestServer,
+									Server:    o.DefaultDestServer,
+									Namespace: "default",
 								},
 							},
 						},

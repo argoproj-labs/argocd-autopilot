@@ -170,6 +170,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 			argocdPath := fs.Join(bootstrapPath, store.Default.ArgoCDName)
 			envsPath := fs.Join(installationPath, store.Default.EnvsDir)
 			appOptions.SrcPath = argocdPath
+			appOptions.AppName = "argo-cd"
 
 			if namespace == "" {
 				namespace = defaultNamespace
@@ -301,7 +302,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 		"If flat, will commit the bootstrap manifests, otherwise will commit the bootstrap kustomization.yaml")
 
 	// add application flags
-	appOptions = application.AddFlags(cmd, "argo-cd")
+	appOptions = application.AddFlags(cmd)
 	repoOpts, err := git.AddFlags(cmd)
 	util.Die(err)
 

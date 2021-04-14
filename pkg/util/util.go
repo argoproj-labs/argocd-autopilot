@@ -12,6 +12,8 @@ import (
 	"github.com/argoproj/argocd-autopilot/pkg/store"
 	"github.com/briandowns/spinner"
 	billy "github.com/go-git/go-billy/v5"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -47,6 +49,7 @@ func ContextWithCancelOnSignals(ctx context.Context, sigs ...os.Signal) context.
 	return ctx
 }
 
+// CurrentContextOrDie returns the name of the current kubernetes context or dies.
 func CurrentContextOrDie() string {
 	configAccess := clientcmd.NewDefaultPathOptions()
 	conf, err := configAccess.GetStartingConfig()
@@ -55,6 +58,7 @@ func CurrentContextOrDie() string {
 	return conf.CurrentContext
 }
 
+// KubeContextToServer returns the cluster server address for the provided kubernetes context
 func KubeContextToServer(contextName string) (string, error) {
 	configAccess := clientcmd.NewDefaultPathOptions()
 	conf, err := configAccess.GetStartingConfig()
@@ -73,6 +77,8 @@ func KubeContextToServer(contextName string) (string, error) {
 	return cluster.Server, nil
 }
 
+// Die panics it the error is not nil. If a cause string is provided it will
+// be displayed in the error message.
 func Die(err error, cause ...string) {
 	if err != nil {
 		if len(cause) > 0 {
@@ -169,4 +175,26 @@ func MustChroot(fs billy.Filesystem, path string) billy.Filesystem {
 	newFS, err := fs.Chroot(path)
 	Die(err)
 	return newFS
+}
+
+func StealFlags(cmd *cobra.Command, exceptFor []string) (*pflag.FlagSet, error) {
+	fs := &pflag.FlagSet{}
+	ef := map[string]bool{}
+	for _, e := range exceptFor {
+		ef[e] = true
+	}
+
+	cmd.Flags().VisitAll(func(f *pflag.Flag) {
+		if _, shouldSkip := ef[f.Name]; !shouldSkip {
+			fs.AddFlag(f)
+		}
+	})
+
+	cmd.InheritedFlags().VisitAll(func(f *pflag.Flag) {
+		if _, shouldSkip := ef[f.Name]; !shouldSkip {
+			fs.AddFlag(f)
+		}
+	})
+
+	return fs, nil
 }

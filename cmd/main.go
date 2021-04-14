@@ -13,7 +13,7 @@ import (
 
 func main() {
 	ctx := context.Background()
-	lgr := log.FromLogrus(logrus.NewEntry(logrus.StandardLogger()), &log.LogrusConfig{Level: "info"})
+	lgr := log.FromLogrus(logrus.NewEntry(logrus.New()), &log.LogrusConfig{Level: "info"})
 	ctx = log.WithLogger(ctx, lgr)
 	ctx = util.ContextWithCancelOnSignals(ctx, syscall.SIGINT, syscall.SIGTERM)
 
