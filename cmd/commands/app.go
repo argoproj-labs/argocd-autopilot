@@ -92,6 +92,10 @@ func NewAppCreateCommand() *cobra.Command {
 			overlayYAML, err := yaml.Marshal(app.Overlay())
 			util.Die(err, "failed to marshal app overlay kustomization")
 
+			nsPath := fs.Join(store.Default.KustomizeDir, appOptions.AppName, "overlays", envName, "namespace.yaml")
+			nsYAML, err := yaml.Marshal(app.Namespace())
+			util.Die(err, "failed to marshal app overlay namespace")
+
 			configJSONPath := fs.Join(store.Default.KustomizeDir, appOptions.AppName, "overlays", envName, "config.json")
 			configJSON, err := json.Marshal(app.ConfigJson())
 			util.Die(err, "failed to marshal app config.json")
@@ -108,6 +112,15 @@ func NewAppCreateCommand() *cobra.Command {
 			log.G().Debugf("checking if application overlay already exists: %s", overlayPath)
 			if exists := checkExistsOrWriteFile(fs, overlayPath, overlayYAML); !exists {
 				log.G().Infof("created application overlay file at: %s", overlayPath)
+			} else {
+				// application already exists
+				log.G().Infof("app \"%s\" already installed on env: %s", appOptions.AppName, envName)
+				log.G().Infof("found overlay on: %s", overlayPath)
+				os.Exit(1)
+			}
+
+			if exists := checkExistsOrWriteFile(fs, nsPath, nsYAML); !exists {
+				log.G().Infof("created application namespace file at: %s", overlayPath)
 			} else {
 				// application already exists
 				log.G().Infof("app \"%s\" already installed on env: %s", appOptions.AppName, envName)

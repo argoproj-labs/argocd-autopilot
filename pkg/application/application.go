@@ -48,6 +48,9 @@ type (
 		// app.Base() file.
 		Overlay() *kusttypes.Kustomization
 
+		// Namespace returns a Namespace object for the application's namespace
+		Namespace() *v1.Namespace
+
 		// Config returns this app's config.json file that should be next to the overlay
 		// kustomization.yaml file. This is used by the environment's application set
 		// to generate the final argo-cd application.
@@ -162,12 +165,27 @@ func (app *application) Base() *kusttypes.Kustomization {
 
 func (app *application) Overlay() *kusttypes.Kustomization {
 	return &kusttypes.Kustomization{
-		Resources: []string{"../../base"},
+		Resources: []string{
+			"../../base",
+			"./namespace.yaml",
+		},
 		TypeMeta: kusttypes.TypeMeta{
 			APIVersion: kusttypes.KustomizationVersion,
 			Kind:       kusttypes.KustomizationKind,
 		},
 		Namespace: app.namespace,
+	}
+}
+
+func (app *application) Namespace() *v1.Namespace {
+	return &v1.Namespace{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Namespace",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: app.namespace,
+		},
 	}
 }
 
@@ -243,7 +261,13 @@ func (app *bootstrapApp) GenerateManifests() ([]byte, error) {
 		return nil, err
 	}
 
-	return util.JoinManifests(createNamespace(app.namespace), bootstrapManifests), nil
+	ns := app.Namespace()
+	nsManifest, err := yaml.Marshal(ns)
+	if err != nil {
+		return nil, err
+	}
+
+	return util.JoinManifests(nsManifest, bootstrapManifests), nil
 }
 
 func (app *bootstrapApp) Kustomization() (*kusttypes.Kustomization, error) {
@@ -444,22 +468,6 @@ func getLabels(appName string) []string {
 		"app.kubernetes.io/managed-by=argo-autopilot",
 		"app.kubernetes.io/name=" + appName,
 	}
-}
-
-func createNamespace(namespace string) []byte {
-	ns := &v1.Namespace{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "v1",
-			Kind:       "Namespace",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: namespace,
-		},
-	}
-	data, err := yaml.Marshal(ns)
-	util.Die(err)
-
-	return data
 }
 
 func createCreds(repoUrl string) ([]byte, error) {
