@@ -39,6 +39,7 @@ var Default = struct {
 	OverlaysDir         string
 	BaseDir             string
 	ArgoCDName          string
+	ArgoCDNamespace     string
 	BootsrtrapAppName   string
 	DummyName           string
 	EnvsDir             string
@@ -53,6 +54,7 @@ var Default = struct {
 	OverlaysDir:         "overlays",
 	BaseDir:             "base",
 	ArgoCDName:          "argo-cd",
+	ArgoCDNamespace:     "argocd",
 	BootsrtrapAppName:   "autopilot-bootstrap",
 	DummyName:           "DUMMY",
 	EnvsDir:             "envs",
