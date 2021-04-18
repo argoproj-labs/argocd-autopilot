@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -17,7 +16,6 @@ import (
 	"github.com/argoproj/argocd-autopilot/pkg/util"
 
 	"github.com/ghodss/yaml"
-	billy "github.com/go-git/go-billy/v5"
 	memfs "github.com/go-git/go-billy/v5/memfs"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -167,9 +165,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 
 			parseInstallationMode(installationMode)
 
-			bootstrapPath := fs.Join(installationPath, store.Default.BootsrtrapDir)
-			argocdPath := fs.Join(bootstrapPath, store.Default.ArgoCDName)
-			envsPath := fs.Join(installationPath, store.Default.EnvsDir)
+			argocdPath := fs.Join(store.Default.BootsrtrapDir, store.Default.ArgoCDName)
 			appOptions.SrcPath = argocdPath
 			appOptions.AppName = "argo-cd"
 
@@ -206,14 +202,14 @@ func NewRepoBootstrapCommand() *cobra.Command {
 				bootstrapApp,
 				store.Default.BootsrtrapAppName,
 				revision,
-				bootstrapPath,
+				store.Default.BootsrtrapDir,
 				false,
 			)
 			rootAppYAML := createApp(
 				bootstrapApp,
 				store.Default.RootAppName,
 				revision,
-				envsPath,
+				store.Default.EnvsDir,
 				false,
 			)
 
@@ -242,7 +238,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 			util.Die(err)
 
 			log.G().Infof("using revision: \"%s\", installation path: \"%s\"", revision, installationPath)
-			fs.MustChroot(installationPath)
+			fs.ChrootOrDie(installationPath)
 			checkRepoPath(fs)
 			log.G().Debug("repository is ok")
 
@@ -259,19 +255,19 @@ func NewRepoBootstrapCommand() *cobra.Command {
 
 			// write argocd manifests
 			if installationMode == installationModeNormal {
-				writeFile(fs, fs.Join(argocdPath, "kustomization.yaml"), bootstrapKustYAML)
+				fs.WriteFile(fs.Join(argocdPath, "kustomization.yaml"), bootstrapKustYAML)
 			} else {
-				writeFile(fs, fs.Join(argocdPath, "install.yaml"), bootstrapYAML)
+				fs.WriteFile(fs.Join(argocdPath, "install.yaml"), bootstrapYAML)
 			}
 
 			// write envs root app
-			writeFile(fs, fs.Join(bootstrapPath, store.Default.RootAppName+".yaml"), rootAppYAML)
+			fs.WriteFile(fs.Join(store.Default.BootsrtrapDir, store.Default.RootAppName+".yaml"), rootAppYAML)
 
 			// write argocd app
-			writeFile(fs, fs.Join(bootstrapPath, store.Default.ArgoCDName+".yaml"), argoCDAppYAML)
+			fs.WriteFile(fs.Join(argocdPath+".yaml"), argoCDAppYAML)
 
 			// write ./envs/Dummy
-			writeFile(fs, fs.Join(envsPath, store.Default.DummyName), []byte{})
+			fs.WriteFile(fs.Join(store.Default.EnvsDir, store.Default.DummyName), []byte{})
 
 			// wait for argocd to be ready before applying argocd-apps
 			stop := util.WithSpinner(ctx, "waiting for argo-cd to be ready")
@@ -330,21 +326,10 @@ func validateProvider(provider string) {
 func checkRepoPath(fs fs.FS) {
 	folders := []string{store.Default.BootsrtrapDir, store.Default.EnvsDir}
 	for _, folder := range folders {
-		if fs.MustExist(folder) {
+		if fs.ExistsOrDie(folder) {
 			util.Die(fmt.Errorf("folder %s already exist in: %s", folder, fs.Join(fs.Root(), folder)))
 		}
 	}
-}
-
-func writeFile(fs billy.Filesystem, path string, data []byte) {
-	folder := filepath.Base(path)
-	util.Die(fs.MkdirAll(folder, os.ModeDir))
-
-	f, err := fs.Create(path)
-	util.Die(err)
-
-	_, err = f.Write(data)
-	util.Die(err)
 }
 
 func createApp(bootstrapApp application.BootstrapApplication, name, revision, srcPath string, noFinalizer bool) []byte {

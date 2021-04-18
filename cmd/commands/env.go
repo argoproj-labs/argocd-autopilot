@@ -1,11 +1,11 @@
 package commands
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/argoproj/argocd-autopilot/pkg/application"
 	"github.com/argoproj/argocd-autopilot/pkg/argocd"
+	"github.com/argoproj/argocd-autopilot/pkg/fs"
 	"github.com/argoproj/argocd-autopilot/pkg/git"
 	"github.com/argoproj/argocd-autopilot/pkg/log"
 	"github.com/argoproj/argocd-autopilot/pkg/store"
@@ -55,7 +55,7 @@ func NewEnvCreateCommand() *cobra.Command {
 				revision         = cmd.Flag("revision").Value.String()
 				namespace        = cmd.Flag("namespace").Value.String()
 
-				fs  = memfs.New()
+				fs  = fs.Create(memfs.New())
 				ctx = cmd.Context()
 			)
 
@@ -100,11 +100,14 @@ func NewEnvCreateCommand() *cobra.Command {
 			r, err := repoOpts.Clone(ctx, fs)
 			util.Die(err)
 
-			fs = util.MustChroot(fs, installationPath)
+			fs.ChrootOrDie(installationPath)
 
 			log.G().Infof("using installation path: %s", installationPath)
-			util.MustExists(fs, store.Default.BootsrtrapDir, fmt.Sprintf("Bootstrap folder not found, please execute `repo bootstrap --installation-path %s` command", installationPath))
-			envExists := util.MustCheckEnvExists(fs, envName)
+			if !fs.ExistsOrDie(store.Default.BootsrtrapDir) {
+				log.G().Fatalf("Bootstrap folder not found, please execute `repo bootstrap --installation-path %s` command", installationPath)
+			}
+
+			envExists := fs.ExistsOrDie(fs.Join(store.Default.EnvsDir, envName+".yaml"))
 			if envExists {
 				log.G().Fatalf("env '%s' already exists", envName)
 			}
@@ -116,7 +119,7 @@ func NewEnvCreateCommand() *cobra.Command {
 				util.Die(addCmd.Execute(ctx, envKubeContext), "failed to add new cluster credentials")
 			}
 
-			writeFile(fs, fs.Join(store.Default.EnvsDir, envName+".yaml"), envAppYAML)
+			fs.WriteFile(fs.Join(store.Default.EnvsDir, envName+".yaml"), envAppYAML)
 
 			log.G().Infof("pushing new env manifest to repo")
 			util.Die(r.Persist(ctx, &git.PushOptions{
