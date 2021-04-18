@@ -100,9 +100,9 @@ func NewEnvCreateCommand() *cobra.Command {
 			r, err := repoOpts.Clone(ctx, fs)
 			util.Die(err)
 
+			log.G().Infof("using installation path: %s", installationPath)
 			fs.ChrootOrDie(installationPath)
 
-			log.G().Infof("using installation path: %s", installationPath)
 			if !fs.ExistsOrDie(store.Default.BootsrtrapDir) {
 				log.G().Fatalf("Bootstrap folder not found, please execute `repo bootstrap --installation-path %s` command", installationPath)
 			}

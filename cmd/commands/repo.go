@@ -238,6 +238,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 			util.Die(err)
 
 			log.G().Infof("using revision: \"%s\", installation path: \"%s\"", revision, installationPath)
+			fs.MkdirAll(installationPath, os.ModeDir)
 			fs.ChrootOrDie(installationPath)
 			checkRepoPath(fs)
 			log.G().Debug("repository is ok")

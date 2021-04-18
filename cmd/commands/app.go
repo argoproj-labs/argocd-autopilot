@@ -6,13 +6,13 @@ import (
 	"os"
 
 	"github.com/argoproj/argocd-autopilot/pkg/application"
+	"github.com/argoproj/argocd-autopilot/pkg/fs"
 	"github.com/argoproj/argocd-autopilot/pkg/git"
 	"github.com/argoproj/argocd-autopilot/pkg/log"
 	"github.com/argoproj/argocd-autopilot/pkg/store"
 	"github.com/argoproj/argocd-autopilot/pkg/util"
 
 	"github.com/ghodss/yaml"
-	"github.com/go-git/go-billy/v5"
 	memfs "github.com/go-git/go-billy/v5/memfs"
 	"github.com/spf13/cobra"
 )
@@ -50,7 +50,7 @@ func NewAppCreateCommand() *cobra.Command {
 				installationPath = cmd.Flag("installation-path").Value.String()
 
 				ctx = cmd.Context()
-				fs  = memfs.New()
+				fs  = fs.Create(memfs.New())
 			)
 
 			if len(args) < 1 {
@@ -70,10 +70,13 @@ func NewAppCreateCommand() *cobra.Command {
 			util.Die(err)
 
 			log.G().Infof("using installation path: %s", installationPath)
-			fs = util.MustChroot(fs, installationPath)
+			fs.ChrootOrDie(installationPath)
 
-			util.MustExists(fs, store.Default.BootsrtrapDir, util.Doc(fmt.Sprintf("Bootstrap folder not found, please execute `<BIN> repo bootstrap --installation-path %s`", installationPath)))
-			envExists := util.MustCheckEnvExists(fs, envName)
+			if !fs.ExistsOrDie(store.Default.BootsrtrapDir) {
+				log.G().Fatalf("Bootstrap folder not found, please execute `repo bootstrap --installation-path %s` command", installationPath)
+			}
+
+			envExists := fs.ExistsOrDie(fs.Join(store.Default.EnvsDir, envName+".yaml"))
 			if !envExists {
 				log.G().Fatalf(util.Doc(fmt.Sprintf("env '%[1]s' not found, please execute `<BIN> env create %[1]s`", envName)))
 			}
@@ -101,38 +104,46 @@ func NewAppCreateCommand() *cobra.Command {
 			util.Die(err, "failed to marshal app config.json")
 
 			// Create Base
-			log.G().Debugf("checking if application base already exists: %s", basePath)
-			if exists := checkExistsOrWriteFile(fs, basePath, baseYAML); !exists {
-				log.G().Infof("created application base file at: %s", basePath)
+			log.G().Debugf("checking if application base already exists: '%s'", basePath)
+			exists, err := fs.CheckExistsOrWrite(basePath, baseYAML)
+			util.Die(err, fmt.Sprintf("failed to create application base file at '%s'", basePath))
+			if !exists {
+				log.G().Infof("created application base file at '%s'", basePath)
 			} else {
-				log.G().Infof("application base file exists on: %s", basePath)
+				log.G().Infof("application base file exists on '%s'", basePath)
 			}
 
 			// Create Overlay
-			log.G().Debugf("checking if application overlay already exists: %s", overlayPath)
-			if exists := checkExistsOrWriteFile(fs, overlayPath, overlayYAML); !exists {
-				log.G().Infof("created application overlay file at: %s", overlayPath)
+			log.G().Debugf("checking if application overlay already exists: '%s'", overlayPath)
+			exists, err = fs.CheckExistsOrWrite(overlayPath, overlayYAML)
+			util.Die(err, fmt.Sprintf("failed to create application overlay file at '%s'", basePath))
+			if !exists {
+				log.G().Infof("created application overlay file at '%s'", overlayPath)
 			} else {
 				// application already exists
-				log.G().Infof("app \"%s\" already installed on env: %s", appOptions.AppName, envName)
-				log.G().Infof("found overlay on: %s", overlayPath)
+				log.G().Infof("app '%s' already installed on env '%s'", appOptions.AppName, envName)
+				log.G().Infof("found overlay on '%s'", overlayPath)
 				os.Exit(1)
 			}
 
-			if exists := checkExistsOrWriteFile(fs, nsPath, nsYAML); !exists {
-				log.G().Infof("created application namespace file at: %s", overlayPath)
+			exists, err = fs.CheckExistsOrWrite(nsPath, nsYAML)
+			util.Die(err, fmt.Sprintf("failed to create application namespace file at '%s'", basePath))
+			if !exists {
+				log.G().Infof("created application namespace file at '%s'", overlayPath)
 			} else {
 				// application already exists
-				log.G().Infof("app \"%s\" already installed on env: %s", appOptions.AppName, envName)
-				log.G().Infof("found overlay on: %s", overlayPath)
+				log.G().Infof("app '%s' already installed on env '%s'", appOptions.AppName, envName)
+				log.G().Infof("found overlay on '%s'", overlayPath)
 				os.Exit(1)
 			}
 
 			// Create config.json
-			if exists := checkExistsOrWriteFile(fs, configJSONPath, configJSON); !exists {
-				log.G().Infof("created application config file at: %s", configJSONPath)
+			exists, err = fs.CheckExistsOrWrite(configJSONPath, configJSON)
+			util.Die(err, fmt.Sprintf("failed to create application config file at '%s'", basePath))
+			if !exists {
+				log.G().Infof("created application config file at '%s'", configJSONPath)
 			} else {
-				log.G().Infof("application base file exists on: %s", configJSONPath)
+				log.G().Infof("application base file exists on '%s'", configJSONPath)
 			}
 
 			commitMsg := fmt.Sprintf("installed app \"%s\" on environment \"%s\"", appOptions.AppName, envName)
@@ -155,21 +166,4 @@ func NewAppCreateCommand() *cobra.Command {
 	util.Die(err)
 
 	return cmd
-}
-
-func checkExistsOrWriteFile(fs billy.Filesystem, path string, data []byte) bool {
-	exists, err := util.Exists(fs, path)
-	util.Die(err, fmt.Sprintf("failed to check if file exists on repo: %s", path))
-
-	if exists {
-		log.G().Debugf("file already exists: %s", path)
-		return true
-	}
-
-	f, err := fs.Create(path)
-	util.Die(err, fmt.Sprintf("failed to create file at: %s", path))
-
-	_, err = f.Write(data)
-	util.Die(err, fmt.Sprintf("failed to write to file: %s", path))
-	return false
 }
