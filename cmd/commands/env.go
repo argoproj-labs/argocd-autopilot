@@ -46,6 +46,23 @@ func NewEnvCreateCommand() *cobra.Command {
 		Use:   "create [ENV]",
 		Short: "Create a new environment",
 		Example: util.Doc(`
+# To run this command you need to create a personal access token for your git provider,
+# and have a bootstrapped GitOps repository, and provide them using:
+	
+		export GIT_TOKEN=<token>
+		export GIT_REPO=<repo_url>
+
+# or with the flags:
+	
+		--token <token> --repo <repo_url>
+		
+# Create a new environment
+	
+	<BIN> env create <new_env_name>
+
+# Create a new environment in a specific path inside the GitOps repo
+
+  <BIN> env create <new_env_name> --installation-path path/to/bootstrap/root
 `),
 		Run: func(cmd *cobra.Command, args []string) {
 			var (

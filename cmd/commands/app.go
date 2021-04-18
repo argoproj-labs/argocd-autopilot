@@ -42,7 +42,22 @@ func NewAppCreateCommand() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "create [APP_NAME]",
-		Short: "Add an application to an environment",
+		Short: "Create an application in an environment",
+		Example: util.Doc(`
+# To run this command you need to create a personal access token for your git provider,
+# and have a bootstrapped GitOps repository, and provide them using:
+	
+		export GIT_TOKEN=<token>
+		export GIT_REPO=<repo_url>
+
+# or with the flags:
+	
+		--token <token> --repo <repo_url>
+		
+# Create a new application from kustomization in a remote repository
+	
+	<BIN> app create <new_app_name> --app github.com/some_org/some_repo/manifests?ref=v1.2.3 --env env_name
+`),
 		Run: func(cmd *cobra.Command, args []string) {
 			var (
 				repoURL          = cmd.Flag("repo").Value.String()

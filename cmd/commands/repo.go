@@ -144,10 +144,15 @@ func NewRepoBootstrapCommand() *cobra.Command {
 	
     --token <token>
 		
-# Installs argo-cd on the current kubernetes context in the argocd namespace
-# and persists the bootstrap manifests in the gitops repository
+# Install argo-cd on the current kubernetes context in the argocd namespace
+# and persists the bootstrap manifests to the root of gitops repository
 	
 	<BIN> repo bootstrap --repo https://github.com/example/repo
+
+	# Install argo-cd on the current kubernetes context in the argocd namespace
+	# and persists the bootstrap manifests to a specific folder in the gitops repository
+
+	<BIN> repo bootstrap --repo https://github.com/example/repo --installation-path path/to/bootstrap/root
 `),
 		Run: func(cmd *cobra.Command, args []string) {
 			var (
