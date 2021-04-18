@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/argoproj/argocd-autopilot/pkg/application"
+	"github.com/argoproj/argocd-autopilot/pkg/fs"
 	"github.com/argoproj/argocd-autopilot/pkg/git"
 	"github.com/argoproj/argocd-autopilot/pkg/kube"
 	"github.com/argoproj/argocd-autopilot/pkg/log"
@@ -160,7 +161,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 				namespace        = cmd.Flag("namespace").Value.String()
 				context          = cmd.Flag("context").Value.String()
 				timeout          = util.MustParseDuration(cmd.Flag("request-timeout").Value.String())
-				fs               = memfs.New()
+				fs               = fs.Create(memfs.New())
 				ctx              = cmd.Context()
 			)
 
@@ -241,7 +242,8 @@ func NewRepoBootstrapCommand() *cobra.Command {
 			util.Die(err)
 
 			log.G().Infof("using revision: \"%s\", installation path: \"%s\"", revision, installationPath)
-			checkRepoPath(fs, installationPath)
+			fs.MustChroot(installationPath)
+			checkRepoPath(fs)
 			log.G().Debug("repository is ok")
 
 			// apply built manifest to k8s cluster
@@ -325,14 +327,11 @@ func validateProvider(provider string) {
 	log.G().Fatalf("provider not supported: %v", provider)
 }
 
-func checkRepoPath(fs billy.Filesystem, path string) {
-	folders := []string{"bootstrap", "envs", "kustomize"}
+func checkRepoPath(fs fs.FS) {
+	folders := []string{store.Default.BootsrtrapDir, store.Default.EnvsDir}
 	for _, folder := range folders {
-		exists, err := util.Exists(fs, fs.Join(path, folder))
-		util.Die(err)
-
-		if exists {
-			util.Die(fmt.Errorf("folder %s already exist in: %s", folder, fs.Join(path, folder)))
+		if fs.MustExist(folder) {
+			util.Die(fmt.Errorf("folder %s already exist in: %s", folder, fs.Join(fs.Root(), folder)))
 		}
 	}
 }

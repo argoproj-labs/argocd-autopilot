@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/argoproj/argocd-autopilot/pkg/store"
 	"github.com/argoproj/argocd-autopilot/pkg/util"
 	"github.com/go-git/go-billy/v5"
 )
@@ -15,10 +14,9 @@ type FS interface {
 	billy.Filesystem
 
 	CheckExistsOrWrite(path string, data []byte) (bool, error)
-	MustChroot(newRoot string)
+	ChrootOrDie(newRoot string)
 	Exists(path string) (bool, error)
-	MustCheckEnvExists(envName string) bool
-	MustExists(path string, notExistsMsg ...string)
+	ExistsOrDie(path string) bool
 	WriteFile(path string, data []byte) (int, error)
 }
 
@@ -59,25 +57,13 @@ func (fs *fsimpl) Exists(path string) (bool, error) {
 	return true, nil
 }
 
-func (fs *fsimpl) MustExists(path string, notExistsMsg ...string) {
+func (fs *fsimpl) ExistsOrDie(path string) bool {
 	exists, err := fs.Exists(path)
 	util.Die(err)
-
-	if !exists {
-		util.Die(fmt.Errorf("path does not exist: %s", path), notExistsMsg...)
-	}
+	return exists
 }
 
-func (fs *fsimpl) MustCheckEnvExists(envName string) bool {
-	ok, err := fs.Exists(fs.Join(store.Default.EnvsDir, fmt.Sprintf("%s.yaml", envName)))
-	if err != nil {
-		util.Die(err)
-	}
-
-	return ok
-}
-
-func (fs *fsimpl) MustChroot(newRoot string) {
+func (fs *fsimpl) ChrootOrDie(newRoot string) {
 	var err error
 	fs.Filesystem, err = fs.Chroot(newRoot)
 	util.Die(err, "failed to chroot")
