@@ -14,8 +14,14 @@ type FS interface {
 	billy.Filesystem
 
 	CheckExistsOrWrite(path string, data []byte) (bool, error)
+
+	// ChrootOrDie changes the filesystem's root and panics if it fails
 	ChrootOrDie(newRoot string)
+
+	// Exists checks if the provided path exists in the provided filesystem.
 	Exists(path string) (bool, error)
+
+	// ExistsOrDie checks if the provided path exists in the provided filesystem, or panics on any error other then ErrNotExist
 	ExistsOrDie(path string) bool
 	WriteFile(path string, data []byte) (int, error)
 }

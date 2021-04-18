@@ -11,7 +11,6 @@ import (
 	"github.com/argoproj/argocd-autopilot/pkg/log"
 	"github.com/argoproj/argocd-autopilot/pkg/store"
 	"github.com/briandowns/spinner"
-	billy "github.com/go-git/go-billy/v5"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"k8s.io/client-go/tools/clientcmd"
@@ -136,45 +135,6 @@ func JoinManifests(manifests ...[]byte) []byte {
 		res = append(res, string(m))
 	}
 	return []byte(strings.Join(res, yamlSeperator))
-}
-
-// Exists checks if the provided path exists in the provided filesystem.
-func Exists(fs billy.Filesystem, path string) (bool, error) {
-	if _, err := fs.Stat(path); err != nil {
-		if !os.IsNotExist(err) {
-			return false, err
-		}
-
-		return false, nil
-	}
-
-	return true, nil
-}
-
-// Exists checks if the provided path exists in the provided filesystem.
-func MustExists(fs billy.Filesystem, path string, notExistsMsg ...string) {
-	exists, err := Exists(fs, path)
-	Die(err)
-
-	if !exists {
-		Die(fmt.Errorf("path does not exist: %s", path), notExistsMsg...)
-	}
-}
-
-// MustEnvExists fails if the provided env does not exist on the provided filesystem.
-func MustCheckEnvExists(fs billy.Filesystem, envName string) bool {
-	ok, err := Exists(fs, fs.Join(store.Default.EnvsDir, fmt.Sprintf("%s.yaml", envName)))
-	if err != nil {
-		Die(err)
-	}
-	return ok
-}
-
-// MustChroot changes the filesystem's root and panics if it fails
-func MustChroot(fs billy.Filesystem, path string) billy.Filesystem {
-	newFS, err := fs.Chroot(path)
-	Die(err)
-	return newFS
 }
 
 func StealFlags(cmd *cobra.Command, exceptFor []string) (*pflag.FlagSet, error) {
