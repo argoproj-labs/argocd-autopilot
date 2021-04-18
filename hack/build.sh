@@ -2,7 +2,9 @@
 
 if [[ ! -z "${GO_FLAGS}" ]]; then
     echo Building \"${OUT_FILE}\" with flags: \"${GO_FLAGS}\" starting at: \"${MAIN}\"
-    export ${GO_FLAGS}
+    for d in ${GO_FLAGS}; do
+        export $d
+    done
 fi
 
 go build -ldflags=" \

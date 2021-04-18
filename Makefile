@@ -10,8 +10,7 @@ INSTALLATION_MANIFESTS_NAMESPACED_URL="https://raw.githubusercontent.com/argopro
 DEV_INSTALLATION_MANIFESTS_URL="manifests/"
 DEV_INSTALLATION_MANIFESTS_NAMESPACED_URL="manifests/namespace-install"
 
-CLI_PKGS := $(shell echo cmd && go list -f '{{ join .Deps "\n" }}' ./cmd/main.go | grep 'github.com/argoproj/argocd-autopilot/' | cut -c 38-)
-CLI_SRCS := $(foreach dir,$(CLI_PKGS),$(wildcard $(dir)/*.go))
+CLI_SRCS := $(shell find . -name '*.go')
 
 GIT_COMMIT=$(shell git rev-parse HEAD)
 BUILD_DATE=$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
@@ -63,15 +62,15 @@ image: cli-image
 cli: $(OUT_DIR)/$(CLI_NAME)-linux-amd64.gz $(OUT_DIR)/$(CLI_NAME)-linux-arm64.gz $(OUT_DIR)/$(CLI_NAME)-linux-ppc64le.gz $(OUT_DIR)/$(CLI_NAME)-linux-s390x.gz $(OUT_DIR)/$(CLI_NAME)-darwin-amd64.gz $(OUT_DIR)/$(CLI_NAME)-windows-amd64.gz
 
 .PHONY: cli-local
-cli-local: $(OUT_DIR)/$(CLI_NAME)-$(shell go env GOOS)-$(shell go env GOARCH).gz
+cli-local: $(OUT_DIR)/$(CLI_NAME)-$(shell go env GOOS)-$(shell go env GOARCH)
 	@cp $(OUT_DIR)/$(CLI_NAME)-$(shell go env GOOS)-$(shell go env GOARCH) /usr/local/bin/$(CLI_NAME)
 
-$(OUT_DIR)/$(CLI_NAME)-linux-amd64: GO_FLAGS='GOOS=linux GOARCH=amd64'
-$(OUT_DIR)/$(CLI_NAME)-darwin-amd64: GO_FLAGS='GOOS=darwin GOARCH=amd64'
-$(OUT_DIR)/$(CLI_NAME)-windows-amd64: GO_FLAGS='GOOS=windows GOARCH=amd64'
-$(OUT_DIR)/$(CLI_NAME)-linux-arm64: GO_FLAGS='GOOS=linux GOARCH=arm64'
-$(OUT_DIR)/$(CLI_NAME)-linux-ppc64le: GO_FLAGS='GOOS=linux GOARCH=ppc64le'
-$(OUT_DIR)/$(CLI_NAME)-linux-s390x: GO_FLAGS='GOOS=linux GOARCH=s390x'
+$(OUT_DIR)/$(CLI_NAME)-linux-amd64: GO_FLAGS='GOOS=linux GOARCH=amd64 CGO_ENABLED=0'
+$(OUT_DIR)/$(CLI_NAME)-darwin-amd64: GO_FLAGS='GOOS=darwin GOARCH=amd64 CGO_ENABLED=0'
+$(OUT_DIR)/$(CLI_NAME)-windows-amd64: GO_FLAGS='GOOS=windows GOARCH=amd64 CGO_ENABLED=0'
+$(OUT_DIR)/$(CLI_NAME)-linux-arm64: GO_FLAGS='GOOS=linux GOARCH=arm64 CGO_ENABLED=0'
+$(OUT_DIR)/$(CLI_NAME)-linux-ppc64le: GO_FLAGS='GOOS=linux GOARCH=ppc64le CGO_ENABLED=0'
+$(OUT_DIR)/$(CLI_NAME)-linux-s390x: GO_FLAGS='GOOS=linux GOARCH=s390x CGO_ENABLED=0'
 
 $(OUT_DIR)/$(CLI_NAME)-%.gz: $(OUT_DIR)/$(CLI_NAME)-%
 	gzip --force --keep $(OUT_DIR)/$(CLI_NAME)-$*
@@ -91,7 +90,7 @@ $(OUT_DIR)/$(CLI_NAME)-%: $(CLI_SRCS)
 .PHONY: cli-image
 cli-image: $(OUT_DIR)/$(CLI_NAME).image
 
-$(OUT_DIR)/$(CLI_NAME).image: $(CLI_PKGS)
+$(OUT_DIR)/$(CLI_NAME).image: $(CLI_SRCS)
 	$(call docker_build,$(CLI_NAME))
 	@mkdir -p $(OUT_DIR)
 	@touch $(OUT_DIR)/$(CLI_NAME).image
@@ -107,7 +106,7 @@ test:
 	./hack/test.sh
 
 .PHONY: codegen
-codegen: $(GOBIN)/mockery
+codegen: $(GOBIN)/mockery $(GOBIN)/interfacer
 	go generate ./...
 
 .PHONY: pre-commit

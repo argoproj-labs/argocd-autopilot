@@ -16,7 +16,10 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-const yamlSeperator = "\n---\n"
+const (
+	yamlSeperator = "\n---\n"
+	indentation   = "    "
+)
 
 var (
 	spinnerCharSet  = spinner.CharSets[26]
@@ -116,9 +119,12 @@ func WithSpinner(ctx context.Context, msg ...string) func() {
 	}
 }
 
-// Doc returns a string where the <BIN> is replaced with the binary name
+// Doc returns a string where all the '<BIN>' are replaced with the binary name
+// and all the '\t' are replaced with a uniformed indentation using space.
 func Doc(doc string) string {
-	return strings.ReplaceAll(doc, "<BIN>", store.Get().BinaryName)
+	doc = strings.ReplaceAll(doc, "<BIN>", store.Get().BinaryName)
+	doc = strings.ReplaceAll(doc, "\t", indentation)
+	return doc
 }
 
 // MustParseDuration parses the given string as "time.Duration", or panic.

@@ -12,8 +12,20 @@ func NewRoot() *cobra.Command {
 	s := store.Get()
 
 	cmd := &cobra.Command{
-		Use:   s.BinaryName,
-		Short: s.BinaryName + " is a cli tool for installing and managing argocd using gitops",
+		Use: s.BinaryName,
+		Short: util.Doc(`<BIN> is used for installing and managing argo-cd installations and argo-cd
+applications using gitops`),
+		Long: util.Doc(`<BIN> is used for installing and managing argo-cd installations and argo-cd
+applications using gitops.
+		
+Most of the commands in this CLI require you to specify a personal access token
+for your git provider. This token is used to authenticate with your git provider
+when performing operations on the gitops repository, such as cloning it and
+pushing changes to it.
+
+It is recommended that you export the $GIT_TOKEN and $GIT_REPO environment
+variables in advanced to simplify the use of those commands.
+`),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
 		},
