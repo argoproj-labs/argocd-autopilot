@@ -53,6 +53,15 @@ type (
 		AppOptions       *application.CreateOptions
 		CloneOptions     *git.CloneOptions
 	}
+
+	bootstrapManifests struct {
+		bootstrapApp           []byte
+		rootApp                []byte
+		argocdApp              []byte
+		repoCreds              []byte
+		applyManifests         []byte
+		bootstrapKustomization []byte
+	}
 )
 
 func NewRepoCommand() *cobra.Command {
@@ -232,21 +241,111 @@ func RunRepoCreate(ctx context.Context, opts *RepoCreateOptions) error {
 }
 
 func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
+	var err error
+	if opts, err = setBootstrapOptsDefaults(*opts); err != nil {
+		return err
+	}
+
+	log.G().WithFields(log.Fields{
+		"repo-url":     opts.CloneOptions.URL,
+		"revision":     opts.CloneOptions.Revision,
+		"namespace":    opts.Namespace,
+		"kube-context": opts.KubeContext,
+	}).Debug("starting with options: ")
+
+	bootstrapApp, err := opts.AppOptions.ParseBootstrap()
+	if err != nil {
+		return fmt.Errorf("failed to parse application from flags: %w", err)
+	}
+
+	manifests, err := buildBootstrapManifests(bootstrapApp, opts.CloneOptions.Auth.Password, opts.Namespace)
+	if err != nil {
+		return fmt.Errorf("failed to build bootstrap manifests: %w", err)
+	}
+
+	// Dry Run check
+	if opts.DryRun {
+		fmt.Printf("%s", util.JoinManifests(
+			manifests.applyManifests,
+			manifests.repoCreds,
+			manifests.bootstrapApp,
+			manifests.argocdApp,
+			manifests.rootApp,
+		))
+		os.Exit(0)
+	}
+
+	log.G().Infof("cloning repo: %s", opts.CloneOptions.URL)
+
+	// clone GitOps repo
+	r, err := opts.CloneOptions.Clone(ctx, opts.FS)
+	if err != nil {
+		return err
+	}
+
+	log.G().Infof("using revision: \"%s\", installation path: \"%s\"", opts.CloneOptions.Revision, opts.CloneOptions.RepoRoot)
+	if err = opts.FS.MkdirAll(opts.CloneOptions.RepoRoot, os.ModeDir); err != nil {
+		return err
+	}
+
+	opts.FS.ChrootOrDie(opts.CloneOptions.RepoRoot)
+	if err = validateRepo(opts.FS); err != nil {
+		return err
+	}
+	log.G().Debug("repository is ok")
+
+	// apply built manifest to k8s cluster
+	log.G().Infof("using context: \"%s\", namespace: \"%s\"", opts.KubeContext, opts.Namespace)
+	log.G().Infof("applying bootstrap manifests to cluster...")
+	util.Die(opts.KubeFactory.Apply(ctx, opts.Namespace, util.JoinManifests(manifests.applyManifests, manifests.repoCreds)))
+
+	// write argocd manifests
+	if err = writeManifestsToRepo(opts.FS, manifests, opts.InstallationMode); err != nil {
+		return fmt.Errorf("failed to write manifests to repo: %w", err)
+	}
+
+	// wait for argocd to be ready before applying argocd-apps
+	stop := util.WithSpinner(ctx, "waiting for argo-cd to be ready")
+	if err = waitClusterReady(ctx, opts.KubeFactory, opts.Timeout, opts.Namespace); err != nil {
+		return err
+	}
+	stop()
+
+	// push results to repo
+	log.G().Infof("pushing bootstrap manifests to repo")
+	if err = r.Persist(ctx, &git.PushOptions{CommitMsg: "Autopilot Bootstrap at " + opts.CloneOptions.RepoRoot}); err != nil {
+		return err
+	}
+
+	// apply "Argo-CD" Application that references "bootstrap/argo-cd"
+	log.G().Infof("applying argo-cd bootstrap application")
+	if err = opts.KubeFactory.Apply(ctx, opts.Namespace, manifests.bootstrapApp); err != nil {
+		return err
+	}
+
+	if !opts.HidePassword {
+		return printInitialPassword(ctx, opts.KubeFactory, opts.Namespace)
+	}
+
+	return nil
+}
+
+func setBootstrapOptsDefaults(opts RepoBootstrapOptions) (*RepoBootstrapOptions, error) {
+	var err error
 
 	switch opts.InstallationMode {
 	case installationModeFlat, installationModeNormal:
 	default:
-		return fmt.Errorf("unknown installation mode: %s", opts.InstallationMode)
+		return nil, fmt.Errorf("unknown installation mode: %s", opts.InstallationMode)
 	}
 
-	namespace := opts.Namespace
-	if namespace == "" {
+	if opts.Namespace == "" {
 		opts.Namespace = store.Default.ArgoCDNamespace
 	}
 
-	argocdPath := opts.FS.Join(store.Default.BootsrtrapDir, store.Default.ArgoCDName)
-	opts.AppOptions.SrcPath = argocdPath
+	opts.AppOptions.SrcPath = opts.FS.Join(opts.CloneOptions.RepoRoot, store.Default.BootsrtrapDir, store.Default.ArgoCDName)
 	opts.AppOptions.AppName = store.Default.ArgoCDName
+	opts.AppOptions.Namespace = opts.Namespace
 
 	if opts.AppOptions.AppSpecifier == "" {
 		opts.AppOptions.AppSpecifier = getBootstrapAppSpecifier(opts.Namespaced)
@@ -257,159 +356,59 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 		opts.InstallationMode = installationModeFlat
 	}
 
-	opts.AppOptions.Namespace = opts.Namespace
-
-	log.G().WithFields(log.Fields{
-		"repoURL":      opts.CloneOptions.URL,
-		"revision":     opts.CloneOptions.Revision,
-		"namespace":    opts.Namespace,
-		"kube-context": opts.KubeContext,
-	}).Debug("starting with options: ")
-
-	bootstrapApp, err := opts.AppOptions.ParseBootstrap()
-	util.Die(err, "failed to parse application from flags")
-
-	bootstrapAppYAML := createApp(
-		bootstrapApp,
-		store.Default.BootsrtrapAppName,
-		opts.CloneOptions.Revision,
-		store.Default.BootsrtrapDir,
-		false,
-	)
-	rootAppYAML := createApp(
-		bootstrapApp,
-		store.Default.RootAppName,
-		opts.CloneOptions.Revision,
-		store.Default.EnvsDir,
-		false,
-	)
-
-	argoCDAppYAML := createApp(
-		bootstrapApp,
-		store.Default.ArgoCDName,
-		opts.CloneOptions.Revision,
-		argocdPath,
-		true,
-	)
-
-	repoCredsYAML := getRepoCredsSecret(opts.CloneOptions.Auth.Password, opts.Namespace)
-
-	bootstrapYAML, err := bootstrapApp.GenerateManifests()
-	util.Die(err)
-
-	if opts.DryRun {
-		log.G().Printf("%s", util.JoinManifests(bootstrapYAML, repoCredsYAML, bootstrapAppYAML, argoCDAppYAML, rootAppYAML))
-		os.Exit(0)
+	if opts.KubeContext == "" {
+		if opts.KubeContext, err = kube.CurrentContext(); err != nil {
+			return nil, err
+		}
 	}
 
-	log.G().Infof("cloning repo: %s", opts.CloneOptions.URL)
-
-	// clone GitOps repo
-	r, err := opts.CloneOptions.Clone(ctx, opts.FS)
-	util.Die(err)
-
-	log.G().Infof("using revision: \"%s\", installation path: \"%s\"", opts.CloneOptions.Revision, opts.CloneOptions.RepoRoot)
-	opts.FS.MkdirAll(opts.CloneOptions.RepoRoot, os.ModeDir)
-	opts.FS.ChrootOrDie(opts.CloneOptions.RepoRoot)
-	checkRepoPath(opts.FS)
-	log.G().Debug("repository is ok")
-
-	// apply built manifest to k8s cluster
-	log.G().Infof("using context: \"%s\", namespace: \"%s\"", opts.KubeContext, opts.Namespace)
-	log.G().Infof("applying bootstrap manifests to cluster...")
-	util.Die(opts.KubeFactory.Apply(ctx, opts.Namespace, util.JoinManifests(bootstrapYAML, repoCredsYAML)))
-
-	bootstrapKust, err := bootstrapApp.Kustomization()
-	util.Die(err)
-
-	bootstrapKustYAML, err := yaml.Marshal(bootstrapKust)
-	util.Die(err)
-
-	// write argocd manifests
-	if opts.InstallationMode == installationModeNormal {
-		opts.FS.WriteFile(opts.FS.Join(argocdPath, "kustomization.yaml"), bootstrapKustYAML)
-	} else {
-		opts.FS.WriteFile(opts.FS.Join(argocdPath, "install.yaml"), bootstrapYAML)
+	if opts.CloneOptions.Revision == "" {
+		opts.CloneOptions.Revision = "HEAD"
 	}
 
-	// write envs root app
-	opts.FS.WriteFile(opts.FS.Join(store.Default.BootsrtrapDir, store.Default.RootAppName+".yaml"), rootAppYAML)
-
-	// write argocd app
-	opts.FS.WriteFile(opts.FS.Join(argocdPath+".yaml"), argoCDAppYAML)
-
-	// write ./envs/Dummy
-	opts.FS.WriteFile(opts.FS.Join(store.Default.EnvsDir, store.Default.DummyName), []byte{})
-
-	// wait for argocd to be ready before applying argocd-apps
-	stop := util.WithSpinner(ctx, "waiting for argo-cd to be ready")
-	waitClusterReady(ctx, opts.KubeFactory, opts.Timeout, opts.Namespace)
-	stop()
-
-	// push results to repo
-	log.G().Infof("pushing bootstrap manifests to repo")
-	util.Die(r.Persist(ctx, &git.PushOptions{
-		CommitMsg: "Autopilot Bootstrap at " + opts.CloneOptions.RepoRoot,
-	}))
-
-	// apply "Argo-CD" Application that references "bootstrap/argo-cd"
-	log.G().Infof("applying argo-cd bootstrap application")
-	util.Die(opts.KubeFactory.Apply(ctx, opts.Namespace, util.JoinManifests(bootstrapAppYAML)))
-
-	if !opts.HidePassword {
-		printInitialPassword(ctx, opts.KubeFactory, opts.Namespace)
+	if opts.CloneOptions.RepoRoot == "" {
+		opts.CloneOptions.RepoRoot = "/"
 	}
-	return nil
+
+	return &opts, nil
 }
 
-func checkRepoPath(fs fs.FS) {
+func validateRepo(fs fs.FS) error {
 	folders := []string{store.Default.BootsrtrapDir, store.Default.EnvsDir}
 	for _, folder := range folders {
 		if fs.ExistsOrDie(folder) {
-			util.Die(fmt.Errorf("folder %s already exist in: %s", folder, fs.Join(fs.Root(), folder)))
+			return fmt.Errorf("folder %s already exist in: %s", folder, fs.Join(fs.Root(), folder))
 		}
 	}
+
+	return nil
 }
 
-func createApp(bootstrapApp application.BootstrapApplication, name, revision, srcPath string, noFinalizer bool) []byte {
-	app := bootstrapApp.CreateApp(name, revision, srcPath)
+func createApp(bootstrapApp application.BootstrapApplication, name, srcPath string, noFinalizer bool) ([]byte, error) {
+	app := bootstrapApp.CreateApp(name, srcPath)
 	if noFinalizer {
 		app.ObjectMeta.Finalizers = []string{}
 	}
-	data, err := yaml.Marshal(app)
-	util.Die(err)
 
-	return data
+	return yaml.Marshal(app)
 }
 
-func waitClusterReady(ctx context.Context, f kube.Factory, timeout time.Duration, namespace string) {
-	util.Die(f.Wait(ctx, &kube.WaitOptions{
+func waitClusterReady(ctx context.Context, f kube.Factory, timeout time.Duration, namespace string) error {
+	return f.Wait(ctx, &kube.WaitOptions{
 		Interval: store.Default.WaitInterval,
 		Timeout:  timeout,
 		Resources: []kube.Resource{
 			{
 				Name:      "argocd-server",
 				Namespace: namespace,
-				WaitFunc: func(ctx context.Context, f kube.Factory, ns, name string) (bool, error) {
-					cs, err := f.KubernetesClientSet()
-					if err != nil {
-						return false, err
-					}
-
-					d, err := cs.AppsV1().Deployments(ns).Get(ctx, name, metav1.GetOptions{})
-					if err != nil {
-						return false, err
-					}
-
-					return d.Status.ReadyReplicas >= *d.Spec.Replicas, nil
-				},
+				WaitFunc:  kube.WaitDeploymentReady,
 			},
 		},
-	}))
+	})
 }
 
-func getRepoCredsSecret(token, namespace string) []byte {
-	res, err := yaml.Marshal(&v1.Secret{
+func getRepoCredsSecret(token, namespace string) ([]byte, error) {
+	return yaml.Marshal(&v1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
 			Kind:       "Secret",
@@ -423,33 +422,24 @@ func getRepoCredsSecret(token, namespace string) []byte {
 			"git_token":    []byte(token),
 		},
 	})
-	util.Die(err)
-
-	return res
 }
 
-func printInitialPassword(ctx context.Context, f kube.Factory, namespace string) {
+func printInitialPassword(ctx context.Context, f kube.Factory, namespace string) error {
 	cs := f.KubernetesClientSetOrDie()
 	secret, err := cs.CoreV1().Secrets(namespace).Get(ctx, "argocd-initial-admin-secret", metav1.GetOptions{})
-	util.Die(err)
+	if err != nil {
+		return err
+	}
 
 	passwd, ok := secret.Data["password"]
 	if !ok {
-		util.Die(fmt.Errorf("argocd initial password not found"))
+		return fmt.Errorf("argocd initial password not found")
 	}
 
 	log.G(ctx).Printf("\n")
 	log.G(ctx).Infof("argocd initialized. password: %s", passwd)
 	log.G(ctx).Infof("run:\n\n    kubectl port-forward -n %s svc/argocd-server 8080:80\n\n", namespace)
-}
-
-func parseInstallationMode(installationMode string) {
-	switch installationMode {
-	case installationModeFlat:
-	case installationModeNormal:
-	default:
-		util.Die(fmt.Errorf("unknown installation mode: %s", installationMode))
-	}
+	return nil
 }
 
 func getBootstrapAppSpecifier(namespaced bool) string {
@@ -458,4 +448,90 @@ func getBootstrapAppSpecifier(namespaced bool) string {
 	}
 
 	return store.Get().InstallationManifestsURL
+}
+
+func buildBootstrapManifests(bootstrapApp application.BootstrapApplication, gitToken, namespace string) (*bootstrapManifests, error) {
+	var err error
+	manifests := &bootstrapManifests{}
+
+	manifests.bootstrapApp, err = createApp(
+		bootstrapApp,
+		store.Default.BootsrtrapAppName,
+		store.Default.BootsrtrapDir,
+		false,
+	)
+	if err != nil {
+		return nil, err
+	}
+	manifests.rootApp, err = createApp(
+		bootstrapApp,
+		store.Default.RootAppName,
+		store.Default.EnvsDir,
+		false,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	manifests.argocdApp, err = createApp(
+		bootstrapApp,
+		store.Default.ArgoCDName,
+		"",
+		true,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	manifests.repoCreds, err = getRepoCredsSecret(gitToken, namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	manifests.applyManifests, err = bootstrapApp.GenerateManifests()
+	if err != nil {
+		return nil, err
+	}
+
+	bootstrapKust, err := bootstrapApp.Kustomization()
+	if err != nil {
+		return nil, err
+	}
+
+	manifests.bootstrapKustomization, err = yaml.Marshal(bootstrapKust)
+	if err != nil {
+		return nil, err
+	}
+
+	return manifests, nil
+}
+
+func writeManifestsToRepo(repoFS fs.FS, manifests *bootstrapManifests, installationMode string) error {
+	argocdPath := repoFS.Join(store.Default.BootsrtrapDir, store.Default.ArgoCDName)
+	var err error
+	if installationMode == installationModeNormal {
+		_, err = repoFS.WriteFile(repoFS.Join(argocdPath, "kustomization.yaml"), manifests.bootstrapKustomization)
+	} else {
+		_, err = repoFS.WriteFile(repoFS.Join(argocdPath, "install.yaml"), manifests.applyManifests)
+	}
+	if err != nil {
+		return err
+	}
+
+	// write envs root app
+	if _, err = repoFS.WriteFile(repoFS.Join(store.Default.BootsrtrapDir, store.Default.RootAppName+".yaml"), manifests.rootApp); err != nil {
+		return err
+	}
+
+	// write argocd app
+	if _, err = repoFS.WriteFile(repoFS.Join(store.Default.BootsrtrapDir, store.Default.ArgoCDName+".yaml"), manifests.argocdApp); err != nil {
+		return err
+	}
+
+	// write ./envs/Dummy
+	if _, err = repoFS.WriteFile(repoFS.Join(store.Default.EnvsDir, store.Default.DummyName), []byte{}); err != nil {
+		return err
+	}
+
+	return nil
 }

@@ -66,7 +66,7 @@ type (
 
 		// CreateApp returns an argocd application that watches the gitops
 		// repo at the specified path and revision
-		CreateApp(name, revision, srcPath string) *v1alpha1.Application
+		CreateApp(name, srcPath string) *v1alpha1.Application
 	}
 
 	Config struct {
@@ -314,7 +314,11 @@ func (app *bootstrapApp) Kustomization() (*kusttypes.Kustomization, error) {
 	return k, nil
 }
 
-func (app *bootstrapApp) CreateApp(name, revision, srcPath string) *v1alpha1.Application {
+func (app *bootstrapApp) CreateApp(name, srcPath string) *v1alpha1.Application {
+	if srcPath == "" {
+		srcPath = app.argoApp.Spec.Source.Path
+	}
+
 	return &v1alpha1.Application{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: argocdapp.Group + "/v1alpha1",
@@ -336,7 +340,7 @@ func (app *bootstrapApp) CreateApp(name, revision, srcPath string) *v1alpha1.App
 			Source: v1alpha1.ApplicationSource{
 				RepoURL:        app.repoUrl,
 				Path:           srcPath,
-				TargetRevision: revision,
+				TargetRevision: app.argoApp.Spec.Source.TargetRevision,
 			},
 			Destination: v1alpha1.ApplicationDestination{
 				Server:    DefaultDestServer,

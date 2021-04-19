@@ -10,9 +10,11 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/kubectl/pkg/cmd/apply"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 )
@@ -21,6 +23,21 @@ const (
 	defaultPollInterval = time.Second * 2
 	defaultPollTimeout  = time.Minute * 5
 )
+
+// WaitDeploymentReady can be used as a generic 'WaitFunc' for deployment.
+func WaitDeploymentReady(ctx context.Context, f Factory, ns, name string) (bool, error) {
+	cs, err := f.KubernetesClientSet()
+	if err != nil {
+		return false, err
+	}
+
+	d, err := cs.AppsV1().Deployments(ns).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+
+	return d.Status.ReadyReplicas >= *d.Spec.Replicas, nil
+}
 
 type Factory interface {
 	cmdutil.Factory
@@ -76,6 +93,17 @@ func DefaultIOStreams() genericclioptions.IOStreams {
 		Out:    os.Stdout,
 		ErrOut: os.Stderr,
 	}
+}
+
+// CurrentContext returns the name of the current kubernetes context or dies.
+func CurrentContext() (string, error) {
+	configAccess := clientcmd.NewDefaultPathOptions()
+	conf, err := configAccess.GetStartingConfig()
+	if err != nil {
+		return "", err
+	}
+
+	return conf.CurrentContext, nil
 }
 
 func (f *factory) KubernetesClientSetOrDie() *kubernetes.Clientset {

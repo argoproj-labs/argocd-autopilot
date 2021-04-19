@@ -51,15 +51,6 @@ func ContextWithCancelOnSignals(ctx context.Context, sigs ...os.Signal) context.
 	return ctx
 }
 
-// CurrentContextOrDie returns the name of the current kubernetes context or dies.
-func CurrentContextOrDie() string {
-	configAccess := clientcmd.NewDefaultPathOptions()
-	conf, err := configAccess.GetStartingConfig()
-	Die(err)
-
-	return conf.CurrentContext
-}
-
 // KubeContextToServer returns the cluster server address for the provided kubernetes context
 func KubeContextToServer(contextName string) (string, error) {
 	configAccess := clientcmd.NewDefaultPathOptions()
