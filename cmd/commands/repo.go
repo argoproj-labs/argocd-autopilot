@@ -41,10 +41,6 @@ type (
 	}
 
 	RepoBootstrapOptions struct {
-		RepoURL          string
-		Revision         string
-		GitToken         string
-		InstallationPath string
 		InstallationMode string
 		Namespace        string
 		KubeContext      string
@@ -170,10 +166,6 @@ func NewRepoBootstrapCommand() *cobra.Command {
 `),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return RunRepoBootstrap(cmd.Context(), &RepoBootstrapOptions{
-				RepoURL:          cmd.Flag("repo").Value.String(),
-				Revision:         cmd.Flag("revision").Value.String(),
-				GitToken:         cmd.Flag("git-token").Value.String(),
-				InstallationPath: cmd.Flag("installation-path").Value.String(),
 				InstallationMode: installationMode,
 				Namespace:        cmd.Flag("namespace").Value.String(),
 				KubeContext:      cmd.Flag("context").Value.String(),
@@ -268,8 +260,8 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 	opts.AppOptions.Namespace = opts.Namespace
 
 	log.G().WithFields(log.Fields{
-		"repoURL":      opts.RepoURL,
-		"revision":     opts.Revision,
+		"repoURL":      opts.CloneOptions.URL,
+		"revision":     opts.CloneOptions.Revision,
 		"namespace":    opts.Namespace,
 		"kube-context": opts.KubeContext,
 	}).Debug("starting with options: ")
@@ -280,14 +272,14 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 	bootstrapAppYAML := createApp(
 		bootstrapApp,
 		store.Default.BootsrtrapAppName,
-		opts.Revision,
+		opts.CloneOptions.Revision,
 		store.Default.BootsrtrapDir,
 		false,
 	)
 	rootAppYAML := createApp(
 		bootstrapApp,
 		store.Default.RootAppName,
-		opts.Revision,
+		opts.CloneOptions.Revision,
 		store.Default.EnvsDir,
 		false,
 	)
@@ -295,12 +287,12 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 	argoCDAppYAML := createApp(
 		bootstrapApp,
 		store.Default.ArgoCDName,
-		opts.Revision,
+		opts.CloneOptions.Revision,
 		argocdPath,
 		true,
 	)
 
-	repoCredsYAML := getRepoCredsSecret(opts.GitToken, opts.Namespace)
+	repoCredsYAML := getRepoCredsSecret(opts.CloneOptions.Auth.Password, opts.Namespace)
 
 	bootstrapYAML, err := bootstrapApp.GenerateManifests()
 	util.Die(err)
@@ -310,15 +302,15 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 		os.Exit(0)
 	}
 
-	log.G().Infof("cloning repo: %s", opts.RepoURL)
+	log.G().Infof("cloning repo: %s", opts.CloneOptions.URL)
 
 	// clone GitOps repo
 	r, err := opts.CloneOptions.Clone(ctx, opts.FS)
 	util.Die(err)
 
-	log.G().Infof("using revision: \"%s\", installation path: \"%s\"", opts.Revision, opts.InstallationPath)
-	opts.FS.MkdirAll(opts.InstallationPath, os.ModeDir)
-	opts.FS.ChrootOrDie(opts.InstallationPath)
+	log.G().Infof("using revision: \"%s\", installation path: \"%s\"", opts.CloneOptions.Revision, opts.CloneOptions.RepoRoot)
+	opts.FS.MkdirAll(opts.CloneOptions.RepoRoot, os.ModeDir)
+	opts.FS.ChrootOrDie(opts.CloneOptions.RepoRoot)
 	checkRepoPath(opts.FS)
 	log.G().Debug("repository is ok")
 
@@ -357,7 +349,7 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 	// push results to repo
 	log.G().Infof("pushing bootstrap manifests to repo")
 	util.Die(r.Persist(ctx, &git.PushOptions{
-		CommitMsg: "Autopilot Bootstrap at " + opts.InstallationPath,
+		CommitMsg: "Autopilot Bootstrap at " + opts.CloneOptions.RepoRoot,
 	}))
 
 	// apply "Argo-CD" Application that references "bootstrap/argo-cd"

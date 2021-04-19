@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"os"
 
 	"github.com/argoproj/argocd-autopilot/pkg/application"
@@ -14,6 +15,18 @@ import (
 	"github.com/ghodss/yaml"
 	memfs "github.com/go-git/go-billy/v5/memfs"
 	"github.com/spf13/cobra"
+)
+
+type (
+	EnvCreateOptions struct {
+		EnvName        string
+		Namespace      string
+		EnvKubeContext string
+		DryRun         bool
+		FS             fs.FS
+		CloneOptions   *git.CloneOptions
+		AddCmd         argocd.AddClusterCmd
+	}
 )
 
 func NewEnvCommand() *cobra.Command {
@@ -39,7 +52,7 @@ func NewEnvCreateCommand() *cobra.Command {
 		envKubeContext string
 		dryRun         bool
 		addCmd         argocd.AddClusterCmd
-		repoOpts       *git.CloneOptions
+		cloneOpts      *git.CloneOptions
 	)
 
 	cmd := &cobra.Command{
@@ -64,86 +77,21 @@ func NewEnvCreateCommand() *cobra.Command {
 
   <BIN> env create <new_env_name> --installation-path path/to/bootstrap/root
 `),
-		Run: func(cmd *cobra.Command, args []string) {
-			var (
-				err              error
-				repoURL          = cmd.Flag("repo").Value.String()
-				installationPath = cmd.Flag("installation-path").Value.String()
-				revision         = cmd.Flag("revision").Value.String()
-				namespace        = cmd.Flag("namespace").Value.String()
-
-				fs  = fs.Create(memfs.New())
-				ctx = cmd.Context()
-			)
-
+		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				log.G().Fatal("must enter environment name")
 			}
 			envName = args[0]
 
-			log.G().WithFields(log.Fields{
-				"env":          envName,
-				"repoURL":      repoURL,
-				"revision":     revision,
-				"installation": installationPath,
-			}).Debug("starting with options: ")
-
-			destServer := application.DefaultDestServer
-			if envKubeContext != "" {
-				destServer, err = util.KubeContextToServer(envKubeContext)
-				util.Die(err)
-			}
-
-			envApp := application.GenerateApplicationSet(&application.GenerateAppSetOptions{
-				Name:              envName,
-				Namespace:         namespace,
-				RepoURL:           repoURL,
-				Revision:          revision,
-				InstallationPath:  installationPath,
-				DefaultDestServer: destServer,
+			return RunEnvCreate(cmd.Context(), &EnvCreateOptions{
+				EnvName:        envName,
+				Namespace:      namespace,
+				EnvKubeContext: envKubeContext,
+				DryRun:         dryRun,
+				FS:             fs.Create(memfs.New()),
+				CloneOptions:   cloneOpts,
+				AddCmd:         addCmd,
 			})
-
-			envAppYAML, err := yaml.Marshal(envApp)
-			util.Die(err)
-
-			if dryRun {
-				log.G().Printf("%s", envAppYAML)
-				os.Exit(0)
-			}
-
-			log.G().Infof("cloning repo: %s", repoURL)
-
-			// clone GitOps repo
-			r, err := repoOpts.Clone(ctx, fs)
-			util.Die(err)
-
-			log.G().Infof("using installation path: %s", installationPath)
-			fs.ChrootOrDie(installationPath)
-
-			if !fs.ExistsOrDie(store.Default.BootsrtrapDir) {
-				log.G().Fatalf("Bootstrap folder not found, please execute `repo bootstrap --installation-path %s` command", installationPath)
-			}
-
-			envExists := fs.ExistsOrDie(fs.Join(store.Default.EnvsDir, envName+".yaml"))
-			if envExists {
-				log.G().Fatalf("env '%s' already exists", envName)
-			}
-
-			log.G().Debug("repository is ok")
-
-			if envKubeContext != "" {
-				log.G().Infof("adding cluster: %s", envKubeContext)
-				util.Die(addCmd.Execute(ctx, envKubeContext), "failed to add new cluster credentials")
-			}
-
-			fs.WriteFile(fs.Join(store.Default.EnvsDir, envName+".yaml"), envAppYAML)
-
-			log.G().Infof("pushing new env manifest to repo")
-			util.Die(r.Persist(ctx, &git.PushOptions{
-				CommitMsg: "Added env " + envName,
-			}))
-
-			log.G().Infof("done creating %s environment", envName)
 		},
 	}
 
@@ -154,8 +102,81 @@ func NewEnvCreateCommand() *cobra.Command {
 	addCmd, err := argocd.AddClusterAddFlags(cmd)
 	util.Die(err)
 
-	repoOpts, err = git.AddFlags(cmd)
+	cloneOpts, err = git.AddFlags(cmd)
 	util.Die(err)
 
 	return cmd
+}
+
+func RunEnvCreate(ctx context.Context, opts *EnvCreateOptions) error {
+	var (
+		err error
+	)
+
+	log.G().WithFields(log.Fields{
+		"env":          opts.EnvName,
+		"repoURL":      opts.CloneOptions.URL,
+		"revision":     opts.CloneOptions.Revision,
+		"installation": opts.CloneOptions.RepoRoot,
+	}).Debug("starting with options: ")
+
+	destServer := application.DefaultDestServer
+	if opts.EnvKubeContext != "" {
+		destServer, err = util.KubeContextToServer(opts.EnvKubeContext)
+		if err != nil {
+			return err
+		}
+	}
+
+	envApp := application.GenerateApplicationSet(&application.GenerateAppSetOptions{
+		Name:              opts.EnvName,
+		Namespace:         opts.Namespace,
+		RepoURL:           opts.CloneOptions.URL,
+		Revision:          opts.CloneOptions.Revision,
+		InstallationPath:  opts.CloneOptions.RepoRoot,
+		DefaultDestServer: destServer,
+	})
+
+	envAppYAML, err := yaml.Marshal(envApp)
+	util.Die(err)
+
+	if opts.DryRun {
+		log.G().Printf("%s", envAppYAML)
+		os.Exit(0)
+	}
+
+	log.G().Infof("cloning repo: %s", opts.CloneOptions.URL)
+
+	// clone GitOps repo
+	r, err := opts.CloneOptions.Clone(ctx, opts.FS)
+	util.Die(err)
+
+	log.G().Infof("using installation path: %s", opts.CloneOptions.RepoRoot)
+	opts.FS.ChrootOrDie(opts.CloneOptions.RepoRoot)
+
+	if !opts.FS.ExistsOrDie(store.Default.BootsrtrapDir) {
+		log.G().Fatalf("Bootstrap folder not found, please execute `repo bootstrap --installation-path %s` command", opts.CloneOptions.RepoRoot)
+	}
+
+	envExists := opts.FS.ExistsOrDie(opts.FS.Join(store.Default.EnvsDir, opts.EnvName+".yaml"))
+	if envExists {
+		log.G().Fatalf("env '%s' already exists", opts.EnvName)
+	}
+
+	log.G().Debug("repository is ok")
+
+	if opts.EnvKubeContext != "" {
+		log.G().Infof("adding cluster: %s", opts.EnvKubeContext)
+		util.Die(opts.AddCmd.Execute(ctx, opts.EnvKubeContext), "failed to add new cluster credentials")
+	}
+
+	opts.FS.WriteFile(opts.FS.Join(store.Default.EnvsDir, opts.EnvName+".yaml"), envAppYAML)
+
+	log.G().Infof("pushing new env manifest to repo")
+	util.Die(r.Persist(ctx, &git.PushOptions{
+		CommitMsg: "Added env " + opts.EnvName,
+	}))
+
+	log.G().Infof("done creating %s environment", opts.EnvName)
+	return nil
 }
