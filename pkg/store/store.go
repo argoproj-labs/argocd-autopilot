@@ -48,6 +48,7 @@ var Default = struct {
 	RepoCredsSecretName string
 	GitUsername         string
 	WaitInterval        time.Duration
+	DestServer          string
 }{
 	KustomizeDir:        "kustomize",
 	BootsrtrapDir:       "bootstrap",
@@ -63,6 +64,7 @@ var Default = struct {
 	RepoCredsSecretName: "autopilot-secret",
 	GitUsername:         "username",
 	WaitInterval:        time.Second * 3,
+	DestServer:          "https://kubernetes.default.svc",
 }
 
 // Get returns the global store

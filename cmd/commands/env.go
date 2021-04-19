@@ -3,19 +3,23 @@ package commands
 import (
 	"context"
 	"os"
+	"path/filepath"
 
-	"github.com/argoproj/argocd-autopilot/pkg/application"
+	appset "github.com/argoproj-labs/applicationset/api/v1alpha1"
+	appsetv1alpha1 "github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
 	"github.com/argoproj/argocd-autopilot/pkg/argocd"
 	"github.com/argoproj/argocd-autopilot/pkg/fs"
 	"github.com/argoproj/argocd-autopilot/pkg/git"
 	"github.com/argoproj/argocd-autopilot/pkg/log"
 	"github.com/argoproj/argocd-autopilot/pkg/store"
 	"github.com/argoproj/argocd-autopilot/pkg/util"
-
 	"github.com/ghodss/yaml"
 	memfs "github.com/go-git/go-billy/v5/memfs"
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+var DefaultApplicationSetGeneratorInterval int64 = 20
 
 type (
 	EnvCreateOptions struct {
@@ -120,7 +124,7 @@ func RunEnvCreate(ctx context.Context, opts *EnvCreateOptions) error {
 		"installation": opts.CloneOptions.RepoRoot,
 	}).Debug("starting with options: ")
 
-	destServer := application.DefaultDestServer
+	destServer := store.Default.DestServer
 	if opts.EnvKubeContext != "" {
 		destServer, err = util.KubeContextToServer(opts.EnvKubeContext)
 		if err != nil {
@@ -128,7 +132,7 @@ func RunEnvCreate(ctx context.Context, opts *EnvCreateOptions) error {
 		}
 	}
 
-	envApp := application.GenerateApplicationSet(&application.GenerateAppSetOptions{
+	envApp := GenerateApplicationSet(&GenerateAppSetOptions{
 		Name:              opts.EnvName,
 		Namespace:         opts.Namespace,
 		RepoURL:           opts.CloneOptions.URL,
@@ -179,4 +183,76 @@ func RunEnvCreate(ctx context.Context, opts *EnvCreateOptions) error {
 
 	log.G().Infof("done creating %s environment", opts.EnvName)
 	return nil
+}
+
+type GenerateAppSetOptions struct {
+	Name              string
+	Namespace         string
+	DefaultDestServer string
+	RepoURL           string
+	Revision          string
+	InstallationPath  string
+}
+
+func GenerateApplicationSet(o *GenerateAppSetOptions) *appset.ApplicationSet {
+	return &appset.ApplicationSet{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ApplicationSet",
+			APIVersion: appset.GroupVersion.String(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      o.Name,
+			Namespace: o.Namespace,
+		},
+		Spec: appset.ApplicationSetSpec{
+			Generators: []appset.ApplicationSetGenerator{
+				{
+					Git: &appset.GitGenerator{
+						RepoURL:  o.RepoURL,
+						Revision: o.Revision,
+						Files: []appset.GitFileGeneratorItem{
+							{
+								Path: filepath.Join(o.InstallationPath, "kustomize", "**", "overlays", o.Name, "config.json"),
+							},
+						},
+						Template: appset.ApplicationSetTemplate{
+							Spec: appsetv1alpha1.ApplicationSpec{
+								Destination: appsetv1alpha1.ApplicationDestination{
+									Server:    o.DefaultDestServer,
+									Namespace: "default",
+								},
+							},
+						},
+						RequeueAfterSeconds: &DefaultApplicationSetGeneratorInterval,
+					},
+				},
+			},
+			Template: appset.ApplicationSetTemplate{
+				ApplicationSetTemplateMeta: appset.ApplicationSetTemplateMeta{
+					Name: "{{userGivenName}}",
+					Labels: map[string]string{
+						"app.kubernetes.io/managed-by": store.Default.ManagedBy,
+						"app.kubernetes.io/name":       "{{appName}}",
+					},
+				},
+				Spec: appsetv1alpha1.ApplicationSpec{
+					Source: appsetv1alpha1.ApplicationSource{
+						RepoURL:        o.RepoURL,
+						TargetRevision: o.Revision,
+						Path:           filepath.Join(o.InstallationPath, "kustomize", "{{appName}}", "overlays", o.Name),
+					},
+					Destination: appsetv1alpha1.ApplicationDestination{
+						Server:    "{{destServer}}",
+						Namespace: "{{destNamespace}}",
+					},
+					SyncPolicy: &appsetv1alpha1.SyncPolicy{
+						Automated: &appsetv1alpha1.SyncPolicyAutomated{
+							SelfHeal: true,
+							Prune:    true,
+						},
+					},
+				},
+			},
+		},
+	}
 }

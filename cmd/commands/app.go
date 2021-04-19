@@ -83,14 +83,14 @@ func NewAppCreateCommand() *cobra.Command {
 			})
 		},
 	}
-
-	cmd.Flags().StringVar(&envName, "env", "", "Environment name")
-	util.Die(cmd.MarkFlagRequired("env"))
-
 	appOpts = application.AddFlags(cmd)
-	util.Die(cmd.MarkFlagRequired("app"))
 	cloneOpts, err := git.AddFlags(cmd)
 	util.Die(err)
+
+	cmd.Flags().StringVar(&envName, "env", "", "Environment name")
+
+	util.Die(cmd.MarkFlagRequired("env"))
+	util.Die(cmd.MarkFlagRequired("app"))
 
 	return cmd
 }
