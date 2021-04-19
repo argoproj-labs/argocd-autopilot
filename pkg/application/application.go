@@ -17,7 +17,6 @@ import (
 	argocdutil "github.com/argoproj/argo-cd/v2/cmd/util"
 	argocdapp "github.com/argoproj/argo-cd/v2/pkg/apis/application"
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
-	argocdsettings "github.com/argoproj/argo-cd/v2/util/settings"
 	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -470,23 +469,24 @@ func getLabels(appName string) []string {
 }
 
 func createCreds(repoUrl string) ([]byte, error) {
-	creds := []argocdsettings.Repository{
-		{
-			URL: repoUrl,
-			UsernameSecret: &v1.SecretKeySelector{
-				LocalObjectReference: v1.LocalObjectReference{
-					Name: "autopilot-secret",
-				},
-				Key: "git_username",
-			},
-			PasswordSecret: &v1.SecretKeySelector{
-				LocalObjectReference: v1.LocalObjectReference{
-					Name: "autopilot-secret",
-				},
-				Key: "git_token",
-			},
-		},
-	}
+	creds := "[]"
+	// []argocdsettings.Repository{
+	// 	{
+	// 		URL: repoUrl,
+	// 		UsernameSecret: &v1.SecretKeySelector{
+	// 			LocalObjectReference: v1.LocalObjectReference{
+	// 				Name: "autopilot-secret",
+	// 			},
+	// 			Key: "git_username",
+	// 		},
+	// 		PasswordSecret: &v1.SecretKeySelector{
+	// 			LocalObjectReference: v1.LocalObjectReference{
+	// 				Name: "autopilot-secret",
+	// 			},
+	// 			Key: "git_token",
+	// 		},
+	// 	},
+	// }
 
 	return yaml.Marshal(creds)
 }

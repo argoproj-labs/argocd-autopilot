@@ -1,6 +1,6 @@
 module github.com/argoproj/argocd-autopilot
 
-go 1.15
+go 1.16
 
 require (
 	github.com/argoproj-labs/applicationset v0.1.0

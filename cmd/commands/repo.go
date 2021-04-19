@@ -216,7 +216,7 @@ func RunRepoCreate(ctx context.Context, opts *RepoCreateOptions) error {
 	p, err := git.NewProvider(&git.Options{
 		Type: opts.Provider,
 		Auth: &git.Auth{
-			Username: "blank",
+			Username: "git",
 			Password: opts.Token,
 		},
 		Host: opts.Host,
@@ -240,20 +240,24 @@ func RunRepoCreate(ctx context.Context, opts *RepoCreateOptions) error {
 }
 
 func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
+
+	switch opts.InstallationMode {
+	case installationModeFlat, installationModeNormal:
+	default:
+		return fmt.Errorf("unknown installation mode: %s", opts.InstallationMode)
+	}
+
+	namespace := opts.Namespace
+	if namespace == "" {
+		opts.Namespace = store.Default.ArgoCDNamespace
+	}
+
 	argocdPath := opts.FS.Join(store.Default.BootsrtrapDir, store.Default.ArgoCDName)
 	opts.AppOptions.SrcPath = argocdPath
 	opts.AppOptions.AppName = store.Default.ArgoCDName
 
-	if opts.Namespace == "" {
-		opts.Namespace = store.Default.ArgoCDNamespace
-	}
-
 	if opts.AppOptions.AppSpecifier == "" {
-		if opts.Namespaced {
-			opts.AppOptions.AppSpecifier = store.Get().InstallationManifestsNamespacedURL
-		} else {
-			opts.AppOptions.AppSpecifier = store.Get().InstallationManifestsURL
-		}
+		opts.AppOptions.AppSpecifier = getBootstrapAppSpecifier(opts.Namespaced)
 	}
 
 	if _, err := os.Stat(opts.AppOptions.AppSpecifier); err == nil {
@@ -454,4 +458,12 @@ func parseInstallationMode(installationMode string) {
 	default:
 		util.Die(fmt.Errorf("unknown installation mode: %s", installationMode))
 	}
+}
+
+func getBootstrapAppSpecifier(namespaced bool) string {
+	if namespaced {
+		return store.Get().InstallationManifestsNamespacedURL
+	}
+
+	return store.Get().InstallationManifestsURL
 }

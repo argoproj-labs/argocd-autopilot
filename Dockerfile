@@ -1,4 +1,4 @@
-FROM golang:1.15.8-alpine3.13 as base
+FROM golang:1.16.3-alpine3.13 as base
 
 RUN apk -U add --no-cache git ca-certificates && update-ca-certificates
 
@@ -16,12 +16,12 @@ WORKDIR /go/src/github.com/argoproj/argocd-autopilot
 COPY go.mod .
 COPY go.sum .
 
-RUN go mod download -x
+RUN go mod vendor
 RUN go mod verify
 
 ############################### CLI ###############################
 ### Compile
-FROM golang:1.15.8-alpine3.13 as autopilot-build
+FROM golang:1.16.3-alpine3.13 as autopilot-build
 
 WORKDIR /go/src/github.com/argoproj/argocd-autopilot
 
