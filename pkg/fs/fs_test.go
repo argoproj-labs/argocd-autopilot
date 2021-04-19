@@ -2,6 +2,7 @@ package fs
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"testing"
 
@@ -99,16 +100,15 @@ func Test_fsimpl_CheckExistsOrWrite(t *testing.T) {
 		args     args
 		want     bool
 		wantErr  bool
-		beforeFn func(fs FS)
+		beforeFn func(m *mocks.FS, mockedFile *mocks.File)
 		fs       billy.Filesystem
+		assertFn func(t *testing.T, mockedFile *mocks.File)
 	}{
 		"should exists": {
 			args:    args{path: "/usr/bar", data: []byte{}},
 			want:    true,
 			wantErr: false,
-			beforeFn: func(fs FS) {
-				f := fs.(*fsimpl)
-				m := f.Filesystem.(*mocks.FS)
+			beforeFn: func(m *mocks.FS, mockedFile *mocks.File) {
 				m.On("Stat", mock.Anything).Return(nil, nil)
 			},
 			fs: &mocks.FS{},
@@ -116,33 +116,60 @@ func Test_fsimpl_CheckExistsOrWrite(t *testing.T) {
 		"should error on fail check": {
 			args:    args{path: "/usr/bar", data: []byte{}},
 			wantErr: true,
-			beforeFn: func(fs FS) {
-				f := fs.(*fsimpl)
-				m := f.Filesystem.(*mocks.FS)
+			beforeFn: func(m *mocks.FS, mockedFile *mocks.File) {
 				m.On("Stat", mock.Anything).Return(nil, fmt.Errorf("error"))
 			},
 			fs: &mocks.FS{},
 		},
-		// "should write to file if not exists": {
-		// 	args:    args{path: "/usr/bar", data: []byte{}},
-		// 	wantErr: false,
-		// 	beforeFn: func(fs FS) {
-		// 		f := fs.(*fsimpl)
-		// 		m := f.Filesystem.(*mocks.FS)
-		// 		m.On("Stat", mock.Anything).Return(nil, os.ErrNotExist)
-		// 		m.On("Create", mock.Anything).Return()
-		// 	},
-		// 	fs: &mocks.FS{},
-		// },
+		"should write to file if not exists and write sucsseded": {
+			args: args{path: "/usr/bar", data: []byte{}},
+			want:    false,
+			wantErr: false,
+			beforeFn: func(m *mocks.FS, mockedFile *mocks.File) {
+				mockedFile.On("Write", mock.Anything).Return(1, nil)
+				m.On("Stat", mock.Anything).Return(nil, os.ErrNotExist)
+				m.On("Create", mock.Anything).Return(mockedFile, nil)
+			},
+			assertFn: func(t *testing.T, mockedFile *mocks.File) {
+				mockedFile.AssertCalled(t, "Write", []byte{})
+			},
+			fs: &mocks.FS{},
+		},
+		"should fail if WriteFile failed": {
+			args: args{path: "/usr/bar", data: []byte{}},
+			want:    false,
+			wantErr: true,
+			beforeFn: func(m *mocks.FS, mockedFile *mocks.File) {
+				mockedFile.On("Write", mock.Anything).Return(1, fmt.Errorf("Error"))
+				m.On("Stat", mock.Anything).Return(nil, os.ErrNotExist)
+				m.On("Create", mock.Anything).Return(mockedFile, nil)
+			},
+			fs: &mocks.FS{},
+		},
+		"should fail if WriteFile.Create failed": {
+			args: args{path: "/usr/bar", data: []byte{}},
+			want:    false,
+			wantErr: true,
+			beforeFn: func(m *mocks.FS, mockedFile *mocks.File) {
+				m.On("Stat", mock.Anything).Return(nil, os.ErrNotExist)
+				m.On("Create", mock.Anything).Return(mockedFile, fmt.Errorf("Error"))
+			},
+			fs: &mocks.FS{},
+		},
 	}
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
 			fs := &fsimpl{tt.fs}
-			tt.beforeFn(fs)
+			m := fs.Filesystem.(*mocks.FS)
+			mockedFile := &mocks.File{}
+			tt.beforeFn(m, mockedFile)
 			got, err := fs.CheckExistsOrWrite(tt.args.path, tt.args.data)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("fsimpl.CheckExistsOrWrite() error = %v, wantErr %v", err, tt.wantErr)
 				return
+			}
+			if (tt.assertFn != nil) {
+				tt.assertFn(t, mockedFile)
 			}
 			if got != tt.want {
 				t.Errorf("fsimpl.CheckExistsOrWrite() = %v, want %v", got, tt.want)
