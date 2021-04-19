@@ -59,6 +59,11 @@ func (_m *FS) Chroot(path string) (billy.Filesystem, error) {
 	return r0, r1
 }
 
+// ChrootOrDie provides a mock function with given fields: newRoot
+func (_m *FS) ChrootOrDie(newRoot string) {
+	_m.Called(newRoot)
+}
+
 // Create provides a mock function with given fields: filename
 func (_m *FS) Create(filename string) (billy.File, error) {
 	ret := _m.Called(filename)
@@ -101,6 +106,20 @@ func (_m *FS) Exists(path string) (bool, error) {
 	}
 
 	return r0, r1
+}
+
+// ExistsOrDie provides a mock function with given fields: path
+func (_m *FS) ExistsOrDie(path string) bool {
+	ret := _m.Called(path)
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func(string) bool); ok {
+		r0 = rf(path)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
 }
 
 // Join provides a mock function with given fields: elem
@@ -158,37 +177,6 @@ func (_m *FS) MkdirAll(filename string, perm iofs.FileMode) error {
 	}
 
 	return r0
-}
-
-// MustCheckEnvExists provides a mock function with given fields: envName
-func (_m *FS) MustCheckEnvExists(envName string) bool {
-	ret := _m.Called(envName)
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func(string) bool); ok {
-		r0 = rf(envName)
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// MustChroot provides a mock function with given fields: newRoot
-func (_m *FS) MustChroot(newRoot string) {
-	_m.Called(newRoot)
-}
-
-// MustExists provides a mock function with given fields: path, notExistsMsg
-func (_m *FS) MustExists(path string, notExistsMsg ...string) {
-	_va := make([]interface{}, len(notExistsMsg))
-	for _i := range notExistsMsg {
-		_va[_i] = notExistsMsg[_i]
-	}
-	var _ca []interface{}
-	_ca = append(_ca, path)
-	_ca = append(_ca, _va...)
-	_m.Called(_ca...)
 }
 
 // Open provides a mock function with given fields: filename
