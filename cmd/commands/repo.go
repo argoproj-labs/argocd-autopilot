@@ -66,6 +66,7 @@ type (
 		repoCreds              []byte
 		applyManifests         []byte
 		bootstrapKustomization []byte
+		namespace              []byte
 	}
 )
 
@@ -304,7 +305,7 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 	// apply built manifest to k8s cluster
 	log.G().Infof("using context: \"%s\", namespace: \"%s\"", opts.KubeContext, opts.Namespace)
 	log.G().Infof("applying bootstrap manifests to cluster...")
-	util.Die(opts.KubeFactory.Apply(ctx, opts.Namespace, util.JoinManifests(manifests.applyManifests, manifests.repoCreds)))
+	util.Die(opts.KubeFactory.Apply(ctx, opts.Namespace, util.JoinManifests(manifests.namespace, manifests.applyManifests, manifests.repoCreds)))
 
 	// write argocd manifests
 	if err = writeManifestsToRepo(opts.FS, manifests, opts.InstallationMode); err != nil {
@@ -513,17 +514,18 @@ func buildBootstrapManifests(repoFS fs.FS, repoURL, revision, gitToken, namespac
 		namespace: namespace,
 		repoURL:   repoURL,
 		revision:  revision,
-		srcPath:   repoFS.Join(repoFS.Root(), store.Default.BootsrtrapDir),
+		srcPath:   repoFS.Join(repoFS.Root(), store.Default.BootsrtrapDir)[1:], //remove leading '/'
 	})
 	if err != nil {
 		return nil, err
 	}
+
 	manifests.rootApp, err = createApp(&createBootstrapAppOptions{
 		name:      store.Default.RootAppName,
 		namespace: namespace,
 		repoURL:   repoURL,
 		revision:  revision,
-		srcPath:   repoFS.Join(repoFS.Root(), store.Default.EnvsDir),
+		srcPath:   repoFS.Join(repoFS.Root(), store.Default.EnvsDir)[1:],
 	})
 	if err != nil {
 		return nil, err
@@ -534,7 +536,7 @@ func buildBootstrapManifests(repoFS fs.FS, repoURL, revision, gitToken, namespac
 		namespace:   namespace,
 		repoURL:     repoURL,
 		revision:    revision,
-		srcPath:     repoFS.Join(repoFS.Root(), store.Default.BootsrtrapDir, store.Default.ArgoCDName),
+		srcPath:     repoFS.Join(repoFS.Root(), store.Default.BootsrtrapDir, store.Default.ArgoCDName)[1:],
 		noFinalizer: true,
 	})
 	if err != nil {
@@ -557,6 +559,12 @@ func buildBootstrapManifests(repoFS fs.FS, repoURL, revision, gitToken, namespac
 	}
 
 	manifests.bootstrapKustomization, err = yaml.Marshal(k)
+	if err != nil {
+		return nil, err
+	}
+
+	ns := kube.GenerateNamespace(namespace)
+	manifests.namespace, err = yaml.Marshal(ns)
 	if err != nil {
 		return nil, err
 	}

@@ -7,14 +7,13 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/argoproj/argocd-autopilot/pkg/kube"
 	"github.com/argoproj/argocd-autopilot/pkg/log"
 	"github.com/argoproj/argocd-autopilot/pkg/store"
 
-	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/kustomize/api/filesys"
 	"sigs.k8s.io/kustomize/api/krusty"
 	kusttypes "sigs.k8s.io/kustomize/api/types"
@@ -50,19 +49,6 @@ type (
 		// kustomization.yaml file. This is used by the environment's application set
 		// to generate the final argo-cd application.
 		ConfigJson() *Config
-	}
-
-	BootstrapApplication interface {
-		// GenerateManifests runs kustomize build on the app and returns the result.
-		GenerateManifests() ([]byte, error)
-
-		// Kustomization returns the kustomization for the bootstrap application.
-		//  only available when creating bootstrap application.
-		Kustomization() (*kusttypes.Kustomization, error)
-
-		// CreateApp returns an argocd application that watches the gitops
-		// repo at the specified path and revision
-		CreateApp(name, srcPath string) *v1alpha1.Application
 	}
 
 	Config struct {
@@ -231,15 +217,7 @@ func parseApplication(o *CreateOptions) (*application, error) {
 		Namespace: o.DestNamespace,
 	}
 
-	app.namespace = &v1.Namespace{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "v1",
-			Kind:       "Namespace",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: o.DestNamespace,
-		},
-	}
+	app.namespace = kube.GenerateNamespace(o.DestNamespace)
 
 	app.config = &Config{
 		AppName:       o.AppName,
@@ -249,11 +227,4 @@ func parseApplication(o *CreateOptions) (*application, error) {
 	}
 
 	return app, nil
-}
-
-func getLabels(appName string) []string {
-	return []string{
-		"app.kubernetes.io/managed-by=argo-autopilot",
-		"app.kubernetes.io/name=" + appName,
-	}
 }
