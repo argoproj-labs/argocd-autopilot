@@ -260,12 +260,9 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 	}).Debug("starting with options: ")
 
 	manifests, err := buildBootstrapManifests(
-		opts.FS,
-		opts.CloneOptions.URL,
-		opts.CloneOptions.Revision,
-		opts.CloneOptions.Auth.Password,
 		opts.Namespace,
 		opts.AppSpecifier,
+		opts.CloneOptions,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to build bootstrap manifests: %w", err)
@@ -292,14 +289,17 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 	}
 
 	log.G().Infof("using revision: \"%s\", installation path: \"%s\"", opts.CloneOptions.Revision, opts.CloneOptions.RepoRoot)
-	if err = opts.FS.MkdirAll(opts.CloneOptions.RepoRoot, os.ModeDir); err != nil {
+
+	bootstrapFS, err := opts.FS.Chroot(opts.CloneOptions.RepoRoot)
+	if err != nil {
 		return err
 	}
 
-	opts.FS.ChrootOrDie(opts.CloneOptions.RepoRoot)
+	opts.FS = fs.Create(bootstrapFS)
 	if err = validateRepo(opts.FS); err != nil {
 		return err
 	}
+
 	log.G().Debug("repository is ok")
 
 	// apply built manifest to k8s cluster
@@ -505,16 +505,16 @@ func getBootstrapAppSpecifier(namespaced bool) string {
 	return store.Get().InstallationManifestsURL
 }
 
-func buildBootstrapManifests(repoFS fs.FS, repoURL, revision, gitToken, namespace, appSpecifier string) (*bootstrapManifests, error) {
+func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.CloneOptions) (*bootstrapManifests, error) {
 	var err error
 	manifests := &bootstrapManifests{}
 
 	manifests.bootstrapApp, err = createApp(&createBootstrapAppOptions{
 		name:      store.Default.BootsrtrapAppName,
 		namespace: namespace,
-		repoURL:   repoURL,
-		revision:  revision,
-		srcPath:   repoFS.Join(repoFS.Root(), store.Default.BootsrtrapDir)[1:], //remove leading '/'
+		repoURL:   cloneOpts.URL,
+		revision:  cloneOpts.Revision,
+		srcPath:   filepath.Join(cloneOpts.RepoRoot, store.Default.BootsrtrapDir),
 	})
 	if err != nil {
 		return nil, err
@@ -523,9 +523,9 @@ func buildBootstrapManifests(repoFS fs.FS, repoURL, revision, gitToken, namespac
 	manifests.rootApp, err = createApp(&createBootstrapAppOptions{
 		name:      store.Default.RootAppName,
 		namespace: namespace,
-		repoURL:   repoURL,
-		revision:  revision,
-		srcPath:   repoFS.Join(repoFS.Root(), store.Default.EnvsDir)[1:],
+		repoURL:   cloneOpts.URL,
+		revision:  cloneOpts.Revision,
+		srcPath:   filepath.Join(cloneOpts.RepoRoot, store.Default.EnvsDir),
 	})
 	if err != nil {
 		return nil, err
@@ -534,16 +534,16 @@ func buildBootstrapManifests(repoFS fs.FS, repoURL, revision, gitToken, namespac
 	manifests.argocdApp, err = createApp(&createBootstrapAppOptions{
 		name:        store.Default.ArgoCDName,
 		namespace:   namespace,
-		repoURL:     repoURL,
-		revision:    revision,
-		srcPath:     repoFS.Join(repoFS.Root(), store.Default.BootsrtrapDir, store.Default.ArgoCDName)[1:],
+		repoURL:     cloneOpts.URL,
+		revision:    cloneOpts.Revision,
+		srcPath:     filepath.Join(cloneOpts.RepoRoot, store.Default.BootsrtrapDir, store.Default.ArgoCDName),
 		noFinalizer: true,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	k, err := createBootstrapKustomization(namespace, repoURL, appSpecifier)
+	k, err := createBootstrapKustomization(namespace, cloneOpts.URL, appSpecifier)
 	if err != nil {
 		return nil, err
 	}
@@ -553,7 +553,7 @@ func buildBootstrapManifests(repoFS fs.FS, repoURL, revision, gitToken, namespac
 		return nil, err
 	}
 
-	manifests.repoCreds, err = getRepoCredsSecret(gitToken, namespace)
+	manifests.repoCreds, err = getRepoCredsSecret(cloneOpts.Auth.Password, namespace)
 	if err != nil {
 		return nil, err
 	}
