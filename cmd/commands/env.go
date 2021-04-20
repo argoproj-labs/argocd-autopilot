@@ -179,17 +179,16 @@ func RunEnvCreate(ctx context.Context, opts *EnvCreateOptions) error {
 		}
 	}
 
-	opts.FS.WriteFile(opts.FS.Join(store.Default.EnvsDir, opts.EnvName+".yaml"), envAppYAML)
-
-	log.G().Infof("pushing new env manifest to repo")
-	err = r.Persist(ctx, &git.PushOptions{
-		CommitMsg: "Added env " + opts.EnvName,
-	})
-	if err != nil {
-		return err
+	if _, err = opts.FS.WriteFile(opts.FS.Join(store.Default.EnvsDir, opts.EnvName+".yaml"), envAppYAML); err != nil {
+		return fmt.Errorf("failed to create environment file: %w", err)
 	}
 
+	log.G().Infof("pushing new env manifest to repo")
+	if err = r.Persist(ctx, &git.PushOptions{CommitMsg: "Added env " + opts.EnvName}); err != nil {
+		return err
+	}
 	log.G().Infof("done creating %s environment", opts.EnvName)
+
 	return nil
 }
 
