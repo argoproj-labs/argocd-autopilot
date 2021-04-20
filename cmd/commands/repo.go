@@ -301,7 +301,7 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 	// apply built manifest to k8s cluster
 	log.G().Infof("using context: \"%s\", namespace: \"%s\"", opts.KubeContext, opts.Namespace)
 	log.G().Infof("applying bootstrap manifests to cluster...")
-	util.Die(opts.KubeFactory.Apply(ctx, opts.Namespace, util.JoinManifests(manifests.namespace, manifests.applyManifests, manifests.repoCreds)))
+	util.Die(opts.KubeFactory.Apply(ctx, opts.Namespace, util.JoinManifests(manifests.applyManifests, manifests.repoCreds)))
 
 	// write argocd manifests
 	if err = writeManifestsToRepo(opts.FS, manifests, opts.InstallationMode); err != nil {
@@ -310,6 +310,7 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 
 	// wait for argocd to be ready before applying argocd-apps
 	stop := util.WithSpinner(ctx, "waiting for argo-cd to be ready")
+
 	if err = waitClusterReady(ctx, opts.KubeFactory, opts.Timeout, opts.Namespace); err != nil {
 		return err
 	}
@@ -544,7 +545,13 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 		return nil, err
 	}
 
-	manifests.applyManifests, err = application.GenerateManifests(k)
+	ns := kube.GenerateNamespace(namespace)
+	manifests.namespace, err = yaml.Marshal(ns)
+	if err != nil {
+		return nil, err
+	}
+
+	manifests.applyManifests, err = application.GenerateManifests(k, ns)
 	if err != nil {
 		return nil, err
 	}
@@ -555,12 +562,6 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 	}
 
 	manifests.bootstrapKustomization, err = yaml.Marshal(k)
-	if err != nil {
-		return nil, err
-	}
-
-	ns := kube.GenerateNamespace(namespace)
-	manifests.namespace, err = yaml.Marshal(ns)
 	if err != nil {
 		return nil, err
 	}
@@ -577,6 +578,11 @@ func writeManifestsToRepo(repoFS fs.FS, manifests *bootstrapManifests, installat
 		_, err = repoFS.WriteFile(repoFS.Join(argocdPath, "install.yaml"), manifests.applyManifests)
 	}
 	if err != nil {
+		return err
+	}
+
+	// write namespace manifest
+	if _, err = repoFS.WriteFile(repoFS.Join(argocdPath, "namespace.yaml"), manifests.namespace); err != nil {
 		return err
 	}
 
@@ -605,7 +611,10 @@ func createBootstrapKustomization(namespace, repoURL, appSpecifier string) (*kus
 	}
 
 	k := &kusttypes.Kustomization{
-		Resources: []string{appSpecifier},
+		Resources: []string{
+			appSpecifier,
+			"namespace.yaml",
+		},
 		TypeMeta: kusttypes.TypeMeta{
 			APIVersion: kusttypes.KustomizationVersion,
 			Kind:       kusttypes.KustomizationKind,

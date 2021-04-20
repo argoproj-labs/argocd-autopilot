@@ -124,11 +124,13 @@ func (app *application) Manifests() []byte {
 	return app.manifests
 }
 
-func GenerateManifests(k *kusttypes.Kustomization) ([]byte, error) {
+func GenerateManifests(k *kusttypes.Kustomization, ns *v1.Namespace) ([]byte, error) {
 	td, err := ioutil.TempDir("", "auto-pilot")
 	if err != nil {
 		return nil, err
 	}
+
+	defer os.RemoveAll(td)
 
 	kustomizationPath := filepath.Join(td, "kustomization.yaml")
 	if err = fixResourcesPaths(k, kustomizationPath); err != nil {
@@ -143,6 +145,19 @@ func GenerateManifests(k *kusttypes.Kustomization) ([]byte, error) {
 	if err = ioutil.WriteFile(kustomizationPath, kyaml, 0400); err != nil {
 		return nil, err
 	}
+
+	if ns != nil {
+		nsyaml, err := yaml.Marshal(ns)
+		if err != nil {
+			return nil, err
+		}
+
+		nsPath := filepath.Join(td, "namespace.yaml")
+		if err = ioutil.WriteFile(nsPath, nsyaml, 0400); err != nil {
+			return nil, err
+		}
+	}
+
 	log.G().WithFields(log.Fields{
 		"bootstrapKustPath": kustomizationPath,
 		"resourcePath":      k.Resources[0],
@@ -164,15 +179,22 @@ func GenerateManifests(k *kusttypes.Kustomization) ([]byte, error) {
 // `kustomizationPath`.
 func fixResourcesPaths(k *kusttypes.Kustomization, kustomizationPath string) error {
 	for i, path := range k.Resources {
+		// if path is a local file
+		if _, err := os.Stat(path); err != nil && os.IsNotExist(err) {
+			continue
+		}
+
 		ap, err := filepath.Abs(path)
 		if err != nil {
 			return err
 		}
+
 		k.Resources[i], err = filepath.Rel(kustomizationPath, ap)
 		if err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -208,7 +230,7 @@ func parseApplication(o *CreateOptions) (*application, error) {
 
 	if o.InstallationMode == InstallationModeFlat {
 		log.G().Info("building manifests...")
-		app.manifests, err = GenerateManifests(app.base)
+		app.manifests, err = GenerateManifests(app.base, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -219,7 +241,7 @@ func parseApplication(o *CreateOptions) (*application, error) {
 	app.overlay = &kusttypes.Kustomization{
 		Resources: []string{
 			"../../base",
-			"./namespace.yaml",
+			"namespace.yaml",
 		},
 		TypeMeta: kusttypes.TypeMeta{
 			APIVersion: kusttypes.KustomizationVersion,
