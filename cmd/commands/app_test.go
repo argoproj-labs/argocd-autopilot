@@ -1,12 +1,17 @@
 package commands
 
 import (
+	"fmt"
+	"io/ioutil"
 	"testing"
 
 	"github.com/argoproj/argocd-autopilot/pkg/application"
 	"github.com/argoproj/argocd-autopilot/pkg/fs"
+	"github.com/argoproj/argocd-autopilot/pkg/fs/mocks"
 	"github.com/argoproj/argocd-autopilot/pkg/git"
+	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 func Test_getCommitMsg(t *testing.T) {
@@ -55,28 +60,121 @@ func Test_getCommitMsg(t *testing.T) {
 
 func Test_writeApplicationFile(t *testing.T) {
 	type args struct {
-		repoFS fs.FS
-		path   string
-		name   string
-		data   []byte
+		root string
+		path string
+		name string
+		data []byte
 	}
-	tests := []struct {
-		name    string
+	tests := map[string]struct {
+		args     args
+		assertFn func(t *testing.T, repofs fs.FS, exists bool, err error)
+		beforeFn func(repofs fs.FS) fs.FS
+	}{
+		"On Root": {
+			args: args{
+				path: "foo/bar",
+				name: "test",
+				data: []byte("data"),
+			},
+			assertFn: func(t *testing.T, repofs fs.FS, exists bool, ret error) {
+				assert.NoError(t, ret)
+
+				f, err := repofs.Open("/foo/bar")
+				assert.NoError(t, err)
+				d, err := ioutil.ReadAll(f)
+				assert.NoError(t, err)
+
+				assert.Equal(t, d, []byte("data"))
+				assert.False(t, exists)
+			},
+		},
+		"With Chroot": {
+			args: args{
+				root: "someroot",
+				path: "foo/bar",
+				name: "test",
+				data: []byte("data2"),
+			},
+			assertFn: func(t *testing.T, repofs fs.FS, exists bool, ret error) {
+				assert.NoError(t, ret)
+
+				assert.Equal(t, "/someroot", repofs.Root())
+				f, err := repofs.Open("/foo/bar")
+				assert.NoError(t, err)
+				d, err := ioutil.ReadAll(f)
+				assert.NoError(t, err)
+
+				assert.Equal(t, d, []byte("data2"))
+				assert.False(t, exists)
+			},
+		},
+		"File exists": {
+			args: args{
+				path: "foo/bar",
+				name: "test",
+				data: []byte("data2"),
+			},
+			beforeFn: func(repofs fs.FS) fs.FS {
+				_, _ = repofs.WriteFile("/foo/bar", []byte("data"))
+				return repofs
+			},
+			assertFn: func(t *testing.T, repofs fs.FS, exists bool, ret error) {
+				assert.NoError(t, ret)
+				assert.True(t, exists)
+			},
+		},
+		"Write error": {
+			args: args{
+				path: "foo/bar",
+				name: "test",
+				data: []byte("data2"),
+			},
+			beforeFn: func(repofs fs.FS) fs.FS {
+				mfs := &mocks.FS{}
+				mfs.On("CheckExistsOrWrite", mock.Anything, mock.Anything).Return(false, fmt.Errorf("error"))
+				mfs.On("Root").Return("/")
+				mfs.On("Join", mock.Anything, mock.Anything).Return("/foo/bar")
+
+				return mfs
+			},
+			assertFn: func(t *testing.T, repofs fs.FS, exists bool, ret error) {
+				assert.Error(t, ret)
+				assert.EqualError(t, ret, "failed to create 'test' file at '/foo/bar': error")
+			},
+		},
+	}
+	for tname, tt := range tests {
+		t.Run(tname, func(t *testing.T) {
+			repofs := fs.Create(memfs.New())
+			if tt.args.root != "" {
+				bfs, _ := repofs.Chroot(tt.args.root)
+				repofs = fs.Create(bfs)
+			}
+			if tt.beforeFn != nil {
+				repofs = tt.beforeFn(repofs)
+			}
+			got, err := writeApplicationFile(repofs, tt.args.path, tt.args.name, tt.args.data)
+			tt.assertFn(t, repofs, got, err)
+		})
+	}
+}
+
+func Test_createApplicationFiles(t *testing.T) {
+	type args struct {
+		repoFS      fs.FS
+		app         application.Application
+		projectName string
+	}
+	tests := map[string]struct {
 		args    args
-		want    bool
 		wantErr bool
 	}{
-		// TODO: Add test cases.
+		"": {},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := writeApplicationFile(tt.args.repoFS, tt.args.path, tt.args.name, tt.args.data)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("writeApplicationFile() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("writeApplicationFile() = %v, want %v", got, tt.want)
+	for tname, tt := range tests {
+		t.Run(tname, func(t *testing.T) {
+			if err := createApplicationFiles(tt.args.repoFS, tt.args.app, tt.args.projectName); (err != nil) != tt.wantErr {
+				t.Errorf("createApplicationFiles() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

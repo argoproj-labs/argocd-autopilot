@@ -546,10 +546,11 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 		return nil, err
 	}
 
-	manifests.applyManifests, err = application.GenerateManifests(k, ns)
+	gen, err := application.GenerateManifests(k)
 	if err != nil {
 		return nil, err
 	}
+	manifests.applyManifests = util.JoinManifests(manifests.namespace, gen)
 
 	manifests.repoCreds, err = getRepoCredsSecret(cloneOpts.Auth.Password, namespace)
 	if err != nil {

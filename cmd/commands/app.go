@@ -210,7 +210,7 @@ func writeApplicationFile(repoFS fs.FS, path, name string, data []byte) (bool, e
 	absPath := repoFS.Join(repoFS.Root(), path)
 	exists, err := repoFS.CheckExistsOrWrite(path, data)
 	if err != nil {
-		return false, fmt.Errorf("failed to create '%s' file at '%s'", name, absPath)
+		return false, fmt.Errorf("failed to create '%s' file at '%s': %w", name, absPath, err)
 	} else if exists {
 		log.G().Infof("'%s' file exists in '%s'", name, absPath)
 		return true, nil

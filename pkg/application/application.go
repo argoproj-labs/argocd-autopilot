@@ -78,6 +78,7 @@ type (
 	}
 )
 
+// AddFlags adds application creation flags to cmd.
 func AddFlags(cmd *cobra.Command) *CreateOptions {
 	co := &CreateOptions{}
 
@@ -90,16 +91,53 @@ func AddFlags(cmd *cobra.Command) *CreateOptions {
 	return co
 }
 
-/*********************************/
-/*       CreateOptions impl      */
-/*********************************/
+// GenerateManifests writes the in-memory kustomization to disk, fixes relative resources and
+// runs kustomize build, then returns the generated manifests.
+func GenerateManifests(k *kusttypes.Kustomization) ([]byte, error) {
+	td, err := ioutil.TempDir("", "auto-pilot")
+	if err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(td)
+
+	kustomizationPath := filepath.Join(td, "kustomization.yaml")
+	if err = fixResourcesPaths(k, kustomizationPath); err != nil {
+		return nil, err
+	}
+
+	kyaml, err := yaml.Marshal(k)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = ioutil.WriteFile(kustomizationPath, kyaml, 0400); err != nil {
+		return nil, err
+	}
+
+	log.G().WithFields(log.Fields{
+		"bootstrapKustPath": kustomizationPath,
+		"resourcePath":      k.Resources[0],
+	}).Debugf("running bootstrap kustomization: %s\n", string(kyaml))
+
+	opts := krusty.MakeDefaultOptions()
+	opts.DoLegacyResourceSort = true
+	kust := krusty.MakeKustomizer(opts)
+	fs := filesys.MakeFsOnDisk()
+	res, err := kust.Run(fs, td)
+	if err != nil {
+		return nil, err
+	}
+
+	return res.AsYaml()
+}
+
+/* CreateOptions impl */
+// Parse tries to parse `CreateOptions` into an `Application`.
 func (o *CreateOptions) Parse() (Application, error) {
 	return parseApplication(o)
 }
 
-/*********************************/
-/*        Application impl       */
-/*********************************/
+/* Application impl */
 func (app *application) Name() string {
 	return app.opts.AppName
 }
@@ -122,57 +160,6 @@ func (app *application) ConfigJson() *Config {
 
 func (app *application) Manifests() []byte {
 	return app.manifests
-}
-
-func GenerateManifests(k *kusttypes.Kustomization, ns *v1.Namespace) ([]byte, error) {
-	td, err := ioutil.TempDir("", "auto-pilot")
-	if err != nil {
-		return nil, err
-	}
-
-	defer os.RemoveAll(td)
-
-	kustomizationPath := filepath.Join(td, "kustomization.yaml")
-	if err = fixResourcesPaths(k, kustomizationPath); err != nil {
-		return nil, err
-	}
-
-	kyaml, err := yaml.Marshal(k)
-	if err != nil {
-		return nil, err
-	}
-
-	if err = ioutil.WriteFile(kustomizationPath, kyaml, 0400); err != nil {
-		return nil, err
-	}
-
-	if ns != nil {
-		nsyaml, err := yaml.Marshal(ns)
-		if err != nil {
-			return nil, err
-		}
-
-		nsPath := filepath.Join(td, "namespace.yaml")
-		if err = ioutil.WriteFile(nsPath, nsyaml, 0400); err != nil {
-			return nil, err
-		}
-	}
-
-	log.G().WithFields(log.Fields{
-		"bootstrapKustPath": kustomizationPath,
-		"resourcePath":      k.Resources[0],
-	}).Debugf("running bootstrap kustomization: %s\n", string(kyaml))
-
-	opts := krusty.MakeDefaultOptions()
-	opts.DoLegacyResourceSort = true
-	kust := krusty.MakeKustomizer(opts)
-	fs := filesys.MakeFsOnDisk()
-	res, err := kust.Run(fs, td)
-	if err != nil {
-		return nil, err
-	}
-
-	return res.AsYaml()
 }
 
 // fixResourcesPaths adjusts all relative paths in the kustomization file to the specified
@@ -235,7 +222,7 @@ func parseApplication(o *CreateOptions) (*application, error) {
 
 	if o.InstallationMode == InstallationModeFlat {
 		log.G().Info("building manifests...")
-		app.manifests, err = GenerateManifests(app.base, nil)
+		app.manifests, err = GenerateManifests(app.base)
 		if err != nil {
 			return nil, err
 		}
