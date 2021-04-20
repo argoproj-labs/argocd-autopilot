@@ -7,9 +7,12 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/argoproj/argocd-autopilot/pkg/fs"
 	"github.com/argoproj/argocd-autopilot/pkg/git/gogit"
 	"github.com/argoproj/argocd-autopilot/pkg/git/gogit/mocks"
+
 	billy "github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5/memfs"
 	gg "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -384,66 +387,75 @@ func Test_clone(t *testing.T) {
 }
 
 func TestClone(t *testing.T) {
-	type args struct {
-		ctx  context.Context
-		opts *CloneOptions
-	}
 	tests := map[string]struct {
-		args             args
+		opts             *CloneOptions
 		wantErr          bool
 		cloneErr         error
 		initErr          error
 		expectInitCalled bool
-		assertFn         func(*testing.T, Repository)
+		assertFn         func(*testing.T, Repository, fs.FS)
 	}{
 		"No error": {
-			args: args{
-				ctx: context.Background(),
-				opts: &CloneOptions{
-					URL: "http://test",
-				},
+			opts: &CloneOptions{
+				URL: "http://test",
 			},
-			assertFn: func(t *testing.T, r Repository) {
+			assertFn: func(t *testing.T, r Repository, _ fs.FS) {
 				assert.NotNil(t, r)
 			},
 			expectInitCalled: false,
 		},
 		"NilOpts": {
-			args: args{
-				ctx:  context.Background(),
-				opts: nil,
-			},
-			assertFn: func(t *testing.T, r Repository) {
+			opts: nil,
+			assertFn: func(t *testing.T, r Repository, filesystem fs.FS) {
 				assert.Nil(t, r)
+				assert.Nil(t, filesystem)
 			},
 			wantErr: true,
 		},
 		"EmptyRepo": {
-			args: args{
-				ctx: context.Background(),
-				opts: &CloneOptions{
-					URL: "http://test",
-				},
+			opts: &CloneOptions{
+				URL: "http://test",
 			},
-			assertFn: func(t *testing.T, r Repository) {
+			assertFn: func(t *testing.T, r Repository, filesystem fs.FS) {
 				assert.NotNil(t, r)
+				assert.NotNil(t, filesystem)
 			},
 			cloneErr:         transport.ErrEmptyRemoteRepository,
 			wantErr:          false,
 			expectInitCalled: true,
 		},
 		"AnotherErr": {
-			args: args{
-				ctx: context.Background(),
-				opts: &CloneOptions{
-					URL: "http://test",
-				},
+			opts: &CloneOptions{
+				URL: "http://test",
 			},
-			assertFn: func(t *testing.T, r Repository) {
+			assertFn: func(t *testing.T, r Repository, filesystem fs.FS) {
 				assert.Nil(t, r)
+				assert.Nil(t, filesystem)
 			},
 			cloneErr:         fmt.Errorf("error"),
 			wantErr:          true,
+			expectInitCalled: false,
+		},
+		"Use chroot": {
+			opts: &CloneOptions{
+				URL:      "http://test",
+				RepoRoot: "some/folder",
+			},
+			assertFn: func(t *testing.T, _ Repository, filesystem fs.FS) {
+				assert.Equal(t, "/some/folder", filesystem.Root())
+			},
+			expectInitCalled: false,
+		},
+		"Fail chroot": {
+			opts: &CloneOptions{
+				URL:      "http://test",
+				RepoRoot: "../outside",
+			},
+			wantErr: true,
+			assertFn: func(t *testing.T, r Repository, filesystem fs.FS) {
+				assert.Nil(t, r)
+				assert.Nil(t, filesystem)
+			},
 			expectInitCalled: false,
 		},
 	}
@@ -455,29 +467,30 @@ func TestClone(t *testing.T) {
 
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
+			filesystem := fs.Create(memfs.New())
 			r := &repo{}
-			clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
+			clone = func(_ context.Context, _ *CloneOptions) (*repo, error) {
 				if tt.cloneErr != nil {
 					return nil, tt.cloneErr
 				}
-				return r, tt.cloneErr
+				return r, nil
 			}
-			initRepo = func(ctx context.Context, opts *CloneOptions) (Repository, error) {
+			initRepo = func(_ context.Context, _ *CloneOptions) (*repo, error) {
 				if !tt.expectInitCalled {
 					t.Errorf("expectInitCalled = false, but it was called")
 				}
 				if tt.initErr != nil {
 					return nil, tt.initErr
 				}
-				return r, tt.initErr
+				return r, nil
 			}
 
-			got, err := tt.args.opts.Clone(tt.args.ctx, nil)
+			gotRepo, gotFS, err := tt.opts.Clone(context.Background(), filesystem)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Clone() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			tt.assertFn(t, got)
+			tt.assertFn(t, gotRepo, gotFS)
 		})
 	}
 }
