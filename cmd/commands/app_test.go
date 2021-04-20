@@ -6,12 +6,15 @@ import (
 	"testing"
 
 	"github.com/argoproj/argocd-autopilot/pkg/application"
+	appmocks "github.com/argoproj/argocd-autopilot/pkg/application/mocks"
 	"github.com/argoproj/argocd-autopilot/pkg/fs"
-	"github.com/argoproj/argocd-autopilot/pkg/fs/mocks"
+	fsmocks "github.com/argoproj/argocd-autopilot/pkg/fs/mocks"
 	"github.com/argoproj/argocd-autopilot/pkg/git"
+	"github.com/argoproj/argocd-autopilot/pkg/kube"
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	kusttypes "sigs.k8s.io/kustomize/api/types"
 )
 
 func Test_getCommitMsg(t *testing.T) {
@@ -130,7 +133,7 @@ func Test_writeApplicationFile(t *testing.T) {
 				data: []byte("data2"),
 			},
 			beforeFn: func(repofs fs.FS) fs.FS {
-				mfs := &mocks.FS{}
+				mfs := &fsmocks.FS{}
 				mfs.On("CheckExistsOrWrite", mock.Anything, mock.Anything).Return(false, fmt.Errorf("error"))
 				mfs.On("Root").Return("/")
 				mfs.On("Join", mock.Anything, mock.Anything).Return("/foo/bar")
@@ -160,22 +163,47 @@ func Test_writeApplicationFile(t *testing.T) {
 }
 
 func Test_createApplicationFiles(t *testing.T) {
-	type args struct {
-		repoFS      fs.FS
-		app         application.Application
-		projectName string
-	}
 	tests := map[string]struct {
-		args    args
-		wantErr bool
+		projectName string
+		beforeFn    func() (fs.FS, application.Application, string)
+		assertFn    func(*testing.T, fs.FS, application.Application, error)
 	}{
-		"": {},
+		"Basic": {
+			beforeFn: func() (fs.FS, application.Application, string) {
+				app := &appmocks.Application{}
+				app.On("Name").Return("foo")
+				app.On("Config").Return(&application.Config{})
+				app.On("Namespace").Return(kube.GenerateNamespace("foo"))
+				app.On("Manifests").Return(nil)
+				app.On("Base").Return(&kusttypes.Kustomization{
+					TypeMeta: kusttypes.TypeMeta{
+						APIVersion: kusttypes.KustomizationVersion,
+						Kind:       kusttypes.KustomizationKind,
+					},
+					Resources: []string{"foo"},
+				})
+				app.On("Overlay").Return(&kusttypes.Kustomization{
+					TypeMeta: kusttypes.TypeMeta{
+						APIVersion: kusttypes.KustomizationVersion,
+						Kind:       kusttypes.KustomizationKind,
+					},
+					Resources: []string{"foo"},
+				})
+
+				repofs := fs.Create(memfs.New())
+
+				return repofs, app, "fooproj"
+			},
+			assertFn: func(t *testing.T, f fs.FS, a application.Application, ret error) {
+				assert.NoError(t, ret)
+			},
+		},
 	}
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
-			if err := createApplicationFiles(tt.args.repoFS, tt.args.app, tt.args.projectName); (err != nil) != tt.wantErr {
-				t.Errorf("createApplicationFiles() error = %v, wantErr %v", err, tt.wantErr)
-			}
+			repofs, app, proj := tt.beforeFn()
+			err := createApplicationFiles(repofs, app, proj)
+			tt.assertFn(t, repofs, app, err)
 		})
 	}
 }

@@ -153,6 +153,7 @@ func createApplicationFiles(repoFS fs.FS, app application.Application, projectNa
 	if err != nil {
 		return fmt.Errorf("failed to marshal app base kustomization: %w", err)
 	}
+
 	// get manifests - only used in flat installation mode
 	manifestsPath := repoFS.Join(basePath, "install.yaml")
 	manifests := app.Manifests()
@@ -167,8 +168,8 @@ func createApplicationFiles(repoFS fs.FS, app application.Application, projectNa
 	if err != nil {
 		return fmt.Errorf("failed to marshal app overlay namespace: %w", err)
 	}
-	configJSONPath := repoFS.Join(overlayPath, "config.json")
-	configJSON, err := json.Marshal(app.ConfigJson())
+	configPath := repoFS.Join(overlayPath, "config.json")
+	config, err := json.Marshal(app.Config())
 	if err != nil {
 		return fmt.Errorf("failed to marshal app config.json: %w", err)
 	}
@@ -192,7 +193,7 @@ func createApplicationFiles(repoFS fs.FS, app application.Application, projectNa
 	}
 
 	// Create config.json
-	if _, err = writeApplicationFile(repoFS, configJSONPath, "config", configJSON); err != nil {
+	if _, err = writeApplicationFile(repoFS, configPath, "config", config); err != nil {
 		return err
 	}
 

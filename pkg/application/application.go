@@ -19,6 +19,8 @@ import (
 	kusttypes "sigs.k8s.io/kustomize/api/types"
 )
 
+//go:generate mockery -name Application -filename application.go
+
 const (
 	InstallationModeFlat   = "flat"
 	InstallationModeNormal = "normal"
@@ -50,7 +52,7 @@ type (
 		// Config returns this app's config.json file that should be next to the overlay
 		// kustomization.yaml file. This is used by the environment's application set
 		// to generate the final argo-cd application.
-		ConfigJson() *Config
+		Config() *Config
 	}
 
 	Config struct {
@@ -154,7 +156,7 @@ func (app *application) Namespace() *v1.Namespace {
 	return app.namespace
 }
 
-func (app *application) ConfigJson() *Config {
+func (app *application) Config() *Config {
 	return app.config
 }
 
