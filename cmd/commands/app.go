@@ -98,7 +98,7 @@ func NewAppCreateCommand() *cobra.Command {
 func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 	var (
 		err error
-		r git.Repository
+		r   git.Repository
 	)
 
 	log.G().WithFields(log.Fields{
@@ -113,17 +113,16 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 	if err != nil {
 		return err
 	}
+	log.G().Infof("using revision: \"%s\", installation path: \"%s\"", opts.CloneOptions.Revision, opts.FS.Root())
 
-	log.G().Infof("using revision: \"%s\", installation path: \"%s\"", opts.CloneOptions.Revision, opts.CloneOptions.RepoRoot)
 	if !opts.FS.ExistsOrDie(store.Default.BootsrtrapDir) {
-		log.G().Fatalf("Bootstrap folder not found, please execute `repo bootstrap --installation-path %s` command", opts.CloneOptions.RepoRoot)
+		return fmt.Errorf(util.Doc("Bootstrap folder not found, please execute `<BIN> repo bootstrap --installation-path %s` command"), opts.FS.Root())
 	}
 
 	envExists := opts.FS.ExistsOrDie(opts.FS.Join(store.Default.EnvsDir, opts.EnvName+".yaml"))
 	if !envExists {
-		log.G().Fatalf(util.Doc(fmt.Sprintf("env '%[1]s' not found, please execute `<BIN> env create %[1]s`", opts.EnvName)))
+		return fmt.Errorf(util.Doc("env '%[1]s' not found, please execute `<BIN> env create %[1]s`"), opts.EnvName)
 	}
-
 	log.G().Debug("repository is ok")
 
 	app, err := opts.AppOpts.Parse()
@@ -131,73 +130,99 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 		return fmt.Errorf("failed to parse application from flags: %v", err)
 	}
 
-	// get application files
-	basePath := opts.FS.Join(store.Default.KustomizeDir, opts.AppOpts.AppName, "base", "kustomization.yaml")
-	baseYAML, err := yaml.Marshal(app.Base())
-	util.Die(err, "failed to marshal app base kustomization")
-
-	overlayPath := opts.FS.Join(store.Default.KustomizeDir, opts.AppOpts.AppName, "overlays", opts.EnvName, "kustomization.yaml")
-	overlayYAML, err := yaml.Marshal(app.Overlay())
-	util.Die(err, "failed to marshal app overlay kustomization")
-
-	nsPath := opts.FS.Join(store.Default.KustomizeDir, opts.AppOpts.AppName, "overlays", opts.EnvName, "namespace.yaml")
-	nsYAML, err := yaml.Marshal(app.Namespace())
-	util.Die(err, "failed to marshal app overlay namespace")
-
-	configJSONPath := opts.FS.Join(store.Default.KustomizeDir, opts.AppOpts.AppName, "overlays", opts.EnvName, "config.json")
-	configJSON, err := json.Marshal(app.ConfigJson())
-	util.Die(err, "failed to marshal app config.json")
-
-	// Create Base
-	log.G().Debugf("checking if application base already exists: '%s'", basePath)
-	exists, err := opts.FS.CheckExistsOrWrite(basePath, baseYAML)
-	util.Die(err, fmt.Sprintf("failed to create application base file at '%s'", basePath))
-	if !exists {
-		log.G().Infof("created application base file at '%s'", basePath)
-	} else {
-		log.G().Infof("application base file exists on '%s'", basePath)
-	}
-
-	// Create Overlay
-	log.G().Debugf("checking if application overlay already exists: '%s'", overlayPath)
-	exists, err = opts.FS.CheckExistsOrWrite(overlayPath, overlayYAML)
-	util.Die(err, fmt.Sprintf("failed to create application overlay file at '%s'", basePath))
-	if !exists {
-		log.G().Infof("created application overlay file at '%s'", overlayPath)
-	} else {
-		// application already exists
-		log.G().Infof("app '%s' already installed on env '%s'", opts.AppOpts.AppName, opts.EnvName)
-		log.G().Infof("found overlay on '%s'", overlayPath)
-		os.Exit(1)
-	}
-
-	exists, err = opts.FS.CheckExistsOrWrite(nsPath, nsYAML)
-	util.Die(err, fmt.Sprintf("failed to create application namespace file at '%s'", basePath))
-	if !exists {
-		log.G().Infof("created application namespace file at '%s'", overlayPath)
-	} else {
-		// application already exists
-		log.G().Infof("app '%s' already installed on env '%s'", opts.AppOpts.AppName, opts.EnvName)
-		log.G().Infof("found overlay on '%s'", overlayPath)
-		os.Exit(1)
-	}
-
-	// Create config.json
-	exists, err = opts.FS.CheckExistsOrWrite(configJSONPath, configJSON)
-	util.Die(err, fmt.Sprintf("failed to create application config file at '%s'", basePath))
-	if !exists {
-		log.G().Infof("created application config file at '%s'", configJSONPath)
-	} else {
-		log.G().Infof("application base file exists on '%s'", configJSONPath)
-	}
-
-	commitMsg := fmt.Sprintf("installed app \"%s\" on environment \"%s\"", opts.AppOpts.AppName, opts.EnvName)
-	if opts.CloneOptions.RepoRoot != "" {
-		commitMsg += fmt.Sprintf(" installation-path: %s", opts.CloneOptions.RepoRoot)
+	if err = createApplicationFiles(opts.FS, app, opts.EnvName); err != nil {
+		return err
 	}
 
 	log.G().Info("committing changes to gitops repo...")
-	util.Die(r.Persist(ctx, &git.PushOptions{CommitMsg: commitMsg}), "failed to push to repo")
-	log.G().Info("application installed!")
+	if err = r.Persist(ctx, &git.PushOptions{CommitMsg: getCommitMsg(opts)}); err != nil {
+		return fmt.Errorf("failed to push to repo: %w", err)
+	}
+	log.G().Infof("installed application: %s", opts.AppOpts.AppName)
+
 	return nil
+}
+
+func createApplicationFiles(repoFS fs.FS, app application.Application, env string) error {
+	basePath := repoFS.Join(store.Default.KustomizeDir, app.Name(), "base")
+	overlayPath := repoFS.Join(store.Default.KustomizeDir, app.Name(), "overlays", env)
+
+	// get application files
+	baseKustomizationPath := repoFS.Join(basePath, "kustomization.yaml")
+	baseKustomizationYAML, err := yaml.Marshal(app.Base())
+	if err != nil {
+		return fmt.Errorf("failed to marshal app base kustomization: %w", err)
+	}
+	// get manifests - only used in flat installation mode
+	manifestsPath := repoFS.Join(basePath, "install.yaml")
+	manifests := app.Manifests()
+
+	overlayKustomizationPath := repoFS.Join(overlayPath, "kustomization.yaml")
+	overlayKustomizationYAML, err := yaml.Marshal(app.Overlay())
+	if err != nil {
+		return fmt.Errorf("failed to marshal app overlay kustomization: %w", err)
+	}
+	nsPath := repoFS.Join(overlayPath, "namespace.yaml")
+	nsYAML, err := yaml.Marshal(app.Namespace())
+	if err != nil {
+		return fmt.Errorf("failed to marshal app overlay namespace: %w", err)
+	}
+	configJSONPath := repoFS.Join(overlayPath, "config.json")
+	configJSON, err := json.Marshal(app.ConfigJson())
+	if err != nil {
+		return fmt.Errorf("failed to marshal app config.json: %w", err)
+	}
+
+	// Create Base
+	if _, err = writeApplicationFile(repoFS, baseKustomizationPath, "base", baseKustomizationYAML); err != nil {
+		return err
+	}
+
+	// Create Overlay
+	if exists, err := writeApplicationFile(repoFS, overlayKustomizationPath, "overlay", overlayKustomizationYAML); err != nil {
+		return err
+	} else if exists {
+		log.G().Infof("application %s already exists on environment: %s", app.Name(), env)
+		os.Exit(1)
+	}
+
+	// Create application namespace file
+	if _, err = writeApplicationFile(repoFS, nsPath, "application namespace", nsYAML); err != nil {
+		return err
+	}
+
+	// Create config.json
+	if _, err = writeApplicationFile(repoFS, configJSONPath, "config", configJSON); err != nil {
+		return err
+	}
+
+	if manifests != nil {
+		// flat installation mode
+		if _, err = writeApplicationFile(repoFS, manifestsPath, "manifests", manifests); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func writeApplicationFile(repoFS fs.FS, path, name string, data []byte) (bool, error) {
+	absPath := repoFS.Join(repoFS.Root(), path)
+	exists, err := repoFS.CheckExistsOrWrite(path, data)
+	if err != nil {
+		return false, fmt.Errorf("failed to create %s file at '%s'", name, absPath)
+	} else if exists {
+		log.G().Infof("%s file exists on '%s'", name, absPath)
+		return true, nil
+	}
+	log.G().Infof("created %s file at '%s'", name, absPath)
+	return false, nil
+}
+
+func getCommitMsg(opts *AppCreateOptions) string {
+	commitMsg := fmt.Sprintf("installed app \"%s\" on environment \"%s\"", opts.AppOpts.AppName, opts.EnvName)
+	if opts.CloneOptions.RepoRoot != "" {
+		commitMsg += fmt.Sprintf(" installation-path: %s", opts.FS.Root())
+	}
+	return commitMsg
 }

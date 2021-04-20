@@ -159,9 +159,9 @@ func RunEnvCreate(ctx context.Context, opts *EnvCreateOptions) error {
 		return err
 	}
 
-	log.G().Infof("using revision: \"%s\", installation path: \"%s\"", opts.CloneOptions.Revision, opts.CloneOptions.RepoRoot)
+	log.G().Infof("using revision: \"%s\", installation path: \"%s\"", opts.CloneOptions.Revision, opts.FS.Root())
 	if !opts.FS.ExistsOrDie(store.Default.BootsrtrapDir) {
-		log.G().Fatalf("Bootstrap folder not found, please execute `repo bootstrap --installation-path %s` command", opts.CloneOptions.RepoRoot)
+		log.G().Fatalf("Bootstrap folder not found, please execute `repo bootstrap --installation-path %s` command", opts.FS.Root())
 	}
 
 	envExists := opts.FS.ExistsOrDie(opts.FS.Join(store.Default.EnvsDir, opts.EnvName+".yaml"))

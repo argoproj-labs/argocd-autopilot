@@ -32,6 +32,8 @@ var (
 
 type (
 	Application interface {
+		Name() string
+
 		// Base returns the base kustomization file for this app.
 		Base() *kusttypes.Kustomization
 
@@ -82,6 +84,8 @@ func AddFlags(cmd *cobra.Command) *CreateOptions {
 	cmd.Flags().StringVar(&co.AppSpecifier, "app", "", "The application specifier (e.g. argocd@v1.0.2)")
 	cmd.Flags().StringVar(&co.DestServer, "dest-server", store.Default.DestServer, fmt.Sprintf("K8s cluster URL (e.g. %s)", store.Default.DestServer))
 	cmd.Flags().StringVar(&co.DestNamespace, "dest-namespace", "default", "K8s target namespace (overrides the namespace specified in the kustomization.yaml)")
+	cmd.Flags().StringVar(&co.InstallationMode, "installation-mode", "normal", "One of: normal|flat. "+
+		"If flat, will commit the application manifests (after running kustomize build), otherwise will commit the kustomization.yaml")
 
 	return co
 }
@@ -96,6 +100,10 @@ func (o *CreateOptions) Parse() (Application, error) {
 /*********************************/
 /*        Application impl       */
 /*********************************/
+func (app *application) Name() string {
+	return app.opts.AppName
+}
+
 func (app *application) Base() *kusttypes.Kustomization {
 	return app.base
 }
@@ -152,6 +160,8 @@ func GenerateManifests(k *kusttypes.Kustomization) ([]byte, error) {
 	return res.AsYaml()
 }
 
+// fixResourcesPaths adjusts all relative paths in the kustomization file to the specified
+// `kustomizationPath`.
 func fixResourcesPaths(k *kusttypes.Kustomization, kustomizationPath string) error {
 	for i, path := range k.Resources {
 		ap, err := filepath.Abs(path)
@@ -197,6 +207,7 @@ func parseApplication(o *CreateOptions) (*application, error) {
 	}
 
 	if o.InstallationMode == InstallationModeFlat {
+		log.G().Info("building manifests...")
 		app.manifests, err = GenerateManifests(app.base)
 		if err != nil {
 			return nil, err
