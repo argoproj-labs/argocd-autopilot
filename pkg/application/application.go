@@ -84,7 +84,7 @@ func AddFlags(cmd *cobra.Command) *CreateOptions {
 	cmd.Flags().StringVar(&co.AppSpecifier, "app", "", "The application specifier (e.g. argocd@v1.0.2)")
 	cmd.Flags().StringVar(&co.DestServer, "dest-server", store.Default.DestServer, fmt.Sprintf("K8s cluster URL (e.g. %s)", store.Default.DestServer))
 	cmd.Flags().StringVar(&co.DestNamespace, "dest-namespace", "default", "K8s target namespace (overrides the namespace specified in the kustomization.yaml)")
-	cmd.Flags().StringVar(&co.InstallationMode, "installation-mode", "normal", "One of: normal|flat. "+
+	cmd.Flags().StringVar(&co.InstallationMode, "installation-mode", InstallationModeNormal, "One of: normal|flat. "+
 		"If flat, will commit the application manifests (after running kustomize build), otherwise will commit the kustomization.yaml")
 
 	return co
@@ -200,7 +200,7 @@ func fixResourcesPaths(k *kusttypes.Kustomization, kustomizationPath string) err
 
 func parseApplication(o *CreateOptions) (*application, error) {
 	var err error
-	app := &application{}
+	app := &application{opts: o}
 
 	if o.AppSpecifier == "" {
 		return nil, ErrEmptyAppSpecifier
@@ -210,6 +210,11 @@ func parseApplication(o *CreateOptions) (*application, error) {
 		return nil, ErrEmptyAppName
 	}
 
+	switch o.InstallationMode {
+	case InstallationModeFlat, InstallationModeNormal:
+	default:
+		return nil, fmt.Errorf("unknown installation mode: %s", o.InstallationMode)
+	}
 	// if app specifier is a local file
 	if _, err := os.Stat(o.AppSpecifier); err == nil {
 		log.G().Warn("using flat installation mode because base is a local file")

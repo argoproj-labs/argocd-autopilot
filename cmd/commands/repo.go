@@ -16,8 +16,7 @@ import (
 	"github.com/argoproj/argocd-autopilot/pkg/store"
 	"github.com/argoproj/argocd-autopilot/pkg/util"
 
-	"github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
-	argocdapp "github.com/argoproj/argo-cd/v2/pkg/apis/application"
+	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	argocdsettings "github.com/argoproj/argo-cd/v2/util/settings"
 	"github.com/ghodss/yaml"
 	memfs "github.com/go-git/go-billy/v5/memfs"
@@ -363,15 +362,11 @@ func setBootstrapOptsDefaults(opts RepoBootstrapOptions) (*RepoBootstrapOptions,
 		}
 	}
 
-	if opts.CloneOptions.RepoRoot == "" {
-		opts.CloneOptions.RepoRoot = "/"
-	}
-
 	return &opts, nil
 }
 
 func validateRepo(fs fs.FS) error {
-	folders := []string{store.Default.BootsrtrapDir, store.Default.EnvsDir}
+	folders := []string{store.Default.BootsrtrapDir, store.Default.ProjectsDir}
 	for _, folder := range folders {
 		if fs.ExistsOrDie(folder) {
 			return fmt.Errorf("folder %s already exist in: %s", folder, fs.Join(fs.Root(), folder))
@@ -391,10 +386,10 @@ type createBootstrapAppOptions struct {
 }
 
 func createApp(opts *createBootstrapAppOptions) ([]byte, error) {
-	app := &v1alpha1.Application{
+	app := &argocdv1alpha1.Application{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: argocdapp.Group + "/v1alpha1",
-			Kind:       argocdapp.ApplicationKind,
+			Kind:       argocdv1alpha1.ApplicationSchemaGroupVersionKind.Kind,
+			APIVersion: argocdv1alpha1.ApplicationSchemaGroupVersionKind.GroupVersion().String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: opts.namespace,
@@ -407,19 +402,19 @@ func createApp(opts *createBootstrapAppOptions) ([]byte, error) {
 				"resources-finalizer.argocd.argoproj.io",
 			},
 		},
-		Spec: v1alpha1.ApplicationSpec{
+		Spec: argocdv1alpha1.ApplicationSpec{
 			Project: "default",
-			Source: v1alpha1.ApplicationSource{
+			Source: argocdv1alpha1.ApplicationSource{
 				RepoURL:        opts.repoURL,
 				Path:           opts.srcPath,
 				TargetRevision: opts.revision,
 			},
-			Destination: v1alpha1.ApplicationDestination{
+			Destination: argocdv1alpha1.ApplicationDestination{
 				Server:    store.Default.DestServer,
 				Namespace: opts.namespace,
 			},
-			SyncPolicy: &v1alpha1.SyncPolicy{
-				Automated: &v1alpha1.SyncPolicyAutomated{
+			SyncPolicy: &argocdv1alpha1.SyncPolicy{
+				Automated: &argocdv1alpha1.SyncPolicyAutomated{
 					SelfHeal: true,
 					Prune:    true,
 				},
@@ -427,7 +422,7 @@ func createApp(opts *createBootstrapAppOptions) ([]byte, error) {
 					"allowEmpty=true",
 				},
 			},
-			IgnoreDifferences: []v1alpha1.ResourceIgnoreDifferences{
+			IgnoreDifferences: []argocdv1alpha1.ResourceIgnoreDifferences{
 				{
 					Group: "argoproj.io",
 					Kind:  "Application",
@@ -522,7 +517,7 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 		namespace: namespace,
 		repoURL:   cloneOpts.URL,
 		revision:  cloneOpts.Revision,
-		srcPath:   filepath.Join(cloneOpts.RepoRoot, store.Default.EnvsDir),
+		srcPath:   filepath.Join(cloneOpts.RepoRoot, store.Default.ProjectsDir),
 	})
 	if err != nil {
 		return nil, err
@@ -597,7 +592,7 @@ func writeManifestsToRepo(repoFS fs.FS, manifests *bootstrapManifests, installat
 	}
 
 	// write ./envs/Dummy
-	if _, err = repoFS.WriteFile(repoFS.Join(store.Default.EnvsDir, store.Default.DummyName), []byte{}); err != nil {
+	if _, err = repoFS.WriteFile(repoFS.Join(store.Default.ProjectsDir, store.Default.DummyName), []byte{}); err != nil {
 		return err
 	}
 

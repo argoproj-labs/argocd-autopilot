@@ -20,7 +20,7 @@ import (
 
 type (
 	AppCreateOptions struct {
-		EnvName      string
+		ProjectName  string
 		FS           fs.FS
 		AppOpts      *application.CreateOptions
 		CloneOptions *git.CloneOptions
@@ -45,14 +45,14 @@ func NewAppCommand() *cobra.Command {
 
 func NewAppCreateCommand() *cobra.Command {
 	var (
-		envName   string
-		appOpts   *application.CreateOptions
-		cloneOpts *git.CloneOptions
+		projectName string
+		appOpts     *application.CreateOptions
+		cloneOpts   *git.CloneOptions
 	)
 
 	cmd := &cobra.Command{
 		Use:   "create [APP_NAME]",
-		Short: "Create an application in an environment",
+		Short: "Create an application in a specific project",
 		Example: util.Doc(`
 # To run this command you need to create a personal access token for your git provider,
 # and have a bootstrapped GitOps repository, and provide them using:
@@ -66,7 +66,7 @@ func NewAppCreateCommand() *cobra.Command {
 		
 # Create a new application from kustomization in a remote repository
 	
-	<BIN> app create <new_app_name> --app github.com/some_org/some_repo/manifests?ref=v1.2.3 --env env_name
+	<BIN> app create <new_app_name> --app github.com/some_org/some_repo/manifests?ref=v1.2.3 --project project_name
 `),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
@@ -76,7 +76,7 @@ func NewAppCreateCommand() *cobra.Command {
 			appOpts.AppName = args[0]
 
 			return RunAppCreate(cmd.Context(), &AppCreateOptions{
-				EnvName:      envName,
+				ProjectName:  projectName,
 				FS:           fs.Create(memfs.New()),
 				AppOpts:      appOpts,
 				CloneOptions: cloneOpts,
@@ -87,9 +87,9 @@ func NewAppCreateCommand() *cobra.Command {
 	cloneOpts, err := git.AddFlags(cmd)
 	util.Die(err)
 
-	cmd.Flags().StringVar(&envName, "env", "", "Environment name")
+	cmd.Flags().StringVarP(&projectName, "project", "p", "", "Project name")
 
-	util.Die(cmd.MarkFlagRequired("env"))
+	util.Die(cmd.MarkFlagRequired("project"))
 	util.Die(cmd.MarkFlagRequired("app"))
 
 	return cmd
@@ -119,9 +119,9 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 		return fmt.Errorf(util.Doc("Bootstrap folder not found, please execute `<BIN> repo bootstrap --installation-path %s` command"), opts.FS.Root())
 	}
 
-	envExists := opts.FS.ExistsOrDie(opts.FS.Join(store.Default.EnvsDir, opts.EnvName+".yaml"))
-	if !envExists {
-		return fmt.Errorf(util.Doc("env '%[1]s' not found, please execute `<BIN> env create %[1]s`"), opts.EnvName)
+	projectExists := opts.FS.ExistsOrDie(opts.FS.Join(store.Default.ProjectsDir, opts.ProjectName+".yaml"))
+	if !projectExists {
+		return fmt.Errorf(util.Doc("project '%[1]s' not found, please execute `<BIN> project create %[1]s`"), opts.ProjectName)
 	}
 	log.G().Debug("repository is ok")
 
@@ -130,7 +130,7 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 		return fmt.Errorf("failed to parse application from flags: %v", err)
 	}
 
-	if err = createApplicationFiles(opts.FS, app, opts.EnvName); err != nil {
+	if err = createApplicationFiles(opts.FS, app, opts.ProjectName); err != nil {
 		return err
 	}
 
@@ -143,9 +143,9 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 	return nil
 }
 
-func createApplicationFiles(repoFS fs.FS, app application.Application, env string) error {
+func createApplicationFiles(repoFS fs.FS, app application.Application, projectName string) error {
 	basePath := repoFS.Join(store.Default.KustomizeDir, app.Name(), "base")
-	overlayPath := repoFS.Join(store.Default.KustomizeDir, app.Name(), "overlays", env)
+	overlayPath := repoFS.Join(store.Default.KustomizeDir, app.Name(), "overlays", projectName)
 
 	// get application files
 	baseKustomizationPath := repoFS.Join(basePath, "kustomization.yaml")
@@ -182,7 +182,7 @@ func createApplicationFiles(repoFS fs.FS, app application.Application, env strin
 	if exists, err := writeApplicationFile(repoFS, overlayKustomizationPath, "overlay", overlayKustomizationYAML); err != nil {
 		return err
 	} else if exists {
-		log.G().Infof("application %s already exists on environment: %s", app.Name(), env)
+		log.G().Infof("application '%s' already exists in project: '%s'", app.Name(), projectName)
 		os.Exit(1)
 	}
 
@@ -210,19 +210,19 @@ func writeApplicationFile(repoFS fs.FS, path, name string, data []byte) (bool, e
 	absPath := repoFS.Join(repoFS.Root(), path)
 	exists, err := repoFS.CheckExistsOrWrite(path, data)
 	if err != nil {
-		return false, fmt.Errorf("failed to create %s file at '%s'", name, absPath)
+		return false, fmt.Errorf("failed to create '%s' file at '%s'", name, absPath)
 	} else if exists {
-		log.G().Infof("%s file exists on '%s'", name, absPath)
+		log.G().Infof("'%s' file exists in '%s'", name, absPath)
 		return true, nil
 	}
-	log.G().Infof("created %s file at '%s'", name, absPath)
+	log.G().Infof("created '%s' file at '%s'", name, absPath)
 	return false, nil
 }
 
 func getCommitMsg(opts *AppCreateOptions) string {
-	commitMsg := fmt.Sprintf("installed app \"%s\" on environment \"%s\"", opts.AppOpts.AppName, opts.EnvName)
+	commitMsg := fmt.Sprintf("installed app '%s' on project '%s'", opts.AppOpts.AppName, opts.ProjectName)
 	if opts.CloneOptions.RepoRoot != "" {
-		commitMsg += fmt.Sprintf(" installation-path: %s", opts.FS.Root())
+		commitMsg += fmt.Sprintf(" installation-path: '%s'", opts.CloneOptions.RepoRoot)
 	}
 	return commitMsg
 }

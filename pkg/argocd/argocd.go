@@ -26,11 +26,11 @@ func AddClusterAddFlags(cmd *cobra.Command) (AddClusterCmd, error) {
 		return nil, err
 	}
 
-	fs, err := util.StealFlags(addcmd, []string{"logformat", "loglevel"})
+	fs, err := util.StealFlags(addcmd, []string{"logformat", "loglevel", "namespace"})
 	if err != nil {
 		return nil, err
 	}
-	//cmd.Flags().AddFlagSet(addcmd.Flags())
+
 	cmd.Flags().AddFlagSet(fs)
 
 	return &addClusterImpl{root, args}, nil
