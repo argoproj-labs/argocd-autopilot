@@ -247,7 +247,10 @@ func RunRepoCreate(ctx context.Context, opts *RepoCreateOptions) error {
 }
 
 func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
-	var err error
+	var (
+		err error
+		r   git.Repository
+	)
 	if opts, err = setBootstrapOptsDefaults(*opts); err != nil {
 		return err
 	}
@@ -283,19 +286,12 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 	log.G().Infof("cloning repo: %s", opts.CloneOptions.URL)
 
 	// clone GitOps repo
-	r, err := opts.CloneOptions.Clone(ctx, opts.FS)
+	r, opts.FS, err = opts.CloneOptions.Clone(ctx, opts.FS)
 	if err != nil {
 		return err
 	}
 
 	log.G().Infof("using revision: \"%s\", installation path: \"%s\"", opts.CloneOptions.Revision, opts.CloneOptions.RepoRoot)
-
-	bootstrapFS, err := opts.FS.Chroot(opts.CloneOptions.RepoRoot)
-	if err != nil {
-		return err
-	}
-
-	opts.FS = fs.Create(bootstrapFS)
 	if err = validateRepo(opts.FS); err != nil {
 		return err
 	}

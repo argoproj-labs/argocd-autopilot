@@ -96,6 +96,11 @@ func NewAppCreateCommand() *cobra.Command {
 }
 
 func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
+	var (
+		err error
+		r git.Repository
+	)
+
 	log.G().WithFields(log.Fields{
 		"repoURL":  opts.CloneOptions.URL,
 		"revision": opts.CloneOptions.Revision,
@@ -104,14 +109,12 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 
 	// clone repo
 	log.G().Infof("cloning git repository: %s", opts.CloneOptions.URL)
-	r, err := opts.CloneOptions.Clone(ctx, opts.FS)
+	r, opts.FS, err = opts.CloneOptions.Clone(ctx, opts.FS)
 	if err != nil {
 		return err
 	}
 
-	log.G().Infof("using installation path: %s", opts.CloneOptions.RepoRoot)
-	opts.FS.ChrootOrDie(opts.CloneOptions.RepoRoot)
-
+	log.G().Infof("using revision: \"%s\", installation path: \"%s\"", opts.CloneOptions.Revision, opts.CloneOptions.RepoRoot)
 	if !opts.FS.ExistsOrDie(store.Default.BootsrtrapDir) {
 		log.G().Fatalf("Bootstrap folder not found, please execute `repo bootstrap --installation-path %s` command", opts.CloneOptions.RepoRoot)
 	}

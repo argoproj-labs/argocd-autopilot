@@ -15,9 +15,6 @@ type FS interface {
 
 	CheckExistsOrWrite(path string, data []byte) (bool, error)
 
-	// ChrootOrDie changes the filesystem's root and panics if it fails
-	ChrootOrDie(newRoot string)
-
 	// Exists checks if the provided path exists in the provided filesystem.
 	Exists(path string) (bool, error)
 
@@ -30,7 +27,7 @@ type fsimpl struct {
 	billy.Filesystem
 }
 
-type File interface  {
+type File interface {
 	billy.File
 }
 
@@ -71,12 +68,6 @@ func (fs *fsimpl) ExistsOrDie(path string) bool {
 	exists, err := fs.Exists(path)
 	util.Die(err)
 	return exists
-}
-
-func (fs *fsimpl) ChrootOrDie(newRoot string) {
-	var err error
-	fs.Filesystem, err = fs.Chroot(newRoot)
-	util.Die(err, "failed to chroot")
 }
 
 func (fs *fsimpl) WriteFile(path string, data []byte) (int, error) {

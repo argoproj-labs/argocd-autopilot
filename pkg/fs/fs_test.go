@@ -212,36 +212,3 @@ func Test_fsimpl_ExistsOrDie(t *testing.T) {
 		})
 	}
 }
-
-func Test_fsimpl_ChrootOrDie(t *testing.T) {
-
-	type args struct {
-		newRoot string
-	}
-	tests := map[string]struct {
-		args   args
-		wantErr bool
-		beforeFn func(fs FS)
-		fs FS
-	}{
-			"should exists if path exists": {
-				args:  args{newRoot: "root"},
-				wantErr: false,
-				beforeFn: func(fs FS) {
-					f := fs.(*fsimpl)
-					m := f.Filesystem.(*mocks.FS)
-					m.On("Chroot", mock.Anything).Return(nil, nil)
-				},
-				fs: &mocks.FS{},
-			},
-	}
-	for tname, tt := range tests {
-		t.Run(tname, func(t *testing.T) {
-			fs := &fsimpl{
-				tt.fs,
-			}
-			tt.beforeFn(fs)
-			fs.ChrootOrDie(tt.args.newRoot)
-		})
-	}
-}

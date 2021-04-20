@@ -5,8 +5,10 @@ import (
 	"errors"
 	"os"
 
+	"github.com/argoproj/argocd-autopilot/pkg/fs"
 	"github.com/argoproj/argocd-autopilot/pkg/git/gogit"
 	"github.com/argoproj/argocd-autopilot/pkg/log"
+
 	billy "github.com/go-git/go-billy/v5"
 	gg "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
@@ -102,22 +104,30 @@ func AddFlags(cmd *cobra.Command) (*CloneOptions, error) {
 	return co, nil
 }
 
-func (o *CloneOptions) Clone(ctx context.Context, fs billy.Filesystem) (Repository, error) {
+func (o *CloneOptions) Clone(ctx context.Context, filesystem fs.FS) (Repository, fs.FS, error) {
 	if o == nil {
-		return nil, ErrNilOpts
+		return nil, nil, ErrNilOpts
 	}
 
-	o.fs = fs
+	o.fs = filesystem
 	r, err := clone(ctx, o)
 	if err != nil {
 		if err == transport.ErrEmptyRemoteRepository {
 			log.G(ctx).Debug("empty repository, initializing new one with specified remote")
-			return initRepo(ctx, o)
+			r, err = initRepo(ctx, o)
 		}
-		return nil, err
 	}
 
-	return r, nil
+	if err != nil {
+		return nil, nil, err
+	}
+
+	bootstrapFS, err := filesystem.Chroot(o.RepoRoot)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return r, fs.Create(bootstrapFS), nil
 }
 
 func (r *repo) Persist(ctx context.Context, opts *PushOptions) error {
@@ -179,7 +189,7 @@ var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 	return &repo{Repository: r, auth: opts.Auth}, nil
 }
 
-var initRepo = func(ctx context.Context, opts *CloneOptions) (Repository, error) {
+var initRepo = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 	ggr, err := ggInitRepo(memory.NewStorage(), opts.fs)
 	if err != nil {
 		return nil, err

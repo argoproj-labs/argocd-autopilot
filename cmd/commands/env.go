@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -115,6 +116,7 @@ func NewEnvCreateCommand() *cobra.Command {
 func RunEnvCreate(ctx context.Context, opts *EnvCreateOptions) error {
 	var (
 		err error
+		r   git.Repository
 	)
 
 	log.G().WithFields(log.Fields{
@@ -152,12 +154,12 @@ func RunEnvCreate(ctx context.Context, opts *EnvCreateOptions) error {
 	log.G().Infof("cloning repo: %s", opts.CloneOptions.URL)
 
 	// clone GitOps repo
-	r, err := opts.CloneOptions.Clone(ctx, opts.FS)
-	util.Die(err)
+	r, opts.FS, err = opts.CloneOptions.Clone(ctx, opts.FS)
+	if err != nil {
+		return err
+	}
 
-	log.G().Infof("using installation path: %s", opts.CloneOptions.RepoRoot)
-	opts.FS.ChrootOrDie(opts.CloneOptions.RepoRoot)
-
+	log.G().Infof("using revision: \"%s\", installation path: \"%s\"", opts.CloneOptions.Revision, opts.CloneOptions.RepoRoot)
 	if !opts.FS.ExistsOrDie(store.Default.BootsrtrapDir) {
 		log.G().Fatalf("Bootstrap folder not found, please execute `repo bootstrap --installation-path %s` command", opts.CloneOptions.RepoRoot)
 	}
@@ -171,15 +173,21 @@ func RunEnvCreate(ctx context.Context, opts *EnvCreateOptions) error {
 
 	if opts.EnvKubeContext != "" {
 		log.G().Infof("adding cluster: %s", opts.EnvKubeContext)
-		util.Die(opts.AddCmd.Execute(ctx, opts.EnvKubeContext), "failed to add new cluster credentials")
+		err = opts.AddCmd.Execute(ctx, opts.EnvKubeContext)
+		if err != nil {
+			return fmt.Errorf("failed to add new cluster credentials: %w", err)
+		}
 	}
 
 	opts.FS.WriteFile(opts.FS.Join(store.Default.EnvsDir, opts.EnvName+".yaml"), envAppYAML)
 
 	log.G().Infof("pushing new env manifest to repo")
-	util.Die(r.Persist(ctx, &git.PushOptions{
+	err = r.Persist(ctx, &git.PushOptions{
 		CommitMsg: "Added env " + opts.EnvName,
-	}))
+	})
+	if err != nil {
+		return err
+	}
 
 	log.G().Infof("done creating %s environment", opts.EnvName)
 	return nil
