@@ -166,22 +166,25 @@ func RunProjectCreate(ctx context.Context, opts *ProjectCreateOptions) error {
 	})
 
 	projectYAML, err := yaml.Marshal(project)
-	die(err)
+	if err != nil {
+		return fmt.Errorf("failed to marshal project: %w", err)
+	}
 
 	appsetYAML, err := yaml.Marshal(appSet)
-	die(err)
+	if err != nil {
+		return fmt.Errorf("failed to marshal appSet: %w", err)
+	}
 
 	joinedYAML := util.JoinManifests(projectYAML, appsetYAML)
 
 	if opts.DryRun {
 		log.G().Printf("%s", joinedYAML)
-		os.Exit(0)
+		return nil
 	}
 
 	if opts.DestKubeContext != "" {
 		log.G().Infof("adding cluster: %s", opts.DestKubeContext)
-		err = opts.AddCmd.Execute(ctx, opts.DestKubeContext)
-		if err != nil {
+		if err = opts.AddCmd.Execute(ctx, opts.DestKubeContext); err != nil {
 			return fmt.Errorf("failed to add new cluster credentials: %w", err)
 		}
 	}

@@ -141,8 +141,9 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 
 	if err = createApplicationFiles(opts.FS, app, opts.ProjectName); err != nil {
 		if errors.Is(err, ErrAppAlreadyInstalledOnProject) {
-			log.G().Infof("application '%s' already exists in project: '%s'", app.Name(), opts.ProjectName)
+			return fmt.Errorf("application '%s' already exists in project '%s': %w", app.Name(), opts.ProjectName, ErrAppAlreadyInstalledOnProject)
 		}
+
 		return err
 	}
 
@@ -159,34 +160,13 @@ func createApplicationFiles(repoFS fs.FS, app application.Application, projectNa
 	basePath := repoFS.Join(store.Default.KustomizeDir, app.Name(), "base")
 	overlayPath := repoFS.Join(store.Default.KustomizeDir, app.Name(), "overlays", projectName)
 
-	// get application files
+	// create Base
 	baseKustomizationPath := repoFS.Join(basePath, "kustomization.yaml")
 	baseKustomizationYAML, err := yaml.Marshal(app.Base())
 	if err != nil {
 		return fmt.Errorf("failed to marshal app base kustomization: %w", err)
 	}
 
-	// get manifests - only used in flat installation mode
-	manifestsPath := repoFS.Join(basePath, "install.yaml")
-	manifests := app.Manifests()
-
-	overlayKustomizationPath := repoFS.Join(overlayPath, "kustomization.yaml")
-	overlayKustomizationYAML, err := yaml.Marshal(app.Overlay())
-	if err != nil {
-		return fmt.Errorf("failed to marshal app overlay kustomization: %w", err)
-	}
-	nsPath := repoFS.Join(overlayPath, "namespace.yaml")
-	nsYAML, err := yaml.Marshal(app.Namespace())
-	if err != nil {
-		return fmt.Errorf("failed to marshal app overlay namespace: %w", err)
-	}
-	configPath := repoFS.Join(overlayPath, "config.json")
-	config, err := json.Marshal(app.Config())
-	if err != nil {
-		return fmt.Errorf("failed to marshal app config.json: %w", err)
-	}
-
-	// Create Base
 	if exists, err := writeApplicationFile(repoFS, baseKustomizationPath, "base", baseKustomizationYAML); err != nil {
 		return err
 	} else if exists {
@@ -199,28 +179,46 @@ func createApplicationFiles(repoFS fs.FS, app application.Application, projectNa
 		}
 	}
 
-	// Create Overlay
+	// create Overlay
+	overlayKustomizationPath := repoFS.Join(overlayPath, "kustomization.yaml")
+	overlayKustomizationYAML, err := yaml.Marshal(app.Overlay())
+	if err != nil {
+		return fmt.Errorf("failed to marshal app overlay kustomization: %w", err)
+	}
 	if exists, err := writeApplicationFile(repoFS, overlayKustomizationPath, "overlay", overlayKustomizationYAML); err != nil {
 		return err
 	} else if exists {
 		return ErrAppAlreadyInstalledOnProject
 	}
 
-	// Create application namespace file
-	if _, err = writeApplicationFile(repoFS, nsPath, "application namespace", nsYAML); err != nil {
-		return err
-	}
-
-	// Create config.json
-	if _, err = writeApplicationFile(repoFS, configPath, "config", config); err != nil {
-		return err
-	}
-
-	if manifests != nil {
-		// flat installation mode
-		if _, err = writeApplicationFile(repoFS, manifestsPath, "manifests", manifests); err != nil {
+	// get manifests - only used in flat installation mode
+	if app.Manifests() != nil {
+		manifestsPath := repoFS.Join(basePath, "install.yaml")
+		if _, err = writeApplicationFile(repoFS, manifestsPath, "manifests", app.Manifests()); err != nil {
 			return err
 		}
+	}
+
+	// if we override the namespace we also need to write the namespace manifests next to the overlay
+	if app.Namespace() != nil {
+		nsPath := repoFS.Join(overlayPath, "namespace.yaml")
+		nsYAML, err := yaml.Marshal(app.Namespace())
+		if err != nil {
+			return fmt.Errorf("failed to marshal app overlay namespace: %w", err)
+		}
+
+		if _, err = writeApplicationFile(repoFS, nsPath, "application namespace", nsYAML); err != nil {
+			return err
+		}
+	}
+
+	configPath := repoFS.Join(overlayPath, "config.json")
+	config, err := json.Marshal(app.Config())
+	if err != nil {
+		return fmt.Errorf("failed to marshal app config.json: %w", err)
+	}
+	if _, err = writeApplicationFile(repoFS, configPath, "config", config); err != nil {
+		return err
 	}
 
 	return nil

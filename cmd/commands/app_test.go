@@ -215,6 +215,45 @@ func Test_createApplicationFiles(t *testing.T) {
 				assert.FileExists(t, repofs.Join(repofs.Root(), store.Default.KustomizeDir, "foo", "overlays", "fooproj", "config.json"))
 			},
 		},
+		"Application with flat installation no namespace": {
+			beforeFn: func(t *testing.T) (fs.FS, application.Application, string) {
+				app := &appmocks.Application{}
+				app.On("Name").Return("foo")
+				app.On("Config").Return(&application.Config{})
+				app.On("Namespace").Return(nil)
+				app.On("Manifests").Return([]byte(""))
+				app.On("Base").Return(&kusttypes.Kustomization{
+					TypeMeta: kusttypes.TypeMeta{
+						APIVersion: kusttypes.KustomizationVersion,
+						Kind:       kusttypes.KustomizationKind,
+					},
+					Resources: []string{"foo"},
+				})
+				app.On("Overlay").Return(&kusttypes.Kustomization{
+					TypeMeta: kusttypes.TypeMeta{
+						APIVersion: kusttypes.KustomizationVersion,
+						Kind:       kusttypes.KustomizationKind,
+					},
+					Resources: []string{"foo"},
+				})
+
+				root, err := ioutil.TempDir("", "test")
+				assert.NoError(t, err)
+				repofs := fs.Create(osfs.New(root))
+
+				return repofs, app, "fooproj"
+			},
+			assertFn: func(t *testing.T, repofs fs.FS, a application.Application, ret error) {
+				defer os.RemoveAll(repofs.Root()) // remove temp dir
+				assert.NoError(t, ret)
+				assert.DirExists(t, repofs.Join(repofs.Root(), store.Default.KustomizeDir), "kustomization dir should exist")
+				assert.FileExists(t, repofs.Join(repofs.Root(), store.Default.KustomizeDir, "foo", "base", "kustomization.yaml"))
+				assert.FileExists(t, repofs.Join(repofs.Root(), store.Default.KustomizeDir, "foo", "base", "install.yaml"))                    // installation manifests
+				assert.NoFileExists(t, repofs.Join(repofs.Root(), store.Default.KustomizeDir, "foo", "overlays", "fooproj", "namespace.yaml")) // no namespace
+				assert.FileExists(t, repofs.Join(repofs.Root(), store.Default.KustomizeDir, "foo", "overlays", "fooproj", "kustomization.yaml"))
+				assert.FileExists(t, repofs.Join(repofs.Root(), store.Default.KustomizeDir, "foo", "overlays", "fooproj", "config.json"))
+			},
+		},
 		"App base collision": {
 			beforeFn: func(t *testing.T) (fs.FS, application.Application, string) {
 				app := getAppMock()
