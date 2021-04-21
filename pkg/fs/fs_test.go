@@ -153,9 +153,9 @@ func Test_fsimpl_CheckExistsOrWrite(t *testing.T) {
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
 			mockedFS := &mocks.FS{}
-			fs := Create(mockedFS)
 			mockedFile := &mocks.File{}
 			tt.beforeFn(mockedFS, mockedFile)
+			fs := Create(mockedFS)
 			got, err := fs.CheckExistsOrWrite(tt.args.path, tt.args.data)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("fsimpl.CheckExistsOrWrite() error = %v, wantErr %v", err, tt.wantErr)

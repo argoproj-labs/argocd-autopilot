@@ -59,11 +59,6 @@ func (_m *FS) Chroot(path string) (billy.Filesystem, error) {
 	return r0, r1
 }
 
-// ChrootOrDie provides a mock function with given fields: newRoot
-func (_m *FS) ChrootOrDie(newRoot string) {
-	_m.Called(newRoot)
-}
-
 // Create provides a mock function with given fields: filename
 func (_m *FS) Create(filename string) (billy.File, error) {
 	ret := _m.Called(filename)

@@ -130,7 +130,7 @@ func RunProjectCreate(ctx context.Context, opts *ProjectCreateOptions) error {
 	log.G().Infof("cloning repo: %s", opts.CloneOptions.URL)
 
 	// clone GitOps repo
-	r, opts.FS, err = opts.CloneOptions.Clone(ctx, opts.FS)
+	r, opts.FS, err = clone(ctx, opts.CloneOptions, opts.FS)
 	if err != nil {
 		return err
 	}
@@ -139,12 +139,12 @@ func RunProjectCreate(ctx context.Context, opts *ProjectCreateOptions) error {
 
 	installationNamespace, err = getInstallationNamespace(opts.FS)
 	if err != nil {
-		log.G().Fatalf("Bootstrap folder not found, please execute `repo bootstrap --installation-path %s` command", opts.FS.Root())
+		return fmt.Errorf(util.Doc("Bootstrap folder not found, please execute `<BIN> repo bootstrap --installation-path %s` command"), opts.FS.Root())
 	}
 
 	projectExists := opts.FS.ExistsOrDie(opts.FS.Join(store.Default.ProjectsDir, opts.Name+".yaml"))
 	if projectExists {
-		log.G().Fatalf("project '%s' already exists", opts.Name)
+		return fmt.Errorf("project '%s' already exists", opts.Name)
 	}
 	log.G().Debug("repository is ok")
 
@@ -156,7 +156,7 @@ func RunProjectCreate(ctx context.Context, opts *ProjectCreateOptions) error {
 		}
 	}
 
-	project, appSet := GenerateProject(&GenerateProjectOptions{
+	project, appSet := generateProject(&GenerateProjectOptions{
 		Name:              opts.Name,
 		Namespace:         installationNamespace,
 		RepoURL:           opts.CloneOptions.URL,
@@ -208,26 +208,7 @@ type GenerateProjectOptions struct {
 	InstallationPath  string
 }
 
-func getInstallationNamespace(repofs fs.FS) (string, error) {
-	f, err := repofs.Open(repofs.Join(store.Default.BootsrtrapDir, store.Default.ArgoCDName, "namespace.yaml"))
-	if err != nil {
-		return "", err
-	}
-
-	d, err := ioutil.ReadAll(f)
-	if err != nil {
-		return "", fmt.Errorf("failed to read namespace file: %w", err)
-	}
-
-	ns := &v1.Namespace{}
-	if err = yaml.Unmarshal(d, ns); err != nil {
-		return "", fmt.Errorf("failed to unmarshal namespace: %w", err)
-	}
-
-	return ns.Name, nil
-}
-
-func GenerateProject(o *GenerateProjectOptions) (*argocdv1alpha1.AppProject, *appset.ApplicationSet) {
+var generateProject = func(o *GenerateProjectOptions) (*argocdv1alpha1.AppProject, *appset.ApplicationSet) {
 	appProject := &argocdv1alpha1.AppProject{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       argocdv1alpha1.AppProjectSchemaGroupVersionKind.Kind,
@@ -325,4 +306,23 @@ func GenerateProject(o *GenerateProjectOptions) (*argocdv1alpha1.AppProject, *ap
 	}
 
 	return appProject, appSet
+}
+
+var getInstallationNamespace = func(repofs fs.FS) (string, error) {
+	f, err := repofs.Open(repofs.Join(store.Default.BootsrtrapDir, store.Default.ArgoCDName, "namespace.yaml"))
+	if err != nil {
+		return "", err
+	}
+
+	d, err := ioutil.ReadAll(f)
+	if err != nil {
+		return "", fmt.Errorf("failed to read namespace file: %w", err)
+	}
+
+	ns := &v1.Namespace{}
+	if err = yaml.Unmarshal(d, ns); err != nil {
+		return "", fmt.Errorf("failed to unmarshal namespace: %w", err)
+	}
+
+	return ns.Name, nil
 }
