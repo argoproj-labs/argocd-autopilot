@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/argoproj/argocd-autopilot/pkg/application"
@@ -11,7 +12,9 @@ import (
 	fsmocks "github.com/argoproj/argocd-autopilot/pkg/fs/mocks"
 	"github.com/argoproj/argocd-autopilot/pkg/git"
 	"github.com/argoproj/argocd-autopilot/pkg/kube"
+	"github.com/argoproj/argocd-autopilot/pkg/store"
 	"github.com/go-git/go-billy/v5/memfs"
+	osfs "github.com/go-git/go-billy/v5/osfs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	kusttypes "sigs.k8s.io/kustomize/api/types"
@@ -163,45 +166,79 @@ func Test_writeApplicationFile(t *testing.T) {
 }
 
 func Test_createApplicationFiles(t *testing.T) {
+
+	getAppMock := func() *appmocks.Application {
+		app := &appmocks.Application{}
+		app.On("Name").Return("foo")
+		app.On("Config").Return(&application.Config{})
+		app.On("Namespace").Return(kube.GenerateNamespace("foo"))
+		app.On("Manifests").Return(nil)
+		app.On("Base").Return(&kusttypes.Kustomization{
+			TypeMeta: kusttypes.TypeMeta{
+				APIVersion: kusttypes.KustomizationVersion,
+				Kind:       kusttypes.KustomizationKind,
+			},
+			Resources: []string{"foo"},
+		})
+		app.On("Overlay").Return(&kusttypes.Kustomization{
+			TypeMeta: kusttypes.TypeMeta{
+				APIVersion: kusttypes.KustomizationVersion,
+				Kind:       kusttypes.KustomizationKind,
+			},
+			Resources: []string{"foo"},
+		})
+		return app
+	}
+
 	tests := map[string]struct {
 		projectName string
-		beforeFn    func() (fs.FS, application.Application, string)
+		beforeFn    func(*testing.T) (fs.FS, application.Application, string)
 		assertFn    func(*testing.T, fs.FS, application.Application, error)
 	}{
-		"Basic": {
-			beforeFn: func() (fs.FS, application.Application, string) {
-				app := &appmocks.Application{}
-				app.On("Name").Return("foo")
-				app.On("Config").Return(&application.Config{})
-				app.On("Namespace").Return(kube.GenerateNamespace("foo"))
-				app.On("Manifests").Return(nil)
-				app.On("Base").Return(&kusttypes.Kustomization{
-					TypeMeta: kusttypes.TypeMeta{
-						APIVersion: kusttypes.KustomizationVersion,
-						Kind:       kusttypes.KustomizationKind,
-					},
-					Resources: []string{"foo"},
-				})
-				app.On("Overlay").Return(&kusttypes.Kustomization{
-					TypeMeta: kusttypes.TypeMeta{
-						APIVersion: kusttypes.KustomizationVersion,
-						Kind:       kusttypes.KustomizationKind,
-					},
-					Resources: []string{"foo"},
-				})
-
-				repofs := fs.Create(memfs.New())
+		"New application": {
+			beforeFn: func(t *testing.T) (fs.FS, application.Application, string) {
+				app := getAppMock()
+				root, err := ioutil.TempDir("", "test")
+				assert.NoError(t, err)
+				repofs := fs.Create(osfs.New(root))
 
 				return repofs, app, "fooproj"
 			},
-			assertFn: func(t *testing.T, f fs.FS, a application.Application, ret error) {
+			assertFn: func(t *testing.T, repofs fs.FS, a application.Application, ret error) {
+				defer os.RemoveAll(repofs.Root()) // remove temp dir
 				assert.NoError(t, ret)
+				assert.DirExists(t, repofs.Join(repofs.Root(), store.Default.KustomizeDir), "kustomization dir should exist")
+				assert.FileExists(t, repofs.Join(repofs.Root(), store.Default.KustomizeDir, "foo", "base", "kustomization.yaml"))
+				assert.FileExists(t, repofs.Join(repofs.Root(), store.Default.KustomizeDir, "foo", "overlays", "fooproj", "kustomization.yaml"))
+				assert.FileExists(t, repofs.Join(repofs.Root(), store.Default.KustomizeDir, "foo", "overlays", "fooproj", "namespace.yaml"))
+				assert.FileExists(t, repofs.Join(repofs.Root(), store.Default.KustomizeDir, "foo", "overlays", "fooproj", "config.json"))
+			},
+		},
+		"Application exists in project": {
+			beforeFn: func(t *testing.T) (fs.FS, application.Application, string) {
+				app := getAppMock()
+				root, err := ioutil.TempDir("", "test")
+				assert.NoError(t, err)
+				repofs := fs.Create(osfs.New(root))
+				repofs.WriteFile(repofs.Join(store.Default.KustomizeDir, "foo", "base", "kustomization.yaml"), []byte(""))
+				repofs.WriteFile(repofs.Join(store.Default.KustomizeDir, "foo", "base", "kustomization.yaml"), []byte(""))
+
+				return repofs, app, "fooproj"
+			},
+			assertFn: func(t *testing.T, repofs fs.FS, a application.Application, ret error) {
+				defer os.RemoveAll(repofs.Root()) // remove temp dir
+				assert.NoError(t, ret)
+				assert.DirExists(t, repofs.Join(repofs.Root(), store.Default.KustomizeDir), "kustomization dir should exist")
+				assert.FileExists(t, repofs.Join(repofs.Root(), store.Default.KustomizeDir, "foo", "base", "kustomization.yaml"))
+				assert.FileExists(t, repofs.Join(repofs.Root(), store.Default.KustomizeDir, "foo", "overlays", "fooproj", "kustomization.yaml"))
+				assert.FileExists(t, repofs.Join(repofs.Root(), store.Default.KustomizeDir, "foo", "overlays", "fooproj", "namespace.yaml"))
+				assert.FileExists(t, repofs.Join(repofs.Root(), store.Default.KustomizeDir, "foo", "overlays", "fooproj", "config.json"))
 			},
 		},
 	}
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
-			repofs, app, proj := tt.beforeFn()
+			repofs, app, proj := tt.beforeFn(t)
 			err := createApplicationFiles(repofs, app, proj)
 			tt.assertFn(t, repofs, app, err)
 		})
