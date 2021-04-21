@@ -26,7 +26,6 @@ func TestRunProjectCreate(t *testing.T) {
 		mockRepo                 git.Repository
 		mockNamespace            string
 		wantErr                  string
-		assertFn                 func(t *testing.T, r git.Repository, filesystem fs.FS)
 	}{
 		"should handle failure in clone": {
 			opts: &ProjectCreateOptions{
@@ -38,7 +37,7 @@ func TestRunProjectCreate(t *testing.T) {
 			},
 			wantErr: "failure clone",
 		},
-		"should handle failure in namespace": {
+		"should handle failure while getting namespace": {
 			opts: &ProjectCreateOptions{
 				Name:         "project",
 				CloneOptions: &git.CloneOptions{},
@@ -46,13 +45,73 @@ func TestRunProjectCreate(t *testing.T) {
 			clone: func(_ context.Context, _ *git.CloneOptions, _ fs.FS) (git.Repository, fs.FS, error) {
 				mockedFS := &fsmocks.FS{}
 				mockedFS.On("Root").Return("/")
-				fs := fs.Create(mockedFS)
-				return nil, fs, nil
+				return nil, mockedFS, nil
 			},
 			getInstallationNamespace: func(_ fs.FS) (string, error) {
 				return "", fmt.Errorf("failure namespace")
 			},
 			wantErr: "Bootstrap folder not found, please execute ` repo bootstrap --installation-path /` command",
+		},
+		"should handle failure when project exists": {
+			opts: &ProjectCreateOptions{
+				Name:         "project",
+				CloneOptions: &git.CloneOptions{},
+			},
+			clone: func(_ context.Context, _ *git.CloneOptions, _ fs.FS) (git.Repository, fs.FS, error) {
+				mockedFS := &fsmocks.FS{}
+				mockedFS.On("Root").Return("/")
+				mockedFS.On("Join", "projects", "project.yaml").Return(func(elem ...string) string {
+					return strings.Join(elem, "/")
+				})
+				mockedFS.On("ExistsOrDie", "projects/project.yaml").Return(true)
+				return nil, mockedFS, nil
+			},
+			getInstallationNamespace: func(_ fs.FS) (string, error) {
+				return "namespace", nil
+			},
+			wantErr: "project 'project' already exists",
+		},
+		"should handle failure when writing project file": {
+			opts: &ProjectCreateOptions{
+				Name:         "project",
+				CloneOptions: &git.CloneOptions{},
+			},
+			clone: func(_ context.Context, _ *git.CloneOptions, _ fs.FS) (git.Repository, fs.FS, error) {
+				mockedFS := &fsmocks.FS{}
+				mockedFS.On("Root").Return("/")
+				mockedFS.On("Join", "projects", "project.yaml").Return(func(elem ...string) string {
+					return strings.Join(elem, "/")
+				})
+				mockedFS.On("ExistsOrDie", "projects/project.yaml").Return(false)
+				mockedFS.On("WriteFile", "projects/project.yaml", mock.AnythingOfType("[]uint8")).Return(0, os.ErrPermission)
+				return nil, mockedFS, nil
+			},
+			getInstallationNamespace: func(_ fs.FS) (string, error) {
+				return "namespace", nil
+			},
+			wantErr: "failed to create project file: permission denied",
+		},
+		"should handle failure to persist repo": {
+			opts: &ProjectCreateOptions{
+				Name:         "project",
+				CloneOptions: &git.CloneOptions{},
+			},
+			clone: func(_ context.Context, _ *git.CloneOptions, _ fs.FS) (git.Repository, fs.FS, error) {
+				mockedFS := &fsmocks.FS{}
+				mockedFS.On("Root").Return("/")
+				mockedFS.On("Join", "projects", "project.yaml").Return(func(elem ...string) string {
+					return strings.Join(elem, "/")
+				})
+				mockedFS.On("ExistsOrDie", "projects/project.yaml").Return(false)
+				mockedFS.On("WriteFile", "projects/project.yaml", mock.AnythingOfType("[]uint8")).Return(1, nil)
+				mockedRepo := &gitmocks.Repository{}
+				mockedRepo.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{CommitMsg: "Added project project"}).Return(fmt.Errorf("failed to persist"))
+				return mockedRepo, mockedFS, nil
+			},
+			getInstallationNamespace: func(_ fs.FS) (string, error) {
+				return "namespace", nil
+			},
+			wantErr: "failed to persist",
 		},
 		"should persist repo when done": {
 			opts: &ProjectCreateOptions{
@@ -61,24 +120,23 @@ func TestRunProjectCreate(t *testing.T) {
 			},
 			clone: func(_ context.Context, _ *git.CloneOptions, _ fs.FS) (git.Repository, fs.FS, error) {
 				mockedFS := &fsmocks.FS{}
-				mockedFile := &fsmocks.File{}
 				mockedFS.On("Root").Return("/")
 				mockedFS.On("Join", "projects", "project.yaml").Return(func(elem ...string) string {
 					return strings.Join(elem, "/")
 				})
-				mockedFS.On("Create", "projects/project.yaml").Return(mockedFile, nil)
-				mockedFile.On("Write", mock.AnythingOfType("[]uint8")).Return(1, nil)
-				fs := fs.Create(mockedFS)
-				mockedFS.On("Stat", "projects/project.yaml").Return(nil, os.ErrNotExist)
+				mockedFS.On("ExistsOrDie", "projects/project.yaml").Return(false)
+				mockedFS.On("WriteFile", "projects/project.yaml", mock.AnythingOfType("[]uint8")).Return(1, nil)
 				mockedRepo := &gitmocks.Repository{}
 				mockedRepo.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{CommitMsg: "Added project project"}).Return(nil)
-				return mockedRepo, fs, nil
+				return mockedRepo, mockedFS, nil
 			},
 			getInstallationNamespace: func(_ fs.FS) (string, error) {
 				return "namespace", nil
 			},
 		},
 	}
+	origClone := clone
+	origGetInstallationNamespace := getInstallationNamespace
 	for ttName, tt := range tests {
 		t.Run(ttName, func(t *testing.T) {
 			clone = tt.clone
@@ -91,6 +149,9 @@ func TestRunProjectCreate(t *testing.T) {
 			}
 		})
 	}
+
+	clone = origClone
+	getInstallationNamespace = origGetInstallationNamespace
 }
 
 func Test_generateProject(t *testing.T) {
@@ -212,11 +273,15 @@ metadata:
 		t.Run(ttName, func(t *testing.T) {
 			mockedFile := &fsmocks.File{}
 			mockedFS := &fsmocks.FS{}
-			fs := fs.Create(mockedFS)
 			tt.beforeFn(mockedFS, mockedFile)
-			got, err := getInstallationNamespace(fs)
-			if tt.wantErr != "" {
-				assert.EqualError(t, err, tt.wantErr)
+			got, err := getInstallationNamespace(mockedFS)
+			if err != nil {
+				if tt.wantErr != "" {
+					assert.EqualError(t, err, tt.wantErr)
+				} else {
+					t.Errorf("getInstallationNamespace() error = %v", err)
+				}
+
 				return
 			}
 
