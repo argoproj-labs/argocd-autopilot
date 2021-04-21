@@ -13,6 +13,7 @@ import (
 	"github.com/argoproj/argocd-autopilot/pkg/git"
 	"github.com/argoproj/argocd-autopilot/pkg/kube"
 	"github.com/argoproj/argocd-autopilot/pkg/store"
+	"github.com/ghodss/yaml"
 	"github.com/go-git/go-billy/v5/memfs"
 	osfs "github.com/go-git/go-billy/v5/osfs"
 	"github.com/stretchr/testify/assert"
@@ -214,25 +215,52 @@ func Test_createApplicationFiles(t *testing.T) {
 				assert.FileExists(t, repofs.Join(repofs.Root(), store.Default.KustomizeDir, "foo", "overlays", "fooproj", "config.json"))
 			},
 		},
-		"Application exists in project": {
+		"App base collision": {
 			beforeFn: func(t *testing.T) (fs.FS, application.Application, string) {
 				app := getAppMock()
 				root, err := ioutil.TempDir("", "test")
 				assert.NoError(t, err)
 				repofs := fs.Create(osfs.New(root))
-				repofs.WriteFile(repofs.Join(store.Default.KustomizeDir, "foo", "base", "kustomization.yaml"), []byte(""))
-				repofs.WriteFile(repofs.Join(store.Default.KustomizeDir, "foo", "base", "kustomization.yaml"), []byte(""))
+				// change the original base to make collision with the new one
+				orgBase := &kusttypes.Kustomization{
+					TypeMeta: kusttypes.TypeMeta{
+						APIVersion: kusttypes.KustomizationVersion,
+						Kind:       kusttypes.KustomizationKind,
+					},
+					Resources: []string{"bar"}, // different resources
+				}
+				orgBaseYAML, err := yaml.Marshal(orgBase)
+				assert.NoError(t, err)
+				_, err = repofs.WriteFile(repofs.Join(store.Default.KustomizeDir, "foo", "base", "kustomization.yaml"), orgBaseYAML)
+				assert.NoError(t, err)
+				_, err = repofs.WriteFile(repofs.Join(store.Default.KustomizeDir, "foo", "overlays", "fooproj", "kustomization.yaml"), []byte(""))
+				assert.NoError(t, err)
 
 				return repofs, app, "fooproj"
 			},
 			assertFn: func(t *testing.T, repofs fs.FS, a application.Application, ret error) {
 				defer os.RemoveAll(repofs.Root()) // remove temp dir
-				assert.NoError(t, ret)
-				assert.DirExists(t, repofs.Join(repofs.Root(), store.Default.KustomizeDir), "kustomization dir should exist")
-				assert.FileExists(t, repofs.Join(repofs.Root(), store.Default.KustomizeDir, "foo", "base", "kustomization.yaml"))
-				assert.FileExists(t, repofs.Join(repofs.Root(), store.Default.KustomizeDir, "foo", "overlays", "fooproj", "kustomization.yaml"))
-				assert.FileExists(t, repofs.Join(repofs.Root(), store.Default.KustomizeDir, "foo", "overlays", "fooproj", "namespace.yaml"))
-				assert.FileExists(t, repofs.Join(repofs.Root(), store.Default.KustomizeDir, "foo", "overlays", "fooproj", "config.json"))
+				assert.ErrorIs(t, ret, ErrAppCollisionWithExistingBase)
+			},
+		},
+		"Same app base overlay already exists": {
+			beforeFn: func(t *testing.T) (fs.FS, application.Application, string) {
+				app := getAppMock()
+				root, err := ioutil.TempDir("", "test")
+				assert.NoError(t, err)
+				repofs := fs.Create(osfs.New(root))
+				sameBase, err := yaml.Marshal(app.Base())
+				assert.NoError(t, err)
+				_, err = repofs.WriteFile(repofs.Join(store.Default.KustomizeDir, "foo", "base", "kustomization.yaml"), sameBase)
+				assert.NoError(t, err)
+				_, err = repofs.WriteFile(repofs.Join(store.Default.KustomizeDir, "foo", "overlays", "fooproj", "kustomization.yaml"), []byte(""))
+				assert.NoError(t, err)
+
+				return repofs, app, "fooproj"
+			},
+			assertFn: func(t *testing.T, repofs fs.FS, a application.Application, ret error) {
+				defer os.RemoveAll(repofs.Root()) // remove temp dir
+				assert.ErrorIs(t, ret, ErrAppAlreadyInstalledOnProject)
 			},
 		},
 	}

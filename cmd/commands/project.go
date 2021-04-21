@@ -105,10 +105,10 @@ func NewProjectCreateCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "If true, print manifests instead of applying them to the cluster (nothing will be commited to git)")
 
 	addCmd, err := argocd.AddClusterAddFlags(cmd)
-	util.Die(err)
+	die(err)
 
 	cloneOpts, err = git.AddFlags(cmd)
-	util.Die(err)
+	die(err)
 
 	return cmd
 }
@@ -166,10 +166,10 @@ func RunProjectCreate(ctx context.Context, opts *ProjectCreateOptions) error {
 	})
 
 	projectYAML, err := yaml.Marshal(project)
-	util.Die(err)
+	die(err)
 
 	appsetYAML, err := yaml.Marshal(appSet)
-	util.Die(err)
+	die(err)
 
 	joinedYAML := util.JoinManifests(projectYAML, appsetYAML)
 

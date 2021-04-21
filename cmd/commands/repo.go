@@ -128,7 +128,7 @@ func NewRepoCreateCommand() *cobra.Command {
 		},
 	}
 
-	util.Die(viper.BindEnv("git-token", "GIT_TOKEN"))
+	die(viper.BindEnv("git-token", "GIT_TOKEN"))
 
 	cmd.Flags().StringVarP(&provider, "provider", "p", "github", "The git provider, "+fmt.Sprintf("one of: %v", strings.Join(supportedProviders, "|")))
 	cmd.Flags().StringVarP(&owner, "owner", "o", "", "The name of the owner or organiaion")
@@ -137,9 +137,9 @@ func NewRepoCreateCommand() *cobra.Command {
 	cmd.Flags().StringVar(&host, "host", "", "The git provider address (for on-premise git providers)")
 	cmd.Flags().BoolVar(&public, "public", false, "If true, will create the repository as public (default is false)")
 
-	util.Die(cmd.MarkFlagRequired("owner"))
-	util.Die(cmd.MarkFlagRequired("name"))
-	util.Die(cmd.MarkFlagRequired("git-token"))
+	die(cmd.MarkFlagRequired("owner"))
+	die(cmd.MarkFlagRequired("name"))
+	die(cmd.MarkFlagRequired("git-token"))
 
 	return cmd
 }
@@ -195,8 +195,8 @@ func NewRepoBootstrapCommand() *cobra.Command {
 		},
 	}
 
-	util.Die(viper.BindEnv("git-token", "GIT_TOKEN"))
-	util.Die(viper.BindEnv("repo", "GIT_REPO"))
+	die(viper.BindEnv("git-token", "GIT_TOKEN"))
+	die(viper.BindEnv("repo", "GIT_REPO"))
 
 	cmd.Flags().StringVar(&appSpecifier, "app", "", "The application specifier (e.g. argocd@v1.0.2)")
 	cmd.Flags().BoolVar(&namespaced, "namespaced", false, "If true, install a namespaced version of argo-cd (no need for cluster-role)")
@@ -207,13 +207,13 @@ func NewRepoBootstrapCommand() *cobra.Command {
 
 	// add application flags
 	repoOpts, err := git.AddFlags(cmd)
-	util.Die(err)
+	die(err)
 
 	// add kubernetes flags
 	f = kube.AddFlags(cmd.Flags())
 
-	util.Die(cmd.MarkFlagRequired("repo"))
-	util.Die(cmd.MarkFlagRequired("git-token"))
+	die(cmd.MarkFlagRequired("repo"))
+	die(cmd.MarkFlagRequired("git-token"))
 
 	return cmd
 }
@@ -300,7 +300,9 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 	// apply built manifest to k8s cluster
 	log.G().Infof("using context: \"%s\", namespace: \"%s\"", opts.KubeContext, opts.Namespace)
 	log.G().Infof("applying bootstrap manifests to cluster...")
-	util.Die(opts.KubeFactory.Apply(ctx, opts.Namespace, util.JoinManifests(manifests.applyManifests, manifests.repoCreds)))
+	if err = opts.KubeFactory.Apply(ctx, opts.Namespace, util.JoinManifests(manifests.applyManifests, manifests.repoCreds)); err != nil {
+		return fmt.Errorf("failed to apply bootstrap manifests to cluster: %w", err)
+	}
 
 	// write argocd manifests
 	if err = writeManifestsToRepo(opts.FS, manifests, opts.InstallationMode); err != nil {

@@ -3,8 +3,11 @@ package commands
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"reflect"
 
 	"github.com/argoproj/argocd-autopilot/pkg/application"
 	"github.com/argoproj/argocd-autopilot/pkg/fs"
@@ -16,6 +19,12 @@ import (
 	"github.com/ghodss/yaml"
 	memfs "github.com/go-git/go-billy/v5/memfs"
 	"github.com/spf13/cobra"
+	kusttypes "sigs.k8s.io/kustomize/api/types"
+)
+
+var (
+	ErrAppAlreadyInstalledOnProject = errors.New("application already installed on project")
+	ErrAppCollisionWithExistingBase = errors.New("an application with the same name and a different base already exists, consider choosing a different name")
 )
 
 type (
@@ -85,12 +94,12 @@ func NewAppCreateCommand() *cobra.Command {
 	}
 	appOpts = application.AddFlags(cmd)
 	cloneOpts, err := git.AddFlags(cmd)
-	util.Die(err)
+	die(err)
 
 	cmd.Flags().StringVarP(&projectName, "project", "p", "", "Project name")
 
-	util.Die(cmd.MarkFlagRequired("project"))
-	util.Die(cmd.MarkFlagRequired("app"))
+	die(cmd.MarkFlagRequired("project"))
+	die(cmd.MarkFlagRequired("app"))
 
 	return cmd
 }
@@ -131,6 +140,9 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 	}
 
 	if err = createApplicationFiles(opts.FS, app, opts.ProjectName); err != nil {
+		if errors.Is(err, ErrAppAlreadyInstalledOnProject) {
+			log.G().Infof("application '%s' already exists in project: '%s'", app.Name(), opts.ProjectName)
+		}
 		return err
 	}
 
@@ -175,16 +187,23 @@ func createApplicationFiles(repoFS fs.FS, app application.Application, projectNa
 	}
 
 	// Create Base
-	if _, err = writeApplicationFile(repoFS, baseKustomizationPath, "base", baseKustomizationYAML); err != nil {
+	if exists, err := writeApplicationFile(repoFS, baseKustomizationPath, "base", baseKustomizationYAML); err != nil {
 		return err
+	} else if exists {
+		// check if the bases are the same
+		log.G().Debug("application base with the same name exists, checking for collisions")
+		if collision, err := checkBaseCollision(repoFS, baseKustomizationPath, app.Base()); err != nil {
+			return err
+		} else if collision {
+			return ErrAppCollisionWithExistingBase
+		}
 	}
 
 	// Create Overlay
 	if exists, err := writeApplicationFile(repoFS, overlayKustomizationPath, "overlay", overlayKustomizationYAML); err != nil {
 		return err
 	} else if exists {
-		log.G().Infof("application '%s' already exists in project: '%s'", app.Name(), projectName)
-		os.Exit(1)
+		return ErrAppAlreadyInstalledOnProject
 	}
 
 	// Create application namespace file
@@ -205,6 +224,25 @@ func createApplicationFiles(repoFS fs.FS, app application.Application, projectNa
 	}
 
 	return nil
+}
+
+func checkBaseCollision(repoFS fs.FS, orgBasePath string, newBase *kusttypes.Kustomization) (bool, error) {
+	f, err := repoFS.Open(orgBasePath)
+	if err != nil {
+		return false, err
+	}
+
+	data, err := ioutil.ReadAll(f)
+	if err != nil {
+		return false, err
+	}
+
+	orgBase := &kusttypes.Kustomization{}
+	if err = yaml.Unmarshal(data, orgBase); err != nil {
+		return false, err
+	}
+
+	return !reflect.DeepEqual(orgBase, newBase), nil
 }
 
 func writeApplicationFile(repoFS fs.FS, path, name string, data []byte) (bool, error) {
