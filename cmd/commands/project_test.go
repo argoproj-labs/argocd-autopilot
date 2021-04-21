@@ -21,11 +21,12 @@ import (
 func TestRunProjectCreate(t *testing.T) {
 	tests := map[string]struct {
 		opts                     *ProjectCreateOptions
-		clone                    func(context.Context, *git.CloneOptions, fs.FS) (git.Repository, fs.FS, error)
+		clone                    func(ctx context.Context, r *git.CloneOptions, filesystem fs.FS) (git.Repository, fs.FS, error)
 		getInstallationNamespace func(fs.FS) (string, error)
 		mockRepo                 git.Repository
 		mockNamespace            string
 		wantErr                  string
+		assertFn                 func(t *testing.T, r git.Repository, filesystem fs.FS)
 	}{
 		"should handle failure in clone": {
 			opts: &ProjectCreateOptions{
@@ -53,7 +54,7 @@ func TestRunProjectCreate(t *testing.T) {
 			},
 			wantErr: "Bootstrap folder not found, please execute ` repo bootstrap --installation-path /` command",
 		},
-		"simple": {
+		"should persist repo when done": {
 			opts: &ProjectCreateOptions{
 				Name:         "project",
 				CloneOptions: &git.CloneOptions{},
@@ -62,15 +63,15 @@ func TestRunProjectCreate(t *testing.T) {
 				mockedFS := &fsmocks.FS{}
 				mockedFile := &fsmocks.File{}
 				mockedFS.On("Root").Return("/")
-				mockedFS.On("Join", mock.AnythingOfType("string"), "project.yaml").Return(func(elem ...string) string {
+				mockedFS.On("Join", "projects", "project.yaml").Return(func(elem ...string) string {
 					return strings.Join(elem, "/")
 				})
-				mockedFS.On("Create", mock.Anything).Return(mockedFile, nil)
-				mockedFile.On("Write", mock.Anything).Return(1, nil)
+				mockedFS.On("Create", "projects/project.yaml").Return(mockedFile, nil)
+				mockedFile.On("Write", mock.AnythingOfType("[]uint8")).Return(1, nil)
 				fs := fs.Create(mockedFS)
-				mockedFS.On("Stat", mock.AnythingOfType("string")).Return(nil, os.ErrNotExist)
+				mockedFS.On("Stat", "projects/project.yaml").Return(nil, os.ErrNotExist)
 				mockedRepo := &gitmocks.Repository{}
-				mockedRepo.On("Persist", mock.AnythingOfType("context.Context"), &git.PushOptions{CommitMsg: "Added project project"}).Return(nil)
+				mockedRepo.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{CommitMsg: "Added project project"}).Return(nil)
 				return mockedRepo, fs, nil
 			},
 			getInstallationNamespace: func(_ fs.FS) (string, error) {
