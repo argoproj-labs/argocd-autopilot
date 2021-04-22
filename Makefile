@@ -11,6 +11,8 @@ DEV_INSTALLATION_MANIFESTS_URL="manifests/"
 DEV_INSTALLATION_MANIFESTS_NAMESPACED_URL="manifests/namespace-install"
 
 CLI_SRCS := $(shell find . -name '*.go')
+MKDOCS_DOCKER_IMAGE?=squidfunk/mkdocs-material:4.1.1
+MKDOCS_RUN_ARGS?=
 
 GIT_COMMIT=$(shell git rev-parse HEAD)
 BUILD_DATE=$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
@@ -111,6 +113,14 @@ codegen: $(GOBIN)/mockery $(GOBIN)/interfacer
 
 .PHONY: pre-commit
 pre-commit: all lint codegen test
+
+.PHONY: build-docs
+build-docs:
+	docker run ${MKDOCS_RUN_ARGS} --rm -it -p 8000:8000 -v $(shell pwd):/docs ${MKDOCS_DOCKER_IMAGE} build
+
+.PHONY: serve-docs
+serve-docs:
+	docker run ${MKDOCS_RUN_ARGS} --rm -it -p 8000:8000 -v $(shell pwd):/docs ${MKDOCS_DOCKER_IMAGE} serve -a 0.0.0.0:8000
 
 .PHONY: clean
 clean:

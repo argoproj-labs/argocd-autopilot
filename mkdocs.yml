@@ -1,0 +1,23 @@
+site_name: Argo-CD Autopilot
+repo_url: https://github.com/argoproj-labs/autopilot
+strict: true
+theme:
+  name: material
+  palette:
+    primary: teal
+  font:
+    text: 'Work Sans'
+  logo: 'assets/logo.png'
+extra_javascript:
+- js/jquery-2.1.1.min.js
+- js/modernizr-2.8.3.min.js
+- js/theme.js
+markdown_extensions:
+- admonition
+- pymdownx.highlight
+- pymdownx.superfences
+- toc:
+    permalink: true
+nav:
+  - Introduction: index.md
+  - Getting Started: Getting-Started.md
