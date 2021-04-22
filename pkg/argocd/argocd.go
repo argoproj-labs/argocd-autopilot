@@ -3,10 +3,13 @@ package argocd
 import (
 	"context"
 
-	"github.com/spf13/cobra"
+	"github.com/argoproj/argocd-autopilot/pkg/util"
+
+	// used to solve this issue: https://github.com/argoproj/argo-cd/issues/2907
+	_ "github.com/argoproj/argocd-autopilot/util/assets"
 
 	"github.com/argoproj/argo-cd/v2/cmd/argocd/commands"
-	"github.com/argoproj/argocd-autopilot/pkg/util"
+	"github.com/spf13/cobra"
 )
 
 type AddClusterCmd interface {

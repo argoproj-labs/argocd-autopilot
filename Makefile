@@ -11,8 +11,10 @@ DEV_INSTALLATION_MANIFESTS_URL="manifests/"
 DEV_INSTALLATION_MANIFESTS_NAMESPACED_URL="manifests/namespace-install"
 
 CLI_SRCS := $(shell find . -name '*.go')
+
 MKDOCS_DOCKER_IMAGE?=squidfunk/mkdocs-material:4.1.1
 MKDOCS_RUN_ARGS?=
+PACKR_CMD=$(shell if [ "`which packr`" ]; then echo "packr"; else echo "go run github.com/gobuffalo/packr/packr"; fi)
 
 GIT_COMMIT=$(shell git rev-parse HEAD)
 BUILD_DATE=$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
@@ -77,12 +79,13 @@ $(OUT_DIR)/$(CLI_NAME)-linux-s390x: GO_FLAGS='GOOS=linux GOARCH=s390x CGO_ENABLE
 $(OUT_DIR)/$(CLI_NAME)-%.gz: $(OUT_DIR)/$(CLI_NAME)-%
 	gzip --force --keep $(OUT_DIR)/$(CLI_NAME)-$*
 
-$(OUT_DIR)/$(CLI_NAME)-%: $(CLI_SRCS)
+$(OUT_DIR)/$(CLI_NAME)-%: $(CLI_SRCS) $(GOBIN)/packr
 	@ GO_FLAGS=$(GO_FLAGS) \
 	BUILD_DATE=$(BUILD_DATE) \
 	BINARY_NAME=$(CLI_NAME) \
 	VERSION=$(VERSION) \
 	GIT_COMMIT=$(GIT_COMMIT) \
+	PACKR_CMD=$(PACKR_CMD) \
 	OUT_FILE=$@ \
 	INSTALLATION_MANIFESTS_URL=$(INSTALLATION_MANIFESTS_URL) \
 	INSTALLATION_MANIFESTS_NAMESPACED_URL=$(INSTALLATION_MANIFESTS_NAMESPACED_URL) \
@@ -137,5 +140,14 @@ $(GOBIN)/mockery:
 $(GOBIN)/golangci-lint:
 	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b `go env GOBIN) v1.36.0
 
+$(GOBIN)/interfacer: cwd=$(shell pwd)
 $(GOBIN)/interfacer:
-	GO111MODULE=on go get github.com/rjeczalik/interfaces/cmd/interfacer@v0.1.1
+	@cd /tmp
+	GO111MODULE=on go get -v github.com/rjeczalik/interfaces/cmd/interfacer@v0.1.1
+	@cd ${cwd}
+
+$(GOBIN)/packr: cwd=$(shell pwd)
+$(GOBIN)/packr:
+	@cd /tmp
+	GO111MODULE=on go get -v github.com/gobuffalo/packr/packr@v1.30.1
+	@cd ${cwd}

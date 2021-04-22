@@ -10,8 +10,10 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-git/go-billy/v5 v5.1.0
 	github.com/go-git/go-git/v5 v5.3.0
+	github.com/gobuffalo/packr v1.30.1
 	github.com/google/go-github/v34 v34.0.0
 	github.com/magefile/mage v1.11.0 // indirect
+	github.com/rjeczalik/interfaces v0.1.1 // indirect
 	github.com/sirupsen/logrus v1.8.0
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/pflag v1.0.5
