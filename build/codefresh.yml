@@ -18,9 +18,9 @@ steps:
     repo: ${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}
     revision: ${{CF_BRANCH}}
 
-  prepare_tester_step: &tester
+  build_tester_image: &deps
     stage: Prepare
-    title: prepare tester step
+    title: build tester image
     image: golang:1.16.3-alpine3.13
     environment:
     - GO111MODULE=on
@@ -28,47 +28,62 @@ steps:
     - GOPATH=/codefresh/volume/gopath
     commands:
     - apk -U add --no-cache git make
+    when:
+      steps:
+      - name: prepare_deps
+        on:
+        - success
+
+  download_modules:
+    <<: *deps
+    stage: Prepare
+    title: download go modules
+    image: ${{build_tester_image}}
+    commands:
     - go mod download -x
     when:
       steps:
-      - name: main_clone
+      - name: build_tester_image
         on:
         - success
 
   lint:
-    <<: *tester
+    <<: *deps
     stage: Test
     title: lint
+    image: ${{build_tester_image}}
     commands:
     - make lint
     when:
       steps:
-      - name: prepare_tester_step
+      - name: download_modules
         on:
         - success
 
   codegen:
-    <<: *tester
+    <<: *deps
     stage: Test
     title: run codegen
+    image: ${{build_tester_image}}
     commands:
     - make codegen
     - make check-worktree
     when:
       steps:
-      - name: prepare_tester_step
+      - name: download_modules
         on:
         - success
 
   test:
-    <<: *tester
+    <<: *deps
     stage: Test
     title: run tests
+    image: ${{build_tester_image}}
     commands:
     - make test
     when:
       steps:
-      - name: prepare_tester_step
+      - name: download_modules
         on:
         - success
 
@@ -89,6 +104,7 @@ steps:
     type: build
     title: build docker image
     image_name: ${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}
+    tag: ${{CF_BRANCH_TAG_NORMALIZED}}
     buildkit: true
     disable_push: true
     when:
