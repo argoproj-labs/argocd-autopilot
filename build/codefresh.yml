@@ -46,6 +46,7 @@ steps:
     - GOCACHE=/codefresh/volume/gocache # change gopath to codefresh shared volume
     - GOPATH=/codefresh/volume/gopath
     commands:
+    - cf_export PATH=$PATH:$GOPATH/bin
     - go mod download -x
     when:
       steps:
@@ -59,7 +60,6 @@ steps:
     title: lint
     commands:
     - make lint
-    - cf_export PATH=$PATH:$GOPATH/bin
     when:
       steps:
       - name: download_modules
