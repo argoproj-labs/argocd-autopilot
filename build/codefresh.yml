@@ -38,12 +38,6 @@ steps:
         on:
         - success
 
-    when:
-      steps:
-      - name: prepare_deps
-        on:
-        - success
-
   download_modules:
     <<: *deps
     stage: Prepare
