@@ -27,6 +27,7 @@ steps:
     - GOCACHE=/codefresh/volume/gocache # change gopath to codefresh shared volume
     - GOPATH=/codefresh/volume/gopath
     commands:
+    - apk -U add --no-cache git make
     - go mod download -x
     when:
       steps:
