@@ -28,7 +28,6 @@ steps:
       content: |-
         FROM golang:1.16.3-alpine3.13
         RUN apk -U add --no-cache git ca-certificates make && update-ca-certificates
-        WORKDIR ${{main_clone}}
         ENTRYPOINT [ "/bin/sh" ]
     buildkit: true
     disable_push: true
