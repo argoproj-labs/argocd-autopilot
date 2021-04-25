@@ -131,6 +131,7 @@ check-worktree:
 	@./hack/check_worktree.sh
 
 $(GOBIN)/mockery:
+	@mkdir dist || true
 	@curl -L -o dist/mockery.tar.gz -- https://github.com/vektra/mockery/releases/download/v1.1.1/mockery_1.1.1_$(shell uname -s)_$(shell uname -m).tar.gz
 	@tar zxvf dist/mockery.tar.gz mockery
 	@chmod +x mockery
@@ -139,7 +140,7 @@ $(GOBIN)/mockery:
 	@mockery -version
 
 $(GOBIN)/golangci-lint:
-	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b `go env GOBIN) v1.36.0
+	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(GOBIN) v1.36.0
 
 $(GOBIN)/interfacer: cwd=$(shell pwd)
 $(GOBIN)/interfacer:
