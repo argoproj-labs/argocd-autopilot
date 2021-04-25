@@ -27,7 +27,7 @@ steps:
     dockerfile:
       content: |-
         FROM golang:1.16.3-alpine3.13
-        RUN apk -U add --no-cache ca-certificates apk add git make gcc g++ curl bash && update-ca-certificates
+        RUN apk -U add --no-cache ca-certificates git make gcc g++ curl bash && update-ca-certificates
         ENTRYPOINT [ "/bin/sh" ]
     buildkit: true
     disable_push: true
