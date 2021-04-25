@@ -18,16 +18,26 @@ steps:
     repo: ${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}
     revision: ${{CF_BRANCH}}
 
-  build_tester_image: &deps
+  build_tester_image:
     stage: Prepare
     title: build tester image
-    image: golang:1.16.3-alpine3.13
-    environment:
-    - GO111MODULE=on
-    - GOCACHE=/codefresh/volume/gocache # change gopath to codefresh shared volume
-    - GOPATH=/codefresh/volume/gopath
-    commands:
-    - apk -U add --no-cache git make
+    type: build
+    image_name: go-tester
+    tag: ${{CF_BRANCH_TAG_NORMALIZED}}
+    dockerfile:
+      content: |-
+        FROM golang:1.16.3-alpine3.13
+        RUN apk -U add --no-cache git ca-certificates make && update-ca-certificates
+        WORKDIR ${{main_clone}}
+        ENTRYPOINT [ "/bin/sh" ]
+    buildkit: true
+    disable_push: true
+    when:
+      steps:
+      - name: main_clone
+        on:
+        - success
+
     when:
       steps:
       - name: prepare_deps
@@ -39,6 +49,10 @@ steps:
     stage: Prepare
     title: download go modules
     image: ${{build_tester_image}}
+    environment:
+    - GO111MODULE=on
+    - GOCACHE=/codefresh/volume/gocache # change gopath to codefresh shared volume
+    - GOPATH=/codefresh/volume/gopath
     commands:
     - go mod download -x
     when:
