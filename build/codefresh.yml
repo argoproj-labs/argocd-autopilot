@@ -77,7 +77,7 @@ steps:
     type: codecov-reporter
     title: report code coverage
     arguments:
-      codecov_integration: venona
+      codecov_integration: argocd-autopilot-codefresh
     when:
       steps:
       - name: test
