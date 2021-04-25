@@ -1,5 +1,5 @@
 site_name: Argo-CD Autopilot
-repo_url: https://github.com/argoproj-labs/autopilot
+repo_url: https://github.com/argoproj-labs/argocd-autopilot
 strict: true
 theme:
   name: material
@@ -8,11 +8,18 @@ theme:
   font:
     text: 'Work Sans'
   logo: 'assets/logo.png'
+  favicon: 'assets/favicon.png'
+  
 extra_javascript:
 - js/jquery-2.1.1.min.js
 - js/modernizr-2.8.3.min.js
 - js/theme.js
+- assets/versions.js
+extra_css:
+- assets/versions.css
+
 markdown_extensions:
+- codehilite
 - admonition
 - pymdownx.highlight
 - pymdownx.superfences
