@@ -17,7 +17,6 @@ extra_javascript:
 - assets/versions.js
 extra_css:
 - assets/versions.css
-
 markdown_extensions:
 - codehilite
 - admonition
