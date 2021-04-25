@@ -38,8 +38,7 @@ steps:
         on:
         - success
 
-  download_modules:
-    <<: *deps
+  download_modules: &deps
     stage: Prepare
     title: download go modules
     image: ${{build_tester_image}}
@@ -59,7 +58,6 @@ steps:
     <<: *deps
     stage: Test
     title: lint
-    image: ${{build_tester_image}}
     commands:
     - make lint
     when:
@@ -72,7 +70,6 @@ steps:
     <<: *deps
     stage: Test
     title: run codegen
-    image: ${{build_tester_image}}
     commands:
     - make codegen
     - make check-worktree
@@ -86,7 +83,6 @@ steps:
     <<: *deps
     stage: Test
     title: run tests
-    image: ${{build_tester_image}}
     commands:
     - make test
     when:
