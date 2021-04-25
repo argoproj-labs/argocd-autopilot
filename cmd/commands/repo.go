@@ -664,23 +664,3 @@ func createCreds(repoUrl string) ([]byte, error) {
 
 	return yaml.Marshal(creds)
 }
-
-func getBootstrapPaths(path, kustPath string) (string, error) {
-	// for example: github.com/codefresh-io/argocd-autopilot/manifests
-	if _, err := os.Stat(path); err != nil && os.IsNotExist(err) {
-		return path, nil
-	}
-
-	// local file (in the filesystem)
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		return "", err
-	}
-
-	resourcePath, err := filepath.Rel(kustPath, absPath)
-	if err != nil {
-		return "", err
-	}
-
-	return resourcePath, nil
-}

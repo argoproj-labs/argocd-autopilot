@@ -40,4 +40,60 @@ steps:
     title: lint
     commands:
     - make lint
+    when:
+      steps:
+      - name: prepare_tester_step
+        on:
+        - success
+
+  codegen:
+    <<: *tester
+    stage: Test
+    title: run codegen
+    commands:
+    - make codegen
+    - make check-worktree
+    when:
+      steps:
+      - name: prepare_tester_step
+        on:
+        - success
+
+  test:
+    <<: *tester
+    stage: Test
+    title: run tests
+    commands:
+    - make test
+    when:
+      steps:
+      - name: prepare_tester_step
+        on:
+        - success
+
+  codecov-report:
+    stage: Test
+    type: codecov-reporter
+    title: report code coverage
+    arguments:
+      codecov_integration: venona
+    when:
+      steps:
+      - name: test
+        on:
+        - success
+  
+  build:
+    stage: Build
+    type: build
+    title: build docker image
+    image_name: ${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}
+    buildkit: true
+    disable_push: true
+    when:
+      steps:
+      - name: main_clone
+        on:
+        - success
+
     
