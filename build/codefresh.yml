@@ -1,0 +1,43 @@
+version: '1.0'
+mode: parallel
+
+stages: 
+- Prepare
+- Build
+- Test
+- Push Dev
+- Release
+
+steps:
+  
+  main_clone:
+    stage: Prepare
+    title: clone repository
+    type: git-clone
+    git: cf_github
+    repo: ${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}
+    revision: ${{CF_BRANCH}}
+
+  prepare_tester_step: &tester
+    stage: Prepare
+    title: prepare tester step
+    image: golang:1.16.3-alpine3.13
+    environment:
+    - GO111MODULE=on
+    - GOCACHE=/codefresh/volume/gocache # change gopath to codefresh shared volume
+    - GOPATH=/codefresh/volume/gopath
+    commands:
+    - go mod download -x
+    when:
+      steps:
+      - name: main_clone
+        on:
+        - success
+
+  lint:
+    <<: *tester
+    stage: Test
+    title: lint
+    commands:
+    - make lint
+    

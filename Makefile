@@ -93,7 +93,7 @@ $(OUT_DIR)/$(CLI_NAME)-%: $(CLI_SRCS) $(GOBIN)/packr
 	./hack/build.sh
 
 .PHONY: cli-image
-cli-image: $(OUT_DIR)/$(CLI_NAME).image
+cli-image: tidy $(OUT_DIR)/$(CLI_NAME).image
 
 $(OUT_DIR)/$(CLI_NAME).image: $(CLI_SRCS)
 	$(call docker_build,$(CLI_NAME))
@@ -128,6 +128,11 @@ serve-docs:
 .PHONY: clean
 clean:
 	@rm -rf dist
+
+.PHONY: tidy
+tidy:
+	@echo running go mod tidy...
+	@go mod tidy
 
 $(GOBIN)/mockery:
 	@curl -L -o dist/mockery.tar.gz -- https://github.com/vektra/mockery/releases/download/v1.1.1/mockery_1.1.1_$(shell uname -s)_$(shell uname -m).tar.gz
