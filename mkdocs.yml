@@ -19,8 +19,6 @@ extra_css:
 markdown_extensions:
 - codehilite
 - admonition
-- pymdownx.highlight
-- pymdownx.superfences
 - toc:
     permalink: true
 nav:
