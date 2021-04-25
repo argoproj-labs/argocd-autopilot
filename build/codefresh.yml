@@ -27,7 +27,7 @@ steps:
     dockerfile:
       content: |-
         FROM golang:1.16.3-alpine3.13
-        RUN apk -U add --no-cache git ca-certificates make && update-ca-certificates
+        RUN apk -U add --no-cache git curl ca-certificates make && update-ca-certificates
         ENTRYPOINT [ "/bin/sh" ]
     buildkit: true
     disable_push: true
@@ -42,6 +42,7 @@ steps:
     title: download go modules
     image: ${{build_tester_image}}
     environment:
+    - CGO_ENABLED=0
     - GO111MODULE=on
     - GOCACHE=/codefresh/volume/gocache # change gopath to codefresh shared volume
     - GOPATH=/codefresh/volume/gopath
