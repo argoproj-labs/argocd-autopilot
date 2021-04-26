@@ -164,9 +164,6 @@ steps:
          - TARGET=darwin-amd64
     when:
       steps:
-      - name: build
-        on:
-        - success
       - name: test
         on:
         - success
@@ -193,16 +190,7 @@ steps:
       - name: build
         on:
         - success
-      - name: test
-        on:
-        - success
-      - name: lint
-        on:
-        - success
-      - name: codegen
-        on:
-        - success
-      - name: codecov-report
+      - name: build_binaries
         on:
         - success
     scale:
