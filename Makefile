@@ -61,14 +61,15 @@ cli: $(OUT_DIR)/$(CLI_NAME)-linux-amd64.sha256 $(OUT_DIR)/$(CLI_NAME)-linux-arm6
 cli-local: $(OUT_DIR)/$(CLI_NAME)-$(shell go env GOOS)-$(shell go env GOARCH)
 	@cp $(OUT_DIR)/$(CLI_NAME)-$(shell go env GOOS)-$(shell go env GOARCH) /usr/local/bin/$(CLI_NAME)
 
-$(OUT_DIR)/$(CLI_NAME)-linux-amd64: GO_FLAGS='GOOS=linux GOARCH=amd64 CGO_ENABLED=0'
-$(OUT_DIR)/$(CLI_NAME)-darwin-amd64: GO_FLAGS='GOOS=darwin GOARCH=amd64 CGO_ENABLED=0'
-$(OUT_DIR)/$(CLI_NAME)-windows-amd64: GO_FLAGS='GOOS=windows GOARCH=amd64 CGO_ENABLED=0'
-$(OUT_DIR)/$(CLI_NAME)-linux-arm64: GO_FLAGS='GOOS=linux GOARCH=arm64 CGO_ENABLED=0'
-$(OUT_DIR)/$(CLI_NAME)-linux-ppc64le: GO_FLAGS='GOOS=linux GOARCH=ppc64le CGO_ENABLED=0'
-$(OUT_DIR)/$(CLI_NAME)-linux-s390x: GO_FLAGS='GOOS=linux GOARCH=s390x CGO_ENABLED=0'
+$(OUT_DIR)/$(CLI_NAME)-linux-amd64%: GO_FLAGS='GOOS=linux GOARCH=amd64 CGO_ENABLED=0'
+$(OUT_DIR)/$(CLI_NAME)-darwin-amd64%: GO_FLAGS='GOOS=darwin GOARCH=amd64 CGO_ENABLED=0'
+$(OUT_DIR)/$(CLI_NAME)-windows-amd64%: GO_FLAGS='GOOS=windows GOARCH=amd64 CGO_ENABLED=0'
+$(OUT_DIR)/$(CLI_NAME)-linux-arm64%: GO_FLAGS='GOOS=linux GOARCH=arm64 CGO_ENABLED=0'
+$(OUT_DIR)/$(CLI_NAME)-linux-ppc64le%: GO_FLAGS='GOOS=linux GOARCH=ppc64le CGO_ENABLED=0'
+$(OUT_DIR)/$(CLI_NAME)-linux-s390x%: GO_FLAGS='GOOS=linux GOARCH=s390x CGO_ENABLED=0'
+
 $(OUT_DIR)/$(CLI_NAME)-%: $(CLI_SRCS) $(GOBIN)/packr
-	@ GO_FLAGS=$(GO_FLAGS) \
+	@GO_FLAGS=$(GO_FLAGS) \
 	BUILD_DATE=$(BUILD_DATE) \
 	BINARY_NAME=$(CLI_NAME) \
 	VERSION=$(VERSION) \
