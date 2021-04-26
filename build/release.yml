@@ -42,11 +42,11 @@ steps:
       content: |-
         FROM golang:1.16.3-alpine3.13
         RUN apk -U add --no-cache ca-certificates git make gcc g++ curl bash openssl && update-ca-certificates
-        RUN curl -L https://github.com/cli/cli/releases/download/v1.3.1/gh_1.3.1_linux_amd64.tar.gz | tar zx && mv ./gh_1.3.1_linux_amd64/bin/gh /usr/local/bin
+        RUN curl -L https://github.com/cli/cli/releases/download/v1.9.2/gh_1.9.2_linux_amd64.tar.gz | tar zx && mv ./gh_1.9.2_linux_amd64/bin/gh /usr/local/bin
         ENTRYPOINT [ "/bin/bash" ]
     buildkit: true
     disable_push: true
-    when:
+    when:whioc
       steps:
       - name: prepare_env_vars
         on:
@@ -58,7 +58,7 @@ steps:
     image: ${{build_helper_image}}
     commands:
     - (echo "${{CF_BRANCH}}" | grep -Eq '^v(\d+\.)?(\d+\.)?(\*|\d+)$') && echo on release branch || (echo not on release branch && exit 1)
-    - (gh release view ${{CF_BRANCH}} --repo ${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}) && echo no release with the name ${{CF_BRANCH}}, we can continue! || (echo release with the same name already exists && exit 1)
+    - (gh release view ${{CF_BRANCH}} --repo ${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}) && (echo release with the same name already exists && exit 1) || echo no release with the name ${{CF_BRANCH}}, we can continue!
     when:
       steps:
       - name: build_helper_image
@@ -153,21 +153,27 @@ steps:
     - make ./dist/argocd-autopilot-${TARGET}.sha256 DEV_MODE=false
     scale:
       linux_amd64:
+        title: linux_amd64
         environment:
          - TARGET=linux-amd64
       linux_arm64:
+        title: linux_arm64
         environment:
          - TARGET=linux-arm64
       linux_s390x:
+        title: linux_s390x
         environment:
          - TARGET=linux-s390x
       linux_ppc64le:
+        title: linux_ppc64le
         environment:
          - TARGET=linux-ppc64le
       windows_amd64:
+        title: windows_amd64
         environment:
          - TARGET=windows-amd64
       darwin_amd64:
+        title: darwin_amd64
         environment:
          - TARGET=darwin-amd64
     when:
