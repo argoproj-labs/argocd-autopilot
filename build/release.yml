@@ -17,21 +17,6 @@ steps:
     repo: ${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}
     revision: ${{CF_BRANCH}}
 
-  prepare_env_vars:
-    stage: Prepare
-    title: prepare environment
-    image: alpine:3.13
-    commands:
-    - cf_export GO111MODULE=on
-    - cf_export GOCACHE=/codefresh/volume/gocache # change gopath to codefresh shared volume
-    - cf_export GOPATH=/codefresh/volume/gopath
-    - cf_export PATH=$PATH:$GOPATH/bin
-    when:
-      steps:
-      - name: main_clone
-        on:
-        - success
-
   build_helper_image:
     stage: Prepare
     title: build tester image
@@ -48,7 +33,7 @@ steps:
     disable_push: true
     when:
       steps:
-      - name: prepare_env_vars
+      - name: main_clone
         on:
         - success
 
@@ -57,6 +42,10 @@ steps:
     title: check version
     image: ${{build_helper_image}}
     commands:
+    - cf_export GO111MODULE=on
+    - cf_export GOCACHE=/codefresh/volume/gocache # change gopath to codefresh shared volume
+    - cf_export GOPATH=/codefresh/volume/gopath
+    - cf_export PATH=$PATH:$GOPATH/bin
     - (echo "${{CF_BRANCH}}" | grep -Eq '^v(\d+\.)?(\d+\.)?(\*|\d+)$') && echo on release branch || (echo not on release branch && exit 1)
     - (gh release view ${{CF_BRANCH}} --repo ${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}) && (echo release with the same name already exists && exit 1) || echo no release with the name ${{CF_BRANCH}}, we can continue!
     when:
@@ -70,10 +59,7 @@ steps:
     stage: Prepare
     title: download go modules
     commands:
-    - cf_export GO111MODULE=on
-    - cf_export GOCACHE=/codefresh/volume/gocache # change gopath to codefresh shared volume
-    - cf_export GOPATH=/codefresh/volume/gopath
-    - cf_export PATH=$PATH:$GOPATH/bin
+    - env
     - go mod download -x
     when:
       steps:
