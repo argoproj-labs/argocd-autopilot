@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"reflect"
+	"text/tabwriter"
 
 	"github.com/argoproj/argocd-autopilot/pkg/application"
 	"github.com/argoproj/argocd-autopilot/pkg/fs"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	memfs "github.com/go-git/go-billy/v5/memfs"
+	billyUtils "github.com/go-git/go-billy/v5/util"
 	"github.com/spf13/cobra"
 	kusttypes "sigs.k8s.io/kustomize/api/types"
 )
@@ -34,6 +36,11 @@ type (
 		AppOpts      *application.CreateOptions
 		CloneOptions *git.CloneOptions
 	}
+	AppListOptions struct {
+		ProjectName  string
+		FS           fs.FS
+		CloneOptions *git.CloneOptions
+	}
 )
 
 func NewAppCommand() *cobra.Command {
@@ -48,6 +55,7 @@ func NewAppCommand() *cobra.Command {
 	}
 
 	cmd.AddCommand(NewAppCreateCommand())
+	cmd.AddCommand(NewAppListCommand())
 
 	return cmd
 }
@@ -262,4 +270,119 @@ func getCommitMsg(opts *AppCreateOptions) string {
 		commitMsg += fmt.Sprintf(" installation-path: '%s'", opts.CloneOptions.RepoRoot)
 	}
 	return commitMsg
+}
+func NewAppListCommand() *cobra.Command {
+	var (
+		projectName string
+		//	appListOpts   *application.
+		cloneOpts *git.CloneOptions
+	)
+
+	cmd := &cobra.Command{
+		Use:   "list [PROJECT_NAME]",
+		Short: "List all applications in a project",
+		Example: util.Doc(`
+# To run this command you need to create a personal access token for your git provider,
+# and have a bootstrapped GitOps repository, and provide them using:
+	
+		export GIT_TOKEN=<token>
+		export GIT_REPO=<repo_url>
+
+# or with the flags:
+	
+		--token <token> --repo <repo_url>
+		
+# Get list of installed applications in a specifc project
+	
+	<BIN> app list <project_name>
+`),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) < 1 {
+				log.G().Fatal("must enter a project name")
+			}
+			projectName = args[0]
+
+			return RunAppList(cmd.Context(), &AppListOptions{
+				ProjectName:  projectName,
+				FS:           fs.Create(memfs.New()),
+				CloneOptions: cloneOpts,
+			})
+		},
+	}
+	cloneOpts, err := git.AddFlags(cmd)
+	util.Die(err)
+
+	return cmd
+}
+
+func RunAppList(ctx context.Context, opts *AppListOptions) error {
+
+	var (
+		err error
+	)
+
+	log.G().WithFields(log.Fields{
+		"repoURL":  opts.CloneOptions.URL,
+		"revision": opts.CloneOptions.Revision,
+	}).Debug("starting with options: ")
+
+	// clone repo
+	log.G().Infof("cloning git repository: %s", opts.CloneOptions.URL)
+	_, opts.FS, err = opts.CloneOptions.Clone(ctx, opts.FS)
+	if err != nil {
+		return err
+	}
+
+	log.G().Infof("using revision: \"%s\", installation path: \"%s\"", opts.CloneOptions.Revision, opts.FS.Root())
+	if !opts.FS.ExistsOrDie(store.Default.BootsrtrapDir) {
+		log.G().Fatalf("Bootstrap folder not found, please execute `repo bootstrap --installation-path %s` command", opts.FS.Root())
+	}
+
+	projExists := opts.FS.ExistsOrDie(opts.FS.Join(store.Default.ProjectsDir, opts.ProjectName+".yaml"))
+	if !projExists {
+		log.G().Fatalf(util.Doc(fmt.Sprintf("project '%[1]s' not found, please execute `<BIN> project create %[1]s`", opts.ProjectName)))
+	}
+
+	log.G().Debug("repository is ok")
+
+	// get all apps beneath kustomize <project>\overlayes
+
+	matches, err := billyUtils.Glob(opts.FS, fmt.Sprintf("/kustomize/*/overlays/%s", opts.ProjectName))
+	if err != nil {
+		log.G().Fatalf("failed to run glob on %s", opts.ProjectName)
+	}
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	_, _ = fmt.Fprintf(w, "PROJECT\tNAME\tDEST_NAMESPACE\tDEST_SERVER\t\n")
+
+	for _, appName := range matches {
+
+		conf, err := getConfigFileFromPath(opts.FS, appName)
+		if err != nil {
+			return err
+		}
+
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t\n", opts.ProjectName, conf.UserGivenName, conf.DestNamespace, conf.DestServer)
+	}
+	_ = w.Flush()
+	return nil
+
+}
+func getConfigFileFromPath(fs fs.FS, appName string) (*application.Config, error) {
+
+	confFileName := fmt.Sprintf("%s/config.json", appName)
+	file, err := fs.Open(confFileName)
+	if err != nil {
+		return nil, fmt.Errorf("%s not found", confFileName)
+	}
+	b, err := ioutil.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file %s", confFileName)
+	}
+	conf := application.Config{}
+	err = json.Unmarshal(b, &conf)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal file %s", confFileName)
+	}
+	return &conf, nil
+
 }

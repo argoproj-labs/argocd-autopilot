@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -308,6 +309,69 @@ func Test_createApplicationFiles(t *testing.T) {
 			repofs, app, proj := tt.beforeFn(t)
 			err := createApplicationFiles(repofs, app, proj)
 			tt.assertFn(t, repofs, app, err)
+		})
+	}
+}
+
+func Test_getConfigFileFromPath(t *testing.T) {
+
+	tests := map[string]struct {
+		appName  string
+		want     *application.Config
+		wantErr  string
+		beforeFn func(repofs fs.FS, appName string) fs.FS
+		assertFn func(t *testing.T, conf *application.Config)
+	}{
+		"should return config.json": {
+			want: &application.Config{
+				AppName: "test",
+			},
+			appName: "test",
+			beforeFn: func(repofs fs.FS, appName string) fs.FS {
+				conf := application.Config{AppName: appName}
+				b, _ := json.Marshal(&conf)
+				_, _ = repofs.WriteFile(fmt.Sprintf("%s/config.json", appName), b)
+				return repofs
+			},
+			assertFn: func(t *testing.T, conf *application.Config) {
+				assert.Equal(t, conf.AppName, "test")
+			},
+		},
+		"should fail if config.json is missing": {
+			appName:  "test",
+			want:     &application.Config{},
+			wantErr:  "test/config.json not found",
+			beforeFn: nil,
+			assertFn: nil,
+		},
+		"should fail if config.json failed to unmarshal": {
+			appName: "test",
+			want:    &application.Config{},
+			wantErr: "failed to unmarshal file test/config.json",
+			beforeFn: func(repofs fs.FS, appName string) fs.FS {
+				_, _ = repofs.WriteFile(fmt.Sprintf("%s/config.json", appName), []byte{})
+				return repofs
+			},
+			assertFn: nil,
+		},
+	}
+	for tname, tt := range tests {
+		t.Run(tname, func(t *testing.T) {
+			repofs := fs.Create(memfs.New())
+			if tt.beforeFn != nil {
+				repofs = tt.beforeFn(repofs, tt.appName)
+			}
+			got, err := getConfigFileFromPath(repofs, tt.appName)
+			if err != nil && tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
+			}
+			if (err != nil) && tt.wantErr == "" {
+				t.Errorf("getConfigFileFromPath() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.assertFn != nil {
+				tt.assertFn(t, got)
+			}
 		})
 	}
 }
