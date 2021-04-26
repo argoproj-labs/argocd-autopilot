@@ -27,4 +27,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	err = doc.GenMarkdownTree(commands.NewProjectCommand(), "./docs/user-guide/commands")
+	if err != nil {
+		log.Fatal(err)
+	}
 }

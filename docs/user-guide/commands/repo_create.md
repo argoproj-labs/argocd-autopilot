@@ -35,7 +35,7 @@ repo create [flags]
   -t, --git-token string   Your git provider api token [GIT_TOKEN]
   -h, --help               help for create
       --host string        The git provider address (for on-premise git providers)
-  -r, --name string        The name of the repository
+  -n, --name string        The name of the repository
   -o, --owner string       The name of the owner or organiaion
   -p, --provider string    The git provider, one of: github (default "github")
       --public             If true, will create the repository as public (default is false)
