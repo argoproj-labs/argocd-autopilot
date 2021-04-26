@@ -58,7 +58,7 @@ steps:
     image: ${{build_helper_image}}
     commands:
     - (echo "${{CF_BRANCH}}" | grep -Eq '^v(\d+\.)?(\d+\.)?(\*|\d+)$') && echo on release branch || (echo not on release branch && exit 1)
-    - gh release view ${{CF_BRANCH}} --repo ${{CF_REPO_OWNER}}/${{CF_REPO_NAME}} && (echo no release with the name ${{CF_BRANCH}}, we can continue!) || (echo release with the same name already exists && exit 1)
+    - (gh release view ${{CF_BRANCH}} --repo ${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}) && echo no release with the name ${{CF_BRANCH}}, we can continue! || (echo release with the same name already exists && exit 1)
     when:
       steps:
       - name: build_helper_image
