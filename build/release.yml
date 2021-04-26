@@ -42,7 +42,7 @@ steps:
       content: |-
         FROM golang:1.16.3-alpine3.13
         RUN apk -U add --no-cache ca-certificates git make gcc g++ curl bash openssl && update-ca-certificates
-        RUN curl -L https://github.com/cli/cli/releases/download/v1.9.2/gh_1.9.2_linux_amd64.tar.gz | tar zx && mv ./gh_1.9.2_linux_amd64/bin/gh /usr/local/bin
+        RUN curl -L https://github.com/cli/cli/releases/download/v1.3.1/gh_1.3.1_linux_amd64.tar.gz | tar zx && mv ./gh_1.3.1_linux_amd64/bin/gh /usr/local/bin
         ENTRYPOINT [ "/bin/bash" ]
     buildkit: true
     disable_push: true
