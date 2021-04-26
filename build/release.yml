@@ -3,7 +3,7 @@ mode: parallel
 
 stages: 
 - Prepare
-- Codegen & Test
+- Test
 - Build
 - Release
 
@@ -67,34 +67,21 @@ steps:
         on:
         - success
 
-  codegen:
+  lint:
     <<: *deps
-    stage: Codegen & Test
-    title: run codegen
+    stage: Test
+    title: lint
     commands:
-    - make codegen
-    - make check-worktree
+    - make lint
     when:
       steps:
       - name: download_modules
         on:
         - success
 
-  lint:
-    <<: *deps
-    stage: Codegen & Test
-    title: lint
-    commands:
-    - make lint
-    when:
-      steps:
-      - name: codegen
-        on:
-        - success
-
   test:
     <<: *deps
-    stage: Codegen & Test
+    stage: Test
     title: run tests
     commands:
     - make test
@@ -105,7 +92,7 @@ steps:
         - success
 
   codecov-report:
-    stage: Codegen & Test
+    stage: Test
     type: codecov-reporter
     title: report code coverage
     arguments:
@@ -169,10 +156,20 @@ steps:
       - name: lint
         on:
         - success
-      - name: codegen
+      - name: codecov-report
         on:
         - success
-      - name: codecov-report
+
+  codegen:
+    <<: *deps
+    stage: Release
+    title: check codegen
+    commands:
+    - make codegen
+    - make check-worktree
+    when:
+      steps:
+      - name: build_binaries
         on:
         - success
 
@@ -189,7 +186,7 @@ steps:
       - name: build
         on:
         - success
-      - name: build_binaries
+      - name: codegen
         on:
         - success
     scale:
