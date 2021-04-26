@@ -19,8 +19,8 @@ steps:
 
   prepare_env_vars:
     stage: Prepare
-    title: check release branch
-    image: quay.io/codefresh/ci-helpers:0.1.0
+    title: prepare environment
+    image: alpine:3.13
     commands:
     - cf_export GO111MODULE=on
     - cf_export GOCACHE=/codefresh/volume/gocache # change gopath to codefresh shared volume
@@ -48,25 +48,27 @@ steps:
     disable_push: true
     when:
       steps:
-      - name: check_release_branch
+      - name: prepare_env_vars
         on:
         - success
 
-  check_version:
+  check_version: &deps
     stage: Prepare
     title: check version
-    image: build_helper_image
+    image: ${{build_helper_image}}
     commands:
      - (echo "${{CF_BRANCH}}" | grep -Eq '^v(\d+\.)?(\d+\.)?(\*|\d+)$') && echo on release branch || (echo not on release branch && exit 1)
+     - gh release view ${{CF_BRANCH}} && (echo release with the same name already exists && exit 1)
+    when:
+      steps:
+      - name: build_helper_image
+        on:
+        - success
 
-  download_modules: &deps
+  download_modules:
+    <<: *deps
     stage: Prepare
     title: download go modules
-    image: ${{build_helper_image}}
-    environment:
-    - GO111MODULE=on
-    - GOCACHE=/codefresh/volume/gocache # change gopath to codefresh shared volume
-    - GOPATH=/codefresh/volume/gopath
     commands:
     - cf_export GO111MODULE=on
     - cf_export GOCACHE=/codefresh/volume/gocache # change gopath to codefresh shared volume
@@ -75,7 +77,7 @@ steps:
     - go mod download -x
     when:
       steps:
-      - name: build_helper_image
+      - name: check_version
         on:
         - success
 
@@ -91,17 +93,6 @@ steps:
         on:
         - success
 
-  lint:
-    <<: *deps
-    stage: Test
-    title: lint
-    commands:
-    - make lint
-    when:
-      steps:
-      - name: download_modules
-        on:
-        - success
 
   codegen:
     <<: *deps

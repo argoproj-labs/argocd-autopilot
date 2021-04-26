@@ -19,9 +19,9 @@ steps:
 
   build_helper_image:
     stage: Prepare
-    title: build tester image
+    title: build helper image
     type: build
-    image_name: go-tester
+    image_name: helper
     tag: ${{CF_BRANCH_TAG_NORMALIZED}}
     dockerfile:
       content: |-
@@ -40,11 +40,10 @@ steps:
     stage: Prepare
     title: prepare-env & download modules
     image: ${{build_helper_image}}
-    environment:
-    - GO111MODULE=on
-    - GOCACHE=/codefresh/volume/gocache # change gopath to codefresh shared volume
-    - GOPATH=/codefresh/volume/gopath
     commands:
+    - cf_export GO111MODULE=on
+    - cf_export GOCACHE=/codefresh/volume/gocache # change gopath to codefresh shared volume
+    - cf_export GOPATH=/codefresh/volume/gopath
     - cf_export PATH=$PATH:$GOPATH/bin
     - go mod download -x
     when:
@@ -59,6 +58,7 @@ steps:
     title: lint
     commands:
     - make lint
+    - make check-worktree
     when:
       steps:
       - name: prepare_env_vars

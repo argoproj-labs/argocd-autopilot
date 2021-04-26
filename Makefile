@@ -98,7 +98,6 @@ $(OUT_DIR)/$(CLI_NAME).image: $(CLI_SRCS)
 lint: $(GOBIN)/golangci-lint tidy
 	@echo linting go code...
 	@golangci-lint run --fix --timeout 6m
-	@./hack/check_worktree.sh
 
 .PHONY: test
 test:
