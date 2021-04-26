@@ -127,13 +127,7 @@ steps:
     disable_push: true
     when:
       steps:
-      - name: test
-        on:
-        - success
-      - name: lint
-        on:
-        - success
-      - name: codegen
+      - name: main_clone
         on:
         - success
 
