@@ -58,15 +58,21 @@ image: cli-image
 cli: $(OUT_DIR)/$(CLI_NAME)-linux-amd64.sha256 $(OUT_DIR)/$(CLI_NAME)-linux-arm64.sha256 $(OUT_DIR)/$(CLI_NAME)-linux-ppc64le.sha256 $(OUT_DIR)/$(CLI_NAME)-linux-s390x.sha256 $(OUT_DIR)/$(CLI_NAME)-darwin-amd64.sha256 $(OUT_DIR)/$(CLI_NAME)-windows-amd64.sha256
 
 .PHONY: cli-local
-cli-local: $(OUT_DIR)/$(CLI_NAME)-$(shell go env GOOS)-$(shell go env GOARCH)
+cli-local: $(OUT_DIR)/$(CLI_NAME)-$(shell go env GOOS)-$(shell go env GOARCH).gz
 	@cp $(OUT_DIR)/$(CLI_NAME)-$(shell go env GOOS)-$(shell go env GOARCH) /usr/local/bin/$(CLI_NAME)
 
 $(OUT_DIR)/$(CLI_NAME)-linux-amd64%: GO_FLAGS='GOOS=linux GOARCH=amd64 CGO_ENABLED=0'
+$(OUT_DIR)/$(CLI_NAME)-linux-amd64%: OUT_FILE=$(OUT_DIR)/$(CLI_NAME)-linux-amd64
 $(OUT_DIR)/$(CLI_NAME)-darwin-amd64%: GO_FLAGS='GOOS=darwin GOARCH=amd64 CGO_ENABLED=0'
+$(OUT_DIR)/$(CLI_NAME)-darwin-amd64%: OUT_FILE=$(OUT_DIR)/$(CLI_NAME)-darwin-amd64
 $(OUT_DIR)/$(CLI_NAME)-windows-amd64%: GO_FLAGS='GOOS=windows GOARCH=amd64 CGO_ENABLED=0'
+$(OUT_DIR)/$(CLI_NAME)-windows-amd64%: OUT_FILE=$(OUT_DIR)/$(CLI_NAME)-windows-amd64
 $(OUT_DIR)/$(CLI_NAME)-linux-arm64%: GO_FLAGS='GOOS=linux GOARCH=arm64 CGO_ENABLED=0'
+$(OUT_DIR)/$(CLI_NAME)-linux-arm64%: OUT_FILE=$(OUT_DIR)/$(CLI_NAME)-linux-arm64
 $(OUT_DIR)/$(CLI_NAME)-linux-ppc64le%: GO_FLAGS='GOOS=linux GOARCH=ppc64le CGO_ENABLED=0'
+$(OUT_DIR)/$(CLI_NAME)-linux-ppc64le%: OUT_FILE=$(OUT_DIR)/$(CLI_NAME)-linux-ppc64le
 $(OUT_DIR)/$(CLI_NAME)-linux-s390x%: GO_FLAGS='GOOS=linux GOARCH=s390x CGO_ENABLED=0'
+$(OUT_DIR)/$(CLI_NAME)-linux-s390x%: OUT_FILE=$(OUT_DIR)/$(CLI_NAME)-linux-s390x
 
 $(OUT_DIR)/$(CLI_NAME)-%: $(CLI_SRCS) $(GOBIN)/packr
 	@GO_FLAGS=$(GO_FLAGS) \
@@ -75,14 +81,14 @@ $(OUT_DIR)/$(CLI_NAME)-%: $(CLI_SRCS) $(GOBIN)/packr
 	VERSION=$(VERSION) \
 	GIT_COMMIT=$(GIT_COMMIT) \
 	PACKR_CMD=$(PACKR_CMD) \
-	OUT_FILE=$@ \
+	OUT_FILE=$(OUT_FILE) \
 	INSTALLATION_MANIFESTS_URL=$(INSTALLATION_MANIFESTS_URL) \
 	INSTALLATION_MANIFESTS_NAMESPACED_URL=$(INSTALLATION_MANIFESTS_NAMESPACED_URL) \
 	MAIN=./cmd \
 	./hack/build.sh
 
 $(OUT_DIR)/$(CLI_NAME)-%.gz: $(OUT_DIR)/$(CLI_NAME)-%
-	gzip --force --keep $(OUT_DIR)/$(CLI_NAME)-$*
+	@echo gzip --force --keep $(OUT_DIR)/$(CLI_NAME)-$*
 
 $(OUT_DIR)/$(CLI_NAME)-%.sha256: $(OUT_DIR)/$(CLI_NAME)-%.gz
 	openssl dgst -sha256 "$(OUT_DIR)/$(CLI_NAME)-$*.gz" | awk '{ print $$2 }' > "$(OUT_DIR)/$(CLI_NAME)-$*".sha256

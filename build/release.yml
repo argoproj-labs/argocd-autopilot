@@ -3,6 +3,7 @@ mode: parallel
 
 stages: 
 - Prepare
+- Codegen
 - Test
 - Build
 - Release
@@ -67,6 +68,19 @@ steps:
         on:
         - success
 
+  codegen:
+    <<: *deps
+    stage: Codegen
+    title: run codegen
+    commands:
+    - make codegen
+    - make check-worktree
+    when:
+      steps:
+      - name: download_modules
+        on:
+        - success
+
   lint:
     <<: *deps
     stage: Test
@@ -75,21 +89,7 @@ steps:
     - make lint
     when:
       steps:
-      - name: download_modules
-        on:
-        - success
-
-
-  codegen:
-    <<: *deps
-    stage: Test
-    title: run codegen
-    commands:
-    - make codegen
-    - make check-worktree
-    when:
-      steps:
-      - name: download_modules
+      - name: codegen
         on:
         - success
 
@@ -101,7 +101,7 @@ steps:
     - make test
     when:
       steps:
-      - name: download_modules
+      - name: lint
         on:
         - success
 

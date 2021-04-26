@@ -5,6 +5,8 @@ stages:
 - Prepare
 - Build
 - Push Dev
+- Codegen
+- Lint
 - Test
 
 steps:
@@ -52,22 +54,9 @@ steps:
         on:
         - success
 
-  lint:
-    <<: *deps
-    stage: Test
-    title: lint
-    commands:
-    - make lint
-    - make check-worktree
-    when:
-      steps:
-      - name: prepare_env_vars
-        on:
-        - success
-
   codegen:
     <<: *deps
-    stage: Test
+    stage: Codegen
     title: run codegen
     commands:
     - make codegen
@@ -75,6 +64,19 @@ steps:
     when:
       steps:
       - name: prepare_env_vars
+        on:
+        - success
+
+  lint:
+    <<: *deps
+    stage: Lint
+    title: lint
+    commands:
+    - make lint
+    - make check-worktree
+    when:
+      steps:
+      - name: codegen
         on:
         - success
 
@@ -86,7 +88,7 @@ steps:
     - make test
     when:
       steps:
-      - name: prepare_env_vars
+      - name: lint
         on:
         - success
 
