@@ -107,8 +107,12 @@ test:
 codegen: $(GOBIN)/mockery $(GOBIN)/interfacer
 	go generate ./...
 
+.PHONY: build-user-guide
+build-user-guide: 
+	go run ./hack/cmd-docs/main.go
+
 .PHONY: pre-commit
-pre-commit: all lint codegen test
+pre-commit: all lint codegen test build-user-guide
 
 .PHONY: build-docs
 build-docs:
