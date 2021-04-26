@@ -146,8 +146,8 @@ steps:
         - success
 
   build_binaries:
-    <<: *deps
     stage: Release
+    image: ${{build_helper_image}}
     commands:
     - make ./dist/argocd-autopilot-${TARGET}.sha256 DEV_MODE=false
     scale:
