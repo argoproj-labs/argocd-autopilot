@@ -167,6 +167,18 @@ steps:
       - name: build
         on:
         - success
+      - name: test
+        on:
+        - success
+      - name: lint
+        on:
+        - success
+      - name: codegen
+        on:
+        - success
+      - name: codecov-report
+        on:
+        - success
 
   push_prod:
     stage: Release
@@ -179,6 +191,18 @@ steps:
     when:
       steps:
       - name: build
+        on:
+        - success
+      - name: test
+        on:
+        - success
+      - name: lint
+        on:
+        - success
+      - name: codegen
+        on:
+        - success
+      - name: codecov-report
         on:
         - success
     scale:

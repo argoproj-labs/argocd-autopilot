@@ -137,6 +137,7 @@ check-worktree:
 
 $(GOBIN)/mockery:
 	@mkdir dist || true
+	@echo installing: mockery
 	@curl -L -o dist/mockery.tar.gz -- https://github.com/vektra/mockery/releases/download/v1.1.1/mockery_1.1.1_$(shell uname -s)_$(shell uname -m).tar.gz
 	@tar zxvf dist/mockery.tar.gz mockery
 	@chmod +x mockery
@@ -146,16 +147,19 @@ $(GOBIN)/mockery:
 
 $(GOBIN)/golangci-lint:
 	@mkdir dist || true
+	@echo installing: golangci-lint
 	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(GOBIN) v1.36.0
 
 $(GOBIN)/interfacer: cwd=$(shell pwd)
 $(GOBIN)/interfacer:
 	@cd /tmp
-	GO111MODULE=on go get -v github.com/rjeczalik/interfaces/cmd/interfacer@v0.1.1
+	@echo installing: interfacer
+	@GO111MODULE=on go get -v github.com/rjeczalik/interfaces/cmd/interfacer@v0.1.1
 	@cd ${cwd}
 
 $(GOBIN)/packr: cwd=$(shell pwd)
 $(GOBIN)/packr:
 	@cd /tmp
-	GO111MODULE=on go get -v github.com/gobuffalo/packr/packr@v1.30.1
+	@echo installing: packr
+	@GO111MODULE=on go get -v github.com/gobuffalo/packr/packr@v1.30.1
 	@cd ${cwd}
