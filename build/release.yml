@@ -3,8 +3,8 @@ mode: parallel
 
 stages: 
 - Prepare
-- Build
 - Test
+- Build
 - Release
 
 steps:
@@ -127,7 +127,13 @@ steps:
     disable_push: true
     when:
       steps:
-      - name: main_clone
+      - name: test
+        on:
+        - success
+      - name: lint
+        on:
+        - success
+      - name: codegen
         on:
         - success
 
@@ -164,9 +170,9 @@ steps:
          - TARGET=darwin-amd64
     when:
       steps:
-      - name: download_modules
+      - name: build
         on:
-        - success  
+        - success
 
   push_prod:
     stage: Release
