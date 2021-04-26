@@ -127,7 +127,7 @@ steps:
     disable_push: true
     when:
       steps:
-      - name: main_clone
+      - name: check_version
         on:
         - success
 
