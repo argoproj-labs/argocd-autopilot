@@ -3,8 +3,7 @@ mode: parallel
 
 stages: 
 - Prepare
-- Codegen
-- Test
+- Codegen & Test
 - Build
 - Release
 
@@ -70,7 +69,7 @@ steps:
 
   codegen:
     <<: *deps
-    stage: Codegen
+    stage: Codegen & Test
     title: run codegen
     commands:
     - make codegen
@@ -83,7 +82,7 @@ steps:
 
   lint:
     <<: *deps
-    stage: Test
+    stage: Codegen & Test
     title: lint
     commands:
     - make lint
@@ -95,7 +94,7 @@ steps:
 
   test:
     <<: *deps
-    stage: Test
+    stage: Codegen & Test
     title: run tests
     commands:
     - make test
@@ -106,7 +105,7 @@ steps:
         - success
 
   codecov-report:
-    stage: Test
+    stage: Codegen & Test
     type: codecov-reporter
     title: report code coverage
     arguments:
