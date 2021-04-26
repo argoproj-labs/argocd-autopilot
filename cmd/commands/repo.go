@@ -132,7 +132,7 @@ func NewRepoCreateCommand() *cobra.Command {
 
 	cmd.Flags().StringVarP(&provider, "provider", "p", "github", "The git provider, "+fmt.Sprintf("one of: %v", strings.Join(supportedProviders, "|")))
 	cmd.Flags().StringVarP(&owner, "owner", "o", "", "The name of the owner or organiaion")
-	cmd.Flags().StringVarP(&repo, "name", "r", "", "The name of the repository")
+	cmd.Flags().StringVarP(&repo, "name", "n", "", "The name of the repository")
 	cmd.Flags().StringVarP(&token, "git-token", "t", "", "Your git provider api token [GIT_TOKEN]")
 	cmd.Flags().StringVar(&host, "host", "", "The git provider address (for on-premise git providers)")
 	cmd.Flags().BoolVar(&public, "public", false, "If true, will create the repository as public (default is false)")
