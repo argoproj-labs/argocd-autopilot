@@ -148,7 +148,6 @@ steps:
   build_binaries:
     <<: *deps
     stage: Release
-    title: build production binaries
     commands:
     - make ./dist/argocd-autopilot-${TARGET}.sha256 DEV_MODE=false
     scale:
