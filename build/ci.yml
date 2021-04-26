@@ -95,7 +95,7 @@ steps:
     type: codecov-reporter
     title: report code coverage
     arguments:
-      codecov_integration: argocd-autopilot-codefresh
+      codecov_integration: ${{CODECOV_INTEGRATION}}
     when:
       steps:
       - name: test

@@ -57,8 +57,8 @@ steps:
     title: check version
     image: ${{build_helper_image}}
     commands:
-     - (echo "${{CF_BRANCH}}" | grep -Eq '^v(\d+\.)?(\d+\.)?(\*|\d+)$') && echo on release branch || (echo not on release branch && exit 1)
-     - gh release view ${{CF_BRANCH}} && (echo release with the same name already exists && exit 1)
+    - (echo "${{CF_BRANCH}}" | grep -Eq '^v(\d+\.)?(\d+\.)?(\*|\d+)$') && echo on release branch || (echo not on release branch && exit 1)
+    - gh release view ${{CF_BRANCH}} && (echo release with the same name already exists && exit 1)
     when:
       steps:
       - name: build_helper_image
@@ -124,7 +124,7 @@ steps:
     type: codecov-reporter
     title: report code coverage
     arguments:
-      codecov_integration: argocd-autopilot-codefresh
+      codecov_integration: ${{CODECOV_INTEGRATION}}
     when:
       steps:
       - name: test
@@ -150,7 +150,7 @@ steps:
     stage: Release
     title: build production binaries
     commands:
-      make ./dist/argocd-autopilot-${TARGET}.sha256 DEV_MODE=false
+    - make ./dist/argocd-autopilot-${TARGET}.sha256 DEV_MODE=false
     scale:
       linux_amd64:
         environment:
