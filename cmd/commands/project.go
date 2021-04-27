@@ -220,6 +220,9 @@ var generateProject = func(o *GenerateProjectOptions) (*argocdv1alpha1.AppProjec
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      o.Name,
 			Namespace: o.Namespace,
+			Annotations: map[string]string{
+				"argocd.argoproj.io/sync-options": "PruneLast=true",
+			},
 		},
 		Spec: argocdv1alpha1.AppProjectSpec{
 			SourceRepos: []string{"*"},
