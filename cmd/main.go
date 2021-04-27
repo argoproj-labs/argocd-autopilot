@@ -11,6 +11,8 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth" // used for authentication with cloud providers
 )
 
+//go:generate sh -c "echo  generating command docs... && cd .. && go run ./hack/cmd-docs/main.go"
+
 func main() {
 	ctx := context.Background()
 	lgr := log.FromLogrus(logrus.NewEntry(logrus.New()), &log.LogrusConfig{Level: "info"})
