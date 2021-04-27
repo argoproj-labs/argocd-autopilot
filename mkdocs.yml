@@ -1,0 +1,26 @@
+site_name: Argo-CD Autopilot
+repo_url: https://github.com/argoproj-labs/argocd-autopilot
+strict: true
+theme:
+  name: material
+  palette:
+    primary: teal
+  font:
+    text: 'Work Sans'
+  logo: 'assets/logo.png'
+  favicon: 'assets/favicon.png'
+  custom_dir: 'overrides'
+extra_javascript:
+- assets/versions.js
+extra_css:
+- assets/versions.css
+markdown_extensions:
+- codehilite
+- admonition
+- toc:
+    permalink: true
+nav:
+  - Introduction: index.md
+  - Getting Started: Getting-Started.md
+  - Installation: Installation-Guide.md
+  - Development: Development.md

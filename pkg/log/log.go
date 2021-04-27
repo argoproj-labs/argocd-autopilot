@@ -41,15 +41,33 @@ type Logger interface {
 }
 
 func WithLogger(ctx context.Context, logger Logger) context.Context {
+	if L != nil {
+		L = logger
+	}
+
 	return context.WithValue(ctx, loggerKey{}, logger)
 }
 
-func GetLogger(ctx context.Context) Logger {
-	logger := ctx.Value(loggerKey{})
+func SetDefault(logger Logger) {
+	L = logger
+}
+
+func GetLogger(ctx ...context.Context) Logger {
+	if len(ctx) == 0 {
+		if L == nil {
+			panic("default logger not initialized")
+		}
+
+		return L
+	}
+
+	logger := ctx[0].Value(loggerKey{})
 	if logger == nil {
 		if L == nil {
 			panic("default logger not initialized")
 		}
+
+		return L
 	}
 
 	return logger.(Logger)

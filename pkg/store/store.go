@@ -1,57 +1,91 @@
 package store
 
 import (
-	"context"
 	"fmt"
 	"runtime"
-
-	"github.com/codefresh-io/cf-argo/pkg/kube"
+	"time"
 )
 
 var s Store
 
 var (
-	AppName    = "argo-installer"
-	binaryName = "cf-argo"
-	version    = "v99.99.99"
-	gitCommit  = ""
-	baseGitURL = "https://github.com/codefresh-io/argocd-template"
+	binaryName                         = ""
+	version                            = "v99.99.99"
+	buildDate                          = ""
+	gitCommit                          = ""
+	installationManifestsURL           = "manifests"
+	installationManifestsNamespacedURL = "manifests/namespace-install"
 )
 
 type Version struct {
-	Version   string
-	GitCommit string
-	GoVersion string
-	Platform  string
+	Version    string
+	BuildDate  string
+	GitCommit  string
+	GoVersion  string
+	GoCompiler string
+	Platform   string
 }
 
 type Store struct {
-	BinaryName string
-	Version    Version
-	BaseGitURL string
-	KubeConfig *kube.Config
+	BinaryName                         string
+	Version                            Version
+	InstallationManifestsURL           string
+	InstallationManifestsNamespacedURL string
+}
+
+var Default = struct {
+	BootsrtrapDir       string
+	KustomizeDir        string
+	OverlaysDir         string
+	BaseDir             string
+	ArgoCDName          string
+	ArgoCDNamespace     string
+	BootsrtrapAppName   string
+	DummyName           string
+	ProjectsDir         string
+	ManagedBy           string
+	RootAppName         string
+	RepoCredsSecretName string
+	GitUsername         string
+	WaitInterval        time.Duration
+	DestServer          string
+}{
+	KustomizeDir:        "kustomize",
+	BootsrtrapDir:       "bootstrap",
+	OverlaysDir:         "overlays",
+	BaseDir:             "base",
+	ArgoCDName:          "argo-cd",
+	ArgoCDNamespace:     "argocd",
+	BootsrtrapAppName:   "autopilot-bootstrap",
+	DummyName:           "DUMMY",
+	ProjectsDir:         "projects",
+	ManagedBy:           "argo-autopilot",
+	RootAppName:         "root",
+	RepoCredsSecretName: "autopilot-secret",
+	GitUsername:         "username",
+	WaitInterval:        time.Second * 3,
+	DestServer:          "https://kubernetes.default.svc",
 }
 
 // Get returns the global store
 func Get() *Store {
-	return &s
-}
 
-func (s *Store) NewKubeClient(ctx context.Context) kube.Client {
-	return kube.NewForConfig(ctx, s.KubeConfig)
+	return &s
 }
 
 func init() {
 	s.BinaryName = binaryName
-	s.BaseGitURL = baseGitURL
-	s.KubeConfig = kube.NewConfig()
+	s.InstallationManifestsURL = installationManifestsURL
+	s.InstallationManifestsNamespacedURL = installationManifestsNamespacedURL
 
 	initVersion()
 }
 
 func initVersion() {
 	s.Version.Version = version
+	s.Version.BuildDate = buildDate
 	s.Version.GitCommit = gitCommit
 	s.Version.GoVersion = runtime.Version()
+	s.Version.GoCompiler = runtime.Compiler
 	s.Version.Platform = fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
 }

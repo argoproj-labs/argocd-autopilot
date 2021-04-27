@@ -3,6 +3,7 @@ package log
 import (
 	"fmt"
 
+	cmdutil "github.com/argoproj/argo-cd/v2/cmd/util"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -15,11 +16,6 @@ const (
 
 type LogrusFormatter string
 
-const (
-	FormatterText LogrusFormatter = defaultFormatter
-	FormatterJSON LogrusFormatter = "json"
-)
-
 type LogrusConfig struct {
 	Level  string
 	Format LogrusFormatter
@@ -30,8 +26,26 @@ type logrusAdapter struct {
 	c *LogrusConfig
 }
 
+const (
+	FormatterText LogrusFormatter = defaultFormatter
+	FormatterJSON LogrusFormatter = "json"
+)
+
 func FromLogrus(l *logrus.Entry, c *LogrusConfig) Logger {
+	if c == nil {
+		c = &LogrusConfig{}
+	}
+
 	return &logrusAdapter{l, c}
+}
+
+func GetLogrusEntry(l Logger) (*logrus.Entry, error) {
+	adpt, ok := l.(*logrusAdapter)
+	if !ok {
+		return nil, fmt.Errorf("not a logrus logger")
+	}
+
+	return adpt.Entry, nil
 }
 
 func (l *logrusAdapter) AddPFlags(cmd *cobra.Command) {
@@ -47,6 +61,9 @@ func (l *logrusAdapter) AddPFlags(cmd *cobra.Command) {
 		default:
 			return fmt.Errorf("invalid log format: %s", *format)
 		}
+
+		cmdutil.LogFormat = *format
+		cmdutil.LogLevel = l.c.Level
 
 		return l.configure(flags)
 	}
@@ -73,16 +90,17 @@ func (l *logrusAdapter) WithError(err error) Logger {
 }
 
 func (l *logrusAdapter) configure(f *pflag.FlagSet) error {
-	var err error
-	var fmtr logrus.Formatter
-	lvl := defaultLvl
+	var (
+		err  error
+		fmtr logrus.Formatter
+		lvl  = defaultLvl
+	)
 
 	if l.c.Level != "" {
 		lvl, err = logrus.ParseLevel(l.c.Level)
 		if err != nil {
 			return err
 		}
-
 	}
 
 	if lvl < logrus.DebugLevel {
