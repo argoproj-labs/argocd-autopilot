@@ -9,7 +9,7 @@ import (
 	"github.com/argoproj/argocd-autopilot/cmd/commands"
 )
 
-var outputDir = "./docs/user-guide/commands"
+var outputDir = "./docs/commands"
 
 func main() {
 	// set HOME env var so that default values involve user's home directory do not depend on the running user.

@@ -22,3 +22,5 @@ markdown_extensions:
 nav:
   - Introduction: index.md
   - Getting Started: Getting-Started.md
+  - Installation: Installation-Guide.md
+  - Development: Development.md
