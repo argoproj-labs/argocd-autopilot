@@ -1,86 +1,39 @@
-# argocd-autopilot
-[![codecov](https://codecov.io/gh/codefresh-io/cf-argo/branch/main/graph/badge.svg?token=R64AZI8NUW)](https://codecov.io/gh/codefresh-io/cf-argo)
-## Overview:
-The argocd-autopilot utilizes the gitops pattern in order to control the install,uninstall and upgrade flows for kustomize based installations.
-The argocd-autopilot cli modifies a git repository while leverging the Argo CD apps patttern
+# Argo-CD Autopilot
 
-## Architecture:
-### Bootstrap:
-The argocd-autopilot bootstrap command pushs the apps manifests into a git repository which will be later used to contorl the gitops lifecycle.
-Later the  argocd-autopilot install Argo CD on kubernetes cluster which monitors the repository for changes. Now one cad add projects and apps in a gitops approach
+## Introduction
 
-## Usage:
+The Argo-CD Autopilot is a tool which offers an opinionated way of installing Argo-CD and managing GitOps repositories.
 
-### Creating a new project
+It can:
+- create a new gitops repository.
+- bootstrap a new argo cd installation.
+- install and manage argo-cd projects and application with ease.
+
+## Getting Started
 ```
-~ argocd-autopilot project create [PROJECT] [flags]
-This command will create a new project which will later can add applications to it
-
-Usage:
-  argocd-autopilot project create [PROJECT] [flags]
-
---auth-token string                  Authentication token
-      --aws-cluster-name string            AWS Cluster name if set then aws cli eks token command will be used to access cluster
-      --aws-role-arn string                Optional AWS role arn. If set then AWS IAM Authenticator assumes a role to perform cluster operations instead of the default AWS credential provider chain.
-      --client-crt string                  Client certificate file
-      --client-crt-key string              Client certificate key file
-      --config string                      Path to Argo CD config (default "/home/user/.argocd/config")
-      --dest-kube-context string           The default destination kubernetes context for applications in this project
-      --dry-run                            If true, print manifests instead of applying them to the cluster (nothing will be commited to git)
-      --exec-command string                Command to run to provide client credentials to the cluster. You may need to build a custom ArgoCD image to ensure the command is available at runtime.
-      --exec-command-api-version string    Preferred input version of the ExecInfo for the --exec-command executable
-      --exec-command-args stringArray      Arguments to supply to the --exec-command executable
-      --exec-command-env stringToString    Environment vars to set when running the --exec-command executable (default [])
-      --exec-command-install-hint string   Text shown to the user when the --exec-command executable doesn't seem to be present
-  -t, --git-token string                   Your git provider api token [GIT_TOKEN]
-      --grpc-web                           Enables gRPC-web protocol. Useful if Argo CD server is behind proxy which does not support HTTP2.
-      --grpc-web-root-path string          Enables gRPC-web protocol. Useful if Argo CD server is behind proxy which does not support HTTP2. Set web root.
-  -H, --header strings                     Sets additional header to all requests made by Argo CD CLI. (Can be repeated multiple times to add multiple headers, also supports comma separated headers)
-  -h, --help                               help for create
-      --in-cluster                         Indicates Argo CD resides inside this cluster and should connect using the internal k8s hostname (kubernetes.default.svc)
-      --insecure                           Skip server certificate and domain verification
-      --installation-path string           The path where we of the installation files (defaults to the root of the repository [GIT_INSTALLATION_PATH]
-      --name string                        Overwrite the cluster name
-      --plaintext                          Disable TLS
-      --port-forward                       Connect to a random argocd-server port using port forwarding
-      --port-forward-namespace string      Namespace name which should be used for port forwarding
-      --repo string                        Repository URL [GIT_REPO]
-      --revision string                    Repository branch, tag or commit hash (defaults to HEAD)
-      --server string                      Argo CD server address
-      --server-crt string                  Server certificate file
-      --service-account string             System namespace service account to use for kubernetes resource management. If not set then default "argocd-manager" SA will be created
-      --shard int                          Cluster shard number; inferred from hostname if not set (default -1)
-      --system-namespace string            Use different system namespace (default "kube-system")
-      --upsert                             Override an existing cluster with the same name even if the spec differs
+argocd-autopilot repo create --owner <owner> --name <name> --token <git_token>
+argocd-autopilot repo bootstrap --repo https://github.com/owner/name --token <git_token>
 ```
-### Creating a new application
+Head over to our [Getting Started](Getting-Started.md) guide for further details.
 
-~ argocd-autopilot application create [APP_NAME] [flags]
-This command will create a new application under a project in the git reposiotry 
+## How it works
+The autopilot bootstrap command will deploy an Argo-CD manifest to a target k8s cluster, and will commit an Argo-CD Application manifest under a specific directory in your GitOps repository. This Application will manage the Argo-CD installation itself - so after running this command, you will have an Argo-CD deployment that manages itself through GitOps.
 
-Usage:
-  argocd-autopilot application create [APP_NAME] [flags]
+From that point on, the use can create Projects and Applications that belong to them. Autopilot will commit the required manifests to the repository. Once committed, Argo-CD will do its magic and apply the Applications to the cluster.
 
-    --app string                 The application specifier (e.g. argocd@v1.0.2)
-      --dest-namespace string      K8s target namespace (overrides the namespace specified in the kustomization.yaml)
-      --dest-server string         K8s cluster URL (e.g. https://kubernetes.default.svc) (default "https://kubernetes.default.svc")
-  -t, --git-token string           Your git provider api token [GIT_TOKEN]
-  -h, --help                       help for create
-      --installation-mode string   One of: normal|flat. If flat, will commit the application manifests (after running kustomize build), otherwise will commit the kustomization.yaml (default "normal")
-      --installation-path string   The path where we of the installation files (defaults to the root of the repository [GIT_INSTALLATION_PATH]
-  -p, --project string             Project name
-      --repo string                Repository URL [GIT_REPO]
-      --revision string            Repository branch, tag or commit hash (defaults to HEAD)
+An application can be added to a project from a public git repo + path, or from a directory in the local filesystem.
 
+## Architecture
+![Argo-CD Autopilot Architecture](assets/architecture.png)
 
-## Development
+Autopilot communicates with the cluster directly **only** during the bootstrap phase, when it deploys Argo-CD. After that, most commands will only require access to the GitOps repository. When adding a Project or Application to a remote k8s cluster, autopilot will require access to the Argo-CD server.
 
-### Building from Source:
-To build a binary from the source code, make sure:
-* you have `go >=1.16` installed.
-* and that the `GOPATH` environment variable is set.
+## Features
+* Opinionated way to build a multi-project multi-application system, using GitOps principles.
+* Create a new GitOps repository, or use an existing one.
+* Supports creating the entire directory structure under any path the user requires.
+* When adding applications from a public repo, allow committing as either a kustomization that references the public repo, or as a "flat" manifest file containing all the required resources.
+* Use a different cluster from the one Argo-CD is running on, as a default cluster for a Project, or a target cluster for a specific Application.
 
-
-Then run:
-* `make` to build the binary to `./dist/`  
-
+## Development Status
+Argo-CD autopilot is currently under active development. Some of the basic commands are not yet implemented, but we hope to complete them in the coming weeks.

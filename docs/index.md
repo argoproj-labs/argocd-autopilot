@@ -9,12 +9,6 @@ It can:
 - bootstrap a new argo cd installation.
 - install and manage argo-cd projects and application with ease.
 
-## Getting Started
-```
-argocd-autopilot repo create --owner <owner> --name <name> --token <git_token>
-argocd-autopilot repo bootstrap --repo https://github.com/owner/name --token <git_token>
-```
-Head over to our [Getting Started](Getting-Started.md) guide for further details.
 
 ## How it works
 The autopilot bootstrap command will deploy an Argo-CD manifest to a target k8s cluster, and will commit an Argo-CD Application manifest under a specific directory in your GitOps repository. This Application will manage the Argo-CD installation itself - so after running this command, you will have an Argo-CD deployment that manages itself through GitOps.
