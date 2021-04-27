@@ -159,19 +159,31 @@ steps:
       - name: codecov-report
         on:
         - success
-
-  codegen:
+  
+  create_release:
     <<: *deps
     stage: Release
-    title: check codegen
+    title: create github release
     commands:
-    - make codegen
-    - make check-worktree
+    - gh release create
     when:
       steps:
       - name: build_binaries
         on:
         - success
+
+  # codegen:
+  #   <<: *deps
+  #   stage: Release
+  #   title: check codegen
+  #   commands:
+  #   - make codegen
+  #   - make check-worktree
+  #   when:
+  #     steps:
+  #     - name: build_binaries
+  #       on:
+  #       - success
 
   push_prod:
     stage: Release
@@ -186,9 +198,9 @@ steps:
       - name: build
         on:
         - success
-      - name: codegen
-        on:
-        - success
+      # - name: codegen
+      #   on:
+      #   - success
     scale:
       push_quay_dev:
         registry: "${{REGISTRY_INTEGRATION_QUAY}}"
