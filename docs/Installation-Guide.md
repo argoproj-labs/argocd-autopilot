@@ -30,4 +30,6 @@ mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
 
 # check the installation
 argocd-autopilot version
-```
+=======
+# download the archive
+curl -L -o ./mockery.tar.gz -- https://github.com/vektra/mockery/releases/download/v1.1.1/mockery_1.1.1_$(shell uname -s)_$(shell uname -m).tar.gz
