@@ -7,12 +7,12 @@ The Argo-CD Autopilot is a tool which offers an opinionated way of installing Ar
 It can:
 - create a new gitops repository.
 - bootstrap a new argo cd installation.
-- install and manage argocd projects and application with ease.
+- install and manage argo-cd projects and application with ease.
 
 ## Getting Started
 ```
-autopilot repo create --owner <owner> --name <name> --token <git_token>
-autopilot repo bootstrap --repo https://github.com/owner/name --token <git_token>
+argocd-autopilot repo create --owner <owner> --name <name> --token <git_token>
+argocd-autopilot repo bootstrap --repo https://github.com/owner/name --token <git_token>
 ```
 Head over to our [Getting Started](Getting-Started.md) guide for further details.
 
@@ -31,7 +31,7 @@ Autopilot communicates with the cluster directly **only** during the bootstrap p
 ## Features
 * Opinionated way to build a multi-project multi-application system, using GitOps principles.
 * Create a new GitOps repository, or use an existing one.
-* Supports creating the entire directory structure under any path the user requires
+* Supports creating the entire directory structure under any path the user requires.
 * When adding applications from a public repo, allow committing as either a kustomization that references the public repo, or as a "flat" manifest file containing all the required resources.
 * Use a different cluster from the one Argo-CD is running on, as a default cluster for a Project, or a target cluster for a specific Application.
 
