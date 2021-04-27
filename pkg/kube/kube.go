@@ -115,6 +115,9 @@ func GenerateNamespace(namespace string) *corev1.Namespace {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: namespace,
+			Annotations: map[string]string{
+				"argocd.argoproj.io/sync-options": "Prune=false",
+			},
 		},
 	}
 }
