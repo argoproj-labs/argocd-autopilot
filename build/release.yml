@@ -59,7 +59,6 @@ steps:
     stage: Prepare
     title: download go modules
     commands:
-    - env
     - go mod download -x
     when:
       steps:
@@ -95,6 +94,7 @@ steps:
     stage: Test
     type: codecov-reporter
     title: report code coverage
+    fail_fast: false
     arguments:
       codecov_integration: ${{CODECOV_INTEGRATION}}
     when:
@@ -156,19 +156,21 @@ steps:
       - name: lint
         on:
         - success
-      - name: codecov-report
-        on:
-        - success
   
   create_release:
     <<: *deps
     stage: Release
     title: create github release
     commands:
-    - gh release create
+    - export GIT_REPO=${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}
+    - export GIT_BRANCH=${{CF_BRANCH}}
+    - make release
     when:
       steps:
       - name: build_binaries
+        on:
+        - success
+      - name: build
         on:
         - success
 
@@ -187,7 +189,7 @@ steps:
 
   push_prod:
     stage: Release
-    title: push with dev tags
+    title: promote images
     type: push
     candidate: ${{build}}
     tags:
@@ -195,16 +197,19 @@ steps:
     - ${{CF_BRANCH_TAG_NORMALIZED}}
     when:
       steps:
+      - name: build_binaries
+        on:
+        - success
       - name: build
         on:
         - success
-      # - name: codegen
-      #   on:
-      #   - success
     scale:
       push_quay_dev:
+        title: push to quay.io
         registry: "${{REGISTRY_INTEGRATION_QUAY}}"
       push_dockerhub_dev:
+        title: push to dockerhub
         registry: "${{REGISTRY_INTEGRATION_DOCKERHUB}}"
       push_gcr_enterprise_dev:
+        title: push to gcr
         registry: "${{REGISTRY_INTEGRATION_ENTERPRISE}}"

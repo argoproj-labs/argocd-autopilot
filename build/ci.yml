@@ -44,7 +44,7 @@ steps:
     - cf_export GO111MODULE=on
     - cf_export GOCACHE=/codefresh/volume/gocache # change gopath to codefresh shared volume
     - cf_export GOPATH=/codefresh/volume/gopath
-    - cf_export PATH=$PATH:$GOPATH/bin
+    - cf_export PATH=$PATH:/codefresh/volume/gopath/bin
     - go mod download -x
     when:
       steps:

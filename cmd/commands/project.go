@@ -20,7 +20,6 @@ import (
 	"github.com/ghodss/yaml"
 	memfs "github.com/go-git/go-billy/v5/memfs"
 	"github.com/spf13/cobra"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -315,7 +314,7 @@ var generateProject = func(o *GenerateProjectOptions) (*argocdv1alpha1.AppProjec
 }
 
 var getInstallationNamespace = func(repofs fs.FS) (string, error) {
-	f, err := repofs.Open(repofs.Join(store.Default.BootsrtrapDir, store.Default.ArgoCDName, "namespace.yaml"))
+	f, err := repofs.Open(repofs.Join(store.Default.BootsrtrapDir, store.Default.ArgoCDName+".yaml"))
 	if err != nil {
 		return "", err
 	}
@@ -325,10 +324,10 @@ var getInstallationNamespace = func(repofs fs.FS) (string, error) {
 		return "", fmt.Errorf("failed to read namespace file: %w", err)
 	}
 
-	ns := &v1.Namespace{}
-	if err = yaml.Unmarshal(d, ns); err != nil {
+	a := &appsetv1alpha1.Application{}
+	if err = yaml.Unmarshal(d, a); err != nil {
 		return "", fmt.Errorf("failed to unmarshal namespace: %w", err)
 	}
 
-	return ns.Name, nil
+	return a.Spec.Destination.Namespace, nil
 }

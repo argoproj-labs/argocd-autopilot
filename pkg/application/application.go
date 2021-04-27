@@ -260,6 +260,7 @@ var generateManifests = func(k *kusttypes.Kustomization) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		if err = ioutil.WriteFile(filepath.Join(td, "namespace.yaml"), ns, 0400); err != nil {
 			return nil, err
 		}
