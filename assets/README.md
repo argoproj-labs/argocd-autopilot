@@ -1,0 +1,1 @@
+this is here just to fix this issue: https://github.com/argoproj/argo-cd/issues/2907

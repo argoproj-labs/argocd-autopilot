@@ -1,0 +1,210 @@
+version: '1.0'
+mode: parallel
+
+stages: 
+- Prepare
+- Test
+- Build
+- Release
+
+steps:
+  
+  main_clone:
+    stage: Prepare
+    title: clone repository
+    type: git-clone
+    git: cf_github
+    repo: ${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}
+    revision: ${{CF_BRANCH}}
+
+  build_helper_image:
+    stage: Prepare
+    title: build tester image
+    type: build
+    image_name: helper
+    tag: ${{CF_BRANCH_TAG_NORMALIZED}}
+    dockerfile:
+      content: |-
+        FROM golang:1.16.3-alpine3.13
+        RUN apk -U add --no-cache ca-certificates git make gcc g++ curl bash openssl && update-ca-certificates
+        RUN curl -L https://github.com/cli/cli/releases/download/v1.9.2/gh_1.9.2_linux_amd64.tar.gz | tar zx && mv ./gh_1.9.2_linux_amd64/bin/gh /usr/local/bin
+        ENTRYPOINT [ "/bin/bash" ]
+    buildkit: true
+    disable_push: true
+    when:
+      steps:
+      - name: main_clone
+        on:
+        - success
+
+  check_version: &deps
+    stage: Prepare
+    title: check version
+    image: ${{build_helper_image}}
+    commands:
+    - cf_export GO111MODULE=on
+    - cf_export GOCACHE=/codefresh/volume/gocache # change gopath to codefresh shared volume
+    - cf_export GOPATH=/codefresh/volume/gopath
+    - cf_export PATH=$PATH:/codefresh/volume/gopath/bin
+    - (echo "${{CF_BRANCH}}" | grep -Eq '^v(\d+\.)?(\d+\.)?(\*|\d+)$') && echo on release branch || (echo not on release branch && exit 1)
+    - (gh release view ${{CF_BRANCH}} --repo ${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}) && (echo release with the same name already exists && exit 1) || echo no release with the name ${{CF_BRANCH}}, we can continue!
+    when:
+      steps:
+      - name: build_helper_image
+        on:
+        - success
+
+  download_modules:
+    <<: *deps
+    stage: Prepare
+    title: download go modules
+    commands:
+    - env
+    - go mod download -x
+    when:
+      steps:
+      - name: check_version
+        on:
+        - success
+
+  lint:
+    <<: *deps
+    stage: Test
+    title: lint
+    commands:
+    - make lint
+    when:
+      steps:
+      - name: download_modules
+        on:
+        - success
+
+  test:
+    <<: *deps
+    stage: Test
+    title: run tests
+    commands:
+    - make test
+    when:
+      steps:
+      - name: lint
+        on:
+        - success
+
+  codecov-report:
+    stage: Test
+    type: codecov-reporter
+    title: report code coverage
+    arguments:
+      codecov_integration: ${{CODECOV_INTEGRATION}}
+    when:
+      steps:
+      - name: test
+        on:
+        - success
+  
+  build:
+    stage: Build
+    title: build docker image
+    type: build
+    image_name: ${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}
+    tag: ${{CF_BRANCH_TAG_NORMALIZED}}
+    buildkit: true
+    disable_push: true
+    when:
+      steps:
+      - name: check_version
+        on:
+        - success
+
+  build_binaries:
+    <<: *deps
+    stage: Release
+    title: build binaries
+    commands:
+    - make ./dist/argocd-autopilot-${TARGET}.sha256 DEV_MODE=false
+    scale:
+      linux_amd64:
+        title: linux_amd64
+        environment:
+         - TARGET=linux-amd64
+      linux_arm64:
+        title: linux_arm64
+        environment:
+         - TARGET=linux-arm64
+      linux_s390x:
+        title: linux_s390x
+        environment:
+         - TARGET=linux-s390x
+      linux_ppc64le:
+        title: linux_ppc64le
+        environment:
+         - TARGET=linux-ppc64le
+      windows_amd64:
+        title: windows_amd64
+        environment:
+         - TARGET=windows-amd64
+      darwin_amd64:
+        title: darwin_amd64
+        environment:
+         - TARGET=darwin-amd64
+    when:
+      steps:
+      - name: test
+        on:
+        - success
+      - name: lint
+        on:
+        - success
+      - name: codecov-report
+        on:
+        - success
+  
+  create_release:
+    <<: *deps
+    stage: Release
+    title: create github release
+    commands:
+    - gh release create
+    when:
+      steps:
+      - name: build_binaries
+        on:
+        - success
+
+  # codegen:
+  #   <<: *deps
+  #   stage: Release
+  #   title: check codegen
+  #   commands:
+  #   - make codegen
+  #   - make check-worktree
+  #   when:
+  #     steps:
+  #     - name: build_binaries
+  #       on:
+  #       - success
+
+  push_prod:
+    stage: Release
+    title: push with dev tags
+    type: push
+    candidate: ${{build}}
+    tags:
+    - latest
+    - ${{CF_BRANCH_TAG_NORMALIZED}}
+    when:
+      steps:
+      - name: build
+        on:
+        - success
+      # - name: codegen
+      #   on:
+      #   - success
+    scale:
+      push_quay_dev:
+        registry: "${{REGISTRY_INTEGRATION_QUAY}}"
+      push_dockerhub_dev:
+        registry: "${{REGISTRY_INTEGRATION_DOCKERHUB}}"
+      push_gcr_enterprise_dev:
+        registry: "${{REGISTRY_INTEGRATION_ENTERPRISE}}"

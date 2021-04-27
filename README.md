@@ -1,103 +1,39 @@
-# argo-installer
-[![codecov](https://codecov.io/gh/codefresh-io/cf-argo/branch/main/graph/badge.svg?token=R64AZI8NUW)](https://codecov.io/gh/codefresh-io/cf-argo)
-## Overview:
-The installer utilizes the gitops pattern in order to control the install,uninstall and upgrade flows for kustomize based installations.
-The installer creates (or modifies) a git repository while leverging the Argo CD apps patttern.
+# Argo-CD Autopilot
 
-## Architecture:
-### Bootstrap:
-The installer clones the template repository, copies the templates into the target repository, and bootstrap Argo CD and sealed-secrets (controlled by bootstrap/kustomization.yaml in template repository) by applying the kustomized output to K8S cluster.
-### controlling the installation flow:
-The follwing folders and files in the user's repository contorls the installation's content :
-* `argocd-apps/{envName}/components` - contains Argo CD apps for `envName`
-* `kustomize/entities/overlays/{envName}/kustomization.yaml` - contains the entities that  are synced by Argo CD app for `envName`
-* `kustomize/components/{appName}/overlays/{envName}` - this folder contains the the overlays to control `appName` app
+## Introduction
 
-## Usage:
+The Argo-CD Autopilot is a tool which offers an opinionated way of installing Argo-CD and managing GitOps repositories.
 
-### Installing a new environment
+It can:
+- create a new gitops repository.
+- bootstrap a new argo cd installation.
+- install and manage argo-cd projects and application with ease.
+
+## Getting Started
 ```
-~ cf-argo install --help
-This command will create a new git repository that manages an Argo Enterprise solution using Argo-CD with gitops.
-
-Usage:
-  cf-argo install [flags]
-
-Flags:
-      --dry-run               when true, the command will have no side effects, and will only output the manifests to stdout
-      --env-name string       name of the Argo Enterprise environment to create (default "production")
-      --git-token string      git token which will be used by argo-cd to create the gitops repository
-  -h, --help                  help for install
-      --kube-context string   name of the kubeconfig context to use (default: current context)
-      --kubeconfig string     path to the kubeconfig file [KUBECONFIG] (default: ~/.kube/config)
-      --repo-name string      the name of the gitops repository to be created [REPO_NAME]
-      --repo-owner string     the name of the owner of the gitops repository to be created [REPO_OWNER]
-      --repo-url string       the clone url of an existing gitops repository url [REPO_URL]
-
-Global Flags:
-      --log-format string   set the log format: "text", "json" (defaults to text) (default "text")
-      --log-level string    set the log level, e.g. "debug", "info", "warn", "error" (default "info")
+argocd-autopilot repo create --owner <owner> --name <name> --token <git_token>
+argocd-autopilot repo bootstrap --repo https://github.com/owner/name --token <git_token>
 ```
+Head over to our [Getting Started](Getting-Started.md) guide for further details.
 
-* Use `cf-argo install --repo-owner <owner> --repo-name <name> ...` when creating a new Gitops repository
-* Use `cf-argo install --repo-url <url> ...` when installing a new environment into an existing Gitops repository
+## How it works
+The autopilot bootstrap command will deploy an Argo-CD manifest to a target k8s cluster, and will commit an Argo-CD Application manifest under a specific directory in your GitOps repository. This Application will manage the Argo-CD installation itself - so after running this command, you will have an Argo-CD deployment that manages itself through GitOps.
 
-### Uninstalling an existing environment
+From that point on, the use can create Projects and Applications that belong to them. Autopilot will commit the required manifests to the repository. Once committed, Argo-CD will do its magic and apply the Applications to the cluster.
 
-```
-~ cf-argo uninstall --help
-This command will clear all Argo-CD managed resources relating to a specific installation, from a specific cluster
+An application can be added to a project from a public git repo + path, or from a directory in the local filesystem.
 
-Usage:
-  cf-argo uninstall [flags]
+## Architecture
+![Argo-CD Autopilot Architecture](assets/architecture.png)
 
-Flags:
-      --dry-run               when true, the command will have no side effects, and will only output the manifests to stdout
-      --env-name string       name of the Argo Enterprise environment to create (default "production")
-      --git-token string      git token which will be used by argo-cd to create the gitops repository
-  -h, --help                  help for uninstall
-      --kube-context string   name of the kubeconfig context to use (default: current context)
-      --kubeconfig string     path to the kubeconfig file [KUBECONFIG] (default: ~/.kube/config) (default "/Users/noamgal/.kube/config")
-      --repo-url string       the gitops repository url. If it does not exist we will try to create it for you [REPO_URL]
+Autopilot communicates with the cluster directly **only** during the bootstrap phase, when it deploys Argo-CD. After that, most commands will only require access to the GitOps repository. When adding a Project or Application to a remote k8s cluster, autopilot will require access to the Argo-CD server.
 
-Global Flags:
-      --log-format string   set the log format: "text", "json" (defaults to text) (default "text")
-      --log-level string    set the log level, e.g. "debug", "info", "warn", "error" (default "info")
-```
+## Features
+* Opinionated way to build a multi-project multi-application system, using GitOps principles.
+* Create a new GitOps repository, or use an existing one.
+* Supports creating the entire directory structure under any path the user requires.
+* When adding applications from a public repo, allow committing as either a kustomization that references the public repo, or as a "flat" manifest file containing all the required resources.
+* Use a different cluster from the one Argo-CD is running on, as a default cluster for a Project, or a target cluster for a specific Application.
 
-Will remove all managed applications from the environment. If there are no other applications remaining in the root app-of-apps, will also remove it, and uninstall the argo-cd server itself.
-
-## Development
-
-### Building from Source:
-To build a binary from the source code, make sure:
-* you have `go >=1.15` installed.
-* and that the `GOPATH` environment variable is set.
-
-
-Then run:
-* `make` to build the binary to `./dist/`  
-
-
-or 
-* `make install` to make it available as `cf-argo` in the `PATH`
-### Linting:
-We are using https://github.com/golangci/golangci-lint as our linter, you can integrate golangci-lint with the following IDEs:
-* vscode: make sure `GOPATH` is setup correctly and run `make lint` this will download `golangci-lint` if it was not already installed on your machine. Then add the following to your `settings.json`:
-```
-"go.lintTool": "golangci-lint",
-"go.lintFlags": [
-    "--fast"
-],
-```
-
-### Using [pre-commit](https://pre-commit.com/) hooks:
-When installed correctly, this will run `golangci-lint` before every commit, and `go test` before every push. Any error will cause the commit or push to fail.
-
-1. [Install](https://pre-commit.com/#1-install-pre-commit):  
-   `brew install pre-commit`
-1. [Install the git hook scripts](https://pre-commit.com/#3-install-the-git-hook-scripts):  
-   `pre-commit install -t pre-commit -t pre-push`
-
-### Bumping template repository version:
-By default the cli will use the repository set in the makefile as `BASE_GIT_URL` as the base template repository, when there is a new version of the template repository, you need to release a new version of the installer and bump the version of the `BASE_GIT_URL` in the makefile. The base repository can also be controlled with the hidden flag `--base-repo`.
+## Development Status
+Argo-CD autopilot is currently under active development. Some of the basic commands are not yet implemented, but we hope to complete them in the coming weeks.

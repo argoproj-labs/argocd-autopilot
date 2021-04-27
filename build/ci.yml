@@ -1,0 +1,142 @@
+version: '1.0'
+mode: parallel
+
+stages: 
+- Prepare
+- Test
+- Build
+- Push Dev
+
+steps:
+  
+  main_clone:
+    stage: Prepare
+    title: clone repository
+    type: git-clone
+    git: cf_github
+    repo: ${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}
+    revision: ${{CF_BRANCH}}
+
+  build_helper_image:
+    stage: Prepare
+    title: build helper image
+    type: build
+    image_name: helper
+    tag: ${{CF_BRANCH_TAG_NORMALIZED}}
+    dockerfile:
+      content: |-
+        FROM golang:1.16.3-alpine3.13
+        RUN apk -U add --no-cache ca-certificates git make gcc g++ curl bash && update-ca-certificates
+        ENTRYPOINT [ "/bin/bash" ]
+    buildkit: true
+    disable_push: true
+    when:
+      steps:
+      - name: main_clone
+        on:
+        - success
+
+  prepare_env_vars: &deps
+    stage: Prepare
+    title: prepare-env & download modules
+    image: ${{build_helper_image}}
+    commands:
+    - cf_export GO111MODULE=on
+    - cf_export GOCACHE=/codefresh/volume/gocache # change gopath to codefresh shared volume
+    - cf_export GOPATH=/codefresh/volume/gopath
+    - cf_export PATH=$PATH:$GOPATH/bin
+    - go mod download -x
+    when:
+      steps:
+      - name: build_helper_image
+        on:
+        - success
+
+  lint:
+    <<: *deps
+    stage: Test
+    title: lint
+    commands:
+    - make lint
+    - make check-worktree
+    when:
+      steps:
+      - name: prepare_env_vars
+        on:
+        - success
+
+  test:
+    <<: *deps
+    stage: Test
+    title: run tests
+    commands:
+    - make test
+    when:
+      steps:
+      - name: lint
+        on:
+        - success
+
+  codecov-report:
+    stage: Test
+    type: codecov-reporter
+    title: report code coverage
+    arguments:
+      codecov_integration: ${{CODECOV_INTEGRATION}}
+    when:
+      steps:
+      - name: test
+        on:
+        - success
+  
+  build:
+    stage: Build
+    title: build docker image
+    type: build
+    image_name: ${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}
+    tag: ${{CF_BRANCH_TAG_NORMALIZED}}
+    buildkit: true
+    disable_push: true
+    when:
+      steps:
+      - name: main_clone
+        on:
+        - success
+  
+  # codegen:
+  #   <<: *deps
+  #   stage: Test
+  #   title: compile and check codegen
+  #   commands:
+  #   - make codegen
+  #   - make check-worktree
+  #   when:
+  #     steps:
+  #     - name: test
+  #       on:
+  #       - success
+
+  push_dev:
+    stage: Push Dev
+    title: push with dev tags
+    type: push
+    candidate: ${{build}}
+    tags:
+    - ${{CF_BRANCH_TAG_NORMALIZED}}
+    when:
+      steps:
+      - name: build
+        on:
+        - success
+      # - name: codegen
+      #   on:
+      #   - success
+      branch:
+        ignore: [ "main" ]
+    scale:
+      push_quay_dev:
+        registry: "${{REGISTRY_INTEGRATION_QUAY}}"
+      push_dockerhub_dev:
+        registry: "${{REGISTRY_INTEGRATION_DOCKERHUB}}"
+      push_gcr_enterprise_dev:
+        registry: "${{REGISTRY_INTEGRATION_ENTERPRISE}}"
