@@ -208,10 +208,3 @@ steps:
       push_quay_dev:
         title: push to quay.io
         registry: "${{REGISTRY_INTEGRATION_QUAY}}"
-      push_dockerhub_dev:
-        title: push to dockerhub
-        registry: "${{REGISTRY_INTEGRATION_DOCKERHUB}}"
-      push_gcr_enterprise_dev:
-        title: push to gcr
-        registry: "${{REGISTRY_INTEGRATION_ENTERPRISE}}"
-
