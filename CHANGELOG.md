@@ -1,5 +1,8 @@
 # Changelog:
 
+# v0.1.3
+* fixed docker image creation
+
 # v0.1.2
 * added documentation
 * improved CI-CD flow
