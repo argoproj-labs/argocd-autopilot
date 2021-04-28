@@ -43,6 +43,8 @@ FROM alpine:3.13 as autopilot
 
 WORKDIR /go/src/github.com/argoproj/argocd-autopilot
 
+RUN apk -U add --no-cache git
+
 # copy ca-certs and user details
 COPY --from=base /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=base /etc/passwd /etc/passwd
