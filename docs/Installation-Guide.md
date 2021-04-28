@@ -31,3 +31,12 @@ mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
 # check the installation
 argocd-autopilot version
 ```
+
+## Docker
+When using the Docker image, you have to provide the `.kube` and `.gitconfig` directories as mounts to the running container:
+```
+docker run \
+  -v ~/.kube:/home/autopilot/.kube \
+  -v ~/.gitconfig:/home/autopilot/.gitconfig \
+  -it quay.io/argoprojlabs/argocd-autopilot <cmd> <flags>
+```

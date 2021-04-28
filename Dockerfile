@@ -7,12 +7,11 @@ RUN apk -U add --no-cache git ca-certificates && update-ca-certificates
 RUN adduser \
     --disabled-password \
     --gecos "" \
-    --home "/nonexistent" \
+    --home "/home/autopilot" \
     --shell "/sbin/nologin" \
     --no-create-home \
     --uid 10001 \
     autopilot
-
 
 COPY go.mod .
 COPY go.sum .
@@ -42,6 +41,8 @@ RUN make local DEV_MODE=false
 FROM alpine:3.13 as autopilot
 
 WORKDIR /go/src/github.com/argoproj/argocd-autopilot
+
+RUN apk -U add --no-cache git
 
 # copy ca-certs and user details
 COPY --from=base /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
