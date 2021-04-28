@@ -24,16 +24,10 @@ if [[ "$?" == "0" ]]; then
     ls -1a ./dist/*.gz ./dist/*.sha256
     echo ""
 
-    FILE=""
-    if [ -f "./docs/releases/release-$GIT_BRANCH.md" ]; then
-        FILE="./docs/releases/release-$GIT_BRANCH.md"
-        echo "using release notes file: ./docs/releases/release-$GIT_BRANCH.md"
-        echo ""
-    else
-        FILE="./docs/releases/default.md"
-        echo "using default release notes file: ./docs/releases/default.md"
-        echo ""
-    fi
+    FILE="./docs/releases/release_notes.md"
+    echo "using release notes file: ./docs/releases/release_notes.md"
+    cat $FILE | head -n 5 && echo ...
+    echo ""
 
     if [[ "$PRE_RELEASE" ]]; then
         echo "using pre-release"
@@ -41,6 +35,11 @@ if [[ "$?" == "0" ]]; then
     fi
 
     echo "running: gh release create --repo $GIT_REPO -t $GIT_BRANCH -F $FILE --target $GIT_BRANCH --prerelease=$PRERELEASE ./dist/*.gz ./dist/*.sha256"
+    
+    if [[ "$DRY_RUN" == "1" ]]; then
+        exit 0
+    fi
+
     gh release create --repo $GIT_REPO -t $GIT_BRANCH -F $FILE --target $GIT_BRANCH --prerelease=$PRERELEASE $GIT_BRANCH ./dist/*.gz ./dist/*.sha256
 else 
     echo "not on release branch: $GIT_BRANCH"

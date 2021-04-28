@@ -10,6 +10,7 @@ This guide assumes you are familiar with Argo CD and its basic concepts. See the
 
 ### Git authentication
 Make sure to have a valid token (https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token)
+
 ![Github token](assets/github_token.png)
 ```
 export GIT_TOKEN=ghp_PcZ...IP0
@@ -18,7 +19,7 @@ export GIT_TOKEN=ghp_PcZ...IP0
 If you have already created your GitOps Repository, you can skip the following step
 ### Create a new GitOps Repository
 ```
-autopilot repo create --owner <owner> --name <name>
+argocd-autopilot repo create --owner <owner> --name <name>
 ```
 
 ### Export Clone URL
@@ -37,7 +38,7 @@ All the following commands will use the variables you supplied in order to manag
 
 ## Set up the GitOps repository
 ```
-autopilot repo bootstrap
+argocd-autopilot repo bootstrap
 ```
 The execution might take several minutes, while your k8s cluster downloads the required images for Argo CD.
 Once it completes, you will get the initial Argo CD admin password, as well as the command to run to enable port-forwarding:
@@ -50,18 +51,26 @@ INFO run:
 <sub>(Your initial password will be different)</sub>
 
 Execute the port forward command, and browse to http://localhost:8080. Log in using username `admin`, and the password from the previous step. your initial Argo CD deployment should look like this:
+
 ![Step 1](assets/getting_started_1.png)
 
+Running Applications:
+* autopilot-bootstrap - References the `bootstrap` directory in the GitOps repository, and manages the other 2 applications
+* argo-cd - References the `bootstrap/argo-cd` folder, and manages the Argo CD deployment itself (including Argo CD ApplicationSet)
+* root - References the `projects` directiry in the repo. The folder contains only an empty `DUMMY` file after the bootstrap command, so no projects will be created
+
 ## Add a Project and an Application
-Execute the following commands to create a `testing` Project, and add a sample Application to it:
+Execute the following commands to create a `testing` Project, and add a example Application to it:
 ```
-autopilot project create testing
-autopilot app create hello-world --project testing --app https://github.com/noam-codefresh/gitops-kubernetes-configuration/
+argocd-autopilot project create testing
+argocd-autopilot app create hello-world github.com/argoproj-labs/argocd-autopilot/examples/demo-app/ --p testing
 ```
-<sub>notice the trailing slash in the URL</sub>
+<sub>* notice the trailing slash in the URL</sub>
 
 After the application is created, and after Argo CD has finished its sync cycle, your new Project will appear under the *Root* application:
+
 ![Step 2](assets/getting_started_2.png)
 
 And the "hello-world" application will also be deployed to the cluster:
+
 ![Step 3](assets/getting_started_3.png)

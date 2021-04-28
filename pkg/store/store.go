@@ -9,7 +9,7 @@ import (
 var s Store
 
 var (
-	binaryName                         = ""
+	binaryName                         = "argocd-autopilot"
 	version                            = "v99.99.99"
 	buildDate                          = ""
 	gitCommit                          = ""

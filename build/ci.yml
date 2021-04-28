@@ -93,7 +93,7 @@ steps:
     stage: Build
     title: build docker image
     type: build
-    image_name: ${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}
+    image_name: ${{IMAGE_NAME}}
     tag: ${{CF_BRANCH_TAG_NORMALIZED}}
     buildkit: true
     disable_push: true
@@ -122,10 +122,16 @@ steps:
     type: push
     candidate: ${{build}}
     tags:
-    - ${{CF_BRANCH_TAG_NORMALIZED}}
+    - dev-${{CF_BRANCH_TAG_NORMALIZED}}
     when:
       steps:
       - name: build
+        on:
+        - success
+      - name: test
+        on:
+        - success
+      - name: lint
         on:
         - success
       # - name: codegen
@@ -135,8 +141,11 @@ steps:
         ignore: [ "main" ]
     scale:
       push_quay_dev:
+        title: push to quay
         registry: "${{REGISTRY_INTEGRATION_QUAY}}"
       push_dockerhub_dev:
+        title: push to dockerhub
         registry: "${{REGISTRY_INTEGRATION_DOCKERHUB}}"
       push_gcr_enterprise_dev:
+        title: push to gcr
         registry: "${{REGISTRY_INTEGRATION_ENTERPRISE}}"

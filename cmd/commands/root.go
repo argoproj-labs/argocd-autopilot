@@ -29,8 +29,9 @@ variables in advanced to simplify the use of those commands.
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
 		},
-		SilenceUsage:  true, // will not display usage when RunE returns an error
-		SilenceErrors: true, // will not use fmt to print errors
+		SilenceUsage:      true, // will not display usage when RunE returns an error
+		SilenceErrors:     true, // will not use fmt to print errors
+		DisableAutoGenTag: true, // disable the date in the command docs
 	}
 
 	cmd.AddCommand(NewVersionCommand())

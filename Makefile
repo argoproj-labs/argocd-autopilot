@@ -1,4 +1,4 @@
-VERSION=v0.1.0
+VERSION=v0.1.2
 OUT_DIR=dist
 
 CLI_NAME?=argocd-autopilot
@@ -111,7 +111,10 @@ codegen: $(GOBIN)/mockery $(GOBIN)/interfacer
 	go generate ./...
 
 .PHONY: pre-commit
-pre-commit: all lint codegen test
+pre-commit: lint
+
+.PHONY: pre-push
+pre-push: codegen test check-worktree
 
 .PHONY: build-docs
 build-docs:
