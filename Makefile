@@ -37,7 +37,7 @@ endif
 endif
 
 define docker_build
-	docker buildx build -t $(IMAGE_REPOSITORY)/$(IMAGE_NAMESPACE)/$(1):$(VERSION) .
+	docker buildx build -t $(IMAGE_REPOSITORY)/$(IMAGE_NAMESPACE)/$(1):dev-$(VERSION) .
 endef
 
 .PHONY: all
