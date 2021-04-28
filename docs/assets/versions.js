@@ -27,8 +27,8 @@ setTimeout(function() {
         document.getElementsByTagName('head')[0].appendChild(CSSLink);
     
         var script = document.createElement('script');
-        script.src = 'https://argocd-autopilot-codefresh.readthedocs.io/_/api/v2/footer_html/?'+
-            'callback=' + callbackName + '&project=argocd-autopilot-codefresh&page=&theme=mkdocs&format=jsonp&docroot=docs&source_suffix=.md&version=' + (window['READTHEDOCS_DATA'] || { version: 'latest' }).version;
+        script.src = 'https://argocd-autopilot.readthedocs.io/_/api/v2/footer_html/?'+
+            'callback=' + callbackName + '&project=argocd-autopilot&page=&theme=mkdocs&format=jsonp&docroot=docs&source_suffix=.md&version=' + (window['READTHEDOCS_DATA'] || { version: 'latest' }).version;
         document.getElementsByTagName('head')[0].appendChild(script);
 }, 0);
 
