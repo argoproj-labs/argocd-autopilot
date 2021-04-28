@@ -10,7 +10,6 @@ This guide assumes you are familiar with Argo CD and its basic concepts. See the
 
 ### Git authentication
 Make sure to have a valid token (https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token)
-
 ![Github token](assets/github_token.png)
 ```
 export GIT_TOKEN=ghp_PcZ...IP0
