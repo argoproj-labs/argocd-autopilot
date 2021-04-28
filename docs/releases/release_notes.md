@@ -1,6 +1,6 @@
 ## Changes:
-### Documentation:
- - improved documentation
+### Images:
+* fixed image creation
 
 ## Installation:
 
