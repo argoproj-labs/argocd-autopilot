@@ -143,3 +143,4 @@ steps:
       push_quay_dev:
         title: push to quay
         registry: "${{REGISTRY_INTEGRATION_QUAY}}"
+
