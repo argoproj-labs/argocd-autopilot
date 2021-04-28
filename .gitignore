@@ -89,3 +89,6 @@ $RECYCLE.BIN/
 
 # mkdocs
 site
+
+# codecov 
+codecov.log

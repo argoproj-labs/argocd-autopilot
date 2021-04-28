@@ -13,6 +13,7 @@ import (
 	fsmocks "github.com/argoproj/argocd-autopilot/pkg/fs/mocks"
 	"github.com/argoproj/argocd-autopilot/pkg/git"
 	gitmocks "github.com/argoproj/argocd-autopilot/pkg/git/mocks"
+	"github.com/argoproj/argocd-autopilot/pkg/util"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -50,7 +51,7 @@ func TestRunProjectCreate(t *testing.T) {
 			getInstallationNamespace: func(_ fs.FS) (string, error) {
 				return "", fmt.Errorf("failure namespace")
 			},
-			wantErr: "Bootstrap folder not found, please execute ` repo bootstrap --installation-path /` command",
+			wantErr: util.Doc("Bootstrap folder not found, please execute `<BIN> repo bootstrap --installation-path /` command"),
 		},
 		"should handle failure when project exists": {
 			opts: &ProjectCreateOptions{
@@ -217,12 +218,19 @@ func Test_getInstallationNamespace(t *testing.T) {
 		"should return the namespace from namespace.yaml": {
 			beforeFn: func(mockedFS *fsmocks.FS, mockedFile *fsmocks.File) {
 				nsYAML := `
-apiVersion: v1
-kind: Namespace
+apiVersion: argoproj.io/v1alpha1
+kind: Application
 metadata:
-  name: namespace
+  name: argo-cd
+spec:
+  destination:
+    namespace: namespace
+    server: https://kubernetes.default.svc
+  source:
+    path: manifests
+    repoURL: https://github.com/owner/name
 `
-				mockedFS.On("Join", mock.AnythingOfType("string"), mock.AnythingOfType("string"), "namespace.yaml").Return(func(elem ...string) string {
+				mockedFS.On("Join", mock.AnythingOfType("string"), "argo-cd.yaml").Return(func(elem ...string) string {
 					return strings.Join(elem, "/")
 				})
 				mockedFS.On("Open", mock.Anything).Return(mockedFile, nil)
@@ -236,7 +244,7 @@ metadata:
 		},
 		"should handle file not found": {
 			beforeFn: func(mockedFS *fsmocks.FS, _ *fsmocks.File) {
-				mockedFS.On("Join", mock.AnythingOfType("string"), mock.AnythingOfType("string"), "namespace.yaml").Return(func(elem ...string) string {
+				mockedFS.On("Join", mock.AnythingOfType("string"), "argo-cd.yaml").Return(func(elem ...string) string {
 					return strings.Join(elem, "/")
 				})
 				mockedFS.On("Open", mock.Anything).Return(nil, os.ErrNotExist)
@@ -245,7 +253,7 @@ metadata:
 		},
 		"should handle error during read": {
 			beforeFn: func(mockedFS *fsmocks.FS, mockedFile *fsmocks.File) {
-				mockedFS.On("Join", mock.AnythingOfType("string"), mock.AnythingOfType("string"), "namespace.yaml").Return(func(elem ...string) string {
+				mockedFS.On("Join", mock.AnythingOfType("string"), "argo-cd.yaml").Return(func(elem ...string) string {
 					return strings.Join(elem, "/")
 				})
 				mockedFS.On("Open", mock.Anything).Return(mockedFile, nil)
@@ -253,10 +261,10 @@ metadata:
 			},
 			wantErr: "failed to read namespace file: some error",
 		},
-		"should handle curropted namespace.yaml file": {
+		"should handle corrupted namespace.yaml file": {
 			beforeFn: func(mockedFS *fsmocks.FS, mockedFile *fsmocks.File) {
 				nsYAML := "some string"
-				mockedFS.On("Join", mock.AnythingOfType("string"), mock.AnythingOfType("string"), "namespace.yaml").Return(func(elem ...string) string {
+				mockedFS.On("Join", mock.AnythingOfType("string"), "argo-cd.yaml").Return(func(elem ...string) string {
 					return strings.Join(elem, "/")
 				})
 				mockedFS.On("Open", mock.Anything).Return(mockedFile, nil)
@@ -266,7 +274,7 @@ metadata:
 				}).Return(len(nsYAML), nil).Once()
 				mockedFile.On("Read", mock.Anything).Return(0, io.EOF).Once()
 			},
-			wantErr: "failed to unmarshal namespace: error unmarshaling JSON: json: cannot unmarshal string into Go value of type v1.Namespace",
+			wantErr: "failed to unmarshal namespace: error unmarshaling JSON: json: cannot unmarshal string into Go value of type v1alpha1.Application",
 		},
 	}
 	for ttName, tt := range tests {

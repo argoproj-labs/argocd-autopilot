@@ -548,11 +548,10 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 		return nil, err
 	}
 
-	gen, err := application.GenerateManifests(k)
+	manifests.applyManifests, err = application.GenerateManifests(k)
 	if err != nil {
 		return nil, err
 	}
-	manifests.applyManifests = util.JoinManifests(manifests.namespace, gen)
 
 	manifests.repoCreds, err = getRepoCredsSecret(cloneOpts.Auth.Password, namespace)
 	if err != nil {
@@ -571,17 +570,17 @@ func writeManifestsToRepo(repoFS fs.FS, manifests *bootstrapManifests, installat
 	argocdPath := repoFS.Join(store.Default.BootsrtrapDir, store.Default.ArgoCDName)
 	var err error
 	if installationMode == installationModeNormal {
-		_, err = repoFS.WriteFile(repoFS.Join(argocdPath, "kustomization.yaml"), manifests.bootstrapKustomization)
-	} else {
-		_, err = repoFS.WriteFile(repoFS.Join(argocdPath, "install.yaml"), manifests.applyManifests)
-	}
-	if err != nil {
-		return err
-	}
+		if _, err = repoFS.WriteFile(repoFS.Join(argocdPath, "kustomization.yaml"), manifests.bootstrapKustomization); err != nil {
+			return err
+		}
 
-	// write namespace manifest
-	if _, err = repoFS.WriteFile(repoFS.Join(argocdPath, "namespace.yaml"), manifests.namespace); err != nil {
-		return err
+		if _, err = repoFS.WriteFile(repoFS.Join(argocdPath, "namespace.yaml"), manifests.namespace); err != nil {
+			return err
+		}
+	} else {
+		if _, err = repoFS.WriteFile(repoFS.Join(argocdPath, "install.yaml"), manifests.applyManifests); err != nil {
+			return err
+		}
 	}
 
 	// write envs root app

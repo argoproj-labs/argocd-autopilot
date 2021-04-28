@@ -1,0 +1,16 @@
+default_stages: [commit, push]
+repos:
+- repo: local
+  hooks:
+  - id: pre-comit
+    name: pre-commit linting
+    language: system
+    entry: make pre-commit
+    verbose: true
+    stages: [ commit ]
+  - id: pre-push
+    name: pre-push testing
+    language: system
+    entry: make pre-push
+    verbose: true
+    stages: [ push ]

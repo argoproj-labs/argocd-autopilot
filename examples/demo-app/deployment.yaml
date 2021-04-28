@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: simple-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: trivial-go-web-app
+  template:
+    metadata:
+      labels:
+        app: trivial-go-web-app
+    spec:
+      containers:
+      - name: webserver-simple
+        image: docker.io/kostiscodefresh/simple-web-app:3d9b390
+        ports:
+        - containerPort: 8080

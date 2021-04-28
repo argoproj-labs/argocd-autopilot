@@ -1,11 +1,11 @@
-VERSION=v0.1.0
+VERSION=v0.1.2
 OUT_DIR=dist
 
 CLI_NAME?=argocd-autopilot
 IMAGE_NAMESPACE?=argoproj
 
-INSTALLATION_MANIFESTS_URL="https://raw.githubusercontent.com/argoproj/argocd-autopilot/$(VERSION)/manifests/install"
-INSTALLATION_MANIFESTS_NAMESPACED_URL="https://raw.githubusercontent.com/argoproj/argocd-autopilot/$(VERSION)/manifests/namespace-install"
+INSTALLATION_MANIFESTS_URL="github.com/argoproj-labs/argocd-autopilot/manifests?ref=$(VERSION)"
+INSTALLATION_MANIFESTS_NAMESPACED_URL="github.com/argoproj-labs/argocd-autopilot/manifests/namespace-install?ref=$(VERSION)"
 
 DEV_INSTALLATION_MANIFESTS_URL="manifests/"
 DEV_INSTALLATION_MANIFESTS_NAMESPACED_URL="manifests/namespace-install"
@@ -70,7 +70,7 @@ $(OUT_DIR)/$(CLI_NAME)-linux-s390x: GO_FLAGS='GOOS=linux GOARCH=s390x CGO_ENABLE
 
 $(OUT_DIR)/$(CLI_NAME)-%.gz:
 	@make $(OUT_DIR)/$(CLI_NAME)-$*
-	gzip --force --keep $(OUT_DIR)/$(CLI_NAME)-$*
+	cd $(OUT_DIR) && tar -czvf $(CLI_NAME)-$*.gz $(CLI_NAME)-$* && cd ..
 
 $(OUT_DIR)/$(CLI_NAME)-%.sha256:
 	@make $(OUT_DIR)/$(CLI_NAME)-$*.gz
@@ -111,7 +111,10 @@ codegen: $(GOBIN)/mockery $(GOBIN)/interfacer
 	go generate ./...
 
 .PHONY: pre-commit
-pre-commit: all lint codegen test
+pre-commit: lint
+
+.PHONY: pre-push
+pre-push: codegen test check-worktree
 
 .PHONY: build-docs
 build-docs:
@@ -120,6 +123,14 @@ build-docs:
 .PHONY: serve-docs
 serve-docs:
 	docker run ${MKDOCS_RUN_ARGS} --rm -it -p 8000:8000 -v $(shell pwd):/docs ${MKDOCS_DOCKER_IMAGE} serve -a 0.0.0.0:8000
+
+.PHONY: release
+release: tidy check-worktree fetch-tags
+	./hack/release.sh
+
+.PHONY: fetch-tags
+fetch-tags:
+	git fetch --tags
 
 .PHONY: clean
 clean:
