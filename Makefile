@@ -2,7 +2,8 @@ VERSION=v0.1.2
 OUT_DIR=dist
 
 CLI_NAME?=argocd-autopilot
-IMAGE_NAMESPACE?=argoproj
+IMAGE_REPOSITORY?=quay.io
+IMAGE_NAMESPACE?=argoprojlabs
 
 INSTALLATION_MANIFESTS_URL="github.com/argoproj-labs/argocd-autopilot/manifests?ref=$(VERSION)"
 INSTALLATION_MANIFESTS_NAMESPACED_URL="github.com/argoproj-labs/argocd-autopilot/manifests/namespace-install?ref=$(VERSION)"
@@ -36,7 +37,7 @@ endif
 endif
 
 define docker_build
-	docker buildx build -t $(IMAGE_NAMESPACE)/$(1):$(VERSION) .
+	docker buildx build -t $(IMAGE_REPOSITORY)/$(IMAGE_NAMESPACE)/$(1):$(VERSION) .
 endef
 
 .PHONY: all

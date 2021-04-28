@@ -7,12 +7,11 @@ RUN apk -U add --no-cache git ca-certificates && update-ca-certificates
 RUN adduser \
     --disabled-password \
     --gecos "" \
-    --home "/nonexistent" \
+    --home "/home/autopilot" \
     --shell "/sbin/nologin" \
     --no-create-home \
     --uid 10001 \
     autopilot
-
 
 COPY go.mod .
 COPY go.sum .
