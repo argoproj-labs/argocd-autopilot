@@ -221,6 +221,7 @@ var generateProject = func(o *GenerateProjectOptions) (*argocdv1alpha1.AppProjec
 			Namespace: o.Namespace,
 			Annotations: map[string]string{
 				"argocd.argoproj.io/sync-options": "PruneLast=true",
+				store.Default.DestServerAnnotation: o.DefaultDestServer,
 			},
 		},
 		Spec: argocdv1alpha1.AppProjectSpec{
