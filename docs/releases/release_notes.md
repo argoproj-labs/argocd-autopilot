@@ -1,6 +1,6 @@
 ## Changes:
-### Images:
-* fixed image creation
+* doc fixes
+* fixed adding application on a remote cluster
 
 ## Installation:
 
