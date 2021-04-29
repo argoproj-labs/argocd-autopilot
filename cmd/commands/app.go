@@ -138,7 +138,7 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 		return fmt.Errorf(util.Doc("Bootstrap folder not found, please execute `<BIN> repo bootstrap --installation-path %s` command"), opts.FS.Root())
 	}
 
-	if opts.AppOpts.DestServer == "" {
+	if opts.AppOpts.DestServer == store.Default.DestServer {
 		opts.AppOpts.DestServer, err = getProjectDestServer(opts.FS, opts.ProjectName)
 		if err != nil {
 			return err
