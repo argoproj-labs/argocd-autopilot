@@ -220,7 +220,7 @@ var generateProject = func(o *GenerateProjectOptions) (*argocdv1alpha1.AppProjec
 			Name:      o.Name,
 			Namespace: o.Namespace,
 			Annotations: map[string]string{
-				"argocd.argoproj.io/sync-options": "PruneLast=true",
+				"argocd.argoproj.io/sync-options":  "PruneLast=true",
 				store.Default.DestServerAnnotation: o.DefaultDestServer,
 			},
 		},
@@ -266,14 +266,6 @@ var generateProject = func(o *GenerateProjectOptions) (*argocdv1alpha1.AppProjec
 						Files: []appset.GitFileGeneratorItem{
 							{
 								Path: filepath.Join(o.InstallationPath, "kustomize", "**", "overlays", o.Name, "config.json"),
-							},
-						},
-						Template: appset.ApplicationSetTemplate{
-							Spec: appsetv1alpha1.ApplicationSpec{
-								Destination: appsetv1alpha1.ApplicationDestination{
-									Server:    o.DefaultDestServer,
-									Namespace: "default",
-								},
 							},
 						},
 						RequeueAfterSeconds: &DefaultApplicationSetGeneratorInterval,
