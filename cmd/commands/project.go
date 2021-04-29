@@ -282,7 +282,7 @@ var generateProject = func(o *GenerateProjectOptions) (*argocdv1alpha1.AppProjec
 			Template: appset.ApplicationSetTemplate{
 				ApplicationSetTemplateMeta: appset.ApplicationSetTemplateMeta{
 					Namespace: o.Namespace,
-					Name:      "{{userGivenName}}",
+					Name:      fmt.Sprintf("%s-{{userGivenName}}", o.Name),
 					Labels: map[string]string{
 						"app.kubernetes.io/managed-by": store.Default.ManagedBy,
 						"app.kubernetes.io/name":       "{{appName}}",
