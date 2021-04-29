@@ -77,11 +77,11 @@ func NewProjectCreateCommand() *cobra.Command {
 		
 # Create a new project
 	
-	<BIN> project create <new_project_name>
+	<BIN> project create <PROJECT_NAME>
 
 # Create a new project in a specific path inside the GitOps repo
 
-  <BIN> project create <new_project_name> --installation-path path/to/bootstrap/root
+  <BIN> project create <PROJECT_NAME> --installation-path path/to/bootstrap/root
 `),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
@@ -220,7 +220,8 @@ var generateProject = func(o *GenerateProjectOptions) (*argocdv1alpha1.AppProjec
 			Name:      o.Name,
 			Namespace: o.Namespace,
 			Annotations: map[string]string{
-				"argocd.argoproj.io/sync-options": "PruneLast=true",
+				"argocd.argoproj.io/sync-options":  "PruneLast=true",
+				store.Default.DestServerAnnotation: o.DefaultDestServer,
 			},
 		},
 		Spec: argocdv1alpha1.AppProjectSpec{
@@ -267,14 +268,6 @@ var generateProject = func(o *GenerateProjectOptions) (*argocdv1alpha1.AppProjec
 								Path: filepath.Join(o.InstallationPath, "kustomize", "**", "overlays", o.Name, "config.json"),
 							},
 						},
-						Template: appset.ApplicationSetTemplate{
-							Spec: appsetv1alpha1.ApplicationSpec{
-								Destination: appsetv1alpha1.ApplicationDestination{
-									Server:    o.DefaultDestServer,
-									Namespace: "default",
-								},
-							},
-						},
 						RequeueAfterSeconds: &DefaultApplicationSetGeneratorInterval,
 					},
 				},
@@ -282,7 +275,7 @@ var generateProject = func(o *GenerateProjectOptions) (*argocdv1alpha1.AppProjec
 			Template: appset.ApplicationSetTemplate{
 				ApplicationSetTemplateMeta: appset.ApplicationSetTemplateMeta{
 					Namespace: o.Namespace,
-					Name:      "{{userGivenName}}",
+					Name:      fmt.Sprintf("%s-{{userGivenName}}", o.Name),
 					Labels: map[string]string{
 						"app.kubernetes.io/managed-by": store.Default.ManagedBy,
 						"app.kubernetes.io/name":       "{{appName}}",

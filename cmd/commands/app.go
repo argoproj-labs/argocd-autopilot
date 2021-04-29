@@ -17,6 +17,7 @@ import (
 	"github.com/argoproj/argocd-autopilot/pkg/store"
 	"github.com/argoproj/argocd-autopilot/pkg/util"
 
+	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/ghodss/yaml"
 	memfs "github.com/go-git/go-billy/v5/memfs"
 	billyUtils "github.com/go-git/go-billy/v5/util"
@@ -130,16 +131,24 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 	if err != nil {
 		return err
 	}
+
 	log.G().Infof("using revision: \"%s\", installation path: \"%s\"", opts.CloneOptions.Revision, opts.FS.Root())
 
 	if !opts.FS.ExistsOrDie(store.Default.BootsrtrapDir) {
 		return fmt.Errorf(util.Doc("Bootstrap folder not found, please execute `<BIN> repo bootstrap --installation-path %s` command"), opts.FS.Root())
 	}
 
-	projectExists := opts.FS.ExistsOrDie(opts.FS.Join(store.Default.ProjectsDir, opts.ProjectName+".yaml"))
-	if !projectExists {
-		return fmt.Errorf(util.Doc("project '%[1]s' not found, please execute `<BIN> project create %[1]s`"), opts.ProjectName)
+	if opts.AppOpts.DestServer == store.Default.DestServer {
+		opts.AppOpts.DestServer, err = getProjectDestServer(opts.FS, opts.ProjectName)
+		if err != nil {
+			return err
+		}
 	}
+
+	if opts.AppOpts.DestNamespace == "" {
+		opts.AppOpts.DestNamespace = "default"
+	}
+
 	log.G().Debug("repository is ok")
 
 	app, err := opts.AppOpts.Parse()
@@ -159,6 +168,7 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 	if err = r.Persist(ctx, &git.PushOptions{CommitMsg: getCommitMsg(opts)}); err != nil {
 		return fmt.Errorf("failed to push to repo: %w", err)
 	}
+
 	log.G().Infof("installed application: %s", opts.AppOpts.AppName)
 
 	return nil
@@ -193,6 +203,7 @@ func createApplicationFiles(repoFS fs.FS, app application.Application, projectNa
 	if err != nil {
 		return fmt.Errorf("failed to marshal app overlay kustomization: %w", err)
 	}
+
 	if exists, err := writeApplicationFile(repoFS, overlayKustomizationPath, "overlay", overlayKustomizationYAML); err != nil {
 		return err
 	} else if exists {
@@ -225,6 +236,7 @@ func createApplicationFiles(repoFS fs.FS, app application.Application, projectNa
 	if err != nil {
 		return fmt.Errorf("failed to marshal app config.json: %w", err)
 	}
+
 	if _, err = writeApplicationFile(repoFS, configPath, "config", config); err != nil {
 		return err
 	}
@@ -260,6 +272,7 @@ func writeApplicationFile(repoFS fs.FS, path, name string, data []byte) (bool, e
 		log.G().Infof("'%s' file exists in '%s'", name, absPath)
 		return true, nil
 	}
+
 	log.G().Infof("created '%s' file at '%s'", name, absPath)
 	return false, nil
 }
@@ -269,8 +282,29 @@ func getCommitMsg(opts *AppCreateOptions) string {
 	if opts.CloneOptions.RepoRoot != "" {
 		commitMsg += fmt.Sprintf(" installation-path: '%s'", opts.CloneOptions.RepoRoot)
 	}
+
 	return commitMsg
 }
+
+var getProjectDestServer = func(repofs fs.FS, projectName string) (string, error) {
+	f, err := repofs.Open(repofs.Join(store.Default.ProjectsDir, projectName+".yaml"))
+	if err != nil {
+		return "", err
+	}
+
+	d, err := ioutil.ReadAll(f)
+	if err != nil {
+		return "", fmt.Errorf("failed to read namespace file: %w", err)
+	}
+
+	p := &argocdv1alpha1.AppProject{}
+	if err = yaml.Unmarshal(d, p); err != nil {
+		return "", fmt.Errorf("failed to unmarshal project: %w", err)
+	}
+
+	return p.Annotations[store.Default.DestServerAnnotation], nil
+}
+
 func NewAppListCommand() *cobra.Command {
 	var (
 		projectName string
@@ -316,7 +350,6 @@ func NewAppListCommand() *cobra.Command {
 }
 
 func RunAppList(ctx context.Context, opts *AppListOptions) error {
-
 	var (
 		err error
 	)
@@ -351,6 +384,7 @@ func RunAppList(ctx context.Context, opts *AppListOptions) error {
 	if err != nil {
 		log.G().Fatalf("failed to run glob on %s", opts.ProjectName)
 	}
+
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	_, _ = fmt.Fprintf(w, "PROJECT\tNAME\tDEST_NAMESPACE\tDEST_SERVER\t\n")
 
@@ -363,26 +397,28 @@ func RunAppList(ctx context.Context, opts *AppListOptions) error {
 
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t\n", opts.ProjectName, conf.UserGivenName, conf.DestNamespace, conf.DestServer)
 	}
+
 	_ = w.Flush()
 	return nil
-
 }
-func getConfigFileFromPath(fs fs.FS, appName string) (*application.Config, error) {
 
+func getConfigFileFromPath(fs fs.FS, appName string) (*application.Config, error) {
 	confFileName := fmt.Sprintf("%s/config.json", appName)
 	file, err := fs.Open(confFileName)
 	if err != nil {
 		return nil, fmt.Errorf("%s not found", confFileName)
 	}
+
 	b, err := ioutil.ReadAll(file)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file %s", confFileName)
 	}
+
 	conf := application.Config{}
 	err = json.Unmarshal(b, &conf)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal file %s", confFileName)
 	}
-	return &conf, nil
 
+	return &conf, nil
 }

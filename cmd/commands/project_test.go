@@ -13,6 +13,7 @@ import (
 	fsmocks "github.com/argoproj/argocd-autopilot/pkg/fs/mocks"
 	"github.com/argoproj/argocd-autopilot/pkg/git"
 	gitmocks "github.com/argoproj/argocd-autopilot/pkg/git/mocks"
+	"github.com/argoproj/argocd-autopilot/pkg/store"
 	"github.com/argoproj/argocd-autopilot/pkg/util"
 
 	"github.com/stretchr/testify/assert"
@@ -192,12 +193,12 @@ func Test_generateProject(t *testing.T) {
 			assert.Equal(tt.wantName, gotProject.Name, "Project Name")
 			assert.Equal(tt.wantNamespace, gotProject.Namespace, "Project Namespace")
 			assert.Equal(tt.wantProjectDescription, gotProject.Spec.Description, "Project Description")
+			assert.Equal(tt.o.DefaultDestServer, gotProject.Annotations[store.Default.DestServerAnnotation], "Application Set Default Destination Server")
 
 			assert.Equal(tt.wantName, gotAppSet.Name, "Application Set Name")
 			assert.Equal(tt.wantNamespace, gotAppSet.Namespace, "Application Set Namespace")
 			assert.Equal(tt.wantRepoURL, gotAppSet.Spec.Generators[0].Git.RepoURL, "Application Set Repo URL")
 			assert.Equal(tt.wantRevision, gotAppSet.Spec.Generators[0].Git.Revision, "Application Set Revision")
-			assert.Equal(tt.o.DefaultDestServer, gotAppSet.Spec.Generators[0].Git.Template.Spec.Destination.Server, "Application Set Default Destination Server")
 
 			assert.Equal(tt.wantNamespace, gotAppSet.Spec.Template.Namespace, "Application Set Template Repo URL")
 			assert.Equal(tt.wantName, gotAppSet.Spec.Template.Spec.Project, "Application Set Template Project")

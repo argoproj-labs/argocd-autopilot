@@ -9,7 +9,7 @@ This guide assumes you are familiar with Argo CD and its basic concepts. See the
 * Have a [kubeconfig](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/) file (default location is `~/.kube/config`)
 
 ### Git authentication
-Make sure to have a valid token (https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token)
+Make sure to have a [valid token](https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token)
 ![Github token](assets/github_token.png)
 ```
 export GIT_TOKEN=ghp_PcZ...IP0
@@ -62,7 +62,7 @@ Running Applications:
 Execute the following commands to create a `testing` Project, and add a example Application to it:
 ```
 argocd-autopilot project create testing
-argocd-autopilot app create hello-world github.com/argoproj-labs/argocd-autopilot/examples/demo-app/ --p testing
+argocd-autopilot app create hello-world --app github.com/argoproj-labs/argocd-autopilot/examples/demo-app/ -p testing
 ```
 <sub>* notice the trailing slash in the URL</sub>
 

@@ -10,6 +10,13 @@ This guide is meant for developers who want to contribute or debug `argocd-autop
 6. Push the changes to the remote branch and create a new PR: `git push --set-upstream upstream <remote-branch-name>`.
 7. If you need to get changes from the upstream repo, run: `git pull upstream main`.
 
+### Adding documentation:
+1. Fork the repository.
+2. Clone it and add the upstream remote with: `git remote add upstream https://github.com/argoproj-labs/argocd-autopilot.git`.
+3. Run `make serve-docs` to run a docker container that will server the docs on http://localhost:8000.
+4. Edit existing docs in `/docs` directory or add new `X.md` files and add them to the `mkdocs.yml`.
+5. When you're ready, push your changes to your fork and submit a PR.
+
 ### Releasing a new version:
 1. Checkout to a release branch: `v0.X.X`.
 2. Change the `VERSION` in the Makefile to match the new version.
@@ -20,6 +27,7 @@ This guide is meant for developers who want to contribute or debug `argocd-autop
 
 ### Using pre-commit:
 With pre-commit installed and properly set-up, both the pre-commit and pre-push hooks will run automatically.
+
 1. Install [pre-commit](https://pre-commit.com/#install) on your machine
 2. Install the hooks in the repo folder: `pre-commit install -t pre-commit -t pre-push`
 3. Enjoy
