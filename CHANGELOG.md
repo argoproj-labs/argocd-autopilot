@@ -1,5 +1,9 @@
 # Changelog:
 
+# v0.1.4
+* doc fixes
+* fixed adding application on a remote cluster
+
 # v0.1.3
 * fixed docker image creation
 
