@@ -8,8 +8,7 @@ It can:
 * create a new gitops repository.
 * bootstrap a new argo cd installation.
 * install and manage argo-cd projects and application with ease.
-* install and manage a single application multiple times on different logical environments on different K8s clusters.
-
+* install and manage a single application multiple times on different logical environments on different K8S clusters.
 
 ## How it works
 The autopilot bootstrap command will deploy an Argo-CD manifest to a target k8s cluster, and will commit an Argo-CD Application manifest under a specific directory in your GitOps repository. This Application will manage the Argo-CD installation itself - so after running this command, you will have an Argo-CD deployment that manages itself through GitOps.
