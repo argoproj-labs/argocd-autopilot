@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -31,6 +32,12 @@ const (
 	installationModeFlat   = "flat"
 	installationModeNormal = "normal"
 )
+
+//go:embed assets/projects_readme.md
+var projectReadme []byte
+
+//go:embed assets/kustomization_readme.md
+var kustomizationReadme []byte
 
 var supportedProviders = []string{"github"}
 
@@ -583,7 +590,7 @@ func writeManifestsToRepo(repoFS fs.FS, manifests *bootstrapManifests, installat
 		}
 	}
 
-	// write envs root app
+	// write projects root app
 	if _, err = repoFS.WriteFile(repoFS.Join(store.Default.BootsrtrapDir, store.Default.RootAppName+".yaml"), manifests.rootApp); err != nil {
 		return err
 	}
@@ -593,8 +600,13 @@ func writeManifestsToRepo(repoFS fs.FS, manifests *bootstrapManifests, installat
 		return err
 	}
 
-	// write ./envs/Dummy
-	if _, err = repoFS.WriteFile(repoFS.Join(store.Default.ProjectsDir, store.Default.DummyName), []byte{}); err != nil {
+	// write ./projects/README.md
+	if _, err = repoFS.WriteFile(repoFS.Join(store.Default.ProjectsDir, "README.md"), projectReadme); err != nil {
+		return err
+	}
+
+	// write ./kustomize/README.md
+	if _, err = repoFS.WriteFile(repoFS.Join(store.Default.KustomizeDir, "README.md"), kustomizationReadme); err != nil {
 		return err
 	}
 

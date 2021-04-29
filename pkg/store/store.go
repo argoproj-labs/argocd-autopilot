@@ -57,7 +57,6 @@ var Default = struct {
 	ArgoCDName:          "argo-cd",
 	ArgoCDNamespace:     "argocd",
 	BootsrtrapAppName:   "autopilot-bootstrap",
-	DummyName:           "DUMMY",
 	ProjectsDir:         "projects",
 	ManagedBy:           "argo-autopilot",
 	RootAppName:         "root",

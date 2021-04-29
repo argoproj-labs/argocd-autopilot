@@ -77,11 +77,11 @@ func NewProjectCreateCommand() *cobra.Command {
 		
 # Create a new project
 	
-	<BIN> project create <new_project_name>
+	<BIN> project create <PROJECT_NAME>
 
 # Create a new project in a specific path inside the GitOps repo
 
-  <BIN> project create <new_project_name> --installation-path path/to/bootstrap/root
+  <BIN> project create <PROJECT_NAME> --installation-path path/to/bootstrap/root
 `),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {

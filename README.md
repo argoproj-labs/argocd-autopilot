@@ -44,7 +44,7 @@ argocd-autopilot version
 ```
 
 ## Getting Started
-```
+```bash
 # Most of the commands need your git token, you can provide with --token to each command
 # or export it beforehand:
 
