@@ -27,6 +27,7 @@ This guide is meant for developers who want to contribute or debug `argocd-autop
 
 ### Using pre-commit:
 With pre-commit installed and properly set-up, both the pre-commit and pre-push hooks will run automatically.
+
 1. Install [pre-commit](https://pre-commit.com/#install) on your machine
 2. Install the hooks in the repo folder: `pre-commit install -t pre-commit -t pre-push`
 3. Enjoy
