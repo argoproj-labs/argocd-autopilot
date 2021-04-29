@@ -8,7 +8,7 @@ It can:
 * create a new gitops repository.
 * bootstrap a new argo cd installation.
 * install and manage argo-cd projects and application with ease.
-* install and manage a single application multiple times on different projects that can be deployed on different clusters
+* install and manage a single application multiple times on different projects that can be deployed on different clusters.
 
 
 ## How it works
