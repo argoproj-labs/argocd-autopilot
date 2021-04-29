@@ -62,7 +62,7 @@ Running Applications:
 Execute the following commands to create a `testing` Project, and add a example Application to it:
 ```
 argocd-autopilot project create testing
-argocd-autopilot app create hello-world github.com/argoproj-labs/argocd-autopilot/examples/demo-app/ --p testing
+argocd-autopilot app create hello-world --app github.com/argoproj-labs/argocd-autopilot/examples/demo-app/ -p testing
 ```
 <sub>* notice the trailing slash in the URL</sub>
 
