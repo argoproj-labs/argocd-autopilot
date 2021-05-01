@@ -53,7 +53,7 @@ Execute the port forward command, and browse to http://localhost:8080. Log in us
 
 ![Step 1](assets/getting_started_1.png)
 
-Running Applications:
+### Running Applications:
 * autopilot-bootstrap - References the `bootstrap` directory in the GitOps repository, and manages the other 2 applications
 * argo-cd - References the `bootstrap/argo-cd` folder, and manages the Argo CD deployment itself (including Argo CD ApplicationSet)
 * root - References the `projects` directiry in the repo. The folder contains only an empty `DUMMY` file after the bootstrap command, so no projects will be created
