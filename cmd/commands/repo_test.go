@@ -17,7 +17,7 @@ func TestRunRepoCreate(t *testing.T) {
 			opts: &RepoCreateOptions{
 				Provider: "foobar",
 			},
-			assertFn: func(t *testing.T, opts *RepoCreateOptions, ret error) {
+			assertFn: func(t *testing.T, _ *RepoCreateOptions, ret error) {
 				assert.ErrorIs(t, ret, git.ErrProviderNotSupported)
 			},
 		},

@@ -1,10 +1,12 @@
 package commands
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"reflect"
 	"testing"
 
 	"github.com/argoproj/argocd-autopilot/pkg/application"
@@ -16,6 +18,7 @@ import (
 	"github.com/argoproj/argocd-autopilot/pkg/store"
 	"github.com/ghodss/yaml"
 	"github.com/go-git/go-billy/v5/memfs"
+	memfs "github.com/go-git/go-billy/v5/memfs"
 	osfs "github.com/go-git/go-billy/v5/osfs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -162,9 +165,11 @@ func Test_writeApplicationFile(t *testing.T) {
 				bfs, _ := repofs.Chroot(tt.args.root)
 				repofs = fs.Create(bfs)
 			}
+
 			if tt.beforeFn != nil {
 				repofs = tt.beforeFn(repofs)
 			}
+
 			got, err := writeApplicationFile(repofs, tt.args.path, tt.args.name, tt.args.data)
 			tt.assertFn(t, repofs, got, err)
 		})
@@ -172,7 +177,6 @@ func Test_writeApplicationFile(t *testing.T) {
 }
 
 func Test_createApplicationFiles(t *testing.T) {
-
 	getAppMock := func() *appmocks.Application {
 		app := &appmocks.Application{}
 		app.On("Name").Return("foo")
@@ -318,7 +322,6 @@ func Test_createApplicationFiles(t *testing.T) {
 }
 
 func Test_getConfigFileFromPath(t *testing.T) {
-
 	tests := map[string]struct {
 		appName  string
 		want     *application.Config
@@ -365,17 +368,59 @@ func Test_getConfigFileFromPath(t *testing.T) {
 			if tt.beforeFn != nil {
 				repofs = tt.beforeFn(repofs, tt.appName)
 			}
+
 			got, err := getConfigFileFromPath(repofs, tt.appName)
 			if err != nil && tt.wantErr != "" {
 				assert.EqualError(t, err, tt.wantErr)
 			}
+
 			if (err != nil) && tt.wantErr == "" {
 				t.Errorf("getConfigFileFromPath() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+
 			if tt.assertFn != nil {
 				tt.assertFn(t, got)
 			}
 		})
 	}
 }
+
+// func Test_prepare(t *testing.T) {
+// 	type args struct {
+// 		filesystem  fs.FS
+// 		opts        git.CloneOptions
+// 		projectName string
+// 	}
+// 	tests := map[string]struct {
+// 		args     args
+// 		clone    func(ctx context.Context, r *git.CloneOptions, filesystem fs.FS) (git.Repository, fs.FS, error)
+// 		wantRepo git.Repository
+// 		wantFS   fs.FS
+// 		wantErr  string
+// 	}{
+// 		// TODO: Add test cases.
+// 	}
+// 	for name, tt := range tests {
+// 		t.Run(name, func(t *testing.T) {
+// 			gotRepo, gotFS, err := prepare(context.Background(), tt.args.filesystem, tt.args.opts, tt.args.projectName)
+// 			if err != nil {
+// 				if tt.wantErr != "" {
+// 					assert.EqualError(t, err, tt.wantErr)
+// 				} else {
+// 					t.Errorf("prepare() error = %v", err)
+// 				}
+
+// 				return
+// 			}
+
+// 			if !reflect.DeepEqual(gotRepo, tt.wantRepo) {
+// 				t.Errorf("prepare() got = %v, want %v", gotRepo, tt.wantRepo)
+// 			}
+
+// 			if !reflect.DeepEqual(gotFS, tt.wantFS) {
+// 				t.Errorf("prepare() got1 = %v, want %v", gotFS, tt.wantFS)
+// 			}
+// 		})
+// 	}
+// }
