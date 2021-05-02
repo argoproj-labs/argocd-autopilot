@@ -31,16 +31,24 @@ var (
 )
 
 type (
-	AppCreateOptions struct {
+	AppBaseOptions struct {
 		ProjectName  string
 		FS           fs.FS
-		AppOpts      *application.CreateOptions
 		CloneOptions *git.CloneOptions
 	}
+
+	AppCreateOptions struct {
+		AppBaseOptions
+		AppOpts *application.CreateOptions
+	}
 	AppListOptions struct {
-		ProjectName  string
-		FS           fs.FS
-		CloneOptions *git.CloneOptions
+		AppBaseOptions
+	}
+
+	AppDeleteOptions struct {
+		AppBaseOptions
+		AppName string
+		Global  bool
 	}
 )
 
@@ -57,6 +65,7 @@ func NewAppCommand() *cobra.Command {
 
 	cmd.AddCommand(NewAppCreateCommand())
 	cmd.AddCommand(NewAppListCommand())
+	cmd.AddCommand(NewAppDeleteCommand())
 
 	return cmd
 }
@@ -94,10 +103,12 @@ func NewAppCreateCommand() *cobra.Command {
 			appOpts.AppName = args[0]
 
 			return RunAppCreate(cmd.Context(), &AppCreateOptions{
-				ProjectName:  projectName,
-				FS:           fs.Create(memfs.New()),
-				AppOpts:      appOpts,
-				CloneOptions: cloneOpts,
+				AppBaseOptions: AppBaseOptions{
+					ProjectName:  projectName,
+					FS:           fs.Create(memfs.New()),
+					CloneOptions: cloneOpts,
+				},
+				AppOpts: appOpts,
 			})
 		},
 	}
@@ -119,23 +130,10 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 		r   git.Repository
 	)
 
-	log.G().WithFields(log.Fields{
-		"repoURL":  opts.CloneOptions.URL,
-		"revision": opts.CloneOptions.Revision,
-		"appName":  opts.AppOpts.AppName,
-	}).Debug("starting with options: ")
-
 	// clone repo
-	log.G().Infof("cloning git repository: %s", opts.CloneOptions.URL)
-	r, opts.FS, err = opts.CloneOptions.Clone(ctx, opts.FS)
+	_, opts.FS, err = prepare(ctx, opts.FS, *opts.CloneOptions, opts.ProjectName)
 	if err != nil {
 		return err
-	}
-
-	log.G().Infof("using revision: \"%s\", installation path: \"%s\"", opts.CloneOptions.Revision, opts.FS.Root())
-
-	if !opts.FS.ExistsOrDie(store.Default.BootsrtrapDir) {
-		return fmt.Errorf(util.Doc("Bootstrap folder not found, please execute `<BIN> repo bootstrap --installation-path %s` command"), opts.FS.Root())
 	}
 
 	if opts.AppOpts.DestServer == store.Default.DestServer {
@@ -148,8 +146,6 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 	if opts.AppOpts.DestNamespace == "" {
 		opts.AppOpts.DestNamespace = "default"
 	}
-
-	log.G().Debug("repository is ok")
 
 	app, err := opts.AppOpts.Parse()
 	if err != nil {
@@ -308,8 +304,7 @@ var getProjectDestServer = func(repofs fs.FS, projectName string) (string, error
 func NewAppListCommand() *cobra.Command {
 	var (
 		projectName string
-		//	appListOpts   *application.
-		cloneOpts *git.CloneOptions
+		cloneOpts   *git.CloneOptions
 	)
 
 	cmd := &cobra.Command{
@@ -337,9 +332,11 @@ func NewAppListCommand() *cobra.Command {
 			projectName = args[0]
 
 			return RunAppList(cmd.Context(), &AppListOptions{
-				ProjectName:  projectName,
-				FS:           fs.Create(memfs.New()),
-				CloneOptions: cloneOpts,
+				AppBaseOptions: AppBaseOptions{
+					ProjectName:  projectName,
+					FS:           fs.Create(memfs.New()),
+					CloneOptions: cloneOpts,
+				},
 			})
 		},
 	}
@@ -354,33 +351,15 @@ func RunAppList(ctx context.Context, opts *AppListOptions) error {
 		err error
 	)
 
-	log.G().WithFields(log.Fields{
-		"repoURL":  opts.CloneOptions.URL,
-		"revision": opts.CloneOptions.Revision,
-	}).Debug("starting with options: ")
-
 	// clone repo
-	log.G().Infof("cloning git repository: %s", opts.CloneOptions.URL)
-	_, opts.FS, err = opts.CloneOptions.Clone(ctx, opts.FS)
+	_, opts.FS, err = prepare(ctx, opts.FS, *opts.CloneOptions, opts.ProjectName)
 	if err != nil {
 		return err
 	}
 
-	log.G().Infof("using revision: \"%s\", installation path: \"%s\"", opts.CloneOptions.Revision, opts.FS.Root())
-	if !opts.FS.ExistsOrDie(store.Default.BootsrtrapDir) {
-		log.G().Fatalf("Bootstrap folder not found, please execute `repo bootstrap --installation-path %s` command", opts.FS.Root())
-	}
-
-	projExists := opts.FS.ExistsOrDie(opts.FS.Join(store.Default.ProjectsDir, opts.ProjectName+".yaml"))
-	if !projExists {
-		log.G().Fatalf(util.Doc(fmt.Sprintf("project '%[1]s' not found, please execute `<BIN> project create %[1]s`", opts.ProjectName)))
-	}
-
-	log.G().Debug("repository is ok")
-
 	// get all apps beneath kustomize <project>\overlayes
-
-	matches, err := billyUtils.Glob(opts.FS, fmt.Sprintf("/kustomize/*/overlays/%s", opts.ProjectName))
+	glob := opts.FS.Join(store.Default.KustomizeDir, "*", store.Default.OverlaysDir, opts.ProjectName)
+	matches, err := billyUtils.Glob(opts.FS, glob)
 	if err != nil {
 		log.G().Fatalf("failed to run glob on %s", opts.ProjectName)
 	}
@@ -421,4 +400,152 @@ func getConfigFileFromPath(fs fs.FS, appName string) (*application.Config, error
 	}
 
 	return &conf, nil
+}
+
+func NewAppDeleteCommand() *cobra.Command {
+	var (
+		appName     string
+		projectName string
+		global      bool
+		cloneOpts   *git.CloneOptions
+	)
+
+	cmd := &cobra.Command{
+		Use:   "delete [APP_NAME]",
+		Short: "Delete an application from a project",
+		Example: util.Doc(`
+# To run this command you need to create a personal access token for your git provider,
+# and have a bootstrapped GitOps repository, and provide them using:
+	
+		export GIT_TOKEN=<token>
+		export GIT_REPO=<repo_url>
+
+# or with the flags:
+	
+		--token <token> --repo <repo_url>
+		
+# Get list of installed applications in a specifc project
+	
+	<BIN> app delete <app_name> --project <project_name>
+`),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) < 1 {
+				log.G().Fatal("must enter application name")
+			}
+
+			appName = args[0]
+
+			if projectName == "" && !global {
+				log.G().Fatal("must enter project name OR use '--global' flag")
+			}
+
+			return RunAppDelete(cmd.Context(), &AppDeleteOptions{
+				AppBaseOptions: AppBaseOptions{
+					ProjectName:  projectName,
+					FS:           fs.Create(memfs.New()),
+					CloneOptions: cloneOpts,
+				},
+				AppName: appName,
+				Global:  global,
+			})
+		},
+	}
+	cloneOpts, err := git.AddFlags(cmd)
+	util.Die(err)
+
+	cmd.Flags().StringVarP(&projectName, "project", "p", "", "Project name")
+	cmd.Flags().BoolVarP(&global, "global", "g", false, "global")
+
+	return cmd
+}
+
+func RunAppDelete(ctx context.Context, opts *AppDeleteOptions) error {
+	var (
+		r   git.Repository
+		err error
+	)
+
+	log.G().WithFields(log.Fields{
+		"repoURL":  opts.CloneOptions.URL,
+		"revision": opts.CloneOptions.Revision,
+	}).Debug("starting with options: ")
+
+	// clone repo
+	log.G().Infof("cloning git repository: %s", opts.CloneOptions.URL)
+	r, opts.FS, err = prepare(ctx, opts.FS, *opts.CloneOptions, opts.ProjectName)
+	if err != nil {
+		return err
+	}
+
+	appDir := opts.FS.Join(store.Default.KustomizeDir, opts.AppName)
+	appExists := opts.FS.ExistsOrDie(appDir)
+	if !appExists {
+		return fmt.Errorf(util.Doc(fmt.Sprintf("application '%s' not found", opts.AppName)))
+	}
+
+	commitMsg := fmt.Sprintf("Deleted app '%s'", opts.AppName)
+	if opts.Global {
+		util.Die(opts.FS.Remove(appDir))
+	} else {
+		appOverlaysDir := opts.FS.Join(appDir, store.Default.OverlaysDir)
+		projectDir := opts.FS.Join(appOverlaysDir, opts.ProjectName)
+		overlayExists := opts.FS.ExistsOrDie(projectDir)
+		if !overlayExists {
+			return fmt.Errorf(util.Doc(fmt.Sprintf("application '%s' not found in project '%s'", opts.AppName, opts.ProjectName)))
+		}
+
+		allOverlays, err := opts.FS.ReadDir(appOverlaysDir)
+		if err != nil {
+			return err
+		}
+
+		if len(allOverlays) == 1 {
+			err = opts.FS.Remove(appDir)
+		} else {
+			commitMsg += fmt.Sprintf(" from project '%s'", opts.ProjectName)
+			err = opts.FS.Remove(projectDir)
+		}
+
+		if err != nil {
+			return err
+		}
+	}
+
+	log.G().Info("committing changes to gitops repo...")
+	if err = r.Persist(ctx, &git.PushOptions{CommitMsg: commitMsg}); err != nil {
+		return fmt.Errorf("failed to push to repo: %w", err)
+	}
+
+	return nil
+}
+
+func prepare(ctx context.Context, filesystem fs.FS, opts git.CloneOptions, projectName string) (git.Repository, fs.FS, error) {
+	var (
+		r   git.Repository
+		err error
+	)
+	log.G().WithFields(log.Fields{
+		"repoURL":  opts.URL,
+		"revision": opts.Revision,
+	}).Debug("starting with options: ")
+
+	// clone repo
+	log.G().Infof("cloning git repository: %s", opts.URL)
+	r, filesystem, err = opts.Clone(ctx, filesystem)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	log.G().Infof("using revision: \"%s\", installation path: \"%s\"", opts.Revision, filesystem.Root())
+	if !filesystem.ExistsOrDie(store.Default.BootsrtrapDir) {
+		return nil, nil, fmt.Errorf("Bootstrap folder not found, please execute `repo bootstrap --installation-path %s` command", filesystem.Root())
+	}
+
+	projExists := filesystem.ExistsOrDie(filesystem.Join(store.Default.ProjectsDir, projectName+".yaml"))
+	if !projExists {
+		return nil, nil, fmt.Errorf(util.Doc(fmt.Sprintf("project '%[1]s' not found, please execute `<BIN> project create %[1]s`", projectName)))
+	}
+
+	log.G().Debug("repository is ok")
+	return r, filesystem, nil
 }

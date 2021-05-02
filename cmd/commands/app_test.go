@@ -29,13 +29,15 @@ func Test_getCommitMsg(t *testing.T) {
 	}{
 		"On root": {
 			opts: &AppCreateOptions{
-				CloneOptions: &git.CloneOptions{
-					RepoRoot: "",
+				AppBaseOptions: AppBaseOptions{
+					CloneOptions: &git.CloneOptions{
+						RepoRoot: "",
+					},
+					ProjectName: "bar",
 				},
 				AppOpts: &application.CreateOptions{
 					AppName: "foo",
 				},
-				ProjectName: "bar",
 			},
 			assertFn: func(t *testing.T, res string) {
 				assert.Contains(t, res, "installed app 'foo' on project 'bar'")
@@ -44,13 +46,15 @@ func Test_getCommitMsg(t *testing.T) {
 		},
 		"On installation path": {
 			opts: &AppCreateOptions{
-				CloneOptions: &git.CloneOptions{
-					RepoRoot: "foo/bar",
+				AppBaseOptions: AppBaseOptions{
+					CloneOptions: &git.CloneOptions{
+						RepoRoot: "foo/bar",
+					},
+					ProjectName: "bar",
 				},
 				AppOpts: &application.CreateOptions{
 					AppName: "foo",
 				},
-				ProjectName: "bar",
 			},
 			assertFn: func(t *testing.T, res string) {
 				assert.Contains(t, res, "installed app 'foo' on project 'bar'")
@@ -126,7 +130,7 @@ func Test_writeApplicationFile(t *testing.T) {
 				_, _ = repofs.WriteFile("/foo/bar", []byte("data"))
 				return repofs
 			},
-			assertFn: func(t *testing.T, repofs fs.FS, exists bool, ret error) {
+			assertFn: func(t *testing.T, _ fs.FS, exists bool, ret error) {
 				assert.NoError(t, ret)
 				assert.True(t, exists)
 			},
@@ -137,7 +141,7 @@ func Test_writeApplicationFile(t *testing.T) {
 				name: "test",
 				data: []byte("data2"),
 			},
-			beforeFn: func(repofs fs.FS) fs.FS {
+			beforeFn: func(_ fs.FS) fs.FS {
 				mfs := &fsmocks.FS{}
 				mfs.On("CheckExistsOrWrite", mock.Anything, mock.Anything).Return(false, fmt.Errorf("error"))
 				mfs.On("Root").Return("/")
@@ -145,7 +149,7 @@ func Test_writeApplicationFile(t *testing.T) {
 
 				return mfs
 			},
-			assertFn: func(t *testing.T, repofs fs.FS, exists bool, ret error) {
+			assertFn: func(t *testing.T, _ fs.FS, _ bool, ret error) {
 				assert.Error(t, ret)
 				assert.EqualError(t, ret, "failed to create 'test' file at '/foo/bar': error")
 			},
@@ -206,7 +210,7 @@ func Test_createApplicationFiles(t *testing.T) {
 
 				return repofs, app, "fooproj"
 			},
-			assertFn: func(t *testing.T, repofs fs.FS, a application.Application, ret error) {
+			assertFn: func(t *testing.T, repofs fs.FS, _ application.Application, ret error) {
 				defer os.RemoveAll(repofs.Root()) // remove temp dir
 				assert.NoError(t, ret)
 				assert.DirExists(t, repofs.Join(repofs.Root(), store.Default.KustomizeDir), "kustomization dir should exist")
@@ -244,7 +248,7 @@ func Test_createApplicationFiles(t *testing.T) {
 
 				return repofs, app, "fooproj"
 			},
-			assertFn: func(t *testing.T, repofs fs.FS, a application.Application, ret error) {
+			assertFn: func(t *testing.T, repofs fs.FS, _ application.Application, ret error) {
 				defer os.RemoveAll(repofs.Root()) // remove temp dir
 				assert.NoError(t, ret)
 				assert.DirExists(t, repofs.Join(repofs.Root(), store.Default.KustomizeDir), "kustomization dir should exist")
@@ -278,7 +282,7 @@ func Test_createApplicationFiles(t *testing.T) {
 
 				return repofs, app, "fooproj"
 			},
-			assertFn: func(t *testing.T, repofs fs.FS, a application.Application, ret error) {
+			assertFn: func(t *testing.T, repofs fs.FS, _ application.Application, ret error) {
 				defer os.RemoveAll(repofs.Root()) // remove temp dir
 				assert.ErrorIs(t, ret, ErrAppCollisionWithExistingBase)
 			},
@@ -298,7 +302,7 @@ func Test_createApplicationFiles(t *testing.T) {
 
 				return repofs, app, "fooproj"
 			},
-			assertFn: func(t *testing.T, repofs fs.FS, a application.Application, ret error) {
+			assertFn: func(t *testing.T, repofs fs.FS, _ application.Application, ret error) {
 				defer os.RemoveAll(repofs.Root()) // remove temp dir
 				assert.ErrorIs(t, ret, ErrAppAlreadyInstalledOnProject)
 			},
