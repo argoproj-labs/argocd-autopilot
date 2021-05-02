@@ -102,3 +102,8 @@ You can read more about it in the [official proposal doc](https://docs.google.co
 
 ## Development Status
 Argo-CD autopilot is currently under active development. Some of the basic commands are not yet implemented, but we hope to complete most of them in the coming weeks.
+
+## Slack Channel
+Join us in channel #argo-autopilot in CNCF slack workspace.
+
+Click here to join: https://slack.cncf.io/
