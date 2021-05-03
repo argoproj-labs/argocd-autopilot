@@ -444,10 +444,7 @@ func NewAppDeleteCommand(r git.Repository, filesystem fs.FS, projectName string)
 }
 
 func RunAppDelete(ctx context.Context, opts *AppDeleteOptions) error {
-	var (
-		r   git.Repository
-		err error
-	)
+	var err error
 
 	appDir := opts.FS.Join(store.Default.KustomizeDir, opts.AppName)
 	appExists := opts.FS.ExistsOrDie(appDir)
@@ -455,9 +452,10 @@ func RunAppDelete(ctx context.Context, opts *AppDeleteOptions) error {
 		return fmt.Errorf(util.Doc(fmt.Sprintf("application '%s' not found", opts.AppName)))
 	}
 
+	var dirToRemove string
 	commitMsg := fmt.Sprintf("Deleted app '%s'", opts.AppName)
 	if opts.Global {
-		err = opts.FS.Remove(appDir)
+		dirToRemove = appDir
 	} else {
 		appOverlaysDir := opts.FS.Join(appDir, store.Default.OverlaysDir)
 		projectDir := opts.FS.Join(appOverlaysDir, opts.ProjectName)
@@ -468,23 +466,24 @@ func RunAppDelete(ctx context.Context, opts *AppDeleteOptions) error {
 
 		allOverlays, err := opts.FS.ReadDir(appOverlaysDir)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to read overlays directory '%s': %w", appOverlaysDir, err)
 		}
 
 		if len(allOverlays) == 1 {
-			err = opts.FS.Remove(appDir)
+			dirToRemove = appDir
 		} else {
 			commitMsg += fmt.Sprintf(" from project '%s'", opts.ProjectName)
-			err = opts.FS.Remove(projectDir)
+			dirToRemove = projectDir
 		}
 	}
 
+	err = opts.FS.Remove(dirToRemove)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to delete directory '%s': %w", dirToRemove, err)
 	}
 
 	log.G().Info("committing changes to gitops repo...")
-	if err = r.Persist(ctx, &git.PushOptions{CommitMsg: commitMsg}); err != nil {
+	if err = opts.Repo.Persist(ctx, &git.PushOptions{CommitMsg: commitMsg}); err != nil {
 		return fmt.Errorf("failed to push to repo: %w", err)
 	}
 

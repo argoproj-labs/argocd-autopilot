@@ -70,9 +70,7 @@ func TestBaseOptions_preRun(t *testing.T) {
 			beforeFn: func(m *fsmocks.FS) {
 				m.On("Root").Return("/")
 				m.On("ExistsOrDie", "bootstrap").Return(true)
-				m.On("Join", "projects", "project.yaml").Return(func(elem ...string) string {
-					return "projects/project.yaml"
-				})
+				m.On("Join", "projects", "project.yaml").Return("projects/project.yaml")
 				m.On("ExistsOrDie", "projects/project.yaml").Return(false)
 			},
 		},
