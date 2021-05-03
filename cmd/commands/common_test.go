@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestBaseOptions_preRun(t *testing.T) {
+func TestBaseOptions_baseClone(t *testing.T) {
 	tests := map[string]struct {
 		projectName string
 		cloneErr    string
@@ -33,7 +33,7 @@ func TestBaseOptions_preRun(t *testing.T) {
 		"Should fail when clone fails": {
 			projectName: "project",
 			cloneErr:    "some error",
-			wantErr:     "some error",
+			wantErr:     "Failed cloning the repository: some error",
 			beforeFn:    func(m *fsmocks.FS) {},
 		},
 		"Should fail when there is no bootstrap at repo root": {
@@ -94,7 +94,7 @@ func TestBaseOptions_preRun(t *testing.T) {
 				FS:           nil,
 				ProjectName:  tt.projectName,
 			}
-			gotRepo, gotFS, err := o.preRun(context.Background())
+			gotRepo, gotFS, err := baseClone(context.Background(), o)
 			if err != nil {
 				if tt.wantErr != "" {
 					assert.EqualError(t, err, tt.wantErr)

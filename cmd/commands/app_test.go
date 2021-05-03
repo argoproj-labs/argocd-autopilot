@@ -19,6 +19,7 @@ import (
 	"github.com/argoproj/argocd-autopilot/pkg/store"
 
 	"github.com/ghodss/yaml"
+	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
 	osfs "github.com/go-git/go-billy/v5/osfs"
 	"github.com/stretchr/testify/assert"
@@ -51,13 +52,14 @@ func Test_getCommitMsg(t *testing.T) {
 			m := &fsmocks.FS{}
 			m.On("Root").Return(tt.root)
 			opts := &AppCreateOptions{
+				BaseOptions: BaseOptions{
+					ProjectName: tt.projectName,
+				},
 				AppOpts: &application.CreateOptions{
 					AppName: tt.appName,
 				},
-				FS:          fs.Create(m),
-				ProjectName: tt.projectName,
 			}
-			got := getCommitMsg(opts)
+			got := getCommitMsg(opts, m)
 			assert.Equal(t, tt.expected, got)
 		})
 	}
@@ -380,9 +382,15 @@ func TestRunAppDelete(t *testing.T) {
 		appName     string
 		projectName string
 		global      bool
+		cloneErr    string
+		removeErr   string
 		wantErr     string
 		beforeFn    func(m *fsmocks.FS, mr *gitmocks.Repository)
 	}{
+		"Should fail when clone fails": {
+			cloneErr: "some error",
+			wantErr:  "some error",
+		},
 		"Should fail when app does not exist": {
 			appName: "app",
 			wantErr: "application 'app' not found",
@@ -391,12 +399,12 @@ func TestRunAppDelete(t *testing.T) {
 			},
 		},
 		"Should fail if deletion of entire app directory fails": {
-			appName: "app",
-			global:  true,
-			wantErr: "failed to delete directory 'kustomize/app': some error",
+			appName:   "app",
+			global:    true,
+			removeErr: "some error",
+			wantErr:   "failed to delete directory 'kustomize/app': some error",
 			beforeFn: func(mfs *fsmocks.FS, _ *gitmocks.Repository) {
 				mfs.On("ExistsOrDie", "kustomize/app").Return(true)
-				mfs.On("Remove", "kustomize/app").Return(fmt.Errorf("some error"))
 			},
 		},
 		"Should remove entire app directory when global flag is set": {
@@ -429,7 +437,6 @@ func TestRunAppDelete(t *testing.T) {
 					nil,
 					nil,
 				}, nil)
-				mfs.On("Remove", "kustomize/app/overlays/project").Return(nil)
 				mr.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
 					CommitMsg: "Deleted app 'app' from project 'project'",
 				}).Return(nil)
@@ -444,7 +451,6 @@ func TestRunAppDelete(t *testing.T) {
 				mfs.On("ReadDir", "kustomize/app/overlays").Return([]os.FileInfo{
 					nil,
 				}, nil)
-				mfs.On("Remove", "kustomize/app").Return(nil)
 				mr.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
 					CommitMsg: "Deleted app 'app'",
 				}).Return(nil)
@@ -466,13 +472,14 @@ func TestRunAppDelete(t *testing.T) {
 			wantErr: "failed to push to repo: some error",
 			beforeFn: func(mfs *fsmocks.FS, mr *gitmocks.Repository) {
 				mfs.On("ExistsOrDie", "kustomize/app").Return(true)
-				mfs.On("Remove", "kustomize/app").Return(nil)
 				mr.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
 					CommitMsg: "Deleted app 'app'",
 				}).Return(fmt.Errorf("some error"))
 			},
 		},
 	}
+	origBaseClone := baseClone
+	origRemoveAll := removeAll
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			mockFS := &fsmocks.FS{}
@@ -480,13 +487,32 @@ func TestRunAppDelete(t *testing.T) {
 			mockFS.On("Join", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(func(elem ...string) string {
 				return strings.Join(elem, "/")
 			})
-			tt.beforeFn(mockFS, mockRepo)
+			baseClone = func(_ context.Context, _ *BaseOptions) (git.Repository, fs.FS, error) {
+				var err error
+				if tt.cloneErr != "" {
+					err = fmt.Errorf(tt.cloneErr)
+				}
+
+				return mockRepo, mockFS, err
+			}
+			removeAll = func(_ billy.Basic, _ string) error {
+				var err error
+				if tt.removeErr != "" {
+					err = fmt.Errorf(tt.removeErr)
+				}
+
+				return err
+			}
+			if tt.beforeFn != nil {
+				tt.beforeFn(mockFS, mockRepo)
+			}
+
 			opts := &AppDeleteOptions{
-				AppName:     tt.appName,
-				ProjectName: tt.projectName,
-				Global:      tt.global,
-				FS:          mockFS,
-				Repo:        mockRepo,
+				BaseOptions: BaseOptions{
+					ProjectName: tt.projectName,
+				},
+				AppName: tt.appName,
+				Global:  tt.global,
 			}
 			if err := RunAppDelete(context.Background(), opts); err != nil {
 				if tt.wantErr != "" {
@@ -497,4 +523,7 @@ func TestRunAppDelete(t *testing.T) {
 			}
 		})
 	}
+
+	baseClone = origBaseClone
+	removeAll = origRemoveAll
 }

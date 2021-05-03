@@ -32,11 +32,11 @@ func addFlags(cmd *cobra.Command) (*BaseOptions, error) {
 		CloneOptions: cloneOptions,
 		FS:           fs.Create(memfs.New()),
 	}
-	cmd.Flags().StringVarP(&o.ProjectName, "project", "p", "", "Project name")
+	cmd.PersistentFlags().StringVarP(&o.ProjectName, "project", "p", "", "Project name")
 	return o, nil
 }
 
-func (o *BaseOptions) preRun(ctx context.Context) (git.Repository, fs.FS, error) {
+var baseClone = func(ctx context.Context, o *BaseOptions) (git.Repository, fs.FS, error) {
 	var (
 		r   git.Repository
 		err error
@@ -50,7 +50,7 @@ func (o *BaseOptions) preRun(ctx context.Context) (git.Repository, fs.FS, error)
 	log.G().Infof("cloning git repository: %s", o.CloneOptions.URL)
 	r, filesystem, err := clone(ctx, o.CloneOptions, o.FS)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("Failed cloning the repository: %w", err)
 	}
 
 	root := filesystem.Root()

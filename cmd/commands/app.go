@@ -27,70 +27,44 @@ import (
 var (
 	ErrAppAlreadyInstalledOnProject = errors.New("application already installed on project")
 	ErrAppCollisionWithExistingBase = errors.New("an application with the same name and a different base already exists, consider choosing a different name")
+
+	removeAll = billyUtils.RemoveAll
 )
 
 type (
-	AppBaseOptions struct {
-		ProjectName  string
-		FS           fs.FS
-		CloneOptions *git.CloneOptions
-	}
-
 	AppCreateOptions struct {
-		AppOpts     *application.CreateOptions
-		FS          fs.FS
-		ProjectName string
-		Repo        git.Repository
-	}
-
-	AppListOptions struct {
-		FS          fs.FS
-		ProjectName string
-		Repo        git.Repository
+		BaseOptions
+		AppOpts *application.CreateOptions
 	}
 
 	AppDeleteOptions struct {
-		AppName     string
-		ProjectName string
-		Global      bool
-		FS          fs.FS
-		Repo        git.Repository
+		BaseOptions
+		AppName string
+		Global  bool
 	}
 )
 
 func NewAppCommand() *cobra.Command {
-	var (
-		opts       *BaseOptions
-		r          git.Repository
-		filesystem fs.FS
-	)
-
 	cmd := &cobra.Command{
 		Use:     "application",
 		Aliases: []string{"app"},
 		Short:   "Manage applications",
-		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			var err error
-			r, filesystem, err = opts.preRun(cmd.Context())
-			return err
-		},
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.HelpFunc()(cmd, args)
 			os.Exit(1)
 		},
 	}
-
-	cmd.AddCommand(NewAppCreateCommand(r, filesystem, opts.ProjectName))
-	cmd.AddCommand(NewAppListCommand(r, filesystem, opts.ProjectName))
-	cmd.AddCommand(NewAppDeleteCommand(r, filesystem, opts.ProjectName))
-
 	opts, err := addFlags(cmd)
 	die(err)
+
+	cmd.AddCommand(NewAppCreateCommand(opts))
+	cmd.AddCommand(NewAppListCommand(opts))
+	cmd.AddCommand(NewAppDeleteCommand(opts))
 
 	return cmd
 }
 
-func NewAppCreateCommand(r git.Repository, filesystem fs.FS, projectName string) *cobra.Command {
+func NewAppCreateCommand(opts *BaseOptions) *cobra.Command {
 	var (
 		appOpts *application.CreateOptions
 	)
@@ -121,16 +95,13 @@ func NewAppCreateCommand(r git.Repository, filesystem fs.FS, projectName string)
 			appOpts.AppName = args[0]
 
 			return RunAppCreate(cmd.Context(), &AppCreateOptions{
+				BaseOptions: *opts,
 				AppOpts:     appOpts,
-				FS:          filesystem,
-				ProjectName: projectName,
-				Repo:        r,
 			})
 		},
 	}
 	appOpts = application.AddFlags(cmd)
 
-	die(cmd.MarkFlagRequired("project"))
 	die(cmd.MarkFlagRequired("app"))
 
 	return cmd
@@ -142,8 +113,13 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 		r   git.Repository
 	)
 
+	r, filesystem, err := baseClone(ctx, &opts.BaseOptions)
+	if err != nil {
+		return err
+	}
+
 	if opts.AppOpts.DestServer == store.Default.DestServer {
-		opts.AppOpts.DestServer, err = getProjectDestServer(opts.FS, opts.ProjectName)
+		opts.AppOpts.DestServer, err = getProjectDestServer(filesystem, opts.ProjectName)
 		if err != nil {
 			return err
 		}
@@ -158,7 +134,7 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 		return fmt.Errorf("failed to parse application from flags: %v", err)
 	}
 
-	if err = createApplicationFiles(opts.FS, app, opts.ProjectName); err != nil {
+	if err = createApplicationFiles(filesystem, app, opts.ProjectName); err != nil {
 		if errors.Is(err, ErrAppAlreadyInstalledOnProject) {
 			return fmt.Errorf("application '%s' already exists in project '%s': %w", app.Name(), opts.ProjectName, ErrAppAlreadyInstalledOnProject)
 		}
@@ -167,7 +143,7 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 	}
 
 	log.G().Info("committing changes to gitops repo...")
-	if err = r.Persist(ctx, &git.PushOptions{CommitMsg: getCommitMsg(opts)}); err != nil {
+	if err = r.Persist(ctx, &git.PushOptions{CommitMsg: getCommitMsg(opts, filesystem)}); err != nil {
 		return fmt.Errorf("failed to push to repo: %w", err)
 	}
 
@@ -279,10 +255,10 @@ func writeApplicationFile(repoFS fs.FS, path, name string, data []byte) (bool, e
 	return false, nil
 }
 
-func getCommitMsg(opts *AppCreateOptions) string {
+func getCommitMsg(opts *AppCreateOptions, filesystem fs.FS) string {
 	commitMsg := fmt.Sprintf("installed app '%s' on project '%s'", opts.AppOpts.AppName, opts.ProjectName)
-	if opts.FS.Root() != "" {
-		commitMsg += fmt.Sprintf(" installation-path: '%s'", opts.FS.Root())
+	if filesystem.Root() != "" {
+		commitMsg += fmt.Sprintf(" installation-path: '%s'", filesystem.Root())
 	}
 
 	return commitMsg
@@ -307,7 +283,7 @@ var getProjectDestServer = func(repofs fs.FS, projectName string) (string, error
 	return p.Annotations[store.Default.DestServerAnnotation], nil
 }
 
-func NewAppListCommand(r git.Repository, filesystem fs.FS, projectName string) *cobra.Command {
+func NewAppListCommand(opts *BaseOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list [PROJECT_NAME]",
 		Short: "List all applications in a project",
@@ -330,27 +306,28 @@ func NewAppListCommand(r git.Repository, filesystem fs.FS, projectName string) *
 			if len(args) < 1 {
 				log.G().Fatal("must enter a project name")
 			}
-			projectName = args[0]
+			opts.ProjectName = args[0]
 
-			return RunAppList(cmd.Context(), &AppListOptions{
-				FS:          filesystem,
-				ProjectName: projectName,
-				Repo:        r,
-			})
+			return RunAppList(cmd.Context(), opts)
 		},
 	}
 
 	return cmd
 }
 
-func RunAppList(ctx context.Context, opts *AppListOptions) error {
+func RunAppList(ctx context.Context, opts *BaseOptions) error {
 	var (
 		err error
 	)
 
+	_, filesystem, err := baseClone(ctx, opts)
+	if err != nil {
+		return err
+	}
+
 	// get all apps beneath kustomize <project>\overlayes
-	glob := opts.FS.Join(store.Default.KustomizeDir, "*", store.Default.OverlaysDir, opts.ProjectName)
-	matches, err := billyUtils.Glob(opts.FS, glob)
+	glob := filesystem.Join(store.Default.KustomizeDir, "*", store.Default.OverlaysDir, opts.ProjectName)
+	matches, err := billyUtils.Glob(filesystem, glob)
 	if err != nil {
 		log.G().Fatalf("failed to run glob on %s", opts.ProjectName)
 	}
@@ -359,8 +336,7 @@ func RunAppList(ctx context.Context, opts *AppListOptions) error {
 	_, _ = fmt.Fprintf(w, "PROJECT\tNAME\tDEST_NAMESPACE\tDEST_SERVER\t\n")
 
 	for _, appName := range matches {
-
-		conf, err := getConfigFileFromPath(opts.FS, appName)
+		conf, err := getConfigFileFromPath(filesystem, appName)
 		if err != nil {
 			return err
 		}
@@ -393,7 +369,7 @@ func getConfigFileFromPath(fs fs.FS, appName string) (*application.Config, error
 	return &conf, nil
 }
 
-func NewAppDeleteCommand(r git.Repository, filesystem fs.FS, projectName string) *cobra.Command {
+func NewAppDeleteCommand(opts *BaseOptions) *cobra.Command {
 	var (
 		appName string
 		global  bool
@@ -424,16 +400,14 @@ func NewAppDeleteCommand(r git.Repository, filesystem fs.FS, projectName string)
 
 			appName = args[0]
 
-			if projectName == "" && !global {
+			if opts.ProjectName == "" && !global {
 				log.G().Fatal("must enter project name OR use '--global' flag")
 			}
 
 			return RunAppDelete(cmd.Context(), &AppDeleteOptions{
+				BaseOptions: *opts,
 				AppName:     appName,
-				ProjectName: projectName,
 				Global:      global,
-				FS:          filesystem,
-				Repo:        r,
 			})
 		},
 	}
@@ -446,8 +420,13 @@ func NewAppDeleteCommand(r git.Repository, filesystem fs.FS, projectName string)
 func RunAppDelete(ctx context.Context, opts *AppDeleteOptions) error {
 	var err error
 
-	appDir := opts.FS.Join(store.Default.KustomizeDir, opts.AppName)
-	appExists := opts.FS.ExistsOrDie(appDir)
+	r, filesystem, err := baseClone(ctx, &opts.BaseOptions)
+	if err != nil {
+		return err
+	}
+
+	appDir := filesystem.Join(store.Default.KustomizeDir, opts.AppName)
+	appExists := filesystem.ExistsOrDie(appDir)
 	if !appExists {
 		return fmt.Errorf(util.Doc(fmt.Sprintf("application '%s' not found", opts.AppName)))
 	}
@@ -457,14 +436,14 @@ func RunAppDelete(ctx context.Context, opts *AppDeleteOptions) error {
 	if opts.Global {
 		dirToRemove = appDir
 	} else {
-		appOverlaysDir := opts.FS.Join(appDir, store.Default.OverlaysDir)
-		projectDir := opts.FS.Join(appOverlaysDir, opts.ProjectName)
-		overlayExists := opts.FS.ExistsOrDie(projectDir)
+		appOverlaysDir := filesystem.Join(appDir, store.Default.OverlaysDir)
+		projectDir := filesystem.Join(appOverlaysDir, opts.ProjectName)
+		overlayExists := filesystem.ExistsOrDie(projectDir)
 		if !overlayExists {
 			return fmt.Errorf(util.Doc(fmt.Sprintf("application '%s' not found in project '%s'", opts.AppName, opts.ProjectName)))
 		}
 
-		allOverlays, err := opts.FS.ReadDir(appOverlaysDir)
+		allOverlays, err := filesystem.ReadDir(appOverlaysDir)
 		if err != nil {
 			return fmt.Errorf("failed to read overlays directory '%s': %w", appOverlaysDir, err)
 		}
@@ -477,13 +456,13 @@ func RunAppDelete(ctx context.Context, opts *AppDeleteOptions) error {
 		}
 	}
 
-	err = opts.FS.Remove(dirToRemove)
+	err = removeAll(filesystem, dirToRemove)
 	if err != nil {
 		return fmt.Errorf("failed to delete directory '%s': %w", dirToRemove, err)
 	}
 
 	log.G().Info("committing changes to gitops repo...")
-	if err = opts.Repo.Persist(ctx, &git.PushOptions{CommitMsg: commitMsg}); err != nil {
+	if err = r.Persist(ctx, &git.PushOptions{CommitMsg: commitMsg}); err != nil {
 		return fmt.Errorf("failed to push to repo: %w", err)
 	}
 
