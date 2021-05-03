@@ -5,19 +5,24 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"reflect"
 	"strings"
 
 	"testing"
 
+	appsetv1alpha1 "github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
+	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/argoproj/argocd-autopilot/pkg/fs"
 	fsmocks "github.com/argoproj/argocd-autopilot/pkg/fs/mocks"
 	"github.com/argoproj/argocd-autopilot/pkg/git"
 	gitmocks "github.com/argoproj/argocd-autopilot/pkg/git/mocks"
 	"github.com/argoproj/argocd-autopilot/pkg/store"
 	"github.com/argoproj/argocd-autopilot/pkg/util"
-
+	"github.com/ghodss/yaml"
+	memfs "github.com/go-git/go-billy/v5/memfs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestRunProjectCreate(t *testing.T) {
@@ -279,6 +284,67 @@ spec:
 
 			if got != tt.want {
 				t.Errorf("getInstallationNamespace() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getProjectInfoFromFile(t *testing.T) {
+	tests := map[string]struct {
+		name     string
+		want     *argocdv1alpha1.AppProject
+		wantErr  string
+		beforeFn func(fs.FS) fs.FS
+	}{
+		"should return error if project file doesn't exist": {
+			name:    "prod.yaml",
+			wantErr: "prod.yaml not found",
+		},
+		"should failed when 2 files not found": {
+			name:    "prod.yaml",
+			wantErr: "expected 2 files when splitting prod.yaml",
+			beforeFn: func(f fs.FS) fs.FS {
+				f.WriteFile("prod.yaml", []byte("content"))
+				return f
+			},
+		},
+		"should return AppProject": {
+			name: "prod.yaml",
+			beforeFn: func(f fs.FS) fs.FS {
+				appProj := argocdv1alpha1.AppProject{
+					ObjectMeta: v1.ObjectMeta{
+						Name:      "prod",
+						Namespace: "ns",
+					},
+				}
+				appSet := appsetv1alpha1.ApplicationSpec{}
+				projectYAML, _ := yaml.Marshal(&appProj)
+				appsetYAML, _ := yaml.Marshal(&appSet)
+				joinedYAML := util.JoinManifests(projectYAML, appsetYAML)
+				f.WriteFile("prod.yaml", joinedYAML)
+				return f
+			},
+			want: &argocdv1alpha1.AppProject{
+				ObjectMeta: v1.ObjectMeta{
+					Name:      "prod",
+					Namespace: "ns",
+				},
+			},
+		},
+	}
+	for tNAME, tt := range tests {
+		t.Run(tNAME, func(t *testing.T) {
+			repofs := fs.Create(memfs.New())
+			if tt.beforeFn != nil {
+				repofs = tt.beforeFn(repofs)
+			}
+			got, err := getProjectInfoFromFile(repofs, tt.name)
+			if (err != nil) && tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("getProjectInfoFromFile() = %v, want %v", got, tt.want)
 			}
 		})
 	}

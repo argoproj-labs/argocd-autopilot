@@ -330,14 +330,14 @@ var getInstallationNamespace = func(repofs fs.FS) (string, error) {
 
 type (
 	ProjectListOptions struct {
-		FS              fs.FS
-		CloneOptions    *git.CloneOptions
+		FS           fs.FS
+		CloneOptions *git.CloneOptions
 	}
 )
 
 func NewProjectListCommand() *cobra.Command {
 	var (
-		cloneOpts   *git.CloneOptions
+		cloneOpts *git.CloneOptions
 	)
 
 	cmd := &cobra.Command{
@@ -361,7 +361,7 @@ func NewProjectListCommand() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 
 			return RunProjectList(cmd.Context(), &ProjectListOptions{
-				FS: fs.Create(memfs.New()),
+				FS:           fs.Create(memfs.New()),
 				CloneOptions: cloneOpts,
 			})
 		},
@@ -372,7 +372,6 @@ func NewProjectListCommand() *cobra.Command {
 
 	return cmd
 }
-
 
 func RunProjectList(ctx context.Context, opts *ProjectListOptions) error {
 
@@ -396,20 +395,19 @@ func RunProjectList(ctx context.Context, opts *ProjectListOptions) error {
 		log.G().Fatalf("Bootstrap folder not found, please execute `repo bootstrap --installation-path %s` command", opts.FS.Root())
 	}
 
-	matches, err :=  billyUtils.Glob(opts.FS, "/projects/*.yaml")
+	matches, err := billyUtils.Glob(opts.FS, "/projects/*.yaml")
 	if err != nil {
 		return err
 	}
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	_, _ = fmt.Fprintf(w, "PROJECT\tNAMESPACE\t\n")
-
+	_, _ = fmt.Fprintf(w, "NAME\tNAMESPACE\tCLUSTER\t\n")
 
 	for _, name := range matches {
 		proj, err := getProjectInfoFromFile(opts.FS, name)
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(w, "%s\t%s\n", proj.Name, proj.Namespace)
+		fmt.Fprintf(w, "%s\t%s\t%s\n", proj.Name, proj.Namespace, proj.ClusterName)
 
 	}
 	w.Flush()
