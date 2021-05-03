@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/argoproj/argocd-autopilot/pkg/argocd"
 	"github.com/argoproj/argocd-autopilot/pkg/fs"
 	"github.com/argoproj/argocd-autopilot/pkg/git"
 	"github.com/argoproj/argocd-autopilot/pkg/kube"
@@ -333,8 +334,24 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 		return err
 	}
 
+	passwd, err := getInitialPassword(ctx, opts.KubeFactory, opts.Namespace)
+	if err != nil {
+		return err
+	}
+
+	log.G().Infof("running argocd login to initialize argocd config")
+	err = argocd.Login(&argocd.LoginOptions{
+		Namespace: opts.Namespace,
+		Username:  "admin",
+		Password:  passwd,
+	})
+	if err != nil {
+		return err
+	}
 	if !opts.HidePassword {
-		return printInitialPassword(ctx, opts.KubeFactory, opts.Namespace)
+		log.G(ctx).Printf("")
+		log.G(ctx).Infof("argocd initialized. password: %s", passwd)
+		log.G(ctx).Infof("run:\n\n    kubectl port-forward -n %s svc/argocd-server 8080:80\n\n", opts.Namespace)
 	}
 
 	return nil
@@ -479,22 +496,19 @@ func getRepoCredsSecret(token, namespace string) ([]byte, error) {
 	})
 }
 
-func printInitialPassword(ctx context.Context, f kube.Factory, namespace string) error {
+func getInitialPassword(ctx context.Context, f kube.Factory, namespace string) (string, error) {
 	cs := f.KubernetesClientSetOrDie()
 	secret, err := cs.CoreV1().Secrets(namespace).Get(ctx, "argocd-initial-admin-secret", metav1.GetOptions{})
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	passwd, ok := secret.Data["password"]
 	if !ok {
-		return fmt.Errorf("argocd initial password not found")
+		return "", fmt.Errorf("argocd initial password not found")
 	}
 
-	log.G(ctx).Printf("\n")
-	log.G(ctx).Infof("argocd initialized. password: %s", passwd)
-	log.G(ctx).Infof("run:\n\n    kubectl port-forward -n %s svc/argocd-server 8080:80\n\n", namespace)
-	return nil
+	return string(passwd), nil
 }
 
 func getBootstrapAppSpecifier(namespaced bool) string {
