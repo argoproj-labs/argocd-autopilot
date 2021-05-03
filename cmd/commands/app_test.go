@@ -1,24 +1,21 @@
 package commands
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
-	"reflect"
 	"testing"
 
 	"github.com/argoproj/argocd-autopilot/pkg/application"
 	appmocks "github.com/argoproj/argocd-autopilot/pkg/application/mocks"
 	"github.com/argoproj/argocd-autopilot/pkg/fs"
 	fsmocks "github.com/argoproj/argocd-autopilot/pkg/fs/mocks"
-	"github.com/argoproj/argocd-autopilot/pkg/git"
 	"github.com/argoproj/argocd-autopilot/pkg/kube"
 	"github.com/argoproj/argocd-autopilot/pkg/store"
+
 	"github.com/ghodss/yaml"
 	"github.com/go-git/go-billy/v5/memfs"
-	memfs "github.com/go-git/go-billy/v5/memfs"
 	osfs "github.com/go-git/go-billy/v5/osfs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -27,48 +24,37 @@ import (
 
 func Test_getCommitMsg(t *testing.T) {
 	tests := map[string]struct {
-		opts     *AppCreateOptions
-		assertFn func(t *testing.T, res string)
+		appName     string
+		projectName string
+		root        string
+		expected    string
 	}{
 		"On root": {
-			opts: &AppCreateOptions{
-				AppBaseOptions: AppBaseOptions{
-					CloneOptions: &git.CloneOptions{
-						RepoRoot: "",
-					},
-					ProjectName: "bar",
-				},
-				AppOpts: &application.CreateOptions{
-					AppName: "foo",
-				},
-			},
-			assertFn: func(t *testing.T, res string) {
-				assert.Contains(t, res, "installed app 'foo' on project 'bar'")
-				assert.NotContains(t, res, "installation-path")
-			},
+			appName:     "foo",
+			projectName: "bar",
+			root:        "",
+			expected:    "installed app 'foo' on project 'bar'",
 		},
 		"On installation path": {
-			opts: &AppCreateOptions{
-				AppBaseOptions: AppBaseOptions{
-					CloneOptions: &git.CloneOptions{
-						RepoRoot: "foo/bar",
-					},
-					ProjectName: "bar",
-				},
-				AppOpts: &application.CreateOptions{
-					AppName: "foo",
-				},
-			},
-			assertFn: func(t *testing.T, res string) {
-				assert.Contains(t, res, "installed app 'foo' on project 'bar'")
-				assert.Contains(t, res, "installation-path: 'foo/bar'")
-			},
+			appName:     "foo",
+			projectName: "bar",
+			root:        "foo/bar",
+			expected:    "installed app 'foo' on project 'bar' installation-path: 'foo/bar'",
 		},
 	}
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
-			got := getCommitMsg(tt.opts)
-			tt.assertFn(t, got)
+			m := &fsmocks.FS{}
+			m.On("Root").Return(tt.root)
+			opts := &AppCreateOptions{
+				AppOpts: &application.CreateOptions{
+					AppName: tt.appName,
+				},
+				FS:          fs.Create(m),
+				ProjectName: tt.projectName,
+			}
+			got := getCommitMsg(opts)
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }

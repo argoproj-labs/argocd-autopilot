@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 
-	"strings"
 	"testing"
 
 	"github.com/argoproj/argocd-autopilot/pkg/fs"
@@ -63,7 +62,7 @@ func TestRunProjectCreate(t *testing.T) {
 				mockedFS := &fsmocks.FS{}
 				mockedFS.On("Root").Return("/")
 				mockedFS.On("Join", "projects", "project.yaml").Return(func(elem ...string) string {
-					return strings.Join(elem, "/")
+					return "projects/project.yaml"
 				})
 				mockedFS.On("ExistsOrDie", "projects/project.yaml").Return(true)
 				return nil, mockedFS, nil
@@ -82,7 +81,7 @@ func TestRunProjectCreate(t *testing.T) {
 				mockedFS := &fsmocks.FS{}
 				mockedFS.On("Root").Return("/")
 				mockedFS.On("Join", "projects", "project.yaml").Return(func(elem ...string) string {
-					return strings.Join(elem, "/")
+					return "projects/project.yaml"
 				})
 				mockedFS.On("ExistsOrDie", "projects/project.yaml").Return(false)
 				mockedFS.On("WriteFile", "projects/project.yaml", mock.AnythingOfType("[]uint8")).Return(0, os.ErrPermission)
@@ -102,7 +101,7 @@ func TestRunProjectCreate(t *testing.T) {
 				mockedFS := &fsmocks.FS{}
 				mockedFS.On("Root").Return("/")
 				mockedFS.On("Join", "projects", "project.yaml").Return(func(elem ...string) string {
-					return strings.Join(elem, "/")
+					return "projects/project.yaml"
 				})
 				mockedFS.On("ExistsOrDie", "projects/project.yaml").Return(false)
 				mockedFS.On("WriteFile", "projects/project.yaml", mock.AnythingOfType("[]uint8")).Return(1, nil)
@@ -124,7 +123,7 @@ func TestRunProjectCreate(t *testing.T) {
 				mockedFS := &fsmocks.FS{}
 				mockedFS.On("Root").Return("/")
 				mockedFS.On("Join", "projects", "project.yaml").Return(func(elem ...string) string {
-					return strings.Join(elem, "/")
+					return "projects/project.yaml"
 				})
 				mockedFS.On("ExistsOrDie", "projects/project.yaml").Return(false)
 				mockedFS.On("WriteFile", "projects/project.yaml", mock.AnythingOfType("[]uint8")).Return(1, nil)
@@ -231,8 +230,8 @@ spec:
     path: manifests
     repoURL: https://github.com/owner/name
 `
-				mockedFS.On("Join", mock.AnythingOfType("string"), "argo-cd.yaml").Return(func(elem ...string) string {
-					return strings.Join(elem, "/")
+				mockedFS.On("Join", "bootstrap", "argo-cd.yaml").Return(func(elem ...string) string {
+					return "bootstrap/argo-cd.yaml"
 				})
 				mockedFS.On("Open", mock.Anything).Return(mockedFile, nil)
 				mockedFile.On("Read", mock.Anything).Run(func(args mock.Arguments) {
@@ -246,7 +245,7 @@ spec:
 		"should handle file not found": {
 			beforeFn: func(mockedFS *fsmocks.FS, _ *fsmocks.File) {
 				mockedFS.On("Join", mock.AnythingOfType("string"), "argo-cd.yaml").Return(func(elem ...string) string {
-					return strings.Join(elem, "/")
+					return "bootstrap/argo-cd.yaml"
 				})
 				mockedFS.On("Open", mock.Anything).Return(nil, os.ErrNotExist)
 			},
@@ -255,7 +254,7 @@ spec:
 		"should handle error during read": {
 			beforeFn: func(mockedFS *fsmocks.FS, mockedFile *fsmocks.File) {
 				mockedFS.On("Join", mock.AnythingOfType("string"), "argo-cd.yaml").Return(func(elem ...string) string {
-					return strings.Join(elem, "/")
+					return "bootstrap/argo-cd.yaml"
 				})
 				mockedFS.On("Open", mock.Anything).Return(mockedFile, nil)
 				mockedFile.On("Read", mock.Anything).Return(0, fmt.Errorf("some error"))
@@ -266,7 +265,7 @@ spec:
 			beforeFn: func(mockedFS *fsmocks.FS, mockedFile *fsmocks.File) {
 				nsYAML := "some string"
 				mockedFS.On("Join", mock.AnythingOfType("string"), "argo-cd.yaml").Return(func(elem ...string) string {
-					return strings.Join(elem, "/")
+					return "bootstrap/argo-cd.yaml"
 				})
 				mockedFS.On("Open", mock.Anything).Return(mockedFile, nil)
 				mockedFile.On("Read", mock.Anything).Run(func(args mock.Arguments) {

@@ -71,7 +71,7 @@ func NewAppCommand() *cobra.Command {
 		Short:   "Manage applications",
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			var err error
-			r, filesystem, err = opts.clone(cmd.Context())
+			r, filesystem, err = opts.preRun(cmd.Context())
 			return err
 		},
 		Run: func(cmd *cobra.Command, args []string) {
