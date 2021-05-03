@@ -332,13 +332,13 @@ func Test_getProjectInfoFromFile(t *testing.T) {
 			},
 		},
 	}
-	for tNAME, tt := range tests {
-		t.Run(tNAME, func(t *testing.T) {
+	for tName, tt := range tests {
+		t.Run(tName, func(t *testing.T) {
 			repofs := fs.Create(memfs.New())
 			if tt.beforeFn != nil {
 				repofs = tt.beforeFn(repofs)
 			}
-			got, err := getProjectInfoFromFile(repofs, tt.name)
+			got, _, err := getProjectInfoFromFile(repofs, tt.name)
 			if (err != nil) && tt.wantErr != "" {
 				assert.EqualError(t, err, tt.wantErr)
 				return

@@ -395,7 +395,7 @@ func RunProjectList(ctx context.Context, opts *ProjectListOptions) error {
 		log.G().Fatalf("Bootstrap folder not found, please execute `repo bootstrap --installation-path %s` command", opts.FS.Root())
 	}
 
-	matches, err := billyUtils.Glob(opts.FS, "/projects/*.yaml")
+	matches, err := billyUtils.Glob(opts.FS,  opts.FS.Join(store.Default.ProjectsDir, "*.yaml"))
 	if err != nil {
 		return err
 	}
@@ -403,7 +403,7 @@ func RunProjectList(ctx context.Context, opts *ProjectListOptions) error {
 	_, _ = fmt.Fprintf(w, "NAME\tNAMESPACE\tCLUSTER\t\n")
 
 	for _, name := range matches {
-		proj, err := getProjectInfoFromFile(opts.FS, name)
+		proj, _, err := getProjectInfoFromFile(opts.FS, name)
 		if err != nil {
 			return err
 		}
@@ -414,25 +414,32 @@ func RunProjectList(ctx context.Context, opts *ProjectListOptions) error {
 	return nil
 }
 
-func getProjectInfoFromFile(fs fs.FS, name string) (*argocdv1alpha1.AppProject, error) {
+func getProjectInfoFromFile(fs fs.FS, name string) (*argocdv1alpha1.AppProject, *appsetv1alpha1.ApplicationSpec, error) {
 	file, err := fs.Open(name)
 	if err != nil {
-		return nil, fmt.Errorf("%s not found", name)
+		return nil, nil, fmt.Errorf("%s not found", name)
 	}
 	b, err := ioutil.ReadAll(file)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read file %s", name)
+		return nil, nil, fmt.Errorf("failed to read file %s", name)
 	}
 	var joinedStrings = string(b)
 	yamls := util.SplitManifests(joinedStrings)
 	if len(yamls) != 2 {
-		return nil, fmt.Errorf("expected 2 files when splitting %s", name)
+		return nil, nil, fmt.Errorf("expected 2 files when splitting %s", name)
 	}
 	proj := argocdv1alpha1.AppProject{}
 	err = yaml.Unmarshal(([]byte)(yamls[0]), &proj)
+
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal %s", name)
+		return nil, nil, fmt.Errorf("failed to unmarshal %s", name)
 	}
-	return &proj, nil
+	appSet := appsetv1alpha1.ApplicationSpec{}
+	err = yaml.Unmarshal(([]byte)(yamls[1]), &proj)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to unmarshal %s", name)
+	}
+
+	return &proj, &appSet, nil
 
 }
