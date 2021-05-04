@@ -48,14 +48,14 @@ var baseClone = func(ctx context.Context, o *BaseOptions) (git.Repository, fs.FS
 
 	// clone repo
 	log.G().Infof("cloning git repository: %s", o.CloneOptions.URL)
-	r, filesystem, err := clone(ctx, o.CloneOptions, o.FS)
+	r, repofs, err := clone(ctx, o.CloneOptions, o.FS)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed cloning the repository: %w", err)
 	}
 
-	root := filesystem.Root()
+	root := repofs.Root()
 	log.G().Infof("using revision: \"%s\", installation path: \"%s\"", o.CloneOptions.Revision, root)
-	if !filesystem.ExistsOrDie(store.Default.BootsrtrapDir) {
+	if !repofs.ExistsOrDie(store.Default.BootsrtrapDir) {
 		cmd := "repo bootstrap"
 		if root != "/" {
 			cmd += " --installation-path " + root
@@ -65,14 +65,14 @@ var baseClone = func(ctx context.Context, o *BaseOptions) (git.Repository, fs.FS
 	}
 
 	if o.ProjectName != "" {
-		projExists := filesystem.ExistsOrDie(filesystem.Join(store.Default.ProjectsDir, o.ProjectName+".yaml"))
+		projExists := repofs.ExistsOrDie(repofs.Join(store.Default.ProjectsDir, o.ProjectName+".yaml"))
 		if !projExists {
 			return nil, nil, fmt.Errorf(util.Doc(fmt.Sprintf("project '%[1]s' not found, please execute `<BIN> project create %[1]s`", o.ProjectName)))
 		}
 	}
 
 	log.G().Debug("repository is ok")
-	return r, filesystem, nil
+	return r, repofs, nil
 }
 
 var clone = func(ctx context.Context, cloneOpts *git.CloneOptions, filesystem fs.FS) (git.Repository, fs.FS, error) {

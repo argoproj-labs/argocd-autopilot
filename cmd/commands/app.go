@@ -108,13 +108,13 @@ func NewAppCreateCommand(opts *BaseOptions) *cobra.Command {
 }
 
 func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
-	r, filesystem, err := baseClone(ctx, &opts.BaseOptions)
+	r, repofs, err := baseClone(ctx, &opts.BaseOptions)
 	if err != nil {
 		return err
 	}
 
 	if opts.AppOpts.DestServer == store.Default.DestServer {
-		opts.AppOpts.DestServer, err = getProjectDestServer(filesystem, opts.ProjectName)
+		opts.AppOpts.DestServer, err = getProjectDestServer(repofs, opts.ProjectName)
 		if err != nil {
 			return err
 		}
@@ -129,7 +129,7 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 		return fmt.Errorf("failed to parse application from flags: %v", err)
 	}
 
-	if err = createApplicationFiles(filesystem, app, opts.ProjectName); err != nil {
+	if err = createApplicationFiles(repofs, app, opts.ProjectName); err != nil {
 		if errors.Is(err, ErrAppAlreadyInstalledOnProject) {
 			return fmt.Errorf("application '%s' already exists in project '%s': %w", app.Name(), opts.ProjectName, ErrAppAlreadyInstalledOnProject)
 		}
@@ -138,7 +138,7 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 	}
 
 	log.G().Info("committing changes to gitops repo...")
-	if err = r.Persist(ctx, &git.PushOptions{CommitMsg: getCommitMsg(opts, filesystem)}); err != nil {
+	if err = r.Persist(ctx, &git.PushOptions{CommitMsg: getCommitMsg(opts, repofs)}); err != nil {
 		return fmt.Errorf("failed to push to repo: %w", err)
 	}
 
@@ -250,10 +250,10 @@ func writeApplicationFile(repoFS fs.FS, path, name string, data []byte) (bool, e
 	return false, nil
 }
 
-func getCommitMsg(opts *AppCreateOptions, filesystem fs.FS) string {
+func getCommitMsg(opts *AppCreateOptions, repofs fs.FS) string {
 	commitMsg := fmt.Sprintf("installed app '%s' on project '%s'", opts.AppOpts.AppName, opts.ProjectName)
-	if filesystem.Root() != "" {
-		commitMsg += fmt.Sprintf(" installation-path: '%s'", filesystem.Root())
+	if repofs.Root() != "" {
+		commitMsg += fmt.Sprintf(" installation-path: '%s'", repofs.Root())
 	}
 
 	return commitMsg
@@ -311,14 +311,14 @@ func NewAppListCommand(opts *BaseOptions) *cobra.Command {
 }
 
 func RunAppList(ctx context.Context, opts *BaseOptions) error {
-	_, filesystem, err := baseClone(ctx, opts)
+	_, repofs, err := baseClone(ctx, opts)
 	if err != nil {
 		return err
 	}
 
 	// get all apps beneath kustomize <project>\overlayes
-	glob := filesystem.Join(store.Default.KustomizeDir, "*", store.Default.OverlaysDir, opts.ProjectName)
-	matches, err := billyUtils.Glob(filesystem, glob)
+	glob := repofs.Join(store.Default.KustomizeDir, "*", store.Default.OverlaysDir, opts.ProjectName)
+	matches, err := billyUtils.Glob(repofs, glob)
 	if err != nil {
 		log.G().Fatalf("failed to run glob on %s", opts.ProjectName)
 	}
@@ -327,7 +327,7 @@ func RunAppList(ctx context.Context, opts *BaseOptions) error {
 	_, _ = fmt.Fprintf(w, "PROJECT\tNAME\tDEST_NAMESPACE\tDEST_SERVER\t\n")
 
 	for _, appName := range matches {
-		conf, err := getConfigFileFromPath(filesystem, appName)
+		conf, err := getConfigFileFromPath(repofs, appName)
 		if err != nil {
 			return err
 		}
@@ -409,13 +409,13 @@ func NewAppDeleteCommand(opts *BaseOptions) *cobra.Command {
 }
 
 func RunAppDelete(ctx context.Context, opts *AppDeleteOptions) error {
-	r, filesystem, err := baseClone(ctx, &opts.BaseOptions)
+	r, repofs, err := baseClone(ctx, &opts.BaseOptions)
 	if err != nil {
 		return err
 	}
 
-	appDir := filesystem.Join(store.Default.KustomizeDir, opts.AppName)
-	appExists := filesystem.ExistsOrDie(appDir)
+	appDir := repofs.Join(store.Default.KustomizeDir, opts.AppName)
+	appExists := repofs.ExistsOrDie(appDir)
 	if !appExists {
 		return fmt.Errorf(util.Doc(fmt.Sprintf("application '%s' not found", opts.AppName)))
 	}
@@ -425,14 +425,14 @@ func RunAppDelete(ctx context.Context, opts *AppDeleteOptions) error {
 	if opts.Global {
 		dirToRemove = appDir
 	} else {
-		appOverlaysDir := filesystem.Join(appDir, store.Default.OverlaysDir)
-		projectDir := filesystem.Join(appOverlaysDir, opts.ProjectName)
-		overlayExists := filesystem.ExistsOrDie(projectDir)
+		appOverlaysDir := repofs.Join(appDir, store.Default.OverlaysDir)
+		projectDir := repofs.Join(appOverlaysDir, opts.ProjectName)
+		overlayExists := repofs.ExistsOrDie(projectDir)
 		if !overlayExists {
 			return fmt.Errorf(util.Doc(fmt.Sprintf("application '%s' not found in project '%s'", opts.AppName, opts.ProjectName)))
 		}
 
-		allOverlays, err := filesystem.ReadDir(appOverlaysDir)
+		allOverlays, err := repofs.ReadDir(appOverlaysDir)
 		if err != nil {
 			return fmt.Errorf("failed to read overlays directory '%s': %w", appOverlaysDir, err)
 		}
@@ -445,7 +445,7 @@ func RunAppDelete(ctx context.Context, opts *AppDeleteOptions) error {
 		}
 	}
 
-	err = removeAll(filesystem, dirToRemove)
+	err = removeAll(repofs, dirToRemove)
 	if err != nil {
 		return fmt.Errorf("failed to delete directory '%s': %w", dirToRemove, err)
 	}
