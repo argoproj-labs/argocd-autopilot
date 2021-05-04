@@ -80,7 +80,7 @@ steps:
   codegen:
     <<: *deps
     stage: Test
-    title: compile and check codegen
+    title: check codegen
     commands:
     - make codegen
     - make check-worktree
