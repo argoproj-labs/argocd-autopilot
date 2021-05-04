@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -332,6 +333,7 @@ type (
 	ProjectListOptions struct {
 		FS           fs.FS
 		CloneOptions *git.CloneOptions
+		out          io.Writer
 	}
 )
 
@@ -395,7 +397,7 @@ func RunProjectList(ctx context.Context, opts *ProjectListOptions) error {
 		log.G().Fatalf("Bootstrap folder not found, please execute `repo bootstrap --installation-path %s` command", opts.FS.Root())
 	}
 
-	matches, err := billyUtils.Glob(opts.FS,  opts.FS.Join(store.Default.ProjectsDir, "*.yaml"))
+	matches, err := billyUtils.Glob(opts.FS, opts.FS.Join(store.Default.ProjectsDir, "*.yaml"))
 	if err != nil {
 		return err
 	}
@@ -423,19 +425,18 @@ func getProjectInfoFromFile(fs fs.FS, name string) (*argocdv1alpha1.AppProject, 
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read file %s", name)
 	}
-	var joinedStrings = string(b)
-	yamls := util.SplitManifests(joinedStrings)
+	yamls := util.SplitManifests(b)
 	if len(yamls) != 2 {
 		return nil, nil, fmt.Errorf("expected 2 files when splitting %s", name)
 	}
 	proj := argocdv1alpha1.AppProject{}
-	err = yaml.Unmarshal(([]byte)(yamls[0]), &proj)
+	err = yaml.Unmarshal(yamls[0], &proj)
 
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to unmarshal %s", name)
 	}
 	appSet := appsetv1alpha1.ApplicationSpec{}
-	err = yaml.Unmarshal(([]byte)(yamls[1]), &proj)
+	err = yaml.Unmarshal(yamls[1], &proj)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to unmarshal %s", name)
 	}
