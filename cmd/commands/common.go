@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/argoproj/argocd-autopilot/pkg/application"
 	"github.com/argoproj/argocd-autopilot/pkg/fs"
 	"github.com/argoproj/argocd-autopilot/pkg/git"
-	"github.com/argoproj/argocd-autopilot/pkg/kube"
 	"github.com/argoproj/argocd-autopilot/pkg/log"
 	"github.com/argoproj/argocd-autopilot/pkg/store"
 	"github.com/argoproj/argocd-autopilot/pkg/util"
@@ -27,12 +25,10 @@ type (
 
 // used for mocking
 var (
-	getGitProvider     = git.NewProvider
-	currentKubeContext = kube.CurrentContext
-	runKustomizeBuild  = application.GenerateManifests
-	die                = util.Die
-	exit               = os.Exit
-	clone              = func(ctx context.Context, cloneOpts *git.CloneOptions, filesystem fs.FS) (git.Repository, fs.FS, error) {
+	die  = util.Die
+	exit = os.Exit
+
+	clone = func(ctx context.Context, cloneOpts *git.CloneOptions, filesystem fs.FS) (git.Repository, fs.FS, error) {
 		return cloneOpts.Clone(ctx, filesystem)
 	}
 

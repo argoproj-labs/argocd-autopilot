@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/argoproj/argocd-autopilot/pkg/application"
 	"github.com/argoproj/argocd-autopilot/pkg/argocd"
 	"github.com/argoproj/argocd-autopilot/pkg/fs"
 	"github.com/argoproj/argocd-autopilot/pkg/git"
@@ -42,7 +43,12 @@ var kustomizationReadme []byte
 var supportedProviders = []string{"github"}
 
 // used for mocking
-var argocdLogin = func(opts *argocd.LoginOptions) error { return argocd.Login(opts) }
+var (
+	argocdLogin        = argocd.Login
+	getGitProvider     = git.NewProvider
+	currentKubeContext = kube.CurrentContext
+	runKustomizeBuild  = application.GenerateManifests
+)
 
 type (
 	RepoCreateOptions struct {
