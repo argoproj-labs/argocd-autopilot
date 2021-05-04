@@ -37,7 +37,7 @@ argocd-autopilot repo bootstrap [flags]
       --app string                     The application specifier (e.g. argocd@v1.0.2)
       --as string                      Username to impersonate for the operation
       --as-group stringArray           Group to impersonate for the operation, this flag can be repeated to specify multiple groups.
-      --cache-dir string               Default cache directory (default "/Users/roikramer/.kube/cache")
+      --cache-dir string               Default cache directory (default "/Users/orengurfinkel/.kube/cache")
       --certificate-authority string   Path to a cert file for the certificate authority
       --client-certificate string      Path to a client certificate file for TLS
       --client-key string              Path to a client key file for TLS

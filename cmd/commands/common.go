@@ -11,6 +11,7 @@ import (
 	"github.com/argoproj/argocd-autopilot/pkg/util"
 
 	memfs "github.com/go-git/go-billy/v5/memfs"
+	billyUtils "github.com/go-git/go-billy/v5/util"
 	"github.com/spf13/cobra"
 )
 
@@ -77,6 +78,9 @@ var prepareRepo = func(ctx context.Context, o *BaseOptions) (git.Repository, fs.
 
 var clone = func(ctx context.Context, cloneOpts *git.CloneOptions, filesystem fs.FS) (git.Repository, fs.FS, error) {
 	return cloneOpts.Clone(ctx, filesystem)
+}
+var glob = func(fs fs.FS, pattern string) ([]string, error) {
+	return billyUtils.Glob(fs, pattern)
 }
 
 var die = util.Die

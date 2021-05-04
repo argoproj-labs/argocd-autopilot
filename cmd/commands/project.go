@@ -21,7 +21,6 @@ import (
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/ghodss/yaml"
 	memfs "github.com/go-git/go-billy/v5/memfs"
-	billyUtils "github.com/go-git/go-billy/v5/util"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -50,8 +49,10 @@ func NewProjectCommand() *cobra.Command {
 		},
 	}
 
+	opts, err := addFlags(cmd)
+	die(err)
 	cmd.AddCommand(NewProjectCreateCommand())
-	cmd.AddCommand(NewProjectListCommand())
+	cmd.AddCommand(NewProjectListCommand(opts))
 
 	return cmd
 }
@@ -331,16 +332,12 @@ var getInstallationNamespace = func(repofs fs.FS) (string, error) {
 
 type (
 	ProjectListOptions struct {
-		FS           fs.FS
-		CloneOptions *git.CloneOptions
-		out          io.Writer
+		BaseOptions
+		Out io.Writer
 	}
 )
 
-func NewProjectListCommand() *cobra.Command {
-	var (
-		cloneOpts *git.CloneOptions
-	)
+func NewProjectListCommand(opts *BaseOptions) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "list ",
@@ -363,50 +360,31 @@ func NewProjectListCommand() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 
 			return RunProjectList(cmd.Context(), &ProjectListOptions{
-				FS:           fs.Create(memfs.New()),
-				CloneOptions: cloneOpts,
-				out: os.Stdout,
+				BaseOptions: *opts,
+				Out:         os.Stdout,
 			})
 		},
 	}
-
-	cloneOpts, err := git.AddFlags(cmd)
-	die(err)
 
 	return cmd
 }
 
 func RunProjectList(ctx context.Context, opts *ProjectListOptions) error {
 
-	var (
-		err error
-	)
-	log.G().WithFields(log.Fields{
-		"repoURL":  opts.CloneOptions.URL,
-		"revision": opts.CloneOptions.Revision,
-	}).Debug("starting with options: ")
-
-	log.G().Infof("using revision: \"%s\", installation path: \"%s\"", opts.CloneOptions.Revision, opts.FS.Root())
-
-	// clone repo
-	log.G().Infof("cloning git repository: %s", opts.CloneOptions.URL)
-	_, opts.FS, err = opts.CloneOptions.Clone(ctx, opts.FS)
+	_, repofs, err := prepareRepo(ctx, &opts.BaseOptions)
 	if err != nil {
 		return err
 	}
-	if !opts.FS.ExistsOrDie(store.Default.BootsrtrapDir) {
-		log.G().Fatalf("Bootstrap folder not found, please execute `repo bootstrap --installation-path %s` command", opts.FS.Root())
-	}
 
-	matches, err := billyUtils.Glob(opts.FS, opts.FS.Join(store.Default.ProjectsDir, "*.yaml"))
+	matches, err := glob(repofs, repofs.Join(store.Default.ProjectsDir, "*.yaml"))
 	if err != nil {
 		return err
 	}
-	w := tabwriter.NewWriter(opts.out, 0, 0, 2, ' ', 0)
+	w := tabwriter.NewWriter(opts.Out, 0, 0, 2, ' ', 0)
 	_, _ = fmt.Fprintf(w, "NAME\tNAMESPACE\tCLUSTER\t\n")
 
 	for _, name := range matches {
-		proj, _, err := getProjectInfoFromFile(opts.FS, name)
+		proj, _, err := getProjectInfoFromFile(repofs, name)
 		if err != nil {
 			return err
 		}
@@ -417,7 +395,7 @@ func RunProjectList(ctx context.Context, opts *ProjectListOptions) error {
 	return nil
 }
 
-func getProjectInfoFromFile(fs fs.FS, name string) (*argocdv1alpha1.AppProject, *appsetv1alpha1.ApplicationSpec, error) {
+var getProjectInfoFromFile = func(fs fs.FS, name string) (*argocdv1alpha1.AppProject, *appsetv1alpha1.ApplicationSpec, error) {
 	file, err := fs.Open(name)
 	if err != nil {
 		return nil, nil, fmt.Errorf("%s not found", name)

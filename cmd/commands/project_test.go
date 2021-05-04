@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -363,23 +364,61 @@ func TestRunProjectList(t *testing.T) {
 		opts *ProjectListOptions
 	}
 	tests := map[string]struct {
-		args    args
-		wantErr bool
-		beforeFn func(fs.FS) (fs.FS, error)
-		assertFn func()
+		args                   args
+		wantErr                bool
+		prepareRepo            func(ctx context.Context, o *BaseOptions) (git.Repository, fs.FS, error)
+		glob                   func(fs fs.FS, pattern string) ([]string, error)
+		getProjectInfoFromFile func(fs fs.FS, name string) (*argocdv1alpha1.AppProject, *appsetv1alpha1.ApplicationSpec, error)
+		assertFn               func(t *testing.T, str string)
 	}{
 		"should print to table": {
-			beforeFn: func(f fs.FS) (fs.FS, error) {
+			args: args{
+				opts: &ProjectListOptions{
+					BaseOptions: BaseOptions{},
+					Out:         &bytes.Buffer{},
+				},
+			},
+			glob: func(fs fs.FS, pattern string) ([]string, error) {
+				res := make([]string, 0, 1)
+				res = append(res, "prod.yaml")
+				return res, nil
+			},
+			prepareRepo: func(ctx context.Context, o *BaseOptions) (git.Repository, fs.FS, error) {
+				memFS := fs.Create(memfs.New())
+				return nil, memFS, nil
+			},
+			getProjectInfoFromFile: func(fs fs.FS, name string) (*argocdv1alpha1.AppProject, *appsetv1alpha1.ApplicationSpec, error) {
+				appProj := &argocdv1alpha1.AppProject{
+					ObjectMeta: v1.ObjectMeta{
+						Name:      "prod",
+						Namespace: "ns",
+					},
+				}
+				return appProj, nil, nil
+			},
+			assertFn: func(t *testing.T, str string) {
+				assert.Contains(t, str, "NAME  NAMESPACE  CLUSTER  \n")
+				assert.Contains(t, str, "prod  ns  ")
 
 			},
-		}
+		},
 	}
+	origPrepareRepo := prepareRepo
+	origGlob := glob
+	origGetProjectInfoFromFile := getProjectInfoFromFile
 	for tName, tt := range tests {
 		t.Run(tName, func(t *testing.T) {
-
+			prepareRepo = tt.prepareRepo
+			glob = tt.glob
+			getProjectInfoFromFile = tt.getProjectInfoFromFile
 			if err := RunProjectList(tt.args.ctx, tt.args.opts); (err != nil) != tt.wantErr {
 				t.Errorf("RunProjectList() error = %v, wantErr %v", err, tt.wantErr)
 			}
+			b := tt.args.opts.Out.(*bytes.Buffer)
+			tt.assertFn(t, string(b.Bytes()))
+			prepareRepo = origPrepareRepo
+			glob = origGlob
+			getProjectInfoFromFile = origGetProjectInfoFromFile
 		})
 	}
 }

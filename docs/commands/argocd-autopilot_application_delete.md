@@ -1,9 +1,9 @@
-## argocd-autopilot application create
+## argocd-autopilot application delete
 
-Create an application in a specific project
+Delete an application from a project
 
 ```
-argocd-autopilot application create [APP_NAME] [flags]
+argocd-autopilot application delete [APP_NAME] [flags]
 ```
 
 ### Examples
@@ -20,20 +20,17 @@ argocd-autopilot application create [APP_NAME] [flags]
     
         --token <token> --repo <repo_url>
         
-# Create a new application from kustomization in a remote repository
+# Get list of installed applications in a specifc project
     
-    argocd-autopilot app create <new_app_name> --app github.com/some_org/some_repo/manifests?ref=v1.2.3 --project project_name
+    argocd-autopilot app delete <app_name> --project <project_name>
 
 ```
 
 ### Options
 
 ```
-      --app string                 The application specifier (e.g. argocd@v1.0.2)
-      --dest-namespace string      K8s target namespace (overrides the namespace specified in the kustomization.yaml)
-      --dest-server string         K8s cluster URL (e.g. https://kubernetes.default.svc) (default "https://kubernetes.default.svc")
-  -h, --help                       help for create
-      --installation-mode string   One of: normal|flat. If flat, will commit the application manifests (after running kustomize build), otherwise will commit the kustomization.yaml (default "normal")
+  -g, --global   global
+  -h, --help     help for delete
 ```
 
 ### Options inherited from parent commands
