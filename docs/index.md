@@ -29,7 +29,7 @@ Autopilot communicates with the cluster directly **only** during the bootstrap p
 * Opinionated way to build a multi-project multi-application system, using GitOps principles
 * Create a new GitOps repository, or use an existing one
 * Supports creating the entire directory structure under any path the user requires
-* When adding applications from a public repo, allow committing as either customization that references the public repo, or as a "flat" manifest file containing all the required resources
+* When adding applications from a public repo, allow committing as a Kustomization file that references the public repo, or a "flat" manifest file containing all the required resources
 * Use a different cluster from the one Argo CD is running on, as a default cluster for a project, or a target cluster for a specific application
 
 ## Development Status
