@@ -50,12 +50,25 @@ var (
 	}
 )
 
+var supportedProviders = map[string]func(*ProviderOptions) (Provider, error){
+	"github": newGithub,
+}
+
 // New creates a new git provider
 func NewProvider(opts *ProviderOptions) (Provider, error) {
-	switch opts.Type {
-	case "github":
-		return newGithub(opts)
-	default:
+	cons, exists := supportedProviders[opts.Type]
+	if !exists {
 		return nil, ErrProviderNotSupported
 	}
+
+	return cons(opts)
+}
+
+func Providers() []string {
+	res := make([]string, 0, len(supportedProviders))
+	for p := range supportedProviders {
+		res = append(res, p)
+	}
+
+	return res
 }

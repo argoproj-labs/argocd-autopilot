@@ -40,8 +40,6 @@ var projectReadme []byte
 //go:embed assets/kustomization_readme.md
 var kustomizationReadme []byte
 
-var supportedProviders = []string{"github"}
-
 // used for mocking
 var (
 	argocdLogin        = argocd.Login
@@ -146,7 +144,7 @@ func NewRepoCreateCommand() *cobra.Command {
 
 	die(viper.BindEnv("git-token", "GIT_TOKEN"))
 
-	cmd.Flags().StringVarP(&provider, "provider", "p", "github", "The git provider, "+fmt.Sprintf("one of: %v", strings.Join(supportedProviders, "|")))
+	cmd.Flags().StringVarP(&provider, "provider", "p", "github", "The git provider, "+fmt.Sprintf("one of: %v", strings.Join(git.Providers(), "|")))
 	cmd.Flags().StringVarP(&owner, "owner", "o", "", "The name of the owner or organiaion")
 	cmd.Flags().StringVarP(&repo, "name", "n", "", "The name of the repository")
 	cmd.Flags().StringVarP(&token, "git-token", "t", "", "Your git provider api token [GIT_TOKEN]")
