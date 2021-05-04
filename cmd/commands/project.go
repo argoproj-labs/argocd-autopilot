@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"text/tabwriter"
 
 	"github.com/argoproj/argocd-autopilot/pkg/argocd"
 	"github.com/argoproj/argocd-autopilot/pkg/fs"
@@ -19,6 +20,7 @@ import (
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/ghodss/yaml"
 	memfs "github.com/go-git/go-billy/v5/memfs"
+	billyUtils "github.com/go-git/go-billy/v5/util"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -48,6 +50,7 @@ func NewProjectCommand() *cobra.Command {
 	}
 
 	cmd.AddCommand(NewProjectCreateCommand())
+	cmd.AddCommand(NewProjectListCommand())
 
 	return cmd
 }
@@ -323,4 +326,115 @@ var getInstallationNamespace = func(repofs fs.FS) (string, error) {
 	}
 
 	return a.Spec.Destination.Namespace, nil
+}
+
+type (
+	ProjectListOptions struct {
+		FS              fs.FS
+		CloneOptions    *git.CloneOptions
+	}
+)
+
+func NewProjectListCommand() *cobra.Command {
+	var (
+		cloneOpts   *git.CloneOptions
+	)
+
+	cmd := &cobra.Command{
+		Use:   "list ",
+		Short: "Lists all the projects on a git repository",
+		Example: util.Doc(`
+# To run this command you need to create a personal access token for your git provider,
+# and have a bootstrapped GitOps repository, and provide them using:
+	
+		export GIT_TOKEN=<token>
+		export GIT_REPO=<repo_url>
+
+# or with the flags:
+	
+		--token <token> --repo <repo_url>
+		
+# Lists projects
+	
+	<BIN> project list
+`),
+		RunE: func(cmd *cobra.Command, args []string) error {
+
+			return RunProjectList(cmd.Context(), &ProjectListOptions{
+				FS: fs.Create(memfs.New()),
+				CloneOptions: cloneOpts,
+			})
+		},
+	}
+
+	cloneOpts, err := git.AddFlags(cmd)
+	die(err)
+
+	return cmd
+}
+
+
+func RunProjectList(ctx context.Context, opts *ProjectListOptions) error {
+
+	var (
+		err error
+	)
+	log.G().WithFields(log.Fields{
+		"repoURL":  opts.CloneOptions.URL,
+		"revision": opts.CloneOptions.Revision,
+	}).Debug("starting with options: ")
+
+	log.G().Infof("using revision: \"%s\", installation path: \"%s\"", opts.CloneOptions.Revision, opts.FS.Root())
+
+	// clone repo
+	log.G().Infof("cloning git repository: %s", opts.CloneOptions.URL)
+	_, opts.FS, err = opts.CloneOptions.Clone(ctx, opts.FS)
+	if err != nil {
+		return err
+	}
+	if !opts.FS.ExistsOrDie(store.Default.BootsrtrapDir) {
+		log.G().Fatalf("Bootstrap folder not found, please execute `repo bootstrap --installation-path %s` command", opts.FS.Root())
+	}
+
+	matches, err :=  billyUtils.Glob(opts.FS, "/projects/*.yaml")
+	if err != nil {
+		return err
+	}
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	_, _ = fmt.Fprintf(w, "PROJECT\tNAMESPACE\t\n")
+
+
+	for _, name := range matches {
+		proj, err := getProjectInfoFromFile(opts.FS, name)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(w, "%s\t%s\n", proj.Name, proj.Namespace)
+
+	}
+	w.Flush()
+	return nil
+}
+
+func getProjectInfoFromFile(fs fs.FS, name string) (*argocdv1alpha1.AppProject, error) {
+	file, err := fs.Open(name)
+	if err != nil {
+		return nil, fmt.Errorf("%s not found", name)
+	}
+	b, err := ioutil.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file %s", name)
+	}
+	var joinedStrings = string(b)
+	yamls := util.SplitManifests(joinedStrings)
+	if len(yamls) != 2 {
+		return nil, fmt.Errorf("expected 2 files when splitting %s", name)
+	}
+	proj := argocdv1alpha1.AppProject{}
+	err = yaml.Unmarshal(([]byte)(yamls[0]), &proj)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal %s", name)
+	}
+	return &proj, nil
+
 }
