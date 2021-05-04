@@ -478,7 +478,7 @@ func TestRunAppDelete(t *testing.T) {
 			},
 		},
 	}
-	origBaseClone := baseClone
+	origBaseClone := prepareRepo
 	origRemoveAll := removeAll
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -487,7 +487,7 @@ func TestRunAppDelete(t *testing.T) {
 			mockFS.On("Join", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(func(elem ...string) string {
 				return strings.Join(elem, "/")
 			})
-			baseClone = func(_ context.Context, _ *BaseOptions) (git.Repository, fs.FS, error) {
+			prepareRepo = func(_ context.Context, _ *BaseOptions) (git.Repository, fs.FS, error) {
 				var err error
 				if tt.cloneErr != "" {
 					err = fmt.Errorf(tt.cloneErr)
@@ -524,6 +524,6 @@ func TestRunAppDelete(t *testing.T) {
 		})
 	}
 
-	baseClone = origBaseClone
+	prepareRepo = origBaseClone
 	removeAll = origRemoveAll
 }

@@ -108,7 +108,7 @@ func NewAppCreateCommand(opts *BaseOptions) *cobra.Command {
 }
 
 func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
-	r, repofs, err := baseClone(ctx, &opts.BaseOptions)
+	r, repofs, err := prepareRepo(ctx, &opts.BaseOptions)
 	if err != nil {
 		return err
 	}
@@ -311,7 +311,7 @@ func NewAppListCommand(opts *BaseOptions) *cobra.Command {
 }
 
 func RunAppList(ctx context.Context, opts *BaseOptions) error {
-	_, repofs, err := baseClone(ctx, opts)
+	_, repofs, err := prepareRepo(ctx, opts)
 	if err != nil {
 		return err
 	}
@@ -409,7 +409,7 @@ func NewAppDeleteCommand(opts *BaseOptions) *cobra.Command {
 }
 
 func RunAppDelete(ctx context.Context, opts *AppDeleteOptions) error {
-	r, repofs, err := baseClone(ctx, &opts.BaseOptions)
+	r, repofs, err := prepareRepo(ctx, &opts.BaseOptions)
 	if err != nil {
 		return err
 	}

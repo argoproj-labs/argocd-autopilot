@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestBaseOptions_baseClone(t *testing.T) {
+func TestBaseOptions_prepareRepo(t *testing.T) {
 	tests := map[string]struct {
 		projectName string
 		cloneErr    string
@@ -94,7 +94,7 @@ func TestBaseOptions_baseClone(t *testing.T) {
 				FS:           nil,
 				ProjectName:  tt.projectName,
 			}
-			gotRepo, gotFS, err := baseClone(context.Background(), o)
+			gotRepo, gotFS, err := prepareRepo(context.Background(), o)
 			if err != nil {
 				if tt.wantErr != "" {
 					assert.EqualError(t, err, tt.wantErr)

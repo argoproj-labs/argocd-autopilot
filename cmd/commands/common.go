@@ -36,7 +36,7 @@ func addFlags(cmd *cobra.Command) (*BaseOptions, error) {
 	return o, nil
 }
 
-var baseClone = func(ctx context.Context, o *BaseOptions) (git.Repository, fs.FS, error) {
+var prepareRepo = func(ctx context.Context, o *BaseOptions) (git.Repository, fs.FS, error) {
 	var (
 		r   git.Repository
 		err error
