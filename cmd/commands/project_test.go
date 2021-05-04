@@ -415,7 +415,7 @@ func TestRunProjectList(t *testing.T) {
 				t.Errorf("RunProjectList() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			b := tt.args.opts.Out.(*bytes.Buffer)
-			tt.assertFn(t, string(b.Bytes()))
+			tt.assertFn(t, b.String())
 			prepareRepo = origPrepareRepo
 			glob = origGlob
 			getProjectInfoFromFile = origGetProjectInfoFromFile
