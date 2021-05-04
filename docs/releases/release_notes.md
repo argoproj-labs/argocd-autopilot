@@ -1,6 +1,7 @@
 ## Changes:
 * doc fixes
-* fixed adding application on a remote cluster
+* you no longer need to run `argocd login` after running `repo bootstrap`
+* added `app delete` command
 
 ## Installation:
 
