@@ -65,18 +65,6 @@ steps:
         on:
         - success
 
-  test:
-    <<: *deps
-    stage: Test
-    title: run tests
-    commands:
-    - make test
-    when:
-      steps:
-      - name: lint
-        on:
-        - success
-
   codegen:
     <<: *deps
     stage: Test
@@ -86,7 +74,19 @@ steps:
     - make check-worktree
     when:
       steps:
-      - name: test
+      - name: prepare_env_vars
+        on:
+        - success
+
+  test:
+    <<: *deps
+    stage: Test
+    title: run tests
+    commands:
+    - make test
+    when:
+      steps:
+      - name: lint
         on:
         - success
 
