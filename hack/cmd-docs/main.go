@@ -24,10 +24,6 @@ func main() {
 	log.Printf("org home: %s", orgHome)
 	log.Printf("new home: %s", home)
 
-	if err := os.Setenv("HOME", home); err != nil {
-		log.Fatal(err)
-	}
-
 	if err := doc.GenMarkdownTree(commands.NewRoot(), outputDir); err != nil {
 		log.Fatal(err)
 	}
