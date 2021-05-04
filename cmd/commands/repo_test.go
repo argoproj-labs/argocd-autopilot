@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/argoproj/argocd-autopilot/pkg/argocd"
 	"github.com/argoproj/argocd-autopilot/pkg/fs"
 	"github.com/argoproj/argocd-autopilot/pkg/git"
 	gitmocks "github.com/argoproj/argocd-autopilot/pkg/git/mocks"
@@ -470,6 +471,7 @@ func TestRunRepoBootstrap(t *testing.T) {
 	orgExit := exit
 	orgClone := clone
 	orgRunKustomizeBuild := runKustomizeBuild
+	orgArgoLogin := argocdLogin
 
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
@@ -489,11 +491,13 @@ func TestRunRepoBootstrap(t *testing.T) {
 				return mockRepo, repofs, nil
 			}
 			runKustomizeBuild = func(k *kusttypes.Kustomization) ([]byte, error) { return []byte("test"), nil }
+			argocdLogin = func(opts *argocd.LoginOptions) error { return nil }
 
 			defer func() {
 				exit = orgExit
 				clone = orgClone
 				runKustomizeBuild = orgRunKustomizeBuild
+				argocdLogin = orgArgoLogin
 			}()
 
 			tt.assertFn(t, mockRepo, repofs, mockFactory, RunRepoBootstrap(context.Background(), tt.opts))

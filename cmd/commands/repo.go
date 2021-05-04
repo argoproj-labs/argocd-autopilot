@@ -41,6 +41,9 @@ var kustomizationReadme []byte
 
 var supportedProviders = []string{"github"}
 
+// used for mocking
+var argocdLogin = func(opts *argocd.LoginOptions) error { return argocd.Login(opts) }
+
 type (
 	RepoCreateOptions struct {
 		Provider string
@@ -340,7 +343,7 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 	}
 
 	log.G().Infof("running argocd login to initialize argocd config")
-	err = argocd.Login(&argocd.LoginOptions{
+	err = argocdLogin(&argocd.LoginOptions{
 		Namespace: opts.Namespace,
 		Username:  "admin",
 		Password:  passwd,
