@@ -365,6 +365,7 @@ func NewProjectListCommand() *cobra.Command {
 			return RunProjectList(cmd.Context(), &ProjectListOptions{
 				FS:           fs.Create(memfs.New()),
 				CloneOptions: cloneOpts,
+				out: os.Stdout,
 			})
 		},
 	}
@@ -401,7 +402,7 @@ func RunProjectList(ctx context.Context, opts *ProjectListOptions) error {
 	if err != nil {
 		return err
 	}
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	w := tabwriter.NewWriter(opts.out, 0, 0, 2, ' ', 0)
 	_, _ = fmt.Fprintf(w, "NAME\tNAMESPACE\tCLUSTER\t\n")
 
 	for _, name := range matches {

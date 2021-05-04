@@ -356,3 +356,30 @@ func Test_getProjectInfoFromFile(t *testing.T) {
 		})
 	}
 }
+
+func TestRunProjectList(t *testing.T) {
+	type args struct {
+		ctx  context.Context
+		opts *ProjectListOptions
+	}
+	tests := map[string]struct {
+		args    args
+		wantErr bool
+		beforeFn func(fs.FS) (fs.FS, error)
+		assertFn func()
+	}{
+		"should print to table": {
+			beforeFn: func(f fs.FS) (fs.FS, error) {
+
+			},
+		}
+	}
+	for tName, tt := range tests {
+		t.Run(tName, func(t *testing.T) {
+
+			if err := RunProjectList(tt.args.ctx, tt.args.opts); (err != nil) != tt.wantErr {
+				t.Errorf("RunProjectList() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
