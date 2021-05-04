@@ -294,7 +294,7 @@ func Test_getProjectInfoFromFile(t *testing.T) {
 		name     string
 		want     *argocdv1alpha1.AppProject
 		wantErr  string
-		beforeFn func(fs.FS) fs.FS
+		beforeFn func(fs.FS) (fs.FS, error)
 	}{
 		"should return error if project file doesn't exist": {
 			name:    "prod.yaml",
@@ -303,14 +303,17 @@ func Test_getProjectInfoFromFile(t *testing.T) {
 		"should failed when 2 files not found": {
 			name:    "prod.yaml",
 			wantErr: "expected 2 files when splitting prod.yaml",
-			beforeFn: func(f fs.FS) fs.FS {
-				f.WriteFile("prod.yaml", []byte("content"))
-				return f
+			beforeFn: func(f fs.FS) (fs.FS, error) {
+				_, err := f.WriteFile("prod.yaml", []byte("content"))
+				if err != nil {
+					return nil, err
+				}
+				return f, nil
 			},
 		},
 		"should return AppProject": {
 			name: "prod.yaml",
-			beforeFn: func(f fs.FS) fs.FS {
+			beforeFn: func(f fs.FS) (fs.FS, error) {
 				appProj := argocdv1alpha1.AppProject{
 					ObjectMeta: v1.ObjectMeta{
 						Name:      "prod",
@@ -321,8 +324,11 @@ func Test_getProjectInfoFromFile(t *testing.T) {
 				projectYAML, _ := yaml.Marshal(&appProj)
 				appsetYAML, _ := yaml.Marshal(&appSet)
 				joinedYAML := util.JoinManifests(projectYAML, appsetYAML)
-				f.WriteFile("prod.yaml", joinedYAML)
-				return f
+				_, err := f.WriteFile("prod.yaml", joinedYAML)
+				if err != nil {
+					return nil, err
+				}
+				return f, nil
 			},
 			want: &argocdv1alpha1.AppProject{
 				ObjectMeta: v1.ObjectMeta{
@@ -336,7 +342,8 @@ func Test_getProjectInfoFromFile(t *testing.T) {
 		t.Run(tName, func(t *testing.T) {
 			repofs := fs.Create(memfs.New())
 			if tt.beforeFn != nil {
-				repofs = tt.beforeFn(repofs)
+				_, err := tt.beforeFn(repofs)
+				assert.NoError(t, err)
 			}
 			got, _, err := getProjectInfoFromFile(repofs, tt.name)
 			if (err != nil) && tt.wantErr != "" {
