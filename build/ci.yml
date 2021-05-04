@@ -128,15 +128,6 @@ steps:
       - name: build
         on:
         - success
-      - name: test
-        on:
-        - success
-      - name: lint
-        on:
-        - success
-      - name: codegen
-        on:
-        - success
       branch:
         ignore: [ "main" ]
     scale:
