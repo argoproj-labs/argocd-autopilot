@@ -108,14 +108,14 @@ test:
 	./hack/test.sh
 
 .PHONY: codegen
-codegen: $(GOBIN)/mockery $(GOBIN)/interfacer
+codegen: $(GOBIN)/mockery
 	go generate ./...
 
 .PHONY: pre-commit
 pre-commit: lint
 
 .PHONY: pre-push
-pre-push: codegen test check-worktree
+pre-push: lint test codegen check-worktree
 
 .PHONY: build-docs
 build-docs:

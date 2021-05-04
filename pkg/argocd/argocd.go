@@ -12,9 +12,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type AddClusterCmd interface {
-	Execute(ctx context.Context, clusterName string) error
-}
+type (
+	// AddClusterCmd when executed calls the 'argocd cluster add' command
+	AddClusterCmd interface {
+		Execute(ctx context.Context, clusterName string) error
+	}
+
+	LoginOptions struct {
+		Namespace string
+		Username  string
+		Password  string
+	}
+)
 
 type addClusterImpl struct {
 	cmd  *cobra.Command
@@ -42,4 +51,23 @@ func AddClusterAddFlags(cmd *cobra.Command) (AddClusterCmd, error) {
 func (a *addClusterImpl) Execute(ctx context.Context, clusterName string) error {
 	a.cmd.SetArgs(append(a.args, clusterName))
 	return a.cmd.ExecuteContext(ctx)
+}
+
+func Login(opts *LoginOptions) error {
+	root := commands.NewCommand()
+	args := []string{
+		"login",
+		"--port-forward",
+		"--port-forward-namespace",
+		opts.Namespace,
+		"--password",
+		opts.Password,
+		"--username",
+		opts.Username,
+		"--name",
+		"autopilot",
+	}
+
+	root.SetArgs(args)
+	return root.Execute()
 }

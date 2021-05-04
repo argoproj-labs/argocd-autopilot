@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 
 	"github.com/argoproj/argocd-autopilot/pkg/argocd"
@@ -43,7 +42,7 @@ func NewProjectCommand() *cobra.Command {
 		Short:   "Manage projects",
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.HelpFunc()(cmd, args)
-			os.Exit(1)
+			exit(1)
 		},
 	}
 
@@ -81,7 +80,7 @@ func NewProjectCreateCommand() *cobra.Command {
 
 # Create a new project in a specific path inside the GitOps repo
 
-  <BIN> project create <PROJECT_NAME> --installation-path path/to/bootstrap/root
+  <BIN> project create <PROJECT_NAME> --installation-path path/to/installation_root
 `),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {

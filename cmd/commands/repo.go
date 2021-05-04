@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/argoproj/argocd-autopilot/pkg/application"
+	"github.com/argoproj/argocd-autopilot/pkg/argocd"
 	"github.com/argoproj/argocd-autopilot/pkg/fs"
 	"github.com/argoproj/argocd-autopilot/pkg/git"
 	"github.com/argoproj/argocd-autopilot/pkg/kube"
@@ -39,7 +40,13 @@ var projectReadme []byte
 //go:embed assets/kustomization_readme.md
 var kustomizationReadme []byte
 
-var supportedProviders = []string{"github"}
+// used for mocking
+var (
+	argocdLogin        = argocd.Login
+	getGitProvider     = git.NewProvider
+	currentKubeContext = kube.CurrentContext
+	runKustomizeBuild  = application.GenerateManifests
+)
 
 type (
 	RepoCreateOptions struct {
@@ -82,7 +89,7 @@ func NewRepoCommand() *cobra.Command {
 		Short: "Manage gitops repositories",
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.HelpFunc()(cmd, args)
-			os.Exit(1)
+			exit(1)
 		},
 	}
 
@@ -137,7 +144,7 @@ func NewRepoCreateCommand() *cobra.Command {
 
 	die(viper.BindEnv("git-token", "GIT_TOKEN"))
 
-	cmd.Flags().StringVarP(&provider, "provider", "p", "github", "The git provider, "+fmt.Sprintf("one of: %v", strings.Join(supportedProviders, "|")))
+	cmd.Flags().StringVarP(&provider, "provider", "p", "github", "The git provider, "+fmt.Sprintf("one of: %v", strings.Join(git.Providers(), "|")))
 	cmd.Flags().StringVarP(&owner, "owner", "o", "", "The name of the owner or organiaion")
 	cmd.Flags().StringVarP(&repo, "name", "n", "", "The name of the repository")
 	cmd.Flags().StringVarP(&token, "git-token", "t", "", "Your git provider api token [GIT_TOKEN]")
@@ -183,7 +190,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 	# Install argo-cd on the current kubernetes context in the argocd namespace
 	# and persists the bootstrap manifests to a specific folder in the gitops repository
 
-	<BIN> repo bootstrap --repo https://github.com/example/repo --installation-path path/to/bootstrap/root
+	<BIN> repo bootstrap --repo https://github.com/example/repo --installation-path path/to/installation_root
 `),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return RunRepoBootstrap(cmd.Context(), &RepoBootstrapOptions{
@@ -223,7 +230,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 }
 
 func RunRepoCreate(ctx context.Context, opts *RepoCreateOptions) error {
-	p, err := git.NewProvider(&git.Options{
+	p, err := getGitProvider(&git.ProviderOptions{
 		Type: opts.Provider,
 		Auth: &git.Auth{
 			Username: "git",
@@ -283,13 +290,14 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 			manifests.argocdApp,
 			manifests.rootApp,
 		))
-		os.Exit(0)
+		exit(0)
+		return nil
 	}
 
 	log.G().Infof("cloning repo: %s", opts.CloneOptions.URL)
 
 	// clone GitOps repo
-	r, opts.FS, err = opts.CloneOptions.Clone(ctx, opts.FS)
+	r, opts.FS, err = clone(ctx, opts.CloneOptions, opts.FS)
 	if err != nil {
 		return err
 	}
@@ -333,8 +341,24 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 		return err
 	}
 
+	passwd, err := getInitialPassword(ctx, opts.KubeFactory, opts.Namespace)
+	if err != nil {
+		return err
+	}
+
+	log.G().Infof("running argocd login to initialize argocd config")
+	err = argocdLogin(&argocd.LoginOptions{
+		Namespace: opts.Namespace,
+		Username:  "admin",
+		Password:  passwd,
+	})
+	if err != nil {
+		return err
+	}
 	if !opts.HidePassword {
-		return printInitialPassword(ctx, opts.KubeFactory, opts.Namespace)
+		log.G(ctx).Printf("")
+		log.G(ctx).Infof("argocd initialized. password: %s", passwd)
+		log.G(ctx).Infof("run:\n\n    kubectl port-forward -n %s svc/argocd-server 8080:80\n\n", opts.Namespace)
 	}
 
 	return nil
@@ -345,6 +369,8 @@ func setBootstrapOptsDefaults(opts RepoBootstrapOptions) (*RepoBootstrapOptions,
 
 	switch opts.InstallationMode {
 	case installationModeFlat, installationModeNormal:
+	case "":
+		opts.InstallationMode = installationModeNormal
 	default:
 		return nil, fmt.Errorf("unknown installation mode: %s", opts.InstallationMode)
 	}
@@ -363,7 +389,7 @@ func setBootstrapOptsDefaults(opts RepoBootstrapOptions) (*RepoBootstrapOptions,
 	}
 
 	if opts.KubeContext == "" {
-		if opts.KubeContext, err = kube.CurrentContext(); err != nil {
+		if opts.KubeContext, err = currentKubeContext(); err != nil {
 			return nil, err
 		}
 	}
@@ -477,22 +503,19 @@ func getRepoCredsSecret(token, namespace string) ([]byte, error) {
 	})
 }
 
-func printInitialPassword(ctx context.Context, f kube.Factory, namespace string) error {
+func getInitialPassword(ctx context.Context, f kube.Factory, namespace string) (string, error) {
 	cs := f.KubernetesClientSetOrDie()
 	secret, err := cs.CoreV1().Secrets(namespace).Get(ctx, "argocd-initial-admin-secret", metav1.GetOptions{})
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	passwd, ok := secret.Data["password"]
 	if !ok {
-		return fmt.Errorf("argocd initial password not found")
+		return "", fmt.Errorf("argocd initial password not found")
 	}
 
-	log.G(ctx).Printf("\n")
-	log.G(ctx).Infof("argocd initialized. password: %s", passwd)
-	log.G(ctx).Infof("run:\n\n    kubectl port-forward -n %s svc/argocd-server 8080:80\n\n", namespace)
-	return nil
+	return string(passwd), nil
 }
 
 func getBootstrapAppSpecifier(namespaced bool) string {
@@ -552,7 +575,7 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 		return nil, err
 	}
 
-	manifests.applyManifests, err = application.GenerateManifests(k)
+	manifests.applyManifests, err = runKustomizeBuild(k)
 	if err != nil {
 		return nil, err
 	}
