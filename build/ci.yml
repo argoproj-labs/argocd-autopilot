@@ -77,6 +77,19 @@ steps:
         on:
         - success
 
+  codegen:
+    <<: *deps
+    stage: Test
+    title: compile and check codegen
+    commands:
+    - make codegen
+    - make check-worktree
+    when:
+      steps:
+      - name: test
+        on:
+        - success
+
   codecov-report:
     stage: Test
     type: codecov-reporter
@@ -102,19 +115,6 @@ steps:
       - name: main_clone
         on:
         - success
-  
-  # codegen:
-  #   <<: *deps
-  #   stage: Test
-  #   title: compile and check codegen
-  #   commands:
-  #   - make codegen
-  #   - make check-worktree
-  #   when:
-  #     steps:
-  #     - name: test
-  #       on:
-  #       - success
 
   push_dev:
     stage: Push Dev
@@ -134,9 +134,9 @@ steps:
       - name: lint
         on:
         - success
-      # - name: codegen
-      #   on:
-      #   - success
+      - name: codegen
+        on:
+        - success
       branch:
         ignore: [ "main" ]
     scale:

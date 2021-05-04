@@ -108,7 +108,7 @@ test:
 	./hack/test.sh
 
 .PHONY: codegen
-codegen: $(GOBIN)/mockery $(GOBIN)/interfacer
+codegen: $(GOBIN)/mockery
 	go generate ./...
 
 .PHONY: pre-commit

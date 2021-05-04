@@ -21,8 +21,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-//go:generate interfacer -for github.com/go-git/go-git/v5.Repository -as gogit.Repository -o gogit/repo.go
-//go:generate interfacer -for github.com/go-git/go-git/v5.Worktree -as gogit.Worktree -o gogit/worktree.go
 //go:generate mockery -dir gogit -all -output gogit/mocks -case snake
 //go:generate mockery -name Repository -filename repository.go
 

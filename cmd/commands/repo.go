@@ -223,7 +223,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 }
 
 func RunRepoCreate(ctx context.Context, opts *RepoCreateOptions) error {
-	p, err := git.NewProvider(&git.Options{
+	p, err := getGitProvider(&git.ProviderOptions{
 		Type: opts.Provider,
 		Auth: &git.Auth{
 			Username: "git",
@@ -345,6 +345,8 @@ func setBootstrapOptsDefaults(opts RepoBootstrapOptions) (*RepoBootstrapOptions,
 
 	switch opts.InstallationMode {
 	case installationModeFlat, installationModeNormal:
+	case "":
+		opts.InstallationMode = installationModeNormal
 	default:
 		return nil, fmt.Errorf("unknown installation mode: %s", opts.InstallationMode)
 	}
@@ -363,7 +365,7 @@ func setBootstrapOptsDefaults(opts RepoBootstrapOptions) (*RepoBootstrapOptions,
 	}
 
 	if opts.KubeContext == "" {
-		if opts.KubeContext, err = kube.CurrentContext(); err != nil {
+		if opts.KubeContext, err = currentKubeContext(); err != nil {
 			return nil, err
 		}
 	}
