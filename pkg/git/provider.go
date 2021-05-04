@@ -6,6 +6,8 @@ import (
 	"fmt"
 )
 
+//go:generate mockery -name Provider -filename provider.go
+
 type (
 	// Provider represents a git provider
 	Provider interface {
@@ -21,8 +23,8 @@ type (
 		Password string
 	}
 
-	// Options for a new git provider
-	Options struct {
+	// ProviderOptions for a new git provider
+	ProviderOptions struct {
 		Type string
 		Auth *Auth
 		Host string
@@ -48,12 +50,25 @@ var (
 	}
 )
 
+var supportedProviders = map[string]func(*ProviderOptions) (Provider, error){
+	"github": newGithub,
+}
+
 // New creates a new git provider
-func NewProvider(opts *Options) (Provider, error) {
-	switch opts.Type {
-	case "github":
-		return newGithub(opts)
-	default:
+func NewProvider(opts *ProviderOptions) (Provider, error) {
+	cons, exists := supportedProviders[opts.Type]
+	if !exists {
 		return nil, ErrProviderNotSupported
 	}
+
+	return cons(opts)
+}
+
+func Providers() []string {
+	res := make([]string, 0, len(supportedProviders))
+	for p := range supportedProviders {
+		res = append(res, p)
+	}
+
+	return res
 }

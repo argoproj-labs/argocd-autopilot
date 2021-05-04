@@ -106,6 +106,7 @@ func WithSpinner(ctx context.Context, msg ...string) func() {
 
 	return func() {
 		cancel()
+		// wait just enough time to prevent logs jumbling between spinner and main flow
 		time.Sleep(time.Millisecond * 100)
 	}
 }
