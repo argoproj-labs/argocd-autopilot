@@ -1,29 +1,29 @@
 # Development
 This guide is meant for developers who want to contribute or debug `argocd-autopilot`.
 
-### Adding a new feature:
-1. Fork the repository.
-2. Clone it and add the upstream remote with: `git remote add upstream https://github.com/argoproj-labs/argocd-autopilot.git`.
-3. Run `make local` to build the project.
-4. Add your feature, run `make pre-commit`, then commit.
-5. Run `make pre-push`.
-6. Push the changes to the remote branch and create a new PR: `git push --set-upstream upstream <remote-branch-name>`.
-7. If you need to get changes from the upstream repo, run: `git pull upstream main`.
+### Adding a New Feature:
+1. Fork the repository
+2. Clone it and add the upstream remote with `git remote add upstream https://github.com/argoproj-labs/argocd-autopilot.git`
+3. Run `make local` to build the project
+4. Add your feature, run `make pre-commit`, then commit
+5. Run `make pre-push`
+6. Push the changes to the remote branch and create a new PR: `git push --set-upstream upstream <remote-branch-name>`
+7. If you need to get changes from the upstream repo, run: `git pull upstream main`
 
-### Adding documentation:
+### Adding Documentation:
 1. Fork the repository.
 2. Clone it and add the upstream remote with: `git remote add upstream https://github.com/argoproj-labs/argocd-autopilot.git`.
 3. Run `make serve-docs` to run a docker container that will server the docs on http://localhost:8000.
 4. Edit existing docs in `/docs` directory or add new `X.md` files and add them to the `mkdocs.yml`.
 5. When you're ready, push your changes to your fork and submit a PR.
 
-### Releasing a new version:
-1. Checkout to a release branch: `v0.X.X`.
-2. Change the `VERSION` in the Makefile to match the new version.
-3. Add what you need to `./docs/releases/release_notes.md`.
-4. Create a new PR to the `main` branch.
-5. After CI is green, add a `/release` comment to the PR to trigger the release pipeline (maintainers only).
-6. After Release build is finished you can merge back to `main`.
+### Releasing a New Version:
+1. Checkout to a release branch: `v0.X.X`
+2. Change the `VERSION` in the Makefile to match the new version
+3. Add what you need to `./docs/releases/release_notes.md`
+4. Create a new PR to the `main` branch
+5. After CI is green, add a `/release` comment to the PR to trigger the release pipeline (maintainers only)
+6. After Release build is finished you can merge back to `main`
 
 ### Using pre-commit:
 With pre-commit installed and properly set-up, both the pre-commit and pre-push hooks will run automatically.
