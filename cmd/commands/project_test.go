@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 	"os"
-
 	"strings"
+
 	"testing"
 
 	"github.com/argoproj/argocd-autopilot/pkg/fs"
@@ -62,9 +62,7 @@ func TestRunProjectCreate(t *testing.T) {
 			clone: func(_ context.Context, _ *git.CloneOptions, _ fs.FS) (git.Repository, fs.FS, error) {
 				mockedFS := &fsmocks.FS{}
 				mockedFS.On("Root").Return("/")
-				mockedFS.On("Join", "projects", "project.yaml").Return(func(elem ...string) string {
-					return strings.Join(elem, "/")
-				})
+				mockedFS.On("Join", "projects", "project.yaml").Return("projects/project.yaml")
 				mockedFS.On("ExistsOrDie", "projects/project.yaml").Return(true)
 				return nil, mockedFS, nil
 			},
@@ -81,9 +79,7 @@ func TestRunProjectCreate(t *testing.T) {
 			clone: func(_ context.Context, _ *git.CloneOptions, _ fs.FS) (git.Repository, fs.FS, error) {
 				mockedFS := &fsmocks.FS{}
 				mockedFS.On("Root").Return("/")
-				mockedFS.On("Join", "projects", "project.yaml").Return(func(elem ...string) string {
-					return strings.Join(elem, "/")
-				})
+				mockedFS.On("Join", "projects", "project.yaml").Return("projects/project.yaml")
 				mockedFS.On("ExistsOrDie", "projects/project.yaml").Return(false)
 				mockedFS.On("WriteFile", "projects/project.yaml", mock.AnythingOfType("[]uint8")).Return(0, os.ErrPermission)
 				return nil, mockedFS, nil
@@ -101,9 +97,7 @@ func TestRunProjectCreate(t *testing.T) {
 			clone: func(_ context.Context, _ *git.CloneOptions, _ fs.FS) (git.Repository, fs.FS, error) {
 				mockedFS := &fsmocks.FS{}
 				mockedFS.On("Root").Return("/")
-				mockedFS.On("Join", "projects", "project.yaml").Return(func(elem ...string) string {
-					return strings.Join(elem, "/")
-				})
+				mockedFS.On("Join", "projects", "project.yaml").Return("projects/project.yaml")
 				mockedFS.On("ExistsOrDie", "projects/project.yaml").Return(false)
 				mockedFS.On("WriteFile", "projects/project.yaml", mock.AnythingOfType("[]uint8")).Return(1, nil)
 				mockedRepo := &gitmocks.Repository{}
@@ -123,9 +117,7 @@ func TestRunProjectCreate(t *testing.T) {
 			clone: func(_ context.Context, _ *git.CloneOptions, _ fs.FS) (git.Repository, fs.FS, error) {
 				mockedFS := &fsmocks.FS{}
 				mockedFS.On("Root").Return("/")
-				mockedFS.On("Join", "projects", "project.yaml").Return(func(elem ...string) string {
-					return strings.Join(elem, "/")
-				})
+				mockedFS.On("Join", "projects", "project.yaml").Return("projects/project.yaml")
 				mockedFS.On("ExistsOrDie", "projects/project.yaml").Return(false)
 				mockedFS.On("WriteFile", "projects/project.yaml", mock.AnythingOfType("[]uint8")).Return(1, nil)
 				mockedRepo := &gitmocks.Repository{}
@@ -231,9 +223,6 @@ spec:
     path: manifests
     repoURL: https://github.com/owner/name
 `
-				mockedFS.On("Join", mock.AnythingOfType("string"), "argo-cd.yaml").Return(func(elem ...string) string {
-					return strings.Join(elem, "/")
-				})
 				mockedFS.On("Open", mock.Anything).Return(mockedFile, nil)
 				mockedFile.On("Read", mock.Anything).Run(func(args mock.Arguments) {
 					bytes := args[0].([]byte)
@@ -245,18 +234,12 @@ spec:
 		},
 		"should handle file not found": {
 			beforeFn: func(mockedFS *fsmocks.FS, _ *fsmocks.File) {
-				mockedFS.On("Join", mock.AnythingOfType("string"), "argo-cd.yaml").Return(func(elem ...string) string {
-					return strings.Join(elem, "/")
-				})
 				mockedFS.On("Open", mock.Anything).Return(nil, os.ErrNotExist)
 			},
 			wantErr: "file does not exist",
 		},
 		"should handle error during read": {
 			beforeFn: func(mockedFS *fsmocks.FS, mockedFile *fsmocks.File) {
-				mockedFS.On("Join", mock.AnythingOfType("string"), "argo-cd.yaml").Return(func(elem ...string) string {
-					return strings.Join(elem, "/")
-				})
 				mockedFS.On("Open", mock.Anything).Return(mockedFile, nil)
 				mockedFile.On("Read", mock.Anything).Return(0, fmt.Errorf("some error"))
 			},
@@ -265,9 +248,6 @@ spec:
 		"should handle corrupted namespace.yaml file": {
 			beforeFn: func(mockedFS *fsmocks.FS, mockedFile *fsmocks.File) {
 				nsYAML := "some string"
-				mockedFS.On("Join", mock.AnythingOfType("string"), "argo-cd.yaml").Return(func(elem ...string) string {
-					return strings.Join(elem, "/")
-				})
 				mockedFS.On("Open", mock.Anything).Return(mockedFile, nil)
 				mockedFile.On("Read", mock.Anything).Run(func(args mock.Arguments) {
 					bytes := args[0].([]byte)
@@ -280,10 +260,13 @@ spec:
 	}
 	for ttName, tt := range tests {
 		t.Run(ttName, func(t *testing.T) {
-			mockedFile := &fsmocks.File{}
-			mockedFS := &fsmocks.FS{}
-			tt.beforeFn(mockedFS, mockedFile)
-			got, err := getInstallationNamespace(mockedFS)
+			mockFile := &fsmocks.File{}
+			mockFS := &fsmocks.FS{}
+			mockFS.On("Join", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(func(elem ...string) string {
+				return strings.Join(elem, "/")
+			})
+			tt.beforeFn(mockFS, mockFile)
+			got, err := getInstallationNamespace(mockFS)
 			if err != nil {
 				if tt.wantErr != "" {
 					assert.EqualError(t, err, tt.wantErr)

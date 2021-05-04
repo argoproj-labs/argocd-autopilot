@@ -219,9 +219,6 @@ func NewRepoBootstrapCommand() *cobra.Command {
 	// add kubernetes flags
 	f = kube.AddFlags(cmd.Flags())
 
-	die(cmd.MarkFlagRequired("repo"))
-	die(cmd.MarkFlagRequired("git-token"))
-
 	return cmd
 }
 

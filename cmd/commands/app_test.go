@@ -1,10 +1,12 @@
 package commands
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/argoproj/argocd-autopilot/pkg/application"
@@ -12,9 +14,12 @@ import (
 	"github.com/argoproj/argocd-autopilot/pkg/fs"
 	fsmocks "github.com/argoproj/argocd-autopilot/pkg/fs/mocks"
 	"github.com/argoproj/argocd-autopilot/pkg/git"
+	gitmocks "github.com/argoproj/argocd-autopilot/pkg/git/mocks"
 	"github.com/argoproj/argocd-autopilot/pkg/kube"
 	"github.com/argoproj/argocd-autopilot/pkg/store"
+
 	"github.com/ghodss/yaml"
+	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
 	osfs "github.com/go-git/go-billy/v5/osfs"
 	"github.com/stretchr/testify/assert"
@@ -24,44 +29,38 @@ import (
 
 func Test_getCommitMsg(t *testing.T) {
 	tests := map[string]struct {
-		opts     *AppCreateOptions
-		assertFn func(t *testing.T, res string)
+		appName     string
+		projectName string
+		root        string
+		expected    string
 	}{
 		"On root": {
-			opts: &AppCreateOptions{
-				CloneOptions: &git.CloneOptions{
-					RepoRoot: "",
-				},
-				AppOpts: &application.CreateOptions{
-					AppName: "foo",
-				},
-				ProjectName: "bar",
-			},
-			assertFn: func(t *testing.T, res string) {
-				assert.Contains(t, res, "installed app 'foo' on project 'bar'")
-				assert.NotContains(t, res, "installation-path")
-			},
+			appName:     "foo",
+			projectName: "bar",
+			root:        "",
+			expected:    "installed app 'foo' on project 'bar'",
 		},
 		"On installation path": {
-			opts: &AppCreateOptions{
-				CloneOptions: &git.CloneOptions{
-					RepoRoot: "foo/bar",
-				},
-				AppOpts: &application.CreateOptions{
-					AppName: "foo",
-				},
-				ProjectName: "bar",
-			},
-			assertFn: func(t *testing.T, res string) {
-				assert.Contains(t, res, "installed app 'foo' on project 'bar'")
-				assert.Contains(t, res, "installation-path: 'foo/bar'")
-			},
+			appName:     "foo",
+			projectName: "bar",
+			root:        "foo/bar",
+			expected:    "installed app 'foo' on project 'bar' installation-path: 'foo/bar'",
 		},
 	}
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
-			got := getCommitMsg(tt.opts)
-			tt.assertFn(t, got)
+			m := &fsmocks.FS{}
+			m.On("Root").Return(tt.root)
+			opts := &AppCreateOptions{
+				BaseOptions: BaseOptions{
+					ProjectName: tt.projectName,
+				},
+				AppOpts: &application.CreateOptions{
+					AppName: tt.appName,
+				},
+			}
+			got := getCommitMsg(opts, m)
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }
@@ -126,7 +125,7 @@ func Test_writeApplicationFile(t *testing.T) {
 				_, _ = repofs.WriteFile("/foo/bar", []byte("data"))
 				return repofs
 			},
-			assertFn: func(t *testing.T, repofs fs.FS, exists bool, ret error) {
+			assertFn: func(t *testing.T, _ fs.FS, exists bool, ret error) {
 				assert.NoError(t, ret)
 				assert.True(t, exists)
 			},
@@ -137,15 +136,14 @@ func Test_writeApplicationFile(t *testing.T) {
 				name: "test",
 				data: []byte("data2"),
 			},
-			beforeFn: func(repofs fs.FS) fs.FS {
+			beforeFn: func(_ fs.FS) fs.FS {
 				mfs := &fsmocks.FS{}
 				mfs.On("CheckExistsOrWrite", mock.Anything, mock.Anything).Return(false, fmt.Errorf("error"))
 				mfs.On("Root").Return("/")
 				mfs.On("Join", mock.Anything, mock.Anything).Return("/foo/bar")
-
 				return mfs
 			},
-			assertFn: func(t *testing.T, repofs fs.FS, exists bool, ret error) {
+			assertFn: func(t *testing.T, _ fs.FS, _ bool, ret error) {
 				assert.Error(t, ret)
 				assert.EqualError(t, ret, "failed to create 'test' file at '/foo/bar': error")
 			},
@@ -158,9 +156,11 @@ func Test_writeApplicationFile(t *testing.T) {
 				bfs, _ := repofs.Chroot(tt.args.root)
 				repofs = fs.Create(bfs)
 			}
+
 			if tt.beforeFn != nil {
 				repofs = tt.beforeFn(repofs)
 			}
+
 			got, err := writeApplicationFile(repofs, tt.args.path, tt.args.name, tt.args.data)
 			tt.assertFn(t, repofs, got, err)
 		})
@@ -168,7 +168,6 @@ func Test_writeApplicationFile(t *testing.T) {
 }
 
 func Test_createApplicationFiles(t *testing.T) {
-
 	getAppMock := func() *appmocks.Application {
 		app := &appmocks.Application{}
 		app.On("Name").Return("foo")
@@ -206,7 +205,7 @@ func Test_createApplicationFiles(t *testing.T) {
 
 				return repofs, app, "fooproj"
 			},
-			assertFn: func(t *testing.T, repofs fs.FS, a application.Application, ret error) {
+			assertFn: func(t *testing.T, repofs fs.FS, _ application.Application, ret error) {
 				defer os.RemoveAll(repofs.Root()) // remove temp dir
 				assert.NoError(t, ret)
 				assert.DirExists(t, repofs.Join(repofs.Root(), store.Default.KustomizeDir), "kustomization dir should exist")
@@ -244,7 +243,7 @@ func Test_createApplicationFiles(t *testing.T) {
 
 				return repofs, app, "fooproj"
 			},
-			assertFn: func(t *testing.T, repofs fs.FS, a application.Application, ret error) {
+			assertFn: func(t *testing.T, repofs fs.FS, _ application.Application, ret error) {
 				defer os.RemoveAll(repofs.Root()) // remove temp dir
 				assert.NoError(t, ret)
 				assert.DirExists(t, repofs.Join(repofs.Root(), store.Default.KustomizeDir), "kustomization dir should exist")
@@ -278,7 +277,7 @@ func Test_createApplicationFiles(t *testing.T) {
 
 				return repofs, app, "fooproj"
 			},
-			assertFn: func(t *testing.T, repofs fs.FS, a application.Application, ret error) {
+			assertFn: func(t *testing.T, repofs fs.FS, _ application.Application, ret error) {
 				defer os.RemoveAll(repofs.Root()) // remove temp dir
 				assert.ErrorIs(t, ret, ErrAppCollisionWithExistingBase)
 			},
@@ -298,7 +297,7 @@ func Test_createApplicationFiles(t *testing.T) {
 
 				return repofs, app, "fooproj"
 			},
-			assertFn: func(t *testing.T, repofs fs.FS, a application.Application, ret error) {
+			assertFn: func(t *testing.T, repofs fs.FS, _ application.Application, ret error) {
 				defer os.RemoveAll(repofs.Root()) // remove temp dir
 				assert.ErrorIs(t, ret, ErrAppAlreadyInstalledOnProject)
 			},
@@ -314,7 +313,6 @@ func Test_createApplicationFiles(t *testing.T) {
 }
 
 func Test_getConfigFileFromPath(t *testing.T) {
-
 	tests := map[string]struct {
 		appName  string
 		want     *application.Config
@@ -361,17 +359,171 @@ func Test_getConfigFileFromPath(t *testing.T) {
 			if tt.beforeFn != nil {
 				repofs = tt.beforeFn(repofs, tt.appName)
 			}
+
 			got, err := getConfigFileFromPath(repofs, tt.appName)
 			if err != nil && tt.wantErr != "" {
 				assert.EqualError(t, err, tt.wantErr)
 			}
+
 			if (err != nil) && tt.wantErr == "" {
 				t.Errorf("getConfigFileFromPath() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+
 			if tt.assertFn != nil {
 				tt.assertFn(t, got)
 			}
 		})
 	}
+}
+
+func TestRunAppDelete(t *testing.T) {
+	tests := map[string]struct {
+		appName     string
+		projectName string
+		global      bool
+		cloneErr    string
+		removeErr   string
+		wantErr     string
+		beforeFn    func(m *fsmocks.FS, mr *gitmocks.Repository)
+	}{
+		"Should fail when clone fails": {
+			cloneErr: "some error",
+			wantErr:  "some error",
+		},
+		"Should fail when app does not exist": {
+			appName: "app",
+			wantErr: "application 'app' not found",
+			beforeFn: func(mfs *fsmocks.FS, _ *gitmocks.Repository) {
+				mfs.On("ExistsOrDie", "kustomize/app").Return(false)
+			},
+		},
+		"Should fail if deletion of entire app directory fails": {
+			appName:   "app",
+			global:    true,
+			removeErr: "some error",
+			wantErr:   "failed to delete directory 'kustomize/app': some error",
+			beforeFn: func(mfs *fsmocks.FS, _ *gitmocks.Repository) {
+				mfs.On("ExistsOrDie", "kustomize/app").Return(true)
+			},
+		},
+		"Should remove entire app directory when global flag is set": {
+			appName: "app",
+			global:  true,
+			beforeFn: func(mfs *fsmocks.FS, mr *gitmocks.Repository) {
+				mfs.On("ExistsOrDie", "kustomize/app").Return(true)
+				mfs.On("Remove", "kustomize/app").Return(nil)
+				mr.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
+					CommitMsg: "Deleted app 'app'",
+				}).Return(nil)
+			},
+		},
+		"Should fail when overlay does not exist": {
+			appName:     "app",
+			projectName: "project",
+			wantErr:     "application 'app' not found in project 'project'",
+			beforeFn: func(mfs *fsmocks.FS, _ *gitmocks.Repository) {
+				mfs.On("ExistsOrDie", "kustomize/app").Return(true)
+				mfs.On("ExistsOrDie", "kustomize/app/overlays/project").Return(false)
+			},
+		},
+		"Should delete only overlay directory, if there are more overlays": {
+			appName:     "app",
+			projectName: "project",
+			beforeFn: func(mfs *fsmocks.FS, mr *gitmocks.Repository) {
+				mfs.On("ExistsOrDie", "kustomize/app").Return(true)
+				mfs.On("ExistsOrDie", "kustomize/app/overlays/project").Return(true)
+				mfs.On("ReadDir", "kustomize/app/overlays").Return([]os.FileInfo{
+					nil,
+					nil,
+				}, nil)
+				mr.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
+					CommitMsg: "Deleted app 'app' from project 'project'",
+				}).Return(nil)
+			},
+		},
+		"Should delete entire app directory, if there are no more overlays": {
+			appName:     "app",
+			projectName: "project",
+			beforeFn: func(mfs *fsmocks.FS, mr *gitmocks.Repository) {
+				mfs.On("ExistsOrDie", "kustomize/app").Return(true)
+				mfs.On("ExistsOrDie", "kustomize/app/overlays/project").Return(true)
+				mfs.On("ReadDir", "kustomize/app/overlays").Return([]os.FileInfo{
+					nil,
+				}, nil)
+				mr.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
+					CommitMsg: "Deleted app 'app'",
+				}).Return(nil)
+			},
+		},
+		"Should fail if ReadDir fails": {
+			appName:     "app",
+			projectName: "project",
+			wantErr:     "failed to read overlays directory 'kustomize/app/overlays': some error",
+			beforeFn: func(mfs *fsmocks.FS, _ *gitmocks.Repository) {
+				mfs.On("ExistsOrDie", "kustomize/app").Return(true)
+				mfs.On("ExistsOrDie", "kustomize/app/overlays/project").Return(true)
+				mfs.On("ReadDir", "kustomize/app/overlays").Return(nil, fmt.Errorf("some error"))
+			},
+		},
+		"Should fail if Persist fails": {
+			appName: "app",
+			global:  true,
+			wantErr: "failed to push to repo: some error",
+			beforeFn: func(mfs *fsmocks.FS, mr *gitmocks.Repository) {
+				mfs.On("ExistsOrDie", "kustomize/app").Return(true)
+				mr.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
+					CommitMsg: "Deleted app 'app'",
+				}).Return(fmt.Errorf("some error"))
+			},
+		},
+	}
+	origBaseClone := prepareRepo
+	origRemoveAll := removeAll
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			mockFS := &fsmocks.FS{}
+			mockRepo := &gitmocks.Repository{}
+			mockFS.On("Join", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(func(elem ...string) string {
+				return strings.Join(elem, "/")
+			})
+			prepareRepo = func(_ context.Context, _ *BaseOptions) (git.Repository, fs.FS, error) {
+				var err error
+				if tt.cloneErr != "" {
+					err = fmt.Errorf(tt.cloneErr)
+				}
+
+				return mockRepo, mockFS, err
+			}
+			removeAll = func(_ billy.Basic, _ string) error {
+				var err error
+				if tt.removeErr != "" {
+					err = fmt.Errorf(tt.removeErr)
+				}
+
+				return err
+			}
+			if tt.beforeFn != nil {
+				tt.beforeFn(mockFS, mockRepo)
+			}
+
+			opts := &AppDeleteOptions{
+				BaseOptions: BaseOptions{
+					ProjectName: tt.projectName,
+				},
+				AppName: tt.appName,
+				Global:  tt.global,
+			}
+			if err := RunAppDelete(context.Background(), opts); err != nil {
+				if tt.wantErr != "" {
+					assert.EqualError(t, err, tt.wantErr)
+				} else {
+					t.Errorf("prepare() error = %v", err)
+				}
+			}
+		})
+	}
+
+	prepareRepo = origBaseClone
+	removeAll = origRemoveAll
 }
