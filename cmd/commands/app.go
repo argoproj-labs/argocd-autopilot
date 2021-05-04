@@ -108,11 +108,6 @@ func NewAppCreateCommand(opts *BaseOptions) *cobra.Command {
 }
 
 func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
-	var (
-		err error
-		r   git.Repository
-	)
-
 	r, filesystem, err := baseClone(ctx, &opts.BaseOptions)
 	if err != nil {
 		return err
@@ -316,10 +311,6 @@ func NewAppListCommand(opts *BaseOptions) *cobra.Command {
 }
 
 func RunAppList(ctx context.Context, opts *BaseOptions) error {
-	var (
-		err error
-	)
-
 	_, filesystem, err := baseClone(ctx, opts)
 	if err != nil {
 		return err
@@ -418,8 +409,6 @@ func NewAppDeleteCommand(opts *BaseOptions) *cobra.Command {
 }
 
 func RunAppDelete(ctx context.Context, opts *AppDeleteOptions) error {
-	var err error
-
 	r, filesystem, err := baseClone(ctx, &opts.BaseOptions)
 	if err != nil {
 		return err
