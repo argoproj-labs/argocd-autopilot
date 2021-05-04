@@ -20,6 +20,8 @@ import (
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 )
 
+//go:generate mockery -name Factory -filename kube.go
+
 const (
 	defaultPollInterval = time.Second * 2
 	defaultPollTimeout  = time.Minute * 5
@@ -41,10 +43,11 @@ func WaitDeploymentReady(ctx context.Context, f Factory, ns, name string) (bool,
 }
 
 type Factory interface {
-	cmdutil.Factory
+	// KubernetesClientSet returns a new kubernetes clientset or error
+	KubernetesClientSet() (kubernetes.Interface, error)
 
 	// KubernetesClientSetOrDie calls KubernetesClientSet() and panics if it returns an error
-	KubernetesClientSetOrDie() *kubernetes.Clientset
+	KubernetesClientSetOrDie() kubernetes.Interface
 
 	// Apply applies the provided manifests on the specified namespace
 	Apply(ctx context.Context, namespace string, manifests []byte) error
@@ -77,7 +80,7 @@ type WaitOptions struct {
 }
 
 type factory struct {
-	cmdutil.Factory
+	f cmdutil.Factory
 }
 
 func AddFlags(flags *pflag.FlagSet) Factory {
@@ -85,7 +88,7 @@ func AddFlags(flags *pflag.FlagSet) Factory {
 	confFlags.AddFlags(flags)
 	mvFlags := cmdutil.NewMatchVersionFlags(confFlags)
 
-	return &factory{cmdutil.NewFactory(mvFlags)}
+	return &factory{f: cmdutil.NewFactory(mvFlags)}
 }
 
 func DefaultIOStreams() genericclioptions.IOStreams {
@@ -122,10 +125,14 @@ func GenerateNamespace(namespace string) *corev1.Namespace {
 	}
 }
 
-func (f *factory) KubernetesClientSetOrDie() *kubernetes.Clientset {
+func (f *factory) KubernetesClientSetOrDie() kubernetes.Interface {
 	cs, err := f.KubernetesClientSet()
 	util.Die(err)
 	return cs
+}
+
+func (f *factory) KubernetesClientSet() (kubernetes.Interface, error) {
+	return f.f.KubernetesClientSet()
 }
 
 func (f *factory) Apply(ctx context.Context, namespace string, manifests []byte) error {
@@ -145,7 +152,7 @@ func (f *factory) Apply(ctx context.Context, namespace string, manifests []byte)
 			o.DeleteFlags.FileNameFlags.Filenames = &[]string{"-"}
 			o.Overwrite = true
 
-			if err := o.Complete(f, cmd); err != nil {
+			if err := o.Complete(f.f, cmd); err != nil {
 				return err
 			}
 

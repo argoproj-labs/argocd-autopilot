@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/argoproj/argocd-autopilot/pkg/application"
 	"github.com/argoproj/argocd-autopilot/pkg/fs"
 	"github.com/argoproj/argocd-autopilot/pkg/git"
 	"github.com/argoproj/argocd-autopilot/pkg/kube"
@@ -82,7 +81,7 @@ func NewRepoCommand() *cobra.Command {
 		Short: "Manage gitops repositories",
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.HelpFunc()(cmd, args)
-			os.Exit(1)
+			exit(1)
 		},
 	}
 
@@ -283,13 +282,14 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 			manifests.argocdApp,
 			manifests.rootApp,
 		))
-		os.Exit(0)
+		exit(0)
+		return nil
 	}
 
 	log.G().Infof("cloning repo: %s", opts.CloneOptions.URL)
 
 	// clone GitOps repo
-	r, opts.FS, err = opts.CloneOptions.Clone(ctx, opts.FS)
+	r, opts.FS, err = clone(ctx, opts.CloneOptions, opts.FS)
 	if err != nil {
 		return err
 	}
@@ -554,7 +554,7 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 		return nil, err
 	}
 
-	manifests.applyManifests, err = application.GenerateManifests(k)
+	manifests.applyManifests, err = runKustomizeBuild(k)
 	if err != nil {
 		return nil, err
 	}

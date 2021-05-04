@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 
 	"github.com/argoproj/argocd-autopilot/pkg/argocd"
@@ -43,7 +42,7 @@ func NewProjectCommand() *cobra.Command {
 		Short:   "Manage projects",
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.HelpFunc()(cmd, args)
-			os.Exit(1)
+			exit(1)
 		},
 	}
 

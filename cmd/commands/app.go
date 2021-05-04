@@ -51,7 +51,7 @@ func NewAppCommand() *cobra.Command {
 		Short:   "Manage applications",
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.HelpFunc()(cmd, args)
-			os.Exit(1)
+			exit(1)
 		},
 	}
 	opts, err := addFlags(cmd)

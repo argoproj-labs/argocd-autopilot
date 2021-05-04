@@ -3,7 +3,9 @@ package commands
 import (
 	"context"
 	"fmt"
+	"os"
 
+	"github.com/argoproj/argocd-autopilot/pkg/application"
 	"github.com/argoproj/argocd-autopilot/pkg/fs"
 	"github.com/argoproj/argocd-autopilot/pkg/git"
 	"github.com/argoproj/argocd-autopilot/pkg/kube"
@@ -27,9 +29,10 @@ type (
 var (
 	getGitProvider     = git.NewProvider
 	currentKubeContext = kube.CurrentContext
+	runKustomizeBuild  = application.GenerateManifests
 	die                = util.Die
-
-	clone = func(ctx context.Context, cloneOpts *git.CloneOptions, filesystem fs.FS) (git.Repository, fs.FS, error) {
+	exit               = os.Exit
+	clone              = func(ctx context.Context, cloneOpts *git.CloneOptions, filesystem fs.FS) (git.Repository, fs.FS, error) {
 		return cloneOpts.Clone(ctx, filesystem)
 	}
 
