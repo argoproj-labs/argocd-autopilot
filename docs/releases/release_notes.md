@@ -1,7 +1,6 @@
 ## Changes:
-* doc fixes
-* you no longer need to run `argocd login` after running `repo bootstrap`
-* added `app delete` command
+* new logo!
+* updated docs
 
 ## Installation:
 

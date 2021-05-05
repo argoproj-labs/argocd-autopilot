@@ -1,5 +1,8 @@
 # Changelog:
 
+# v0.1.6
+* new logo!
+* updated docs
 # v0.1.5
 * doc fixes
 * you no longer need to run `argocd login` after running `repo bootstrap`
