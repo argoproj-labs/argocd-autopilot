@@ -1,8 +1,8 @@
 # Roadmap
 
-### Repo Upgrade and Delete
+### Repo Upgrade and Uninstall
 * Support a clear flow to [upgrade](https://github.com/argoproj-labs/argocd-autopilot/issues/45) Argo CD
-* Support a clear flow to [delete](https://github.com/argoproj-labs/argocd-autopilot/issues/42) Argo CD
+* Support a clear flow to [uninstall](https://github.com/argoproj-labs/argocd-autopilot/issues/42) Argo CD
 
 ### App Upgrade and Delete
 * Support a clear flow to [upgrade](https://github.com/argoproj-labs/argocd-autopilot/issues/44) an app
