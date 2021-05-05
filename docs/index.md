@@ -8,7 +8,7 @@
 
 The Argo CD Autopilot is a tool that offers an opinionated way of installing Argo CD and managing GitOps repositories.
 
-It can:
+It can: 
 
 * Create a new GitOps repository
 * Bootstrap a new Argo CD installation
