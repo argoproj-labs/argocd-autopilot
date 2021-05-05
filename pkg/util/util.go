@@ -135,6 +135,16 @@ func JoinManifests(manifests ...[]byte) []byte {
 	return []byte(strings.Join(res, yamlSeperator))
 }
 
+func SplitManifests(manifests []byte) [][]byte  {
+	str := string(manifests)
+	stringManifests := strings.Split(str, yamlSeperator)
+	res := make([][]byte, 0, len(stringManifests)) 
+	for _, m := range stringManifests {
+		 res = append(res, []byte(m))
+	}
+	return res
+}
+
 func StealFlags(cmd *cobra.Command, exceptFor []string) (*pflag.FlagSet, error) {
 	fs := &pflag.FlagSet{}
 	ef := map[string]bool{}
