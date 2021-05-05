@@ -24,3 +24,8 @@ nav:
   - Getting Started: Getting-Started.md
   - Installation: Installation-Guide.md
   - Development: Development.md
+  - Roadmap: Roadmap.md
+  - Blogs: Blogs.md
+  - Releases ⧉: https://github.com/argoproj-labs/argocd-autopilot/releases
+  - Issues ⧉: https://github.com/argoproj-labs/argocd-autopilot/issues
+  - Slack ⧉: https://cloud-native.slack.com/archives/C0207C47D0X
