@@ -3,8 +3,11 @@ package commands
 import (
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"os"
 	"path/filepath"
+	"text/tabwriter"
 
 	"github.com/argoproj/argocd-autopilot/pkg/argocd"
 	"github.com/argoproj/argocd-autopilot/pkg/fs"
@@ -46,7 +49,10 @@ func NewProjectCommand() *cobra.Command {
 		},
 	}
 
+	opts, err := addFlags(cmd)
+	die(err)
 	cmd.AddCommand(NewProjectCreateCommand())
+	cmd.AddCommand(NewProjectListCommand(opts))
 
 	return cmd
 }
@@ -322,4 +328,98 @@ var getInstallationNamespace = func(repofs fs.FS) (string, error) {
 	}
 
 	return a.Spec.Destination.Namespace, nil
+}
+
+type (
+	ProjectListOptions struct {
+		BaseOptions
+		Out io.Writer
+	}
+)
+
+func NewProjectListCommand(opts *BaseOptions) *cobra.Command {
+
+	cmd := &cobra.Command{
+		Use:   "list ",
+		Short: "Lists all the projects on a git repository",
+		Example: util.Doc(`
+# To run this command you need to create a personal access token for your git provider,
+# and have a bootstrapped GitOps repository, and provide them using:
+	
+		export GIT_TOKEN=<token>
+		export GIT_REPO=<repo_url>
+
+# or with the flags:
+	
+		--token <token> --repo <repo_url>
+		
+# Lists projects
+	
+	<BIN> project list
+`),
+		RunE: func(cmd *cobra.Command, args []string) error {
+
+			return RunProjectList(cmd.Context(), &ProjectListOptions{
+				BaseOptions: *opts,
+				Out:         os.Stdout,
+			})
+		},
+	}
+
+	return cmd
+}
+
+func RunProjectList(ctx context.Context, opts *ProjectListOptions) error {
+
+	_, repofs, err := prepareRepo(ctx, &opts.BaseOptions)
+	if err != nil {
+		return err
+	}
+
+	matches, err := glob(repofs, repofs.Join(store.Default.ProjectsDir, "*.yaml"))
+	if err != nil {
+		return err
+	}
+	w := tabwriter.NewWriter(opts.Out, 0, 0, 2, ' ', 0)
+	_, _ = fmt.Fprintf(w, "NAME\tNAMESPACE\tCLUSTER\t\n")
+
+	for _, name := range matches {
+		proj, _, err := getProjectInfoFromFile(repofs, name)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(w, "%s\t%s\t%s\n", proj.Name, proj.Namespace, proj.ClusterName)
+
+	}
+	w.Flush()
+	return nil
+}
+
+var getProjectInfoFromFile = func(fs fs.FS, name string) (*argocdv1alpha1.AppProject, *appsetv1alpha1.ApplicationSpec, error) {
+	file, err := fs.Open(name)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s not found", name)
+	}
+	b, err := ioutil.ReadAll(file)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to read file %s", name)
+	}
+	yamls := util.SplitManifests(b)
+	if len(yamls) != 2 {
+		return nil, nil, fmt.Errorf("expected 2 files when splitting %s", name)
+	}
+	proj := argocdv1alpha1.AppProject{}
+	err = yaml.Unmarshal(yamls[0], &proj)
+
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to unmarshal %s", name)
+	}
+	appSet := appsetv1alpha1.ApplicationSpec{}
+	err = yaml.Unmarshal(yamls[1], &proj)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to unmarshal %s", name)
+	}
+
+	return &proj, &appSet, nil
+
 }

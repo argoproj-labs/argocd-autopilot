@@ -115,7 +115,7 @@ codegen: $(GOBIN)/mockery
 pre-commit: lint
 
 .PHONY: pre-push
-pre-push: lint test codegen check-worktree
+pre-push: tidy lint test codegen check-worktree
 
 .PHONY: build-docs
 build-docs:

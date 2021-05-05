@@ -46,26 +46,32 @@ argocd-autopilot project create [PROJECT] [flags]
       --exec-command-args stringArray      Arguments to supply to the --exec-command executable
       --exec-command-env stringToString    Environment vars to set when running the --exec-command executable (default [])
       --exec-command-install-hint string   Text shown to the user when the --exec-command executable doesn't seem to be present
-  -t, --git-token string                   Your git provider api token [GIT_TOKEN]
       --grpc-web                           Enables gRPC-web protocol. Useful if Argo CD server is behind proxy which does not support HTTP2.
       --grpc-web-root-path string          Enables gRPC-web protocol. Useful if Argo CD server is behind proxy which does not support HTTP2. Set web root.
   -H, --header strings                     Sets additional header to all requests made by Argo CD CLI. (Can be repeated multiple times to add multiple headers, also supports comma separated headers)
   -h, --help                               help for create
       --in-cluster                         Indicates Argo CD resides inside this cluster and should connect using the internal k8s hostname (kubernetes.default.svc)
       --insecure                           Skip server certificate and domain verification
-      --installation-path string           The path where we of the installation files (defaults to the root of the repository [GIT_INSTALLATION_PATH]
       --name string                        Overwrite the cluster name
       --plaintext                          Disable TLS
       --port-forward                       Connect to a random argocd-server port using port forwarding
       --port-forward-namespace string      Namespace name which should be used for port forwarding
-      --repo string                        Repository URL [GIT_REPO]
-      --revision string                    Repository branch, tag or commit hash (defaults to HEAD)
       --server string                      Argo CD server address
       --server-crt string                  Server certificate file
       --service-account string             System namespace service account to use for kubernetes resource management. If not set then default "argocd-manager" SA will be created
       --shard int                          Cluster shard number; inferred from hostname if not set (default -1)
       --system-namespace string            Use different system namespace (default "kube-system")
       --upsert                             Override an existing cluster with the same name even if the spec differs
+```
+
+### Options inherited from parent commands
+
+```
+  -t, --git-token string           Your git provider api token [GIT_TOKEN]
+      --installation-path string   The path where we of the installation files (defaults to the root of the repository [GIT_INSTALLATION_PATH]
+  -p, --project string             Project name
+      --repo string                Repository URL [GIT_REPO]
+      --revision string            Repository branch, tag or commit hash (defaults to HEAD)
 ```
 
 ### SEE ALSO
