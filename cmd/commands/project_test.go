@@ -8,7 +8,6 @@ import (
 	"os"
 	"reflect"
 	"strings"
-
 	"testing"
 
 	appsetv1alpha1 "github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
@@ -19,7 +18,9 @@ import (
 	gitmocks "github.com/argoproj/argocd-autopilot/pkg/git/mocks"
 	"github.com/argoproj/argocd-autopilot/pkg/store"
 	"github.com/argoproj/argocd-autopilot/pkg/util"
+
 	"github.com/ghodss/yaml"
+	"github.com/go-git/go-billy/v5"
 	memfs "github.com/go-git/go-billy/v5/memfs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -31,6 +32,7 @@ func TestRunProjectCreate(t *testing.T) {
 		opts                     *ProjectCreateOptions
 		clone                    func(ctx context.Context, r *git.CloneOptions, filesystem fs.FS) (git.Repository, fs.FS, error)
 		getInstallationNamespace func(fs.FS) (string, error)
+		writeFileError           error
 		mockRepo                 git.Repository
 		mockNamespace            string
 		wantErr                  string
@@ -87,13 +89,13 @@ func TestRunProjectCreate(t *testing.T) {
 				mockedFS.On("Root").Return("/")
 				mockedFS.On("Join", "projects", "project.yaml").Return("projects/project.yaml")
 				mockedFS.On("ExistsOrDie", "projects/project.yaml").Return(false)
-				mockedFS.On("WriteFile", "projects/project.yaml", mock.AnythingOfType("[]uint8")).Return(0, os.ErrPermission)
 				return nil, mockedFS, nil
 			},
 			getInstallationNamespace: func(_ fs.FS) (string, error) {
 				return "namespace", nil
 			},
-			wantErr: "failed to create project file: permission denied",
+			writeFileError: os.ErrPermission,
+			wantErr:        "failed to create project file: permission denied",
 		},
 		"should handle failure to persist repo": {
 			opts: &ProjectCreateOptions{
@@ -105,7 +107,6 @@ func TestRunProjectCreate(t *testing.T) {
 				mockedFS.On("Root").Return("/")
 				mockedFS.On("Join", "projects", "project.yaml").Return("projects/project.yaml")
 				mockedFS.On("ExistsOrDie", "projects/project.yaml").Return(false)
-				mockedFS.On("WriteFile", "projects/project.yaml", mock.AnythingOfType("[]uint8")).Return(1, nil)
 				mockedRepo := &gitmocks.Repository{}
 				mockedRepo.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{CommitMsg: "Added project project"}).Return(fmt.Errorf("failed to persist"))
 				return mockedRepo, mockedFS, nil
@@ -125,7 +126,6 @@ func TestRunProjectCreate(t *testing.T) {
 				mockedFS.On("Root").Return("/")
 				mockedFS.On("Join", "projects", "project.yaml").Return("projects/project.yaml")
 				mockedFS.On("ExistsOrDie", "projects/project.yaml").Return(false)
-				mockedFS.On("WriteFile", "projects/project.yaml", mock.AnythingOfType("[]uint8")).Return(1, nil)
 				mockedRepo := &gitmocks.Repository{}
 				mockedRepo.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{CommitMsg: "Added project project"}).Return(nil)
 				return mockedRepo, mockedFS, nil
@@ -137,21 +137,23 @@ func TestRunProjectCreate(t *testing.T) {
 	}
 	origClone := clone
 	origGetInstallationNamespace := getInstallationNamespace
+	origWriteFile := writeFile
 	for ttName, tt := range tests {
 		t.Run(ttName, func(t *testing.T) {
 			clone = tt.clone
 			getInstallationNamespace = tt.getInstallationNamespace
-
-			err := RunProjectCreate(context.Background(), tt.opts)
-			if tt.wantErr != "" {
+			writeFile = func(fs billy.Basic, filename string, data []byte) error {
+				return tt.writeFileError
+			}
+			if err := RunProjectCreate(context.Background(), tt.opts); tt.wantErr != "" {
 				assert.EqualError(t, err, tt.wantErr)
-				return
 			}
 		})
 	}
 
 	clone = origClone
 	getInstallationNamespace = origGetInstallationNamespace
+	writeFile = origWriteFile
 }
 
 func Test_generateProject(t *testing.T) {
@@ -305,7 +307,7 @@ func Test_getProjectInfoFromFile(t *testing.T) {
 			name:    "prod.yaml",
 			wantErr: "expected 2 files when splitting prod.yaml",
 			beforeFn: func(f fs.FS) (fs.FS, error) {
-				_, err := f.WriteFile("prod.yaml", []byte("content"))
+				err := writeFile(f, "prod.yaml", []byte("content"))
 				if err != nil {
 					return nil, err
 				}
@@ -325,7 +327,7 @@ func Test_getProjectInfoFromFile(t *testing.T) {
 				projectYAML, _ := yaml.Marshal(&appProj)
 				appsetYAML, _ := yaml.Marshal(&appSet)
 				joinedYAML := util.JoinManifests(projectYAML, appsetYAML)
-				_, err := f.WriteFile("prod.yaml", joinedYAML)
+				err := writeFile(f, "prod.yaml", joinedYAML)
 				if err != nil {
 					return nil, err
 				}
@@ -367,7 +369,7 @@ func TestRunProjectList(t *testing.T) {
 		args                   args
 		wantErr                bool
 		prepareRepo            func(ctx context.Context, o *BaseOptions) (git.Repository, fs.FS, error)
-		glob                   func(fs fs.FS, pattern string) ([]string, error)
+		glob                   func(fs billy.Filesystem, pattern string) ([]string, error)
 		getProjectInfoFromFile func(fs fs.FS, name string) (*argocdv1alpha1.AppProject, *appsetv1alpha1.ApplicationSpec, error)
 		assertFn               func(t *testing.T, str string)
 	}{
@@ -378,16 +380,16 @@ func TestRunProjectList(t *testing.T) {
 					Out:         &bytes.Buffer{},
 				},
 			},
-			glob: func(fs fs.FS, pattern string) ([]string, error) {
+			glob: func(_ billy.Filesystem, _ string) ([]string, error) {
 				res := make([]string, 0, 1)
 				res = append(res, "prod.yaml")
 				return res, nil
 			},
-			prepareRepo: func(ctx context.Context, o *BaseOptions) (git.Repository, fs.FS, error) {
+			prepareRepo: func(_ context.Context, _ *BaseOptions) (git.Repository, fs.FS, error) {
 				memFS := fs.Create(memfs.New())
 				return nil, memFS, nil
 			},
-			getProjectInfoFromFile: func(fs fs.FS, name string) (*argocdv1alpha1.AppProject, *appsetv1alpha1.ApplicationSpec, error) {
+			getProjectInfoFromFile: func(_ fs.FS, _ string) (*argocdv1alpha1.AppProject, *appsetv1alpha1.ApplicationSpec, error) {
 				appProj := &argocdv1alpha1.AppProject{
 					ObjectMeta: v1.ObjectMeta{
 						Name:      "prod",
@@ -421,4 +423,54 @@ func TestRunProjectList(t *testing.T) {
 			getProjectInfoFromFile = origGetProjectInfoFromFile
 		})
 	}
+}
+
+func TestRunProjectDelete(t *testing.T) {
+	tests := map[string]struct {
+		projectName string
+		cloneErr    string
+		removeErr   string
+		wantErr     string
+		beforeFn    func(m *fsmocks.FS, mr *gitmocks.Repository)
+	}{
+		// TODO: Add test cases.
+	}
+	origPrepareRepo := prepareRepo
+	origRemoveAll := removeAll
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			mockFS := &fsmocks.FS{}
+			mockRepo := &gitmocks.Repository{}
+			mockFS.On("Join", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(func(elem ...string) string {
+				return strings.Join(elem, "/")
+			})
+			prepareRepo = func(_ context.Context, _ *BaseOptions) (git.Repository, fs.FS, error) {
+				if tt.cloneErr != "" {
+					return nil, nil, fmt.Errorf(tt.cloneErr)
+				}
+
+				return mockRepo, mockFS, nil
+			}
+			removeAll = func(_ billy.Basic, _ string) error {
+				if tt.removeErr != "" {
+					return fmt.Errorf(tt.removeErr)
+				}
+
+				return nil
+			}
+			if tt.beforeFn != nil {
+				tt.beforeFn(mockFS, mockRepo)
+			}
+
+			opts := &BaseOptions{
+				ProjectName: tt.projectName,
+			}
+			if err := RunProjectDelete(context.Background(), opts); tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
+			}
+		})
+	}
+
+	prepareRepo = origPrepareRepo
+	removeAll = origRemoveAll
 }

@@ -175,7 +175,7 @@ func Test_validateRepo(t *testing.T) {
 	}{
 		"Bootstrap exists": {
 			preFn: func(t *testing.T, repofs fs.FS) {
-				_, err := repofs.WriteFile(store.Default.BootsrtrapDir, []byte{})
+				err := writeFile(repofs, store.Default.BootsrtrapDir, []byte{})
 				assert.NoError(t, err)
 			},
 			assertFn: func(t *testing.T, repofs fs.FS, ret error) {
@@ -184,7 +184,7 @@ func Test_validateRepo(t *testing.T) {
 		},
 		"Projects exists": {
 			preFn: func(t *testing.T, repofs fs.FS) {
-				_, err := repofs.WriteFile(store.Default.ProjectsDir, []byte{})
+				err := writeFile(repofs, store.Default.ProjectsDir, []byte{})
 				assert.NoError(t, err)
 			},
 			assertFn: func(t *testing.T, repofs fs.FS, ret error) {

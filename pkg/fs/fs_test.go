@@ -96,11 +96,12 @@ func Test_fsimpl_CheckExistsOrWrite(t *testing.T) {
 		data []byte
 	}
 	tests := map[string]struct {
-		args     args
-		want     bool
-		wantErr  bool
-		beforeFn func(m *mocks.FS, mockedFile *mocks.File)
-		assertFn func(t *testing.T, mockedFile *mocks.File)
+		args           args
+		want           bool
+		wantErr        bool
+		writeFileError error
+		beforeFn       func(m *mocks.FS, mockedFile *mocks.File)
+		assertFn       func(t *testing.T, mockedFile *mocks.File)
 	}{
 		"should exists": {
 			args:    args{path: "/usr/bar", data: []byte{}},
@@ -126,32 +127,24 @@ func Test_fsimpl_CheckExistsOrWrite(t *testing.T) {
 				m.On("Stat", mock.Anything).Return(nil, os.ErrNotExist)
 				m.On("Create", mock.Anything).Return(mockedFile, nil)
 			},
-			assertFn: func(t *testing.T, mockedFile *mocks.File) {
-				mockedFile.AssertCalled(t, "Write", []byte{})
-			},
 		},
 		"should fail if WriteFile failed": {
-			args:    args{path: "/usr/bar", data: []byte{}},
-			want:    false,
-			wantErr: true,
+			args:           args{path: "/usr/bar", data: []byte{}},
+			want:           false,
+			writeFileError: fmt.Errorf("Error"),
+			wantErr:        true,
 			beforeFn: func(m *mocks.FS, mockedFile *mocks.File) {
-				mockedFile.On("Write", mock.Anything).Return(1, fmt.Errorf("Error"))
 				m.On("Stat", mock.Anything).Return(nil, os.ErrNotExist)
 				m.On("Create", mock.Anything).Return(mockedFile, nil)
 			},
 		},
-		"should fail if WriteFile.Create failed": {
-			args:    args{path: "/usr/bar", data: []byte{}},
-			want:    false,
-			wantErr: true,
-			beforeFn: func(m *mocks.FS, mockedFile *mocks.File) {
-				m.On("Stat", mock.Anything).Return(nil, os.ErrNotExist)
-				m.On("Create", mock.Anything).Return(mockedFile, fmt.Errorf("Error"))
-			},
-		},
 	}
+	origWriteFile := writeFile
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
+			writeFile = func(fs billy.Basic, filename string, data []byte, perm os.FileMode) error {
+				return tt.writeFileError
+			}
 			mockedFS := &mocks.FS{}
 			mockedFile := &mocks.File{}
 			tt.beforeFn(mockedFS, mockedFile)
@@ -169,6 +162,8 @@ func Test_fsimpl_CheckExistsOrWrite(t *testing.T) {
 			}
 		})
 	}
+
+	writeFile = origWriteFile
 }
 
 func Test_fsimpl_ExistsOrDie(t *testing.T) {
