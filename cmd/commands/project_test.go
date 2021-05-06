@@ -39,9 +39,8 @@ func TestRunProjectCreate(t *testing.T) {
 	}{
 		"should handle failure in prepare repo": {
 			opts: &ProjectCreateOptions{
-				BaseOptions: BaseOptions{
-					ProjectName: "project",
-				},
+				Name:        "project",
+				BaseOptions: BaseOptions{},
 			},
 			prepareRepo: func(_ context.Context, _ *BaseOptions) (git.Repository, fs.FS, error) {
 				return nil, nil, fmt.Errorf("failure clone")
@@ -50,9 +49,8 @@ func TestRunProjectCreate(t *testing.T) {
 		},
 		"should handle failure while getting namespace": {
 			opts: &ProjectCreateOptions{
-				BaseOptions: BaseOptions{
-					ProjectName: "project",
-				},
+				Name:        "project",
+				BaseOptions: BaseOptions{},
 			},
 			prepareRepo: func(_ context.Context, _ *BaseOptions) (git.Repository, fs.FS, error) {
 				mockedFS := &fsmocks.FS{}
@@ -66,9 +64,8 @@ func TestRunProjectCreate(t *testing.T) {
 		},
 		"should handle failure when project exists": {
 			opts: &ProjectCreateOptions{
-				BaseOptions: BaseOptions{
-					ProjectName: "project",
-				},
+				Name:        "project",
+				BaseOptions: BaseOptions{},
 			},
 			prepareRepo: func(_ context.Context, _ *BaseOptions) (git.Repository, fs.FS, error) {
 				mockedFS := &fsmocks.FS{}
@@ -84,8 +81,8 @@ func TestRunProjectCreate(t *testing.T) {
 		},
 		"should handle failure when writing project file": {
 			opts: &ProjectCreateOptions{
+				Name: "project",
 				BaseOptions: BaseOptions{
-					ProjectName:  "project",
 					CloneOptions: &git.CloneOptions{},
 				},
 			},
@@ -104,8 +101,8 @@ func TestRunProjectCreate(t *testing.T) {
 		},
 		"should handle failure to persist repo": {
 			opts: &ProjectCreateOptions{
+				Name: "project",
 				BaseOptions: BaseOptions{
-					ProjectName:  "project",
 					CloneOptions: &git.CloneOptions{},
 				},
 			},
@@ -125,8 +122,8 @@ func TestRunProjectCreate(t *testing.T) {
 		},
 		"should persist repo when done": {
 			opts: &ProjectCreateOptions{
+				Name: "project",
 				BaseOptions: BaseOptions{
-					ProjectName:  "project",
 					CloneOptions: &git.CloneOptions{},
 				},
 			},

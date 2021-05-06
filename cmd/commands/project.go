@@ -29,6 +29,7 @@ var DefaultApplicationSetGeneratorInterval int64 = 20
 type (
 	ProjectCreateOptions struct {
 		BaseOptions
+		Name            string
 		DestKubeContext string
 		DryRun          bool
 		AddCmd          argocd.AddClusterCmd
@@ -102,10 +103,11 @@ func NewProjectCreateCommand(opts *BaseOptions) *cobra.Command {
 			if len(args) < 1 {
 				log.G().Fatal("must enter project name")
 			}
-			opts.ProjectName = args[0]
+			name := args[0]
 
 			return RunProjectCreate(cmd.Context(), &ProjectCreateOptions{
 				BaseOptions:     *opts,
+				Name:            name,
 				DestKubeContext: kubeContext,
 				DryRun:          dryRun,
 				AddCmd:          addCmd,
@@ -138,9 +140,9 @@ func RunProjectCreate(ctx context.Context, opts *ProjectCreateOptions) error {
 		return fmt.Errorf(util.Doc("Bootstrap folder not found, please execute `<BIN> repo bootstrap --installation-path %s` command"), repofs.Root())
 	}
 
-	projectExists := repofs.ExistsOrDie(repofs.Join(store.Default.ProjectsDir, opts.ProjectName+".yaml"))
+	projectExists := repofs.ExistsOrDie(repofs.Join(store.Default.ProjectsDir, opts.Name+".yaml"))
 	if projectExists {
-		return fmt.Errorf("project '%s' already exists", opts.ProjectName)
+		return fmt.Errorf("project '%s' already exists", opts.Name)
 	}
 
 	log.G().Debug("repository is ok")
@@ -154,7 +156,7 @@ func RunProjectCreate(ctx context.Context, opts *ProjectCreateOptions) error {
 	}
 
 	project, appSet := generateProject(&GenerateProjectOptions{
-		Name:              opts.ProjectName,
+		Name:              opts.Name,
 		Namespace:         installationNamespace,
 		RepoURL:           opts.CloneOptions.URL,
 		Revision:          opts.CloneOptions.Revision,
@@ -186,16 +188,16 @@ func RunProjectCreate(ctx context.Context, opts *ProjectCreateOptions) error {
 		}
 	}
 
-	if err = writeFile(repofs, repofs.Join(store.Default.ProjectsDir, opts.ProjectName+".yaml"), joinedYAML); err != nil {
+	if err = writeFile(repofs, repofs.Join(store.Default.ProjectsDir, opts.Name+".yaml"), joinedYAML); err != nil {
 		return fmt.Errorf("failed to create project file: %w", err)
 	}
 
 	log.G().Infof("pushing new project manifest to repo")
-	if err = r.Persist(ctx, &git.PushOptions{CommitMsg: "Added project " + opts.ProjectName}); err != nil {
+	if err = r.Persist(ctx, &git.PushOptions{CommitMsg: "Added project " + opts.Name}); err != nil {
 		return err
 	}
 
-	log.G().Infof("project created: '%s'", opts.ProjectName)
+	log.G().Infof("project created: '%s'", opts.Name)
 
 	return nil
 }
