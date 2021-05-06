@@ -421,7 +421,7 @@ func NewProjectDeleteCommand(opts *BaseOptions) *cobra.Command {
 	
 		--token <token> --repo <repo_url>
 		
-# Get list of installed applications in a specifc project
+# Delete a project
 	
 	<BIN> project delete <project_name>
 `),
@@ -461,16 +461,14 @@ func RunProjectDelete(ctx context.Context, opts *BaseOptions) error {
 		appDir := filepath.Dir(appOverlaysDir)
 		appName := filepath.Base(appDir)
 		var dirToRemove string
-		var msg string
 		if len(allOverlays) == 1 {
 			dirToRemove = appDir
-			msg = fmt.Sprintf("Deleting app '%s'", appName)
+			log.G().Infof("Deleting app '%s'", appName)
 		} else {
 			dirToRemove = overlay
-			msg = fmt.Sprintf("Deleting overlay from app '%s'", appName)
+			log.G().Infof("Deleting overlay from app '%s'", appName)
 		}
 
-		log.G().Info(msg)
 		err = removeAll(repofs, dirToRemove)
 		if err != nil {
 			return fmt.Errorf("failed to delete directory '%s': %w", dirToRemove, err)
