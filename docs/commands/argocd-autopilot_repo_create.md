@@ -21,11 +21,11 @@ argocd-autopilot repo create [flags]
 
 # Create a new gitops repository on github
     
-    argocd-autopilot repo create --owner foo --name bar --token abc123
+    argocd-autopilot repo create --owner foo --name bar --git-token abc123
 
 # Create a public gitops repository on github
     
-    argocd-autopilot repo create --owner foo --name bar --token abc123 --public
+    argocd-autopilot repo create --owner foo --name bar --git-token abc123 --public
 
 ```
 
