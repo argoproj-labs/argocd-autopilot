@@ -5,16 +5,17 @@
 [![Documentation Status](https://readthedocs.org/projects/argocd-autopilot/badge/?version=latest)](https://argocd-autopilot.readthedocs.io/en/latest/?badge=latest)
 [![slack](https://img.shields.io/badge/slack-argoproj-brightgreen.svg?logo=slack)](https://argoproj.github.io/community/join-slack/)
 
+New users to GitOps and Argo CD are not often sure how they should structure their repos, add applications, promote apps across environments, and manage the Argo CD installation itself using GitOps.
 
-The Argo CD Autopilot is a tool that offers an opinionated way of installing Argo CD and managing GitOps repositories.
+Argo CD Autopilot saves operators time by:
 
-It can: 
+- Installing and managing the Argo CD application using GitOps.
+- Providing a clear structure for how applications are to be added and updated, all from git.
+- Creating a simple pattern for making updates to applications and promoting those changes across environments.
+- Enabling better disaster recovery by being able to bootstrap new clusters with all the applications previously installed.
+- Handles secrets for Argo CD to prevent them from spilling into plaintext git.
 
-* Create a new GitOps repository
-* Bootstrap a new Argo CD installation
-* Install and manage Argo CD projects and applications with ease
-* Install and manage a single application multiple times on different logical environments on different K8s clusters
-
+The Argo-CD Autopilot is a tool which offers an opinionated way of installing Argo-CD and managing GitOps repositories.
 
 ## How it Works
 The autopilot bootstrap command will deploy an Argo CD manifest to a target K8s cluster and will commit an Argo CD Application manifest under a specific directory in your GitOps repository. This Application will manage the Argo CD installation itself - so after running this command, you will have an Argo CD deployment that manages itself through GitOps.
