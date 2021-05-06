@@ -18,7 +18,7 @@ argocd-autopilot project create [PROJECT] [flags]
 
 # or with the flags:
     
-        --token <token> --repo <repo_url>
+        --git-token <token> --repo <repo_url>
         
 # Create a new project
     

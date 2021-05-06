@@ -17,7 +17,7 @@ argocd-autopilot repo create [flags]
 
 # or with the flag:
     
-    --token <token>
+    --git-token <token>
 
 # Create a new gitops repository on github
     

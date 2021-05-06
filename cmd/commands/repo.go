@@ -120,7 +120,7 @@ func NewRepoCreateCommand() *cobra.Command {
 
 # or with the flag:
 
-    --token <token>
+    --git-token <token>
 
 # Create a new gitops repository on github
 
@@ -180,7 +180,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 
 # or with the flag:
 
-    --token <token>
+    --git-token <token>
 
 # Install argo-cd on the current kubernetes context in the argocd namespace
 # and persists the bootstrap manifests to the root of gitops repository

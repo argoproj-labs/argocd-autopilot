@@ -18,7 +18,7 @@ argocd-autopilot application create [APP_NAME] [flags]
 
 # or with the flags:
     
-        --token <token> --repo <repo_url>
+        --git-token <token> --repo <repo_url>
         
 # Create a new application from kustomization in a remote repository
     

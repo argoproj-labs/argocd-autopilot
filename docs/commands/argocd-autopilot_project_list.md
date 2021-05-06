@@ -18,7 +18,7 @@ argocd-autopilot project list  [flags]
 
 # or with the flags:
     
-        --token <token> --repo <repo_url>
+        --git-token <token> --repo <repo_url>
         
 # Lists projects
     

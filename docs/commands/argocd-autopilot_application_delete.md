@@ -18,7 +18,7 @@ argocd-autopilot application delete [APP_NAME] [flags]
 
 # or with the flags:
     
-        --token <token> --repo <repo_url>
+        --git-token <token> --repo <repo_url>
         
 # Get list of installed applications in a specifc project
     

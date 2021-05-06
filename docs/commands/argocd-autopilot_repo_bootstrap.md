@@ -17,7 +17,7 @@ argocd-autopilot repo bootstrap [flags]
 
 # or with the flag:
     
-    --token <token>
+    --git-token <token>
         
 # Install argo-cd on the current kubernetes context in the argocd namespace
 # and persists the bootstrap manifests to the root of gitops repository
@@ -58,7 +58,7 @@ argocd-autopilot repo bootstrap [flags]
       --revision string                Repository branch, tag or commit hash (defaults to HEAD)
   -s, --server string                  The address and port of the Kubernetes API server
       --tls-server-name string         Server name to use for server certificate validation. If it is not provided, the hostname used to contact the server is used
-      --token string                   Bearer token for authentication to the API server
+      --git-token string                   Bearer token for authentication to the API server
       --user string                    The name of the kubeconfig user to use
 ```
 
