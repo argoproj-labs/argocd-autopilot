@@ -20,7 +20,7 @@ argocd-autopilot project delete [PROJECT_NAME] [flags]
     
         --token <token> --repo <repo_url>
         
-# Get list of installed applications in a specifc project
+# Delete a project
     
     argocd-autopilot project delete <project_name>
 
