@@ -12,16 +12,16 @@ argocd-autopilot application list [PROJECT_NAME] [flags]
 
 # To run this command you need to create a personal access token for your git provider,
 # and have a bootstrapped GitOps repository, and provide them using:
-    
+
         export GIT_TOKEN=<token>
         export GIT_REPO=<repo_url>
 
 # or with the flags:
-    
+
         --git-token <token> --repo <repo_url>
-        
+
 # Get list of installed applications in a specifc project
-    
+
     argocd-autopilot app list <project_name>
 
 ```

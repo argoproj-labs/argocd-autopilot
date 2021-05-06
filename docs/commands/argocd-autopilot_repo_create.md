@@ -12,19 +12,19 @@ argocd-autopilot repo create [flags]
 
 # To run this command you need to create a personal access token for your git provider
 # and provide it using:
-    
+
     export GIT_TOKEN=<token>
 
 # or with the flag:
-    
+
     --git-token <token>
 
 # Create a new gitops repository on github
-    
+
     argocd-autopilot repo create --owner foo --name bar --git-token abc123
 
 # Create a public gitops repository on github
-    
+
     argocd-autopilot repo create --owner foo --name bar --git-token abc123 --public
 
 ```

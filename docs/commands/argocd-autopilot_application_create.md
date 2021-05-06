@@ -12,16 +12,16 @@ argocd-autopilot application create [APP_NAME] [flags]
 
 # To run this command you need to create a personal access token for your git provider,
 # and have a bootstrapped GitOps repository, and provide them using:
-    
+
         export GIT_TOKEN=<token>
         export GIT_REPO=<repo_url>
 
 # or with the flags:
-    
+
         --git-token <token> --repo <repo_url>
-        
+
 # Create a new application from kustomization in a remote repository
-    
+
     argocd-autopilot app create <new_app_name> --app github.com/some_org/some_repo/manifests?ref=v1.2.3 --project project_name
 
 ```
