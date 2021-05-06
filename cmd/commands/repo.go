@@ -597,36 +597,36 @@ func writeManifestsToRepo(repoFS fs.FS, manifests *bootstrapManifests, installat
 	argocdPath := repoFS.Join(store.Default.BootsrtrapDir, store.Default.ArgoCDName)
 	var err error
 	if installationMode == installationModeNormal {
-		if _, err = repoFS.WriteFile(repoFS.Join(argocdPath, "kustomization.yaml"), manifests.bootstrapKustomization); err != nil {
+		if err = writeFile(repoFS, repoFS.Join(argocdPath, "kustomization.yaml"), manifests.bootstrapKustomization); err != nil {
 			return err
 		}
 
-		if _, err = repoFS.WriteFile(repoFS.Join(argocdPath, "namespace.yaml"), manifests.namespace); err != nil {
+		if err = writeFile(repoFS, repoFS.Join(argocdPath, "namespace.yaml"), manifests.namespace); err != nil {
 			return err
 		}
 	} else {
-		if _, err = repoFS.WriteFile(repoFS.Join(argocdPath, "install.yaml"), manifests.applyManifests); err != nil {
+		if err = writeFile(repoFS, repoFS.Join(argocdPath, "install.yaml"), manifests.applyManifests); err != nil {
 			return err
 		}
 	}
 
 	// write projects root app
-	if _, err = repoFS.WriteFile(repoFS.Join(store.Default.BootsrtrapDir, store.Default.RootAppName+".yaml"), manifests.rootApp); err != nil {
+	if err = writeFile(repoFS, repoFS.Join(store.Default.BootsrtrapDir, store.Default.RootAppName+".yaml"), manifests.rootApp); err != nil {
 		return err
 	}
 
 	// write argocd app
-	if _, err = repoFS.WriteFile(repoFS.Join(store.Default.BootsrtrapDir, store.Default.ArgoCDName+".yaml"), manifests.argocdApp); err != nil {
+	if err = writeFile(repoFS, repoFS.Join(store.Default.BootsrtrapDir, store.Default.ArgoCDName+".yaml"), manifests.argocdApp); err != nil {
 		return err
 	}
 
 	// write ./projects/README.md
-	if _, err = repoFS.WriteFile(repoFS.Join(store.Default.ProjectsDir, "README.md"), projectReadme); err != nil {
+	if err = writeFile(repoFS, repoFS.Join(store.Default.ProjectsDir, "README.md"), projectReadme); err != nil {
 		return err
 	}
 
 	// write ./kustomize/README.md
-	if _, err = repoFS.WriteFile(repoFS.Join(store.Default.KustomizeDir, "README.md"), kustomizationReadme); err != nil {
+	if err = writeFile(repoFS, repoFS.Join(store.Default.KustomizeDir, "README.md"), kustomizationReadme); err != nil {
 		return err
 	}
 

@@ -193,7 +193,7 @@ func RunProjectCreate(ctx context.Context, opts *ProjectCreateOptions) error {
 		}
 	}
 
-	if _, err = opts.FS.WriteFile(opts.FS.Join(store.Default.ProjectsDir, opts.Name+".yaml"), joinedYAML); err != nil {
+	if err = writeFile(opts.FS, opts.FS.Join(store.Default.ProjectsDir, opts.Name+".yaml"), joinedYAML); err != nil {
 		return fmt.Errorf("failed to create project file: %w", err)
 	}
 
@@ -422,4 +422,87 @@ var getProjectInfoFromFile = func(fs fs.FS, name string) (*argocdv1alpha1.AppPro
 
 	return &proj, &appSet, nil
 
+}
+
+func NewProjectDeleteCommand(opts *BaseOptions) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete [PROJECT_NAME]",
+		Short: "Delete a project and all of its applications",
+		Example: util.Doc(`
+# To run this command you need to create a personal access token for your git provider,
+# and have a bootstrapped GitOps repository, and provide them using:
+	
+		export GIT_TOKEN=<token>
+		export GIT_REPO=<repo_url>
+
+# or with the flags:
+	
+		--token <token> --repo <repo_url>
+		
+# Get list of installed applications in a specifc project
+	
+	<BIN> project delete <project_name>
+`),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) < 1 {
+				log.G().Fatal("must enter project name")
+			}
+
+			opts.ProjectName = args[0]
+
+			return RunProjectDelete(cmd.Context(), opts)
+		},
+	}
+
+	return cmd
+}
+
+func RunProjectDelete(ctx context.Context, opts *BaseOptions) error {
+	r, repofs, err := prepareRepo(ctx, opts)
+	if err != nil {
+		return err
+	}
+
+	overlays, err := glob(repofs, repofs.Join(store.Default.KustomizeDir, "*", store.Default.OverlaysDir, opts.ProjectName))
+	if err != nil {
+		log.G().Fatalf("failed to run glob on %s", opts.ProjectName)
+	}
+
+	for _, overlay := range overlays {
+		appOverlaysDir := filepath.Dir(overlay)
+		allOverlays, err := repofs.ReadDir(appOverlaysDir)
+		if err != nil {
+			return fmt.Errorf("failed to read overlays directory '%s': %w", appOverlaysDir, err)
+		}
+
+		appDir := filepath.Dir(appOverlaysDir)
+		appName := filepath.Base(appDir)
+		var dirToRemove string
+		var msg string
+		if len(allOverlays) == 1 {
+			dirToRemove = appDir
+			msg = fmt.Sprintf("Deleting app '%s'", appName)
+		} else {
+			dirToRemove = overlay
+			msg = fmt.Sprintf("Deleting overlay from app '%s'", appName)
+		}
+
+		log.G().Info(msg)
+		err = removeAll(repofs, dirToRemove)
+		if err != nil {
+			return fmt.Errorf("failed to delete directory '%s': %w", dirToRemove, err)
+		}
+	}
+
+	err = repofs.Remove(repofs.Join(store.Default.ProjectsDir, opts.ProjectName+".yaml"))
+	if err != nil {
+		return fmt.Errorf("failed to delete project '%s': %w", opts.ProjectName, err)
+	}
+
+	log.G().Info("committing changes to gitops repo...")
+	if err = r.Persist(ctx, &git.PushOptions{CommitMsg: fmt.Sprintf("Deleted project '%s'", opts.ProjectName)}); err != nil {
+		return fmt.Errorf("failed to push to repo: %w", err)
+	}
+
+	return nil
 }

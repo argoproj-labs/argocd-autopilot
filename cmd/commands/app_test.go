@@ -22,6 +22,7 @@ import (
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
 	osfs "github.com/go-git/go-billy/v5/osfs"
+	billyUtils "github.com/go-git/go-billy/v5/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	kusttypes "sigs.k8s.io/kustomize/api/types"
@@ -122,7 +123,7 @@ func Test_writeApplicationFile(t *testing.T) {
 				data: []byte("data2"),
 			},
 			beforeFn: func(repofs fs.FS) fs.FS {
-				_, _ = repofs.WriteFile("/foo/bar", []byte("data"))
+				_ = billyUtils.WriteFile(repofs, "/foo/bar", []byte("data"), 0666)
 				return repofs
 			},
 			assertFn: func(t *testing.T, _ fs.FS, exists bool, ret error) {
@@ -270,9 +271,9 @@ func Test_createApplicationFiles(t *testing.T) {
 				}
 				orgBaseYAML, err := yaml.Marshal(orgBase)
 				assert.NoError(t, err)
-				_, err = repofs.WriteFile(repofs.Join(store.Default.KustomizeDir, "foo", "base", "kustomization.yaml"), orgBaseYAML)
+				err = billyUtils.WriteFile(repofs, repofs.Join(store.Default.KustomizeDir, "foo", "base", "kustomization.yaml"), orgBaseYAML, 0666)
 				assert.NoError(t, err)
-				_, err = repofs.WriteFile(repofs.Join(store.Default.KustomizeDir, "foo", "overlays", "fooproj", "kustomization.yaml"), []byte(""))
+				err = billyUtils.WriteFile(repofs, repofs.Join(store.Default.KustomizeDir, "foo", "overlays", "fooproj", "kustomization.yaml"), []byte(""), 0666)
 				assert.NoError(t, err)
 
 				return repofs, app, "fooproj"
@@ -290,9 +291,9 @@ func Test_createApplicationFiles(t *testing.T) {
 				repofs := fs.Create(osfs.New(root))
 				sameBase, err := yaml.Marshal(app.Base())
 				assert.NoError(t, err)
-				_, err = repofs.WriteFile(repofs.Join(store.Default.KustomizeDir, "foo", "base", "kustomization.yaml"), sameBase)
+				err = billyUtils.WriteFile(repofs, repofs.Join(store.Default.KustomizeDir, "foo", "base", "kustomization.yaml"), sameBase, 0666)
 				assert.NoError(t, err)
-				_, err = repofs.WriteFile(repofs.Join(store.Default.KustomizeDir, "foo", "overlays", "fooproj", "kustomization.yaml"), []byte(""))
+				err = billyUtils.WriteFile(repofs, repofs.Join(store.Default.KustomizeDir, "foo", "overlays", "fooproj", "kustomization.yaml"), []byte(""), 0666)
 				assert.NoError(t, err)
 
 				return repofs, app, "fooproj"
@@ -328,7 +329,7 @@ func Test_getConfigFileFromPath(t *testing.T) {
 			beforeFn: func(repofs fs.FS, appName string) fs.FS {
 				conf := application.Config{AppName: appName}
 				b, _ := json.Marshal(&conf)
-				_, _ = repofs.WriteFile(fmt.Sprintf("%s/config.json", appName), b)
+				_ = billyUtils.WriteFile(repofs, fmt.Sprintf("%s/config.json", appName), b, 0666)
 				return repofs
 			},
 			assertFn: func(t *testing.T, conf *application.Config) {
@@ -347,7 +348,7 @@ func Test_getConfigFileFromPath(t *testing.T) {
 			want:    &application.Config{},
 			wantErr: "failed to unmarshal file test/config.json",
 			beforeFn: func(repofs fs.FS, appName string) fs.FS {
-				_, _ = repofs.WriteFile(fmt.Sprintf("%s/config.json", appName), []byte{})
+				_ = billyUtils.WriteFile(repofs, fmt.Sprintf("%s/config.json", appName), []byte{}, 0666)
 				return repofs
 			},
 			assertFn: nil,

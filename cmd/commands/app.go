@@ -19,7 +19,6 @@ import (
 
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/ghodss/yaml"
-	billyUtils "github.com/go-git/go-billy/v5/util"
 	"github.com/spf13/cobra"
 	kusttypes "sigs.k8s.io/kustomize/api/types"
 )
@@ -27,8 +26,6 @@ import (
 var (
 	ErrAppAlreadyInstalledOnProject = errors.New("application already installed on project")
 	ErrAppCollisionWithExistingBase = errors.New("an application with the same name and a different base already exists, consider choosing a different name")
-
-	removeAll = billyUtils.RemoveAll
 )
 
 type (
@@ -317,8 +314,7 @@ func RunAppList(ctx context.Context, opts *BaseOptions) error {
 	}
 
 	// get all apps beneath kustomize <project>\overlayes
-	glob := repofs.Join(store.Default.KustomizeDir, "*", store.Default.OverlaysDir, opts.ProjectName)
-	matches, err := billyUtils.Glob(repofs, glob)
+	matches, err := glob(repofs, repofs.Join(store.Default.KustomizeDir, "*", store.Default.OverlaysDir, opts.ProjectName))
 	if err != nil {
 		log.G().Fatalf("failed to run glob on %s", opts.ProjectName)
 	}
