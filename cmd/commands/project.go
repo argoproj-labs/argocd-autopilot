@@ -72,16 +72,16 @@ func NewProjectCreateCommand() *cobra.Command {
 		Example: util.Doc(`
 # To run this command you need to create a personal access token for your git provider,
 # and have a bootstrapped GitOps repository, and provide them using:
-	
+
 		export GIT_TOKEN=<token>
 		export GIT_REPO=<repo_url>
 
 # or with the flags:
-	
-		--token <token> --repo <repo_url>
-		
+
+		--git-token <token> --repo <repo_url>
+
 # Create a new project
-	
+
 	<BIN> project create <PROJECT_NAME>
 
 # Create a new project in a specific path inside the GitOps repo
@@ -345,16 +345,16 @@ func NewProjectListCommand(opts *BaseOptions) *cobra.Command {
 		Example: util.Doc(`
 # To run this command you need to create a personal access token for your git provider,
 # and have a bootstrapped GitOps repository, and provide them using:
-	
+
 		export GIT_TOKEN=<token>
 		export GIT_REPO=<repo_url>
 
 # or with the flags:
-	
-		--token <token> --repo <repo_url>
-		
+
+		--git-token <token> --repo <repo_url>
+
 # Lists projects
-	
+
 	<BIN> project list
 `),
 		RunE: func(cmd *cobra.Command, args []string) error {
