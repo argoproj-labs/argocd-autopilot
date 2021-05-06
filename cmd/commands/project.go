@@ -36,6 +36,20 @@ type (
 		CloneOptions    *git.CloneOptions
 		AddCmd          argocd.AddClusterCmd
 	}
+
+	ProjectListOptions struct {
+		BaseOptions
+		Out io.Writer
+	}
+
+	GenerateProjectOptions struct {
+		Name              string
+		Namespace         string
+		DefaultDestServer string
+		RepoURL           string
+		Revision          string
+		InstallationPath  string
+	}
 )
 
 func NewProjectCommand() *cobra.Command {
@@ -206,15 +220,6 @@ func RunProjectCreate(ctx context.Context, opts *ProjectCreateOptions) error {
 	return nil
 }
 
-type GenerateProjectOptions struct {
-	Name              string
-	Namespace         string
-	DefaultDestServer string
-	RepoURL           string
-	Revision          string
-	InstallationPath  string
-}
-
 var generateProject = func(o *GenerateProjectOptions) (*argocdv1alpha1.AppProject, *appset.ApplicationSet) {
 	appProject := &argocdv1alpha1.AppProject{
 		TypeMeta: metav1.TypeMeta{
@@ -330,13 +335,6 @@ var getInstallationNamespace = func(repofs fs.FS) (string, error) {
 	return a.Spec.Destination.Namespace, nil
 }
 
-type (
-	ProjectListOptions struct {
-		BaseOptions
-		Out io.Writer
-	}
-)
-
 func NewProjectListCommand(opts *BaseOptions) *cobra.Command {
 
 	cmd := &cobra.Command{
@@ -400,20 +398,24 @@ var getProjectInfoFromFile = func(fs fs.FS, name string) (*argocdv1alpha1.AppPro
 	if err != nil {
 		return nil, nil, fmt.Errorf("%s not found", name)
 	}
+
 	b, err := ioutil.ReadAll(file)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read file %s", name)
 	}
+
 	yamls := util.SplitManifests(b)
 	if len(yamls) != 2 {
 		return nil, nil, fmt.Errorf("expected 2 files when splitting %s", name)
 	}
+
 	proj := argocdv1alpha1.AppProject{}
 	err = yaml.Unmarshal(yamls[0], &proj)
 
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to unmarshal %s", name)
 	}
+
 	appSet := appsetv1alpha1.ApplicationSpec{}
 	err = yaml.Unmarshal(yamls[1], &proj)
 	if err != nil {
@@ -421,7 +423,6 @@ var getProjectInfoFromFile = func(fs fs.FS, name string) (*argocdv1alpha1.AppPro
 	}
 
 	return &proj, &appSet, nil
-
 }
 
 func NewProjectDeleteCommand(opts *BaseOptions) *cobra.Command {
@@ -463,9 +464,10 @@ func RunProjectDelete(ctx context.Context, opts *BaseOptions) error {
 		return err
 	}
 
-	overlays, err := glob(repofs, repofs.Join(store.Default.KustomizeDir, "*", store.Default.OverlaysDir, opts.ProjectName))
+	projectPattern := repofs.Join(store.Default.KustomizeDir, "*", store.Default.OverlaysDir, opts.ProjectName)
+	overlays, err := glob(repofs, projectPattern)
 	if err != nil {
-		log.G().Fatalf("failed to run glob on %s", opts.ProjectName)
+		return fmt.Errorf("failed to run glob on '%s': %w", projectPattern, err)
 	}
 
 	for _, overlay := range overlays {

@@ -428,36 +428,168 @@ func TestRunProjectList(t *testing.T) {
 func TestRunProjectDelete(t *testing.T) {
 	tests := map[string]struct {
 		projectName string
-		cloneErr    string
-		removeErr   string
+		prepareErr  string
+		globMatches []string
 		wantErr     string
-		beforeFn    func(m *fsmocks.FS, mr *gitmocks.Repository)
+		beforeFn    func(mfs *fsmocks.FS, mr *gitmocks.Repository)
+		glob        func(fs billy.Filesystem, pattern string) (matches []string, err error)
+		removeAll   func(fs billy.Basic, path string) error
 	}{
-		// TODO: Add test cases.
+		"Should fail when clone fails": {
+			projectName: "project",
+			prepareErr:  "some error",
+			wantErr:     "some error",
+		},
+		"Should fail when glob fails": {
+			projectName: "project",
+			glob: func(_ billy.Filesystem, pattern string) (matches []string, err error) {
+				assert.Equal(t, "kustomize/*/overlays/project", pattern)
+				return nil, fmt.Errorf("some error")
+			},
+			wantErr: "failed to run glob on 'kustomize/*/overlays/project': some error",
+		},
+		"Should fail when ReadDir fails": {
+			projectName: "project",
+			wantErr:     "failed to read overlays directory 'kustomize/app1/overlays': some error",
+			beforeFn: func(mfs *fsmocks.FS, _ *gitmocks.Repository) {
+				mfs.On("ReadDir", "kustomize/app1/overlays").Return(nil, fmt.Errorf("some error"))
+			},
+			glob: func(_ billy.Filesystem, pattern string) (matches []string, err error) {
+				assert.Equal(t, "kustomize/*/overlays/project", pattern)
+				return []string{"kustomize/app1/overlays/project"}, nil
+			},
+		},
+		"Should fail when removeAll fails": {
+			projectName: "project",
+			wantErr:     "failed to delete directory 'kustomize/app1': some error",
+			beforeFn: func(mfs *fsmocks.FS, _ *gitmocks.Repository) {
+				mfs.On("ReadDir", "kustomize/app1/overlays").Return([]os.FileInfo{nil}, nil)
+			},
+			glob: func(_ billy.Filesystem, pattern string) (matches []string, err error) {
+				assert.Equal(t, "kustomize/*/overlays/project", pattern)
+				return []string{"kustomize/app1/overlays/project"}, nil
+			},
+			removeAll: func(_ billy.Basic, path string) error {
+				assert.Equal(t, "kustomize/app1", path)
+				return fmt.Errorf("some error")
+			},
+		},
+		"Should fail when Remove fails": {
+			projectName: "project",
+			wantErr:     "failed to delete project 'project': some error",
+			beforeFn: func(mfs *fsmocks.FS, _ *gitmocks.Repository) {
+				mfs.On("ReadDir", "kustomize/app1/overlays").Return([]os.FileInfo{nil}, nil)
+				mfs.On("Remove", "projects/project.yaml").Return(fmt.Errorf("some error"))
+			},
+			glob: func(_ billy.Filesystem, pattern string) (matches []string, err error) {
+				assert.Equal(t, "kustomize/*/overlays/project", pattern)
+				return []string{"kustomize/app1/overlays/project"}, nil
+			},
+			removeAll: func(_ billy.Basic, path string) error {
+				assert.Equal(t, "kustomize/app1", path)
+				return nil
+			},
+		},
+		"Should fail when persist fails": {
+			projectName: "project",
+			wantErr:     "failed to push to repo: some error",
+			beforeFn: func(mfs *fsmocks.FS, mr *gitmocks.Repository) {
+				mfs.On("ReadDir", "kustomize/app1/overlays").Return([]os.FileInfo{nil}, nil)
+				mfs.On("Remove", "projects/project.yaml").Return(nil)
+				mr.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
+					CommitMsg: "Deleted project 'project'",
+				}).Return(fmt.Errorf("some error"))
+			},
+			glob: func(_ billy.Filesystem, pattern string) (matches []string, err error) {
+				assert.Equal(t, "kustomize/*/overlays/project", pattern)
+				return []string{"kustomize/app1/overlays/project"}, nil
+			},
+			removeAll: func(_ billy.Basic, path string) error {
+				assert.Equal(t, "kustomize/app1", path)
+				return nil
+			},
+		},
+		"Should remove entire app folder, if it contains only one overlay": {
+			projectName: "project",
+			beforeFn: func(mfs *fsmocks.FS, mr *gitmocks.Repository) {
+				mfs.On("ReadDir", "kustomize/app1/overlays").Return([]os.FileInfo{nil}, nil)
+				mfs.On("Remove", "projects/project.yaml").Return(nil)
+				mr.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
+					CommitMsg: "Deleted project 'project'",
+				}).Return(nil)
+			},
+			glob: func(_ billy.Filesystem, pattern string) (matches []string, err error) {
+				assert.Equal(t, "kustomize/*/overlays/project", pattern)
+				return []string{"kustomize/app1/overlays/project"}, nil
+			},
+			removeAll: func(_ billy.Basic, path string) error {
+				assert.Equal(t, "kustomize/app1", path)
+				return nil
+			},
+		},
+		"Should remove only overlay, if app contains more overlays": {
+			projectName: "project",
+			beforeFn: func(mfs *fsmocks.FS, mr *gitmocks.Repository) {
+				mfs.On("ReadDir", "kustomize/app1/overlays").Return([]os.FileInfo{nil, nil}, nil)
+				mfs.On("Remove", "projects/project.yaml").Return(nil)
+				mr.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
+					CommitMsg: "Deleted project 'project'",
+				}).Return(nil)
+			},
+			glob: func(_ billy.Filesystem, pattern string) (matches []string, err error) {
+				assert.Equal(t, "kustomize/*/overlays/project", pattern)
+				return []string{"kustomize/app1/overlays/project"}, nil
+			},
+			removeAll: func(_ billy.Basic, path string) error {
+				assert.Equal(t, "kustomize/app1/overlays/project", path)
+				return nil
+			},
+		},
+		"Should handle multiple apps": {
+			projectName: "project",
+			beforeFn: func(mfs *fsmocks.FS, mr *gitmocks.Repository) {
+				mfs.On("ReadDir", "kustomize/app1/overlays").Return([]os.FileInfo{nil, nil}, nil)
+				mfs.On("ReadDir", "kustomize/app2/overlays").Return([]os.FileInfo{nil}, nil)
+				mfs.On("Remove", "projects/project.yaml").Return(nil)
+				mr.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
+					CommitMsg: "Deleted project 'project'",
+				}).Return(nil)
+			},
+			glob: func(_ billy.Filesystem, pattern string) (matches []string, err error) {
+				assert.Equal(t, "kustomize/*/overlays/project", pattern)
+				return []string{"kustomize/app1/overlays/project", "kustomize/app2/overlays/project"}, nil
+			},
+			removeAll: func(_ billy.Basic, path string) error {
+				assert.Contains(t, []string{
+					"kustomize/app1/overlays/project",
+					"kustomize/app2",
+				}, path)
+				return nil
+			},
+		},
 	}
+	origGlob := glob
 	origPrepareRepo := prepareRepo
 	origRemoveAll := removeAll
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			mockFS := &fsmocks.FS{}
 			mockRepo := &gitmocks.Repository{}
+			mockFS.On("Join", mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(func(elem ...string) string {
+				return strings.Join(elem, "/")
+			})
 			mockFS.On("Join", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(func(elem ...string) string {
 				return strings.Join(elem, "/")
 			})
 			prepareRepo = func(_ context.Context, _ *BaseOptions) (git.Repository, fs.FS, error) {
-				if tt.cloneErr != "" {
-					return nil, nil, fmt.Errorf(tt.cloneErr)
+				if tt.prepareErr != "" {
+					return nil, nil, fmt.Errorf(tt.prepareErr)
 				}
 
 				return mockRepo, mockFS, nil
 			}
-			removeAll = func(_ billy.Basic, _ string) error {
-				if tt.removeErr != "" {
-					return fmt.Errorf(tt.removeErr)
-				}
-
-				return nil
-			}
+			glob = tt.glob
+			removeAll = tt.removeAll
 			if tt.beforeFn != nil {
 				tt.beforeFn(mockFS, mockRepo)
 			}
@@ -465,12 +597,17 @@ func TestRunProjectDelete(t *testing.T) {
 			opts := &BaseOptions{
 				ProjectName: tt.projectName,
 			}
-			if err := RunProjectDelete(context.Background(), opts); tt.wantErr != "" {
-				assert.EqualError(t, err, tt.wantErr)
+			if err := RunProjectDelete(context.Background(), opts); err != nil {
+				if tt.wantErr != "" {
+					assert.EqualError(t, err, tt.wantErr)
+				} else {
+					t.Errorf("prepare() error = %v", err)
+				}
 			}
 		})
 	}
 
+	glob = origGlob
 	prepareRepo = origPrepareRepo
 	removeAll = origRemoveAll
 }
