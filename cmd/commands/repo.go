@@ -22,6 +22,7 @@ import (
 	argocdsettings "github.com/argoproj/argo-cd/v2/util/settings"
 	"github.com/ghodss/yaml"
 	memfs "github.com/go-git/go-billy/v5/memfs"
+	billyUtils "github.com/go-git/go-billy/v5/util"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	v1 "k8s.io/api/core/v1"
@@ -597,36 +598,36 @@ func writeManifestsToRepo(repoFS fs.FS, manifests *bootstrapManifests, installat
 	argocdPath := repoFS.Join(store.Default.BootsrtrapDir, store.Default.ArgoCDName)
 	var err error
 	if installationMode == installationModeNormal {
-		if err = writeFile(repoFS, repoFS.Join(argocdPath, "kustomization.yaml"), manifests.bootstrapKustomization); err != nil {
+		if err = billyUtils.WriteFile(repoFS, repoFS.Join(argocdPath, "kustomization.yaml"), manifests.bootstrapKustomization, 0666); err != nil {
 			return err
 		}
 
-		if err = writeFile(repoFS, repoFS.Join(argocdPath, "namespace.yaml"), manifests.namespace); err != nil {
+		if err = billyUtils.WriteFile(repoFS, repoFS.Join(argocdPath, "namespace.yaml"), manifests.namespace, 0666); err != nil {
 			return err
 		}
 	} else {
-		if err = writeFile(repoFS, repoFS.Join(argocdPath, "install.yaml"), manifests.applyManifests); err != nil {
+		if err = billyUtils.WriteFile(repoFS, repoFS.Join(argocdPath, "install.yaml"), manifests.applyManifests, 0666); err != nil {
 			return err
 		}
 	}
 
 	// write projects root app
-	if err = writeFile(repoFS, repoFS.Join(store.Default.BootsrtrapDir, store.Default.RootAppName+".yaml"), manifests.rootApp); err != nil {
+	if err = billyUtils.WriteFile(repoFS, repoFS.Join(store.Default.BootsrtrapDir, store.Default.RootAppName+".yaml"), manifests.rootApp, 0666); err != nil {
 		return err
 	}
 
 	// write argocd app
-	if err = writeFile(repoFS, repoFS.Join(store.Default.BootsrtrapDir, store.Default.ArgoCDName+".yaml"), manifests.argocdApp); err != nil {
+	if err = billyUtils.WriteFile(repoFS, repoFS.Join(store.Default.BootsrtrapDir, store.Default.ArgoCDName+".yaml"), manifests.argocdApp, 0666); err != nil {
 		return err
 	}
 
 	// write ./projects/README.md
-	if err = writeFile(repoFS, repoFS.Join(store.Default.ProjectsDir, "README.md"), projectReadme); err != nil {
+	if err = billyUtils.WriteFile(repoFS, repoFS.Join(store.Default.ProjectsDir, "README.md"), projectReadme, 0666); err != nil {
 		return err
 	}
 
 	// write ./kustomize/README.md
-	if err = writeFile(repoFS, repoFS.Join(store.Default.KustomizeDir, "README.md"), kustomizationReadme); err != nil {
+	if err = billyUtils.WriteFile(repoFS, repoFS.Join(store.Default.KustomizeDir, "README.md"), kustomizationReadme, 0666); err != nil {
 		return err
 	}
 

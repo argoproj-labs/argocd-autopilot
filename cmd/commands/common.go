@@ -11,9 +11,7 @@ import (
 	"github.com/argoproj/argocd-autopilot/pkg/store"
 	"github.com/argoproj/argocd-autopilot/pkg/util"
 
-	"github.com/go-git/go-billy/v5"
 	memfs "github.com/go-git/go-billy/v5/memfs"
-	billyUtils "github.com/go-git/go-billy/v5/util"
 	"github.com/spf13/cobra"
 )
 
@@ -72,14 +70,6 @@ var (
 		log.G().Debug("repository is ok")
 
 		return r, repofs, nil
-	}
-
-	removeAll = billyUtils.RemoveAll
-
-	glob = billyUtils.Glob
-
-	writeFile = func(fs billy.Basic, filename string, data []byte) error {
-		return billyUtils.WriteFile(fs, filename, data, 0666)
 	}
 )
 

@@ -19,6 +19,7 @@ import (
 
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/ghodss/yaml"
+	billyUtils "github.com/go-git/go-billy/v5/util"
 	"github.com/spf13/cobra"
 	kusttypes "sigs.k8s.io/kustomize/api/types"
 )
@@ -314,7 +315,7 @@ func RunAppList(ctx context.Context, opts *BaseOptions) error {
 	}
 
 	// get all apps beneath kustomize <project>\overlayes
-	matches, err := glob(repofs, repofs.Join(store.Default.KustomizeDir, "*", store.Default.OverlaysDir, opts.ProjectName))
+	matches, err := billyUtils.Glob(repofs, repofs.Join(store.Default.KustomizeDir, "*", store.Default.OverlaysDir, opts.ProjectName))
 	if err != nil {
 		log.G().Fatalf("failed to run glob on %s", opts.ProjectName)
 	}
@@ -441,7 +442,7 @@ func RunAppDelete(ctx context.Context, opts *AppDeleteOptions) error {
 		}
 	}
 
-	err = removeAll(repofs, dirToRemove)
+	err = billyUtils.RemoveAll(repofs, dirToRemove)
 	if err != nil {
 		return fmt.Errorf("failed to delete directory '%s': %w", dirToRemove, err)
 	}

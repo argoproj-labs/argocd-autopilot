@@ -16,6 +16,7 @@ import (
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/ghodss/yaml"
 	memfs "github.com/go-git/go-billy/v5/memfs"
+	billyUtils "github.com/go-git/go-billy/v5/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	v1 "k8s.io/api/core/v1"
@@ -175,7 +176,7 @@ func Test_validateRepo(t *testing.T) {
 	}{
 		"Bootstrap exists": {
 			preFn: func(t *testing.T, repofs fs.FS) {
-				err := writeFile(repofs, store.Default.BootsrtrapDir, []byte{})
+				err := billyUtils.WriteFile(repofs, store.Default.BootsrtrapDir, []byte{}, 0666)
 				assert.NoError(t, err)
 			},
 			assertFn: func(t *testing.T, repofs fs.FS, ret error) {
@@ -184,7 +185,7 @@ func Test_validateRepo(t *testing.T) {
 		},
 		"Projects exists": {
 			preFn: func(t *testing.T, repofs fs.FS) {
-				err := writeFile(repofs, store.Default.ProjectsDir, []byte{})
+				err := billyUtils.WriteFile(repofs, store.Default.ProjectsDir, []byte{}, 0666)
 				assert.NoError(t, err)
 			},
 			assertFn: func(t *testing.T, repofs fs.FS, ret error) {

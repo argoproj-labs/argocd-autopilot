@@ -20,6 +20,7 @@ import (
 	appsetv1alpha1 "github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/ghodss/yaml"
+	billyUtils "github.com/go-git/go-billy/v5/util"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -188,7 +189,7 @@ func RunProjectCreate(ctx context.Context, opts *ProjectCreateOptions) error {
 		}
 	}
 
-	if err = writeFile(repofs, repofs.Join(store.Default.ProjectsDir, opts.Name+".yaml"), joinedYAML); err != nil {
+	if err = billyUtils.WriteFile(repofs, repofs.Join(store.Default.ProjectsDir, opts.Name+".yaml"), joinedYAML, 0666); err != nil {
 		return fmt.Errorf("failed to create project file: %w", err)
 	}
 
@@ -355,10 +356,11 @@ func RunProjectList(ctx context.Context, opts *ProjectListOptions) error {
 		return err
 	}
 
-	matches, err := glob(repofs, repofs.Join(store.Default.ProjectsDir, "*.yaml"))
+	matches, err := billyUtils.Glob(repofs, repofs.Join(store.Default.ProjectsDir, "*.yaml"))
 	if err != nil {
 		return err
 	}
+
 	w := tabwriter.NewWriter(opts.Out, 0, 0, 2, ' ', 0)
 	_, _ = fmt.Fprintf(w, "NAME\tNAMESPACE\tCLUSTER\t\n")
 
@@ -367,9 +369,10 @@ func RunProjectList(ctx context.Context, opts *ProjectListOptions) error {
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\n", proj.Name, proj.Namespace, proj.ClusterName)
 
+		fmt.Fprintf(w, "%s\t%s\t%s\n", proj.Name, proj.Namespace, proj.ClusterName)
 	}
+
 	w.Flush()
 	return nil
 }
@@ -446,7 +449,7 @@ func RunProjectDelete(ctx context.Context, opts *BaseOptions) error {
 	}
 
 	projectPattern := repofs.Join(store.Default.KustomizeDir, "*", store.Default.OverlaysDir, opts.ProjectName)
-	overlays, err := glob(repofs, projectPattern)
+	overlays, err := billyUtils.Glob(repofs, projectPattern)
 	if err != nil {
 		return fmt.Errorf("failed to run glob on '%s': %w", projectPattern, err)
 	}
@@ -469,7 +472,7 @@ func RunProjectDelete(ctx context.Context, opts *BaseOptions) error {
 			log.G().Infof("Deleting overlay from app '%s'", appName)
 		}
 
-		err = removeAll(repofs, dirToRemove)
+		err = billyUtils.RemoveAll(repofs, dirToRemove)
 		if err != nil {
 			return fmt.Errorf("failed to delete directory '%s': %w", dirToRemove, err)
 		}

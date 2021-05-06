@@ -31,8 +31,6 @@ type File interface {
 	billy.File
 }
 
-var writeFile = billyUtils.WriteFile
-
 func Create(bfs billy.Filesystem) FS {
 	return &fsimpl{bfs}
 }
@@ -40,15 +38,15 @@ func Create(bfs billy.Filesystem) FS {
 func (fs *fsimpl) CheckExistsOrWrite(path string, data []byte) (bool, error) {
 	exists, err := fs.Exists(path)
 	if err != nil {
-		return false, fmt.Errorf("failed to check if file exists on repo: %s: %w", path, err)
+		return false, fmt.Errorf("failed to check if file exists on repo at '%s': %w", path, err)
 	}
 
 	if exists {
 		return true, nil
 	}
 
-	if err = writeFile(fs, path, data, 0666); err != nil {
-		return false, fmt.Errorf("failed to create file at: %s: %w", path, err)
+	if err = billyUtils.WriteFile(fs, path, data, 0666); err != nil {
+		return false, fmt.Errorf("failed to create file at '%s': %w", path, err)
 	}
 
 	return false, nil
