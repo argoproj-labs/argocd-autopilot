@@ -30,29 +30,31 @@ import (
 func TestRunProjectCreate(t *testing.T) {
 	tests := map[string]struct {
 		opts                     *ProjectCreateOptions
-		clone                    func(ctx context.Context, r *git.CloneOptions, filesystem fs.FS) (git.Repository, fs.FS, error)
+		prepareRepo              func(ctx context.Context, o *BaseOptions) (git.Repository, fs.FS, error)
 		getInstallationNamespace func(fs.FS) (string, error)
 		writeFileError           error
 		mockRepo                 git.Repository
 		mockNamespace            string
 		wantErr                  string
 	}{
-		"should handle failure in clone": {
+		"should handle failure in prepare repo": {
 			opts: &ProjectCreateOptions{
-				Name:         "project",
-				CloneOptions: &git.CloneOptions{},
+				BaseOptions: BaseOptions{
+					ProjectName: "project",
+				},
 			},
-			clone: func(_ context.Context, _ *git.CloneOptions, _ fs.FS) (git.Repository, fs.FS, error) {
+			prepareRepo: func(_ context.Context, _ *BaseOptions) (git.Repository, fs.FS, error) {
 				return nil, nil, fmt.Errorf("failure clone")
 			},
 			wantErr: "failure clone",
 		},
 		"should handle failure while getting namespace": {
 			opts: &ProjectCreateOptions{
-				Name:         "project",
-				CloneOptions: &git.CloneOptions{},
+				BaseOptions: BaseOptions{
+					ProjectName: "project",
+				},
 			},
-			clone: func(_ context.Context, _ *git.CloneOptions, _ fs.FS) (git.Repository, fs.FS, error) {
+			prepareRepo: func(_ context.Context, _ *BaseOptions) (git.Repository, fs.FS, error) {
 				mockedFS := &fsmocks.FS{}
 				mockedFS.On("Root").Return("/")
 				return nil, mockedFS, nil
@@ -64,10 +66,11 @@ func TestRunProjectCreate(t *testing.T) {
 		},
 		"should handle failure when project exists": {
 			opts: &ProjectCreateOptions{
-				Name:         "project",
-				CloneOptions: &git.CloneOptions{},
+				BaseOptions: BaseOptions{
+					ProjectName: "project",
+				},
 			},
-			clone: func(_ context.Context, _ *git.CloneOptions, _ fs.FS) (git.Repository, fs.FS, error) {
+			prepareRepo: func(_ context.Context, _ *BaseOptions) (git.Repository, fs.FS, error) {
 				mockedFS := &fsmocks.FS{}
 				mockedFS.On("Root").Return("/")
 				mockedFS.On("Join", "projects", "project.yaml").Return("projects/project.yaml")
@@ -81,10 +84,12 @@ func TestRunProjectCreate(t *testing.T) {
 		},
 		"should handle failure when writing project file": {
 			opts: &ProjectCreateOptions{
-				Name:         "project",
-				CloneOptions: &git.CloneOptions{},
+				BaseOptions: BaseOptions{
+					ProjectName:  "project",
+					CloneOptions: &git.CloneOptions{},
+				},
 			},
-			clone: func(_ context.Context, _ *git.CloneOptions, _ fs.FS) (git.Repository, fs.FS, error) {
+			prepareRepo: func(_ context.Context, _ *BaseOptions) (git.Repository, fs.FS, error) {
 				mockedFS := &fsmocks.FS{}
 				mockedFS.On("Root").Return("/")
 				mockedFS.On("Join", "projects", "project.yaml").Return("projects/project.yaml")
@@ -99,10 +104,12 @@ func TestRunProjectCreate(t *testing.T) {
 		},
 		"should handle failure to persist repo": {
 			opts: &ProjectCreateOptions{
-				Name:         "project",
-				CloneOptions: &git.CloneOptions{},
+				BaseOptions: BaseOptions{
+					ProjectName:  "project",
+					CloneOptions: &git.CloneOptions{},
+				},
 			},
-			clone: func(_ context.Context, _ *git.CloneOptions, _ fs.FS) (git.Repository, fs.FS, error) {
+			prepareRepo: func(_ context.Context, _ *BaseOptions) (git.Repository, fs.FS, error) {
 				mockedFS := &fsmocks.FS{}
 				mockedFS.On("Root").Return("/")
 				mockedFS.On("Join", "projects", "project.yaml").Return("projects/project.yaml")
@@ -118,10 +125,12 @@ func TestRunProjectCreate(t *testing.T) {
 		},
 		"should persist repo when done": {
 			opts: &ProjectCreateOptions{
-				Name:         "project",
-				CloneOptions: &git.CloneOptions{},
+				BaseOptions: BaseOptions{
+					ProjectName:  "project",
+					CloneOptions: &git.CloneOptions{},
+				},
 			},
-			clone: func(_ context.Context, _ *git.CloneOptions, _ fs.FS) (git.Repository, fs.FS, error) {
+			prepareRepo: func(_ context.Context, _ *BaseOptions) (git.Repository, fs.FS, error) {
 				mockedFS := &fsmocks.FS{}
 				mockedFS.On("Root").Return("/")
 				mockedFS.On("Join", "projects", "project.yaml").Return("projects/project.yaml")
@@ -135,12 +144,12 @@ func TestRunProjectCreate(t *testing.T) {
 			},
 		},
 	}
-	origClone := clone
+	origPrepareRepo := prepareRepo
 	origGetInstallationNamespace := getInstallationNamespace
 	origWriteFile := writeFile
 	for ttName, tt := range tests {
 		t.Run(ttName, func(t *testing.T) {
-			clone = tt.clone
+			prepareRepo = tt.prepareRepo
 			getInstallationNamespace = tt.getInstallationNamespace
 			writeFile = func(fs billy.Basic, filename string, data []byte) error {
 				return tt.writeFileError
@@ -151,7 +160,7 @@ func TestRunProjectCreate(t *testing.T) {
 		})
 	}
 
-	clone = origClone
+	prepareRepo = origPrepareRepo
 	getInstallationNamespace = origGetInstallationNamespace
 	writeFile = origWriteFile
 }
