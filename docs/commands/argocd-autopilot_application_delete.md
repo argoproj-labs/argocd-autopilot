@@ -12,16 +12,16 @@ argocd-autopilot application delete [APP_NAME] [flags]
 
 # To run this command you need to create a personal access token for your git provider,
 # and have a bootstrapped GitOps repository, and provide them using:
-    
+
         export GIT_TOKEN=<token>
         export GIT_REPO=<repo_url>
 
 # or with the flags:
-    
-        --token <token> --repo <repo_url>
-        
+
+        --git-token <token> --repo <repo_url>
+
 # Get list of installed applications in a specifc project
-    
+
     argocd-autopilot app delete <app_name> --project <project_name>
 
 ```

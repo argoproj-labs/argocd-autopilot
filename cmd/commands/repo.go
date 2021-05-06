@@ -115,20 +115,20 @@ func NewRepoCreateCommand() *cobra.Command {
 		Example: util.Doc(`
 # To run this command you need to create a personal access token for your git provider
 # and provide it using:
-	
+
     export GIT_TOKEN=<token>
 
 # or with the flag:
-	
-    --token <token>
+
+    --git-token <token>
 
 # Create a new gitops repository on github
-    
-    <BIN> repo create --owner foo --name bar --token abc123
+
+    <BIN> repo create --owner foo --name bar --git-token abc123
 
 # Create a public gitops repository on github
-    
-    <BIN> repo create --owner foo --name bar --token abc123 --public
+
+    <BIN> repo create --owner foo --name bar --git-token abc123 --public
 `),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return RunRepoCreate(cmd.Context(), &RepoCreateOptions{
@@ -175,16 +175,16 @@ func NewRepoBootstrapCommand() *cobra.Command {
 		Example: util.Doc(`
 # To run this command you need to create a personal access token for your git provider
 # and provide it using:
-	
+
     export GIT_TOKEN=<token>
 
 # or with the flag:
-	
-    --token <token>
-		
+
+    --git-token <token>
+
 # Install argo-cd on the current kubernetes context in the argocd namespace
 # and persists the bootstrap manifests to the root of gitops repository
-	
+
 	<BIN> repo bootstrap --repo https://github.com/example/repo
 
 	# Install argo-cd on the current kubernetes context in the argocd namespace

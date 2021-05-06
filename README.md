@@ -3,16 +3,21 @@
 [![Codefresh build status]( https://g.codefresh.io/api/badges/pipeline/codefresh-inc/argocd-autopilot%2Frelease?type=cf-1)]( https://g.codefresh.io/public/accounts/codefresh-inc/pipelines/new/60881f8199c9564ef31aac61) 
 [![codecov](https://codecov.io/gh/argoproj-labs/argocd-autopilot/branch/main/graph/badge.svg?token=IDyZNfRUfY)](https://codecov.io/gh/argoproj-labs/argocd-autopilot) 
 [![Documentation Status](https://readthedocs.org/projects/argocd-autopilot/badge/?version=latest)](https://argocd-autopilot.readthedocs.io/en/latest/?badge=latest)
-[![slack](https://img.shields.io/badge/slack-argoproj-brightgreen.svg?logo=slack)](https://cloud-native.slack.com/archives/C0207C47D0X)
+[![slack](https://img.shields.io/badge/slack-argoproj-brightgreen.svg?logo=slack)](https://argoproj.github.io/community/join-slack/)
 
 ## Introduction
 
-The Argo-CD Autopilot is a tool which offers an opinionated way of installing Argo-CD and managing GitOps repositories.
+New users to GitOps and Argo CD are not often sure how they should structure their repos, add applications, promote apps across environments, and manage the Argo CD installation itself using GitOps. 
 
-It can:
-- create a new gitops repository.
-- bootstrap a new argo cd installation.
-- install and manage argo-cd projects and application with ease.
+Argo CD Autopilot saves operators time by:
+
+- Installing and managing the Argo CD application using GitOps.
+- Providing a clear structure for how applications are to be added and updated, all from git.
+- Creating a simple pattern for making updates to applications and promoting those changes across environments.
+- Enabling better disaster recovery by being able to bootstrap new clusters with all the applications previously installed.
+- Handles secrets for Argo CD to prevent them from spilling into plaintext git.
+
+The Argo-CD Autopilot is a tool which offers an opinionated way of installing Argo-CD and managing GitOps repositories.
 
 ## Installation
 ### Mac
@@ -48,7 +53,7 @@ argocd-autopilot version
 
 ## Getting Started
 ```bash
-# Most of the commands need your git token, you can provide with --token to each command
+# Most of the commands need your git token, you can provide with --git-token to each command
 # or export it beforehand:
 
     export GIT_TOKEN=<YOUR_TOKEN>

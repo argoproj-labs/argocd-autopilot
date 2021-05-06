@@ -75,16 +75,16 @@ func NewAppCreateCommand(opts *BaseOptions) *cobra.Command {
 		Example: util.Doc(`
 # To run this command you need to create a personal access token for your git provider,
 # and have a bootstrapped GitOps repository, and provide them using:
-	
+
 		export GIT_TOKEN=<token>
 		export GIT_REPO=<repo_url>
 
 # or with the flags:
-	
-		--token <token> --repo <repo_url>
-		
+
+		--git-token <token> --repo <repo_url>
+
 # Create a new application from kustomization in a remote repository
-	
+
 	<BIN> app create <new_app_name> --app github.com/some_org/some_repo/manifests?ref=v1.2.3 --project project_name
 `),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -285,16 +285,16 @@ func NewAppListCommand(opts *BaseOptions) *cobra.Command {
 		Example: util.Doc(`
 # To run this command you need to create a personal access token for your git provider,
 # and have a bootstrapped GitOps repository, and provide them using:
-	
+
 		export GIT_TOKEN=<token>
 		export GIT_REPO=<repo_url>
 
 # or with the flags:
-	
-		--token <token> --repo <repo_url>
-		
+
+		--git-token <token> --repo <repo_url>
+
 # Get list of installed applications in a specifc project
-	
+
 	<BIN> app list <project_name>
 `),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -372,16 +372,16 @@ func NewAppDeleteCommand(opts *BaseOptions) *cobra.Command {
 		Example: util.Doc(`
 # To run this command you need to create a personal access token for your git provider,
 # and have a bootstrapped GitOps repository, and provide them using:
-	
+
 		export GIT_TOKEN=<token>
 		export GIT_REPO=<repo_url>
 
 # or with the flags:
-	
-		--token <token> --repo <repo_url>
-		
+
+		--git-token <token> --repo <repo_url>
+
 # Get list of installed applications in a specifc project
-	
+
 	<BIN> app delete <app_name> --project <project_name>
 `),
 		RunE: func(cmd *cobra.Command, args []string) error {
