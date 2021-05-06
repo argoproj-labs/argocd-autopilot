@@ -113,6 +113,10 @@ func TestRunProjectCreate(t *testing.T) {
 	}
 	origPrepareRepo := prepareRepo
 	origGetInstallationNamespace := getInstallationNamespace
+	defer func() {
+		prepareRepo = origPrepareRepo
+		getInstallationNamespace = origGetInstallationNamespace
+	}()
 	for ttName, tt := range tests {
 		t.Run(ttName, func(t *testing.T) {
 			var (
@@ -147,9 +151,6 @@ func TestRunProjectCreate(t *testing.T) {
 			}
 		})
 	}
-
-	prepareRepo = origPrepareRepo
-	getInstallationNamespace = origGetInstallationNamespace
 }
 
 func Test_generateProject(t *testing.T) {
@@ -392,6 +393,10 @@ func TestRunProjectList(t *testing.T) {
 	}
 	origPrepareRepo := prepareRepo
 	origGetProjectInfoFromFile := getProjectInfoFromFile
+	defer func() {
+		prepareRepo = origPrepareRepo
+		getProjectInfoFromFile = origGetProjectInfoFromFile
+	}()
 	for tName, tt := range tests {
 		t.Run(tName, func(t *testing.T) {
 			prepareRepo = tt.prepareRepo
@@ -410,9 +415,6 @@ func TestRunProjectList(t *testing.T) {
 			tt.assertFn(t, tt.opts.Out)
 		})
 	}
-
-	prepareRepo = origPrepareRepo
-	getProjectInfoFromFile = origGetProjectInfoFromFile
 }
 
 func TestRunProjectDelete(t *testing.T) {
@@ -598,6 +600,7 @@ func TestRunProjectDelete(t *testing.T) {
 		},
 	}
 	origPrepareRepo := prepareRepo
+	defer func() { prepareRepo = origPrepareRepo }()
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			var (
@@ -629,6 +632,4 @@ func TestRunProjectDelete(t *testing.T) {
 			}
 		})
 	}
-
-	prepareRepo = origPrepareRepo
 }

@@ -512,6 +512,7 @@ func TestRunAppDelete(t *testing.T) {
 		},
 	}
 	origPrepareRepo := prepareRepo
+	defer func() { prepareRepo = origPrepareRepo }()
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			var (
@@ -547,6 +548,4 @@ func TestRunAppDelete(t *testing.T) {
 			}
 		})
 	}
-
-	prepareRepo = origPrepareRepo
 }
