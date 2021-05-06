@@ -1,22 +1,29 @@
 package commands
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"os"
-
+	"reflect"
 	"strings"
+
 	"testing"
 
+	appsetv1alpha1 "github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
+	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/argoproj/argocd-autopilot/pkg/fs"
 	fsmocks "github.com/argoproj/argocd-autopilot/pkg/fs/mocks"
 	"github.com/argoproj/argocd-autopilot/pkg/git"
 	gitmocks "github.com/argoproj/argocd-autopilot/pkg/git/mocks"
+	"github.com/argoproj/argocd-autopilot/pkg/store"
 	"github.com/argoproj/argocd-autopilot/pkg/util"
-
+	"github.com/ghodss/yaml"
+	memfs "github.com/go-git/go-billy/v5/memfs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestRunProjectCreate(t *testing.T) {
@@ -61,9 +68,7 @@ func TestRunProjectCreate(t *testing.T) {
 			clone: func(_ context.Context, _ *git.CloneOptions, _ fs.FS) (git.Repository, fs.FS, error) {
 				mockedFS := &fsmocks.FS{}
 				mockedFS.On("Root").Return("/")
-				mockedFS.On("Join", "projects", "project.yaml").Return(func(elem ...string) string {
-					return strings.Join(elem, "/")
-				})
+				mockedFS.On("Join", "projects", "project.yaml").Return("projects/project.yaml")
 				mockedFS.On("ExistsOrDie", "projects/project.yaml").Return(true)
 				return nil, mockedFS, nil
 			},
@@ -80,9 +85,7 @@ func TestRunProjectCreate(t *testing.T) {
 			clone: func(_ context.Context, _ *git.CloneOptions, _ fs.FS) (git.Repository, fs.FS, error) {
 				mockedFS := &fsmocks.FS{}
 				mockedFS.On("Root").Return("/")
-				mockedFS.On("Join", "projects", "project.yaml").Return(func(elem ...string) string {
-					return strings.Join(elem, "/")
-				})
+				mockedFS.On("Join", "projects", "project.yaml").Return("projects/project.yaml")
 				mockedFS.On("ExistsOrDie", "projects/project.yaml").Return(false)
 				mockedFS.On("WriteFile", "projects/project.yaml", mock.AnythingOfType("[]uint8")).Return(0, os.ErrPermission)
 				return nil, mockedFS, nil
@@ -100,9 +103,7 @@ func TestRunProjectCreate(t *testing.T) {
 			clone: func(_ context.Context, _ *git.CloneOptions, _ fs.FS) (git.Repository, fs.FS, error) {
 				mockedFS := &fsmocks.FS{}
 				mockedFS.On("Root").Return("/")
-				mockedFS.On("Join", "projects", "project.yaml").Return(func(elem ...string) string {
-					return strings.Join(elem, "/")
-				})
+				mockedFS.On("Join", "projects", "project.yaml").Return("projects/project.yaml")
 				mockedFS.On("ExistsOrDie", "projects/project.yaml").Return(false)
 				mockedFS.On("WriteFile", "projects/project.yaml", mock.AnythingOfType("[]uint8")).Return(1, nil)
 				mockedRepo := &gitmocks.Repository{}
@@ -122,9 +123,7 @@ func TestRunProjectCreate(t *testing.T) {
 			clone: func(_ context.Context, _ *git.CloneOptions, _ fs.FS) (git.Repository, fs.FS, error) {
 				mockedFS := &fsmocks.FS{}
 				mockedFS.On("Root").Return("/")
-				mockedFS.On("Join", "projects", "project.yaml").Return(func(elem ...string) string {
-					return strings.Join(elem, "/")
-				})
+				mockedFS.On("Join", "projects", "project.yaml").Return("projects/project.yaml")
 				mockedFS.On("ExistsOrDie", "projects/project.yaml").Return(false)
 				mockedFS.On("WriteFile", "projects/project.yaml", mock.AnythingOfType("[]uint8")).Return(1, nil)
 				mockedRepo := &gitmocks.Repository{}
@@ -192,12 +191,12 @@ func Test_generateProject(t *testing.T) {
 			assert.Equal(tt.wantName, gotProject.Name, "Project Name")
 			assert.Equal(tt.wantNamespace, gotProject.Namespace, "Project Namespace")
 			assert.Equal(tt.wantProjectDescription, gotProject.Spec.Description, "Project Description")
+			assert.Equal(tt.o.DefaultDestServer, gotProject.Annotations[store.Default.DestServerAnnotation], "Application Set Default Destination Server")
 
 			assert.Equal(tt.wantName, gotAppSet.Name, "Application Set Name")
 			assert.Equal(tt.wantNamespace, gotAppSet.Namespace, "Application Set Namespace")
 			assert.Equal(tt.wantRepoURL, gotAppSet.Spec.Generators[0].Git.RepoURL, "Application Set Repo URL")
 			assert.Equal(tt.wantRevision, gotAppSet.Spec.Generators[0].Git.Revision, "Application Set Revision")
-			assert.Equal(tt.o.DefaultDestServer, gotAppSet.Spec.Generators[0].Git.Template.Spec.Destination.Server, "Application Set Default Destination Server")
 
 			assert.Equal(tt.wantNamespace, gotAppSet.Spec.Template.Namespace, "Application Set Template Repo URL")
 			assert.Equal(tt.wantName, gotAppSet.Spec.Template.Spec.Project, "Application Set Template Project")
@@ -230,9 +229,6 @@ spec:
     path: manifests
     repoURL: https://github.com/owner/name
 `
-				mockedFS.On("Join", mock.AnythingOfType("string"), "argo-cd.yaml").Return(func(elem ...string) string {
-					return strings.Join(elem, "/")
-				})
 				mockedFS.On("Open", mock.Anything).Return(mockedFile, nil)
 				mockedFile.On("Read", mock.Anything).Run(func(args mock.Arguments) {
 					bytes := args[0].([]byte)
@@ -244,18 +240,12 @@ spec:
 		},
 		"should handle file not found": {
 			beforeFn: func(mockedFS *fsmocks.FS, _ *fsmocks.File) {
-				mockedFS.On("Join", mock.AnythingOfType("string"), "argo-cd.yaml").Return(func(elem ...string) string {
-					return strings.Join(elem, "/")
-				})
 				mockedFS.On("Open", mock.Anything).Return(nil, os.ErrNotExist)
 			},
 			wantErr: "file does not exist",
 		},
 		"should handle error during read": {
 			beforeFn: func(mockedFS *fsmocks.FS, mockedFile *fsmocks.File) {
-				mockedFS.On("Join", mock.AnythingOfType("string"), "argo-cd.yaml").Return(func(elem ...string) string {
-					return strings.Join(elem, "/")
-				})
 				mockedFS.On("Open", mock.Anything).Return(mockedFile, nil)
 				mockedFile.On("Read", mock.Anything).Return(0, fmt.Errorf("some error"))
 			},
@@ -264,9 +254,6 @@ spec:
 		"should handle corrupted namespace.yaml file": {
 			beforeFn: func(mockedFS *fsmocks.FS, mockedFile *fsmocks.File) {
 				nsYAML := "some string"
-				mockedFS.On("Join", mock.AnythingOfType("string"), "argo-cd.yaml").Return(func(elem ...string) string {
-					return strings.Join(elem, "/")
-				})
 				mockedFS.On("Open", mock.Anything).Return(mockedFile, nil)
 				mockedFile.On("Read", mock.Anything).Run(func(args mock.Arguments) {
 					bytes := args[0].([]byte)
@@ -279,10 +266,13 @@ spec:
 	}
 	for ttName, tt := range tests {
 		t.Run(ttName, func(t *testing.T) {
-			mockedFile := &fsmocks.File{}
-			mockedFS := &fsmocks.FS{}
-			tt.beforeFn(mockedFS, mockedFile)
-			got, err := getInstallationNamespace(mockedFS)
+			mockFile := &fsmocks.File{}
+			mockFS := &fsmocks.FS{}
+			mockFS.On("Join", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(func(elem ...string) string {
+				return strings.Join(elem, "/")
+			})
+			tt.beforeFn(mockFS, mockFile)
+			got, err := getInstallationNamespace(mockFS)
 			if err != nil {
 				if tt.wantErr != "" {
 					assert.EqualError(t, err, tt.wantErr)
@@ -296,6 +286,139 @@ spec:
 			if got != tt.want {
 				t.Errorf("getInstallationNamespace() = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func Test_getProjectInfoFromFile(t *testing.T) {
+	tests := map[string]struct {
+		name     string
+		want     *argocdv1alpha1.AppProject
+		wantErr  string
+		beforeFn func(fs.FS) (fs.FS, error)
+	}{
+		"should return error if project file doesn't exist": {
+			name:    "prod.yaml",
+			wantErr: "prod.yaml not found",
+		},
+		"should failed when 2 files not found": {
+			name:    "prod.yaml",
+			wantErr: "expected 2 files when splitting prod.yaml",
+			beforeFn: func(f fs.FS) (fs.FS, error) {
+				_, err := f.WriteFile("prod.yaml", []byte("content"))
+				if err != nil {
+					return nil, err
+				}
+				return f, nil
+			},
+		},
+		"should return AppProject": {
+			name: "prod.yaml",
+			beforeFn: func(f fs.FS) (fs.FS, error) {
+				appProj := argocdv1alpha1.AppProject{
+					ObjectMeta: v1.ObjectMeta{
+						Name:      "prod",
+						Namespace: "ns",
+					},
+				}
+				appSet := appsetv1alpha1.ApplicationSpec{}
+				projectYAML, _ := yaml.Marshal(&appProj)
+				appsetYAML, _ := yaml.Marshal(&appSet)
+				joinedYAML := util.JoinManifests(projectYAML, appsetYAML)
+				_, err := f.WriteFile("prod.yaml", joinedYAML)
+				if err != nil {
+					return nil, err
+				}
+				return f, nil
+			},
+			want: &argocdv1alpha1.AppProject{
+				ObjectMeta: v1.ObjectMeta{
+					Name:      "prod",
+					Namespace: "ns",
+				},
+			},
+		},
+	}
+	for tName, tt := range tests {
+		t.Run(tName, func(t *testing.T) {
+			repofs := fs.Create(memfs.New())
+			if tt.beforeFn != nil {
+				_, err := tt.beforeFn(repofs)
+				assert.NoError(t, err)
+			}
+			got, _, err := getProjectInfoFromFile(repofs, tt.name)
+			if (err != nil) && tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("getProjectInfoFromFile() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRunProjectList(t *testing.T) {
+	type args struct {
+		ctx  context.Context
+		opts *ProjectListOptions
+	}
+	tests := map[string]struct {
+		args                   args
+		wantErr                bool
+		prepareRepo            func(ctx context.Context, o *BaseOptions) (git.Repository, fs.FS, error)
+		glob                   func(fs fs.FS, pattern string) ([]string, error)
+		getProjectInfoFromFile func(fs fs.FS, name string) (*argocdv1alpha1.AppProject, *appsetv1alpha1.ApplicationSpec, error)
+		assertFn               func(t *testing.T, str string)
+	}{
+		"should print to table": {
+			args: args{
+				opts: &ProjectListOptions{
+					BaseOptions: BaseOptions{},
+					Out:         &bytes.Buffer{},
+				},
+			},
+			glob: func(fs fs.FS, pattern string) ([]string, error) {
+				res := make([]string, 0, 1)
+				res = append(res, "prod.yaml")
+				return res, nil
+			},
+			prepareRepo: func(ctx context.Context, o *BaseOptions) (git.Repository, fs.FS, error) {
+				memFS := fs.Create(memfs.New())
+				return nil, memFS, nil
+			},
+			getProjectInfoFromFile: func(fs fs.FS, name string) (*argocdv1alpha1.AppProject, *appsetv1alpha1.ApplicationSpec, error) {
+				appProj := &argocdv1alpha1.AppProject{
+					ObjectMeta: v1.ObjectMeta{
+						Name:      "prod",
+						Namespace: "ns",
+					},
+				}
+				return appProj, nil, nil
+			},
+			assertFn: func(t *testing.T, str string) {
+				assert.Contains(t, str, "NAME  NAMESPACE  CLUSTER  \n")
+				assert.Contains(t, str, "prod  ns  ")
+
+			},
+		},
+	}
+	origPrepareRepo := prepareRepo
+	origGlob := glob
+	origGetProjectInfoFromFile := getProjectInfoFromFile
+	for tName, tt := range tests {
+		t.Run(tName, func(t *testing.T) {
+			prepareRepo = tt.prepareRepo
+			glob = tt.glob
+			getProjectInfoFromFile = tt.getProjectInfoFromFile
+			if err := RunProjectList(tt.args.ctx, tt.args.opts); (err != nil) != tt.wantErr {
+				t.Errorf("RunProjectList() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			b := tt.args.opts.Out.(*bytes.Buffer)
+			tt.assertFn(t, b.String())
+			prepareRepo = origPrepareRepo
+			glob = origGlob
+			getProjectInfoFromFile = origGetProjectInfoFromFile
 		})
 	}
 }

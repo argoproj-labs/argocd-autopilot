@@ -34,37 +34,38 @@ type Store struct {
 }
 
 var Default = struct {
-	BootsrtrapDir       string
-	KustomizeDir        string
-	OverlaysDir         string
-	BaseDir             string
-	ArgoCDName          string
-	ArgoCDNamespace     string
-	BootsrtrapAppName   string
-	DummyName           string
-	ProjectsDir         string
-	ManagedBy           string
-	RootAppName         string
-	RepoCredsSecretName string
-	GitUsername         string
-	WaitInterval        time.Duration
-	DestServer          string
+	BootsrtrapDir        string
+	KustomizeDir         string
+	OverlaysDir          string
+	BaseDir              string
+	ArgoCDName           string
+	ArgoCDNamespace      string
+	BootsrtrapAppName    string
+	DummyName            string
+	ProjectsDir          string
+	ManagedBy            string
+	RootAppName          string
+	RepoCredsSecretName  string
+	GitUsername          string
+	WaitInterval         time.Duration
+	DestServer           string
+	DestServerAnnotation string
 }{
-	KustomizeDir:        "kustomize",
-	BootsrtrapDir:       "bootstrap",
-	OverlaysDir:         "overlays",
-	BaseDir:             "base",
-	ArgoCDName:          "argo-cd",
-	ArgoCDNamespace:     "argocd",
-	BootsrtrapAppName:   "autopilot-bootstrap",
-	DummyName:           "DUMMY",
-	ProjectsDir:         "projects",
-	ManagedBy:           "argo-autopilot",
-	RootAppName:         "root",
-	RepoCredsSecretName: "autopilot-secret",
-	GitUsername:         "username",
-	WaitInterval:        time.Second * 3,
-	DestServer:          "https://kubernetes.default.svc",
+	KustomizeDir:         "kustomize",
+	BootsrtrapDir:        "bootstrap",
+	OverlaysDir:          "overlays",
+	BaseDir:              "base",
+	ArgoCDName:           "argo-cd",
+	ArgoCDNamespace:      "argocd",
+	BootsrtrapAppName:    "autopilot-bootstrap",
+	ProjectsDir:          "projects",
+	ManagedBy:            "argo-autopilot",
+	RootAppName:          "root",
+	RepoCredsSecretName:  "autopilot-secret",
+	GitUsername:          "username",
+	WaitInterval:         time.Second * 3,
+	DestServer:           "https://kubernetes.default.svc",
+	DestServerAnnotation: "argocd-autopilot.argoproj-labs.io/default-dest-server",
 }
 
 // Get returns the global store

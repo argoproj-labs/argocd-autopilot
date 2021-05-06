@@ -78,6 +78,19 @@ steps:
       - name: download_modules
         on:
         - success
+  
+  codegen:
+    <<: *deps
+    stage: Release
+    title: check codegen
+    commands:
+    - make codegen
+    - make check-worktree
+    when:
+      steps:
+      - name: download_modules
+        on:
+        - success
 
   test:
     <<: *deps
@@ -90,6 +103,7 @@ steps:
       - name: lint
         on:
         - success
+
 
   codecov-report:
     stage: Test
@@ -154,6 +168,9 @@ steps:
       - name: test
         on:
         - success
+      - name: codegen
+        on:
+        - success
       - name: lint
         on:
         - success
@@ -174,19 +191,6 @@ steps:
       - name: build
         on:
         - success
-
-  # codegen:
-  #   <<: *deps
-  #   stage: Release
-  #   title: check codegen
-  #   commands:
-  #   - make codegen
-  #   - make check-worktree
-  #   when:
-  #     steps:
-  #     - name: build_binaries
-  #       on:
-  #       - success
 
   push_prod:
     stage: Release

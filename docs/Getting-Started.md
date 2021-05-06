@@ -2,14 +2,14 @@
 
 This guide assumes you are familiar with Argo CD and its basic concepts. See the [Argo CD documentation](https://argoproj.github.io/Argo CD/core_concepts/) for more information.
 
-## Before you begin 
+## Before you Begin 
 ### Requirements
 
 * Installed [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/) command-line tool
 * Have a [kubeconfig](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/) file (default location is `~/.kube/config`)
 
-### Git authentication
-Make sure to have a valid token (https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token)
+### Git Authentication
+Make sure to have a [valid token](https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token)
 ![Github token](assets/github_token.png)
 ```
 export GIT_TOKEN=ghp_PcZ...IP0
@@ -35,7 +35,7 @@ export GIT_INSTALLATION_PATH=some/relative/path
 
 All the following commands will use the variables you supplied in order to manage your GitOps repository.
 
-## Set up the GitOps repository
+## Set up the GitOps Repository
 ```
 argocd-autopilot repo bootstrap
 ```
@@ -59,14 +59,14 @@ Execute the port forward command, and browse to http://localhost:8080. Log in us
 * root - References the `projects` directiry in the repo. The folder contains only an empty `DUMMY` file after the bootstrap command, so no projects will be created
 
 ## Add a Project and an Application
-Execute the following commands to create a `testing` Project, and add a example Application to it:
+Execute the following commands to create a `testing` project, and add a example application to it:
 ```
 argocd-autopilot project create testing
-argocd-autopilot app create hello-world github.com/argoproj-labs/argocd-autopilot/examples/demo-app/ --p testing
+argocd-autopilot app create hello-world --app github.com/argoproj-labs/argocd-autopilot/examples/demo-app/ -p testing
 ```
 <sub>* notice the trailing slash in the URL</sub>
 
-After the application is created, and after Argo CD has finished its sync cycle, your new Project will appear under the *Root* application:
+After the application is created, and after Argo CD has finished its sync cycle, your new project will appear under the *Root* application:
 
 ![Step 2](assets/getting_started_2.png)
 

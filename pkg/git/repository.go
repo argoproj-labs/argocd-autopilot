@@ -21,8 +21,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-//go:generate interfacer -for github.com/go-git/go-git/v5.Repository -as gogit.Repository -o gogit/repo.go
-//go:generate interfacer -for github.com/go-git/go-git/v5.Worktree -as gogit.Worktree -o gogit/worktree.go
 //go:generate mockery -dir gogit -all -output gogit/mocks -case snake
 //go:generate mockery -name Repository -filename repository.go
 
@@ -77,10 +75,10 @@ var (
 func AddFlags(cmd *cobra.Command) (*CloneOptions, error) {
 	co := &CloneOptions{}
 
-	cmd.Flags().StringVar(&co.URL, "repo", "", "Repository URL [GIT_REPO]")
-	cmd.Flags().StringVar(&co.Revision, "revision", "", "Repository branch, tag or commit hash (defaults to HEAD)")
-	cmd.Flags().StringVar(&co.RepoRoot, "installation-path", "", "The path where we of the installation files (defaults to the root of the repository [GIT_INSTALLATION_PATH]")
-	cmd.Flags().StringVarP(&co.Auth.Password, "git-token", "t", "", "Your git provider api token [GIT_TOKEN]")
+	cmd.PersistentFlags().StringVar(&co.URL, "repo", "", "Repository URL [GIT_REPO]")
+	cmd.PersistentFlags().StringVar(&co.Revision, "revision", "", "Repository branch, tag or commit hash (defaults to HEAD)")
+	cmd.PersistentFlags().StringVar(&co.RepoRoot, "installation-path", "", "The path where we of the installation files (defaults to the root of the repository [GIT_INSTALLATION_PATH]")
+	cmd.PersistentFlags().StringVarP(&co.Auth.Password, "git-token", "t", "", "Your git provider api token [GIT_TOKEN]")
 
 	if err := viper.BindEnv("git-token", "GIT_TOKEN"); err != nil {
 		return nil, err
@@ -94,11 +92,11 @@ func AddFlags(cmd *cobra.Command) (*CloneOptions, error) {
 		return nil, err
 	}
 
-	if err := cmd.MarkFlagRequired("repo"); err != nil {
+	if err := cmd.MarkPersistentFlagRequired("repo"); err != nil {
 		return nil, err
 	}
 
-	if err := cmd.MarkFlagRequired("git-token"); err != nil {
+	if err := cmd.MarkPersistentFlagRequired("git-token"); err != nil {
 		return nil, err
 	}
 

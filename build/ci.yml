@@ -65,6 +65,19 @@ steps:
         on:
         - success
 
+  codegen:
+    <<: *deps
+    stage: Test
+    title: check codegen
+    commands:
+    - make codegen
+    - make check-worktree
+    when:
+      steps:
+      - name: prepare_env_vars
+        on:
+        - success
+
   test:
     <<: *deps
     stage: Test
@@ -102,19 +115,6 @@ steps:
       - name: main_clone
         on:
         - success
-  
-  # codegen:
-  #   <<: *deps
-  #   stage: Test
-  #   title: compile and check codegen
-  #   commands:
-  #   - make codegen
-  #   - make check-worktree
-  #   when:
-  #     steps:
-  #     - name: test
-  #       on:
-  #       - success
 
   push_dev:
     stage: Push Dev
@@ -128,15 +128,6 @@ steps:
       - name: build
         on:
         - success
-      - name: test
-        on:
-        - success
-      - name: lint
-        on:
-        - success
-      # - name: codegen
-      #   on:
-      #   - success
       branch:
         ignore: [ "main" ]
     scale:

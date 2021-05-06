@@ -217,7 +217,7 @@ func parseApplication(o *CreateOptions) (*application, error) {
 		},
 	}
 
-	if o.DestNamespace != "" {
+	if o.DestNamespace != "" && o.DestNamespace != "default" {
 		app.overlay.Resources = append(app.overlay.Resources, "namespace.yaml")
 		app.overlay.Namespace = o.DestNamespace
 		app.namespace = kube.GenerateNamespace(o.DestNamespace)

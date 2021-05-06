@@ -3,9 +3,11 @@ package commands
 import (
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"text/tabwriter"
 
 	"github.com/argoproj/argocd-autopilot/pkg/argocd"
 	"github.com/argoproj/argocd-autopilot/pkg/fs"
@@ -43,11 +45,14 @@ func NewProjectCommand() *cobra.Command {
 		Short:   "Manage projects",
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.HelpFunc()(cmd, args)
-			os.Exit(1)
+			exit(1)
 		},
 	}
 
+	opts, err := addFlags(cmd)
+	die(err)
 	cmd.AddCommand(NewProjectCreateCommand())
+	cmd.AddCommand(NewProjectListCommand(opts))
 
 	return cmd
 }
@@ -77,11 +82,11 @@ func NewProjectCreateCommand() *cobra.Command {
 		
 # Create a new project
 	
-	<BIN> project create <new_project_name>
+	<BIN> project create <PROJECT_NAME>
 
 # Create a new project in a specific path inside the GitOps repo
 
-  <BIN> project create <new_project_name> --installation-path path/to/bootstrap/root
+  <BIN> project create <PROJECT_NAME> --installation-path path/to/installation_root
 `),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
@@ -220,7 +225,8 @@ var generateProject = func(o *GenerateProjectOptions) (*argocdv1alpha1.AppProjec
 			Name:      o.Name,
 			Namespace: o.Namespace,
 			Annotations: map[string]string{
-				"argocd.argoproj.io/sync-options": "PruneLast=true",
+				"argocd.argoproj.io/sync-options":  "PruneLast=true",
+				store.Default.DestServerAnnotation: o.DefaultDestServer,
 			},
 		},
 		Spec: argocdv1alpha1.AppProjectSpec{
@@ -267,14 +273,6 @@ var generateProject = func(o *GenerateProjectOptions) (*argocdv1alpha1.AppProjec
 								Path: filepath.Join(o.InstallationPath, "kustomize", "**", "overlays", o.Name, "config.json"),
 							},
 						},
-						Template: appset.ApplicationSetTemplate{
-							Spec: appsetv1alpha1.ApplicationSpec{
-								Destination: appsetv1alpha1.ApplicationDestination{
-									Server:    o.DefaultDestServer,
-									Namespace: "default",
-								},
-							},
-						},
 						RequeueAfterSeconds: &DefaultApplicationSetGeneratorInterval,
 					},
 				},
@@ -282,7 +280,7 @@ var generateProject = func(o *GenerateProjectOptions) (*argocdv1alpha1.AppProjec
 			Template: appset.ApplicationSetTemplate{
 				ApplicationSetTemplateMeta: appset.ApplicationSetTemplateMeta{
 					Namespace: o.Namespace,
-					Name:      "{{userGivenName}}",
+					Name:      fmt.Sprintf("%s-{{userGivenName}}", o.Name),
 					Labels: map[string]string{
 						"app.kubernetes.io/managed-by": store.Default.ManagedBy,
 						"app.kubernetes.io/name":       "{{appName}}",
@@ -330,4 +328,98 @@ var getInstallationNamespace = func(repofs fs.FS) (string, error) {
 	}
 
 	return a.Spec.Destination.Namespace, nil
+}
+
+type (
+	ProjectListOptions struct {
+		BaseOptions
+		Out io.Writer
+	}
+)
+
+func NewProjectListCommand(opts *BaseOptions) *cobra.Command {
+
+	cmd := &cobra.Command{
+		Use:   "list ",
+		Short: "Lists all the projects on a git repository",
+		Example: util.Doc(`
+# To run this command you need to create a personal access token for your git provider,
+# and have a bootstrapped GitOps repository, and provide them using:
+	
+		export GIT_TOKEN=<token>
+		export GIT_REPO=<repo_url>
+
+# or with the flags:
+	
+		--token <token> --repo <repo_url>
+		
+# Lists projects
+	
+	<BIN> project list
+`),
+		RunE: func(cmd *cobra.Command, args []string) error {
+
+			return RunProjectList(cmd.Context(), &ProjectListOptions{
+				BaseOptions: *opts,
+				Out:         os.Stdout,
+			})
+		},
+	}
+
+	return cmd
+}
+
+func RunProjectList(ctx context.Context, opts *ProjectListOptions) error {
+
+	_, repofs, err := prepareRepo(ctx, &opts.BaseOptions)
+	if err != nil {
+		return err
+	}
+
+	matches, err := glob(repofs, repofs.Join(store.Default.ProjectsDir, "*.yaml"))
+	if err != nil {
+		return err
+	}
+	w := tabwriter.NewWriter(opts.Out, 0, 0, 2, ' ', 0)
+	_, _ = fmt.Fprintf(w, "NAME\tNAMESPACE\tCLUSTER\t\n")
+
+	for _, name := range matches {
+		proj, _, err := getProjectInfoFromFile(repofs, name)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(w, "%s\t%s\t%s\n", proj.Name, proj.Namespace, proj.ClusterName)
+
+	}
+	w.Flush()
+	return nil
+}
+
+var getProjectInfoFromFile = func(fs fs.FS, name string) (*argocdv1alpha1.AppProject, *appsetv1alpha1.ApplicationSpec, error) {
+	file, err := fs.Open(name)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s not found", name)
+	}
+	b, err := ioutil.ReadAll(file)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to read file %s", name)
+	}
+	yamls := util.SplitManifests(b)
+	if len(yamls) != 2 {
+		return nil, nil, fmt.Errorf("expected 2 files when splitting %s", name)
+	}
+	proj := argocdv1alpha1.AppProject{}
+	err = yaml.Unmarshal(yamls[0], &proj)
+
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to unmarshal %s", name)
+	}
+	appSet := appsetv1alpha1.ApplicationSpec{}
+	err = yaml.Unmarshal(yamls[1], &proj)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to unmarshal %s", name)
+	}
+
+	return &proj, &appSet, nil
+
 }

@@ -9,16 +9,14 @@ import (
 	gh "github.com/google/go-github/v34/github"
 )
 
-//go:generate interfacer -for github.com/google/go-github/v34/github.RepositoriesService -as github.Repositories -o github/repos.go
-//go:generate interfacer -for github.com/google/go-github/v34/github.UsersService -as github.Users -o github/users.go
 //go:generate mockery -dir github -all -output github/mocks -case snake
 type github struct {
-	opts         *Options
+	opts         *ProviderOptions
 	Repositories g.Repositories
 	Users        g.Users
 }
 
-func newGithub(opts *Options) (Provider, error) {
+func newGithub(opts *ProviderOptions) (Provider, error) {
 	var (
 		c   *gh.Client
 		err error

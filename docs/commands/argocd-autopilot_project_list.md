@@ -1,9 +1,9 @@
-## argocd-autopilot application list
+## argocd-autopilot project list
 
-List all applications in a project
+Lists all the projects on a git repository
 
 ```
-argocd-autopilot application list [PROJECT_NAME] [flags]
+argocd-autopilot project list  [flags]
 ```
 
 ### Examples
@@ -20,9 +20,9 @@ argocd-autopilot application list [PROJECT_NAME] [flags]
     
         --token <token> --repo <repo_url>
         
-# Get list of installed applications in a specifc project
+# Lists projects
     
-    argocd-autopilot app list <project_name>
+    argocd-autopilot project list
 
 ```
 
@@ -44,5 +44,5 @@ argocd-autopilot application list [PROJECT_NAME] [flags]
 
 ### SEE ALSO
 
-* [argocd-autopilot application](argocd-autopilot_application.md)	 - Manage applications
+* [argocd-autopilot project](argocd-autopilot_project.md)	 - Manage projects
 

@@ -406,9 +406,9 @@ func TestClone(t *testing.T) {
 		},
 		"NilOpts": {
 			opts: nil,
-			assertFn: func(t *testing.T, r Repository, filesystem fs.FS) {
+			assertFn: func(t *testing.T, r Repository, repofs fs.FS) {
 				assert.Nil(t, r)
-				assert.Nil(t, filesystem)
+				assert.Nil(t, repofs)
 			},
 			wantErr: true,
 		},
@@ -416,9 +416,9 @@ func TestClone(t *testing.T) {
 			opts: &CloneOptions{
 				URL: "http://test",
 			},
-			assertFn: func(t *testing.T, r Repository, filesystem fs.FS) {
+			assertFn: func(t *testing.T, r Repository, repofs fs.FS) {
 				assert.NotNil(t, r)
-				assert.NotNil(t, filesystem)
+				assert.NotNil(t, repofs)
 			},
 			cloneErr:         transport.ErrEmptyRemoteRepository,
 			wantErr:          false,
@@ -428,9 +428,9 @@ func TestClone(t *testing.T) {
 			opts: &CloneOptions{
 				URL: "http://test",
 			},
-			assertFn: func(t *testing.T, r Repository, filesystem fs.FS) {
+			assertFn: func(t *testing.T, r Repository, repofs fs.FS) {
 				assert.Nil(t, r)
-				assert.Nil(t, filesystem)
+				assert.Nil(t, repofs)
 			},
 			cloneErr:         fmt.Errorf("error"),
 			wantErr:          true,
@@ -441,8 +441,8 @@ func TestClone(t *testing.T) {
 				URL:      "http://test",
 				RepoRoot: "some/folder",
 			},
-			assertFn: func(t *testing.T, _ Repository, filesystem fs.FS) {
-				assert.Equal(t, "/some/folder", filesystem.Root())
+			assertFn: func(t *testing.T, _ Repository, repofs fs.FS) {
+				assert.Equal(t, "/some/folder", repofs.Root())
 			},
 			expectInitCalled: false,
 		},
@@ -452,9 +452,9 @@ func TestClone(t *testing.T) {
 				RepoRoot: "../outside",
 			},
 			wantErr: true,
-			assertFn: func(t *testing.T, r Repository, filesystem fs.FS) {
+			assertFn: func(t *testing.T, r Repository, repofs fs.FS) {
 				assert.Nil(t, r)
-				assert.Nil(t, filesystem)
+				assert.Nil(t, repofs)
 			},
 			expectInitCalled: false,
 		},
@@ -467,7 +467,7 @@ func TestClone(t *testing.T) {
 
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
-			filesystem := fs.Create(memfs.New())
+			repofs := fs.Create(memfs.New())
 			r := &repo{}
 			clone = func(_ context.Context, _ *CloneOptions) (*repo, error) {
 				if tt.cloneErr != nil {
@@ -485,7 +485,7 @@ func TestClone(t *testing.T) {
 				return r, nil
 			}
 
-			gotRepo, gotFS, err := tt.opts.Clone(context.Background(), filesystem)
+			gotRepo, gotFS, err := tt.opts.Clone(context.Background(), repofs)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Clone() error = %v, wantErr %v", err, tt.wantErr)
 				return

@@ -1,22 +1,64 @@
 package main
 
 import (
+	"io/fs"
+	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra/doc"
 
 	"github.com/argoproj/argocd-autopilot/cmd/commands"
 )
 
-var outputDir = "./docs/commands"
+const (
+	outputDir = "./docs/commands"
+	home      = "/home/user"
+)
+
+var orgHome = os.Getenv("HOME")
 
 func main() {
-	// set HOME env var so that default values involve user's home directory do not depend on the running user.
-	os.Setenv("HOME", "/home/user")
+	log.Printf("org home: %s", orgHome)
+	log.Printf("new home: %s", home)
 
-	err := doc.GenMarkdownTree(commands.NewRoot(), outputDir)
-	if err != nil {
+	if err := doc.GenMarkdownTree(commands.NewRoot(), outputDir); err != nil {
 		log.Fatal(err)
 	}
+
+	if err := replaceHome(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func replaceHome() error {
+	files, err := fs.Glob(os.DirFS(outputDir), "*.md")
+	if err != nil {
+		return err
+	}
+
+	for _, fname := range files {
+		fname = filepath.Join(outputDir, fname)
+		data, err := os.ReadFile(fname)
+		if err != nil {
+			return err
+		}
+
+		datastr := string(data)
+		newstr := strings.ReplaceAll(datastr, orgHome, home)
+
+		if datastr == newstr {
+			continue
+		}
+
+		log.Printf("replaced home at: %s", fname)
+
+		err = ioutil.WriteFile(fname, []byte(newstr), 0422)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

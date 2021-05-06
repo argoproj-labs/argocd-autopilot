@@ -1,0 +1,7 @@
+coverage:
+  status:
+    patch: off
+    project:
+      default:
+        # allow test coverage to drop by 2%
+        threshold: 2

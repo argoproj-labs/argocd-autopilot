@@ -106,6 +106,7 @@ func WithSpinner(ctx context.Context, msg ...string) func() {
 
 	return func() {
 		cancel()
+		// wait just enough time to prevent logs jumbling between spinner and main flow
 		time.Sleep(time.Millisecond * 100)
 	}
 }
@@ -132,6 +133,16 @@ func JoinManifests(manifests ...[]byte) []byte {
 		res = append(res, string(m))
 	}
 	return []byte(strings.Join(res, yamlSeperator))
+}
+
+func SplitManifests(manifests []byte) [][]byte  {
+	str := string(manifests)
+	stringManifests := strings.Split(str, yamlSeperator)
+	res := make([][]byte, 0, len(stringManifests)) 
+	for _, m := range stringManifests {
+		 res = append(res, []byte(m))
+	}
+	return res
 }
 
 func StealFlags(cmd *cobra.Command, exceptFor []string) (*pflag.FlagSet, error) {
