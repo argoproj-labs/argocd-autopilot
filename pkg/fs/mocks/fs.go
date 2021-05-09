@@ -365,24 +365,3 @@ func (_m *FS) TempFile(dir string, prefix string) (billy.File, error) {
 
 	return r0, r1
 }
-
-// WriteFile provides a mock function with given fields: path, data
-func (_m *FS) WriteFile(path string, data []byte) (int, error) {
-	ret := _m.Called(path, data)
-
-	var r0 int
-	if rf, ok := ret.Get(0).(func(string, []byte) int); ok {
-		r0 = rf(path, data)
-	} else {
-		r0 = ret.Get(0).(int)
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(string, []byte) error); ok {
-		r1 = rf(path, data)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}

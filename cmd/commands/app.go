@@ -27,8 +27,6 @@ import (
 var (
 	ErrAppAlreadyInstalledOnProject = errors.New("application already installed on project")
 	ErrAppCollisionWithExistingBase = errors.New("an application with the same name and a different base already exists, consider choosing a different name")
-
-	removeAll = billyUtils.RemoveAll
 )
 
 type (
@@ -317,8 +315,7 @@ func RunAppList(ctx context.Context, opts *BaseOptions) error {
 	}
 
 	// get all apps beneath kustomize <project>\overlayes
-	glob := repofs.Join(store.Default.KustomizeDir, "*", store.Default.OverlaysDir, opts.ProjectName)
-	matches, err := billyUtils.Glob(repofs, glob)
+	matches, err := billyUtils.Glob(repofs, repofs.Join(store.Default.KustomizeDir, "*", store.Default.OverlaysDir, opts.ProjectName))
 	if err != nil {
 		log.G().Fatalf("failed to run glob on %s", opts.ProjectName)
 	}
@@ -445,7 +442,7 @@ func RunAppDelete(ctx context.Context, opts *AppDeleteOptions) error {
 		}
 	}
 
-	err = removeAll(repofs, dirToRemove)
+	err = billyUtils.RemoveAll(repofs, dirToRemove)
 	if err != nil {
 		return fmt.Errorf("failed to delete directory '%s': %w", dirToRemove, err)
 	}
