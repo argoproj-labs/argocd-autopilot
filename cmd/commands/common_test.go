@@ -76,6 +76,7 @@ func TestBaseOptions_prepareRepo(t *testing.T) {
 		},
 	}
 	origClone := clone
+	defer func() { clone = origClone }()
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			mockRepo := &gitmocks.Repository{}
@@ -114,6 +115,4 @@ func TestBaseOptions_prepareRepo(t *testing.T) {
 			}
 		})
 	}
-
-	clone = origClone
 }

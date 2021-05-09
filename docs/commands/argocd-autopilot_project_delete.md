@@ -1,9 +1,9 @@
-## argocd-autopilot project list
+## argocd-autopilot project delete
 
-Lists all the projects on a git repository
+Delete a project and all of its applications
 
 ```
-argocd-autopilot project list  [flags]
+argocd-autopilot project delete [PROJECT_NAME] [flags]
 ```
 
 ### Examples
@@ -12,24 +12,24 @@ argocd-autopilot project list  [flags]
 
 # To run this command you need to create a personal access token for your git provider,
 # and have a bootstrapped GitOps repository, and provide them using:
-
+    
         export GIT_TOKEN=<token>
         export GIT_REPO=<repo_url>
 
 # or with the flags:
-
-        --git-token <token> --repo <repo_url>
-
-# Lists projects
-
-    argocd-autopilot project list
+    
+        --token <token> --repo <repo_url>
+        
+# Delete a project
+    
+    argocd-autopilot project delete <project_name>
 
 ```
 
 ### Options
 
 ```
-  -h, --help   help for list
+  -h, --help   help for delete
 ```
 
 ### Options inherited from parent commands

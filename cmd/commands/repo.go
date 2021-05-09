@@ -22,6 +22,7 @@ import (
 	argocdsettings "github.com/argoproj/argo-cd/v2/util/settings"
 	"github.com/ghodss/yaml"
 	memfs "github.com/go-git/go-billy/v5/memfs"
+	billyUtils "github.com/go-git/go-billy/v5/util"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	v1 "k8s.io/api/core/v1"
@@ -115,20 +116,20 @@ func NewRepoCreateCommand() *cobra.Command {
 		Example: util.Doc(`
 # To run this command you need to create a personal access token for your git provider
 # and provide it using:
-	
+
     export GIT_TOKEN=<token>
 
 # or with the flag:
-	
-    --token <token>
+
+    --git-token <token>
 
 # Create a new gitops repository on github
-    
-    <BIN> repo create --owner foo --name bar --token abc123
+
+    <BIN> repo create --owner foo --name bar --git-token abc123
 
 # Create a public gitops repository on github
-    
-    <BIN> repo create --owner foo --name bar --token abc123 --public
+
+    <BIN> repo create --owner foo --name bar --git-token abc123 --public
 `),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return RunRepoCreate(cmd.Context(), &RepoCreateOptions{
@@ -175,16 +176,16 @@ func NewRepoBootstrapCommand() *cobra.Command {
 		Example: util.Doc(`
 # To run this command you need to create a personal access token for your git provider
 # and provide it using:
-	
+
     export GIT_TOKEN=<token>
 
 # or with the flag:
-	
-    --token <token>
-		
+
+    --git-token <token>
+
 # Install argo-cd on the current kubernetes context in the argocd namespace
 # and persists the bootstrap manifests to the root of gitops repository
-	
+
 	<BIN> repo bootstrap --repo https://github.com/example/repo
 
 	# Install argo-cd on the current kubernetes context in the argocd namespace
@@ -597,36 +598,36 @@ func writeManifestsToRepo(repoFS fs.FS, manifests *bootstrapManifests, installat
 	argocdPath := repoFS.Join(store.Default.BootsrtrapDir, store.Default.ArgoCDName)
 	var err error
 	if installationMode == installationModeNormal {
-		if _, err = repoFS.WriteFile(repoFS.Join(argocdPath, "kustomization.yaml"), manifests.bootstrapKustomization); err != nil {
+		if err = billyUtils.WriteFile(repoFS, repoFS.Join(argocdPath, "kustomization.yaml"), manifests.bootstrapKustomization, 0666); err != nil {
 			return err
 		}
 
-		if _, err = repoFS.WriteFile(repoFS.Join(argocdPath, "namespace.yaml"), manifests.namespace); err != nil {
+		if err = billyUtils.WriteFile(repoFS, repoFS.Join(argocdPath, "namespace.yaml"), manifests.namespace, 0666); err != nil {
 			return err
 		}
 	} else {
-		if _, err = repoFS.WriteFile(repoFS.Join(argocdPath, "install.yaml"), manifests.applyManifests); err != nil {
+		if err = billyUtils.WriteFile(repoFS, repoFS.Join(argocdPath, "install.yaml"), manifests.applyManifests, 0666); err != nil {
 			return err
 		}
 	}
 
 	// write projects root app
-	if _, err = repoFS.WriteFile(repoFS.Join(store.Default.BootsrtrapDir, store.Default.RootAppName+".yaml"), manifests.rootApp); err != nil {
+	if err = billyUtils.WriteFile(repoFS, repoFS.Join(store.Default.BootsrtrapDir, store.Default.RootAppName+".yaml"), manifests.rootApp, 0666); err != nil {
 		return err
 	}
 
 	// write argocd app
-	if _, err = repoFS.WriteFile(repoFS.Join(store.Default.BootsrtrapDir, store.Default.ArgoCDName+".yaml"), manifests.argocdApp); err != nil {
+	if err = billyUtils.WriteFile(repoFS, repoFS.Join(store.Default.BootsrtrapDir, store.Default.ArgoCDName+".yaml"), manifests.argocdApp, 0666); err != nil {
 		return err
 	}
 
 	// write ./projects/README.md
-	if _, err = repoFS.WriteFile(repoFS.Join(store.Default.ProjectsDir, "README.md"), projectReadme); err != nil {
+	if err = billyUtils.WriteFile(repoFS, repoFS.Join(store.Default.ProjectsDir, "README.md"), projectReadme, 0666); err != nil {
 		return err
 	}
 
 	// write ./kustomize/README.md
-	if _, err = repoFS.WriteFile(repoFS.Join(store.Default.KustomizeDir, "README.md"), kustomizationReadme); err != nil {
+	if err = billyUtils.WriteFile(repoFS, repoFS.Join(store.Default.KustomizeDir, "README.md"), kustomizationReadme, 0666); err != nil {
 		return err
 	}
 

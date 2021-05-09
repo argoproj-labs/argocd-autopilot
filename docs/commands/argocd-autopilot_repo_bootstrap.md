@@ -12,16 +12,16 @@ argocd-autopilot repo bootstrap [flags]
 
 # To run this command you need to create a personal access token for your git provider
 # and provide it using:
-    
+
     export GIT_TOKEN=<token>
 
 # or with the flag:
-    
-    --token <token>
-        
+
+    --git-token <token>
+
 # Install argo-cd on the current kubernetes context in the argocd namespace
 # and persists the bootstrap manifests to the root of gitops repository
-    
+
     argocd-autopilot repo bootstrap --repo https://github.com/example/repo
 
     # Install argo-cd on the current kubernetes context in the argocd namespace

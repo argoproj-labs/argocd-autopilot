@@ -20,7 +20,7 @@ import (
 	appsetv1alpha1 "github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/ghodss/yaml"
-	memfs "github.com/go-git/go-billy/v5/memfs"
+	billyUtils "github.com/go-git/go-billy/v5/util"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -29,12 +29,25 @@ var DefaultApplicationSetGeneratorInterval int64 = 20
 
 type (
 	ProjectCreateOptions struct {
+		BaseOptions
 		Name            string
 		DestKubeContext string
 		DryRun          bool
-		FS              fs.FS
-		CloneOptions    *git.CloneOptions
 		AddCmd          argocd.AddClusterCmd
+	}
+
+	ProjectListOptions struct {
+		BaseOptions
+		Out io.Writer
+	}
+
+	GenerateProjectOptions struct {
+		Name              string
+		Namespace         string
+		DefaultDestServer string
+		RepoURL           string
+		Revision          string
+		InstallationPath  string
 	}
 )
 
@@ -51,19 +64,18 @@ func NewProjectCommand() *cobra.Command {
 
 	opts, err := addFlags(cmd)
 	die(err)
-	cmd.AddCommand(NewProjectCreateCommand())
+	cmd.AddCommand(NewProjectCreateCommand(opts))
 	cmd.AddCommand(NewProjectListCommand(opts))
+	cmd.AddCommand(NewProjectDeleteCommand(opts))
 
 	return cmd
 }
 
-func NewProjectCreateCommand() *cobra.Command {
+func NewProjectCreateCommand(opts *BaseOptions) *cobra.Command {
 	var (
-		name        string
 		kubeContext string
 		dryRun      bool
 		addCmd      argocd.AddClusterCmd
-		cloneOpts   *git.CloneOptions
 	)
 
 	cmd := &cobra.Command{
@@ -72,16 +84,16 @@ func NewProjectCreateCommand() *cobra.Command {
 		Example: util.Doc(`
 # To run this command you need to create a personal access token for your git provider,
 # and have a bootstrapped GitOps repository, and provide them using:
-	
+
 		export GIT_TOKEN=<token>
 		export GIT_REPO=<repo_url>
 
 # or with the flags:
-	
-		--token <token> --repo <repo_url>
-		
+
+		--git-token <token> --repo <repo_url>
+
 # Create a new project
-	
+
 	<BIN> project create <PROJECT_NAME>
 
 # Create a new project in a specific path inside the GitOps repo
@@ -92,14 +104,13 @@ func NewProjectCreateCommand() *cobra.Command {
 			if len(args) < 1 {
 				log.G().Fatal("must enter project name")
 			}
-			name = args[0]
+			name := args[0]
 
 			return RunProjectCreate(cmd.Context(), &ProjectCreateOptions{
+				BaseOptions:     *opts,
 				Name:            name,
 				DestKubeContext: kubeContext,
 				DryRun:          dryRun,
-				FS:              fs.Create(memfs.New()),
-				CloneOptions:    cloneOpts,
 				AddCmd:          addCmd,
 			})
 		},
@@ -111,9 +122,6 @@ func NewProjectCreateCommand() *cobra.Command {
 	addCmd, err := argocd.AddClusterAddFlags(cmd)
 	die(err)
 
-	cloneOpts, err = git.AddFlags(cmd)
-	die(err)
-
 	return cmd
 }
 
@@ -121,35 +129,23 @@ func RunProjectCreate(ctx context.Context, opts *ProjectCreateOptions) error {
 	var (
 		err                   error
 		installationNamespace string
-		r                     git.Repository
 	)
 
-	log.G().WithFields(log.Fields{
-		"prject":       opts.Name,
-		"repoURL":      opts.CloneOptions.URL,
-		"revision":     opts.CloneOptions.Revision,
-		"installation": opts.CloneOptions.RepoRoot,
-	}).Debug("starting with options: ")
-
-	log.G().Infof("cloning repo: %s", opts.CloneOptions.URL)
-
-	// clone GitOps repo
-	r, opts.FS, err = clone(ctx, opts.CloneOptions, opts.FS)
+	r, repofs, err := prepareRepo(ctx, &opts.BaseOptions)
 	if err != nil {
 		return err
 	}
 
-	log.G().Infof("using revision: \"%s\", installation path: \"%s\"", opts.CloneOptions.Revision, opts.FS.Root())
-
-	installationNamespace, err = getInstallationNamespace(opts.FS)
+	installationNamespace, err = getInstallationNamespace(repofs)
 	if err != nil {
-		return fmt.Errorf(util.Doc("Bootstrap folder not found, please execute `<BIN> repo bootstrap --installation-path %s` command"), opts.FS.Root())
+		return fmt.Errorf(util.Doc("Bootstrap folder not found, please execute `<BIN> repo bootstrap --installation-path %s` command"), repofs.Root())
 	}
 
-	projectExists := opts.FS.ExistsOrDie(opts.FS.Join(store.Default.ProjectsDir, opts.Name+".yaml"))
+	projectExists := repofs.ExistsOrDie(repofs.Join(store.Default.ProjectsDir, opts.Name+".yaml"))
 	if projectExists {
 		return fmt.Errorf("project '%s' already exists", opts.Name)
 	}
+
 	log.G().Debug("repository is ok")
 
 	destServer := store.Default.DestServer
@@ -193,7 +189,7 @@ func RunProjectCreate(ctx context.Context, opts *ProjectCreateOptions) error {
 		}
 	}
 
-	if _, err = opts.FS.WriteFile(opts.FS.Join(store.Default.ProjectsDir, opts.Name+".yaml"), joinedYAML); err != nil {
+	if err = billyUtils.WriteFile(repofs, repofs.Join(store.Default.ProjectsDir, opts.Name+".yaml"), joinedYAML, 0666); err != nil {
 		return fmt.Errorf("failed to create project file: %w", err)
 	}
 
@@ -201,18 +197,10 @@ func RunProjectCreate(ctx context.Context, opts *ProjectCreateOptions) error {
 	if err = r.Persist(ctx, &git.PushOptions{CommitMsg: "Added project " + opts.Name}); err != nil {
 		return err
 	}
+
 	log.G().Infof("project created: '%s'", opts.Name)
 
 	return nil
-}
-
-type GenerateProjectOptions struct {
-	Name              string
-	Namespace         string
-	DefaultDestServer string
-	RepoURL           string
-	Revision          string
-	InstallationPath  string
 }
 
 var generateProject = func(o *GenerateProjectOptions) (*argocdv1alpha1.AppProject, *appset.ApplicationSet) {
@@ -330,13 +318,6 @@ var getInstallationNamespace = func(repofs fs.FS) (string, error) {
 	return a.Spec.Destination.Namespace, nil
 }
 
-type (
-	ProjectListOptions struct {
-		BaseOptions
-		Out io.Writer
-	}
-)
-
 func NewProjectListCommand(opts *BaseOptions) *cobra.Command {
 
 	cmd := &cobra.Command{
@@ -345,16 +326,16 @@ func NewProjectListCommand(opts *BaseOptions) *cobra.Command {
 		Example: util.Doc(`
 # To run this command you need to create a personal access token for your git provider,
 # and have a bootstrapped GitOps repository, and provide them using:
-	
+
 		export GIT_TOKEN=<token>
 		export GIT_REPO=<repo_url>
 
 # or with the flags:
-	
-		--token <token> --repo <repo_url>
-		
+
+		--git-token <token> --repo <repo_url>
+
 # Lists projects
-	
+
 	<BIN> project list
 `),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -370,16 +351,16 @@ func NewProjectListCommand(opts *BaseOptions) *cobra.Command {
 }
 
 func RunProjectList(ctx context.Context, opts *ProjectListOptions) error {
-
 	_, repofs, err := prepareRepo(ctx, &opts.BaseOptions)
 	if err != nil {
 		return err
 	}
 
-	matches, err := glob(repofs, repofs.Join(store.Default.ProjectsDir, "*.yaml"))
+	matches, err := billyUtils.Glob(repofs, repofs.Join(store.Default.ProjectsDir, "*.yaml"))
 	if err != nil {
 		return err
 	}
+
 	w := tabwriter.NewWriter(opts.Out, 0, 0, 2, ' ', 0)
 	_, _ = fmt.Fprintf(w, "NAME\tNAMESPACE\tCLUSTER\t\n")
 
@@ -388,9 +369,10 @@ func RunProjectList(ctx context.Context, opts *ProjectListOptions) error {
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\n", proj.Name, proj.Namespace, proj.ClusterName)
 
+		fmt.Fprintf(w, "%s\t%s\t%s\n", proj.Name, proj.Namespace, proj.ClusterName)
 	}
+
 	w.Flush()
 	return nil
 }
@@ -400,20 +382,24 @@ var getProjectInfoFromFile = func(fs fs.FS, name string) (*argocdv1alpha1.AppPro
 	if err != nil {
 		return nil, nil, fmt.Errorf("%s not found", name)
 	}
+
 	b, err := ioutil.ReadAll(file)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read file %s", name)
 	}
+
 	yamls := util.SplitManifests(b)
 	if len(yamls) != 2 {
 		return nil, nil, fmt.Errorf("expected 2 files when splitting %s", name)
 	}
+
 	proj := argocdv1alpha1.AppProject{}
 	err = yaml.Unmarshal(yamls[0], &proj)
 
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to unmarshal %s", name)
 	}
+
 	appSet := appsetv1alpha1.ApplicationSpec{}
 	err = yaml.Unmarshal(yamls[1], &proj)
 	if err != nil {
@@ -421,5 +407,86 @@ var getProjectInfoFromFile = func(fs fs.FS, name string) (*argocdv1alpha1.AppPro
 	}
 
 	return &proj, &appSet, nil
+}
 
+func NewProjectDeleteCommand(opts *BaseOptions) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete [PROJECT_NAME]",
+		Short: "Delete a project and all of its applications",
+		Example: util.Doc(`
+# To run this command you need to create a personal access token for your git provider,
+# and have a bootstrapped GitOps repository, and provide them using:
+	
+		export GIT_TOKEN=<token>
+		export GIT_REPO=<repo_url>
+
+# or with the flags:
+	
+		--token <token> --repo <repo_url>
+		
+# Delete a project
+	
+	<BIN> project delete <project_name>
+`),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) < 1 {
+				log.G().Fatal("must enter project name")
+			}
+
+			opts.ProjectName = args[0]
+
+			return RunProjectDelete(cmd.Context(), opts)
+		},
+	}
+
+	return cmd
+}
+
+func RunProjectDelete(ctx context.Context, opts *BaseOptions) error {
+	r, repofs, err := prepareRepo(ctx, opts)
+	if err != nil {
+		return err
+	}
+
+	projectPattern := repofs.Join(store.Default.KustomizeDir, "*", store.Default.OverlaysDir, opts.ProjectName)
+	overlays, err := billyUtils.Glob(repofs, projectPattern)
+	if err != nil {
+		return fmt.Errorf("failed to run glob on '%s': %w", projectPattern, err)
+	}
+
+	for _, overlay := range overlays {
+		appOverlaysDir := filepath.Dir(overlay)
+		allOverlays, err := repofs.ReadDir(appOverlaysDir)
+		if err != nil {
+			return fmt.Errorf("failed to read overlays directory '%s': %w", appOverlaysDir, err)
+		}
+
+		appDir := filepath.Dir(appOverlaysDir)
+		appName := filepath.Base(appDir)
+		var dirToRemove string
+		if len(allOverlays) == 1 {
+			dirToRemove = appDir
+			log.G().Infof("Deleting app '%s'", appName)
+		} else {
+			dirToRemove = overlay
+			log.G().Infof("Deleting overlay from app '%s'", appName)
+		}
+
+		err = billyUtils.RemoveAll(repofs, dirToRemove)
+		if err != nil {
+			return fmt.Errorf("failed to delete directory '%s': %w", dirToRemove, err)
+		}
+	}
+
+	err = repofs.Remove(repofs.Join(store.Default.ProjectsDir, opts.ProjectName+".yaml"))
+	if err != nil {
+		return fmt.Errorf("failed to delete project '%s': %w", opts.ProjectName, err)
+	}
+
+	log.G().Info("committing changes to gitops repo...")
+	if err = r.Persist(ctx, &git.PushOptions{CommitMsg: fmt.Sprintf("Deleted project '%s'", opts.ProjectName)}); err != nil {
+		return fmt.Errorf("failed to push to repo: %w", err)
+	}
+
+	return nil
 }

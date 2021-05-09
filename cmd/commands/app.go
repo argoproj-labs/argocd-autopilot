@@ -27,8 +27,6 @@ import (
 var (
 	ErrAppAlreadyInstalledOnProject = errors.New("application already installed on project")
 	ErrAppCollisionWithExistingBase = errors.New("an application with the same name and a different base already exists, consider choosing a different name")
-
-	removeAll = billyUtils.RemoveAll
 )
 
 type (
@@ -75,16 +73,16 @@ func NewAppCreateCommand(opts *BaseOptions) *cobra.Command {
 		Example: util.Doc(`
 # To run this command you need to create a personal access token for your git provider,
 # and have a bootstrapped GitOps repository, and provide them using:
-	
+
 		export GIT_TOKEN=<token>
 		export GIT_REPO=<repo_url>
 
 # or with the flags:
-	
-		--token <token> --repo <repo_url>
-		
+
+		--git-token <token> --repo <repo_url>
+
 # Create a new application from kustomization in a remote repository
-	
+
 	<BIN> app create <new_app_name> --app github.com/some_org/some_repo/manifests?ref=v1.2.3 --project project_name
 `),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -285,16 +283,16 @@ func NewAppListCommand(opts *BaseOptions) *cobra.Command {
 		Example: util.Doc(`
 # To run this command you need to create a personal access token for your git provider,
 # and have a bootstrapped GitOps repository, and provide them using:
-	
+
 		export GIT_TOKEN=<token>
 		export GIT_REPO=<repo_url>
 
 # or with the flags:
-	
-		--token <token> --repo <repo_url>
-		
+
+		--git-token <token> --repo <repo_url>
+
 # Get list of installed applications in a specifc project
-	
+
 	<BIN> app list <project_name>
 `),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -317,8 +315,7 @@ func RunAppList(ctx context.Context, opts *BaseOptions) error {
 	}
 
 	// get all apps beneath kustomize <project>\overlayes
-	glob := repofs.Join(store.Default.KustomizeDir, "*", store.Default.OverlaysDir, opts.ProjectName)
-	matches, err := billyUtils.Glob(repofs, glob)
+	matches, err := billyUtils.Glob(repofs, repofs.Join(store.Default.KustomizeDir, "*", store.Default.OverlaysDir, opts.ProjectName))
 	if err != nil {
 		log.G().Fatalf("failed to run glob on %s", opts.ProjectName)
 	}
@@ -372,16 +369,16 @@ func NewAppDeleteCommand(opts *BaseOptions) *cobra.Command {
 		Example: util.Doc(`
 # To run this command you need to create a personal access token for your git provider,
 # and have a bootstrapped GitOps repository, and provide them using:
-	
+
 		export GIT_TOKEN=<token>
 		export GIT_REPO=<repo_url>
 
 # or with the flags:
-	
-		--token <token> --repo <repo_url>
-		
+
+		--git-token <token> --repo <repo_url>
+
 # Get list of installed applications in a specifc project
-	
+
 	<BIN> app delete <app_name> --project <project_name>
 `),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -445,7 +442,7 @@ func RunAppDelete(ctx context.Context, opts *AppDeleteOptions) error {
 		}
 	}
 
-	err = removeAll(repofs, dirToRemove)
+	err = billyUtils.RemoveAll(repofs, dirToRemove)
 	if err != nil {
 		return fmt.Errorf("failed to delete directory '%s': %w", dirToRemove, err)
 	}
