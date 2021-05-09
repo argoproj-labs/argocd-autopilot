@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -98,72 +99,62 @@ func Test_fsimpl_CheckExistsOrWrite(t *testing.T) {
 	tests := map[string]struct {
 		args     args
 		want     bool
-		wantErr  bool
-		beforeFn func(m *mocks.FS, mockedFile *mocks.File)
+		wantErr  string
+		beforeFn func(m *mocks.FS)
 		assertFn func(t *testing.T, mockedFile *mocks.File)
 	}{
 		"should exists": {
-			args:    args{path: "/usr/bar", data: []byte{}},
-			want:    true,
-			wantErr: false,
-			beforeFn: func(m *mocks.FS, _ *mocks.File) {
-				m.On("Stat", mock.Anything).Return(nil, nil)
+			args: args{path: "/usr/bar", data: []byte{}},
+			want: true,
+			beforeFn: func(m *mocks.FS) {
+				m.On("Stat", "/usr/bar").Return(nil, nil)
 			},
 		},
 		"should error on fail check": {
 			args:    args{path: "/usr/bar", data: []byte{}},
-			wantErr: true,
-			beforeFn: func(m *mocks.FS, _ *mocks.File) {
-				m.On("Stat", mock.Anything).Return(nil, fmt.Errorf("error"))
+			wantErr: "failed to check if file exists on repo at '/usr/bar': some error",
+			beforeFn: func(m *mocks.FS) {
+				m.On("Stat", "/usr/bar").Return(nil, fmt.Errorf("some error"))
 			},
 		},
 		"should write to file if not exists and write sucsseded": {
-			args:    args{path: "/usr/bar", data: []byte{}},
-			want:    false,
-			wantErr: false,
-			beforeFn: func(m *mocks.FS, mockedFile *mocks.File) {
-				mockedFile.On("Write", mock.Anything).Return(1, nil)
-				m.On("Stat", mock.Anything).Return(nil, os.ErrNotExist)
-				m.On("Create", mock.Anything).Return(mockedFile, nil)
-			},
-			assertFn: func(t *testing.T, mockedFile *mocks.File) {
-				mockedFile.AssertCalled(t, "Write", []byte{})
+			args: args{path: "/usr/bar", data: []byte{}},
+			want: false,
+			beforeFn: func(m *mocks.FS) {
+				mfile := &mocks.File{}
+				mfile.On("Write", mock.AnythingOfType("[]uint8")).Return(1, nil)
+				mfile.On("Close").Return(nil)
+				m.On("Stat", "/usr/bar").Return(nil, os.ErrNotExist)
+				m.On("OpenFile", "/usr/bar", mock.AnythingOfType("int"), mock.AnythingOfType("FileMode")).Return(mfile, nil)
 			},
 		},
 		"should fail if WriteFile failed": {
 			args:    args{path: "/usr/bar", data: []byte{}},
 			want:    false,
-			wantErr: true,
-			beforeFn: func(m *mocks.FS, mockedFile *mocks.File) {
-				mockedFile.On("Write", mock.Anything).Return(1, fmt.Errorf("Error"))
-				m.On("Stat", mock.Anything).Return(nil, os.ErrNotExist)
-				m.On("Create", mock.Anything).Return(mockedFile, nil)
-			},
-		},
-		"should fail if WriteFile.Create failed": {
-			args:    args{path: "/usr/bar", data: []byte{}},
-			want:    false,
-			wantErr: true,
-			beforeFn: func(m *mocks.FS, mockedFile *mocks.File) {
-				m.On("Stat", mock.Anything).Return(nil, os.ErrNotExist)
-				m.On("Create", mock.Anything).Return(mockedFile, fmt.Errorf("Error"))
+			wantErr: "failed to create file at '/usr/bar': " + os.ErrPermission.Error(),
+			beforeFn: func(m *mocks.FS) {
+				m.On("Stat", "/usr/bar").Return(nil, os.ErrNotExist)
+				m.On("OpenFile", "/usr/bar", mock.AnythingOfType("int"), mock.AnythingOfType("FileMode")).Return(nil, os.ErrPermission)
 			},
 		},
 	}
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
 			mockedFS := &mocks.FS{}
-			mockedFile := &mocks.File{}
-			tt.beforeFn(mockedFS, mockedFile)
+			tt.beforeFn(mockedFS)
 			fs := Create(mockedFS)
 			got, err := fs.CheckExistsOrWrite(tt.args.path, tt.args.data)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("fsimpl.CheckExistsOrWrite() error = %v, wantErr %v", err, tt.wantErr)
+
+			if err != nil {
+				if tt.wantErr != "" {
+					assert.EqualError(t, err, tt.wantErr)
+				} else {
+					t.Errorf("prepare() error = %v", err)
+				}
+
 				return
 			}
-			if tt.assertFn != nil {
-				tt.assertFn(t, mockedFile)
-			}
+
 			if got != tt.want {
 				t.Errorf("fsimpl.CheckExistsOrWrite() = %v, want %v", got, tt.want)
 			}

@@ -19,9 +19,9 @@ import (
 	"github.com/argoproj/argocd-autopilot/pkg/store"
 
 	"github.com/ghodss/yaml"
-	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
 	osfs "github.com/go-git/go-billy/v5/osfs"
+	billyUtils "github.com/go-git/go-billy/v5/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	kusttypes "sigs.k8s.io/kustomize/api/types"
@@ -122,7 +122,7 @@ func Test_writeApplicationFile(t *testing.T) {
 				data: []byte("data2"),
 			},
 			beforeFn: func(repofs fs.FS) fs.FS {
-				_, _ = repofs.WriteFile("/foo/bar", []byte("data"))
+				_ = billyUtils.WriteFile(repofs, "/foo/bar", []byte("data"), 0666)
 				return repofs
 			},
 			assertFn: func(t *testing.T, _ fs.FS, exists bool, ret error) {
@@ -270,9 +270,9 @@ func Test_createApplicationFiles(t *testing.T) {
 				}
 				orgBaseYAML, err := yaml.Marshal(orgBase)
 				assert.NoError(t, err)
-				_, err = repofs.WriteFile(repofs.Join(store.Default.KustomizeDir, "foo", "base", "kustomization.yaml"), orgBaseYAML)
+				err = billyUtils.WriteFile(repofs, repofs.Join(store.Default.KustomizeDir, "foo", "base", "kustomization.yaml"), orgBaseYAML, 0666)
 				assert.NoError(t, err)
-				_, err = repofs.WriteFile(repofs.Join(store.Default.KustomizeDir, "foo", "overlays", "fooproj", "kustomization.yaml"), []byte(""))
+				err = billyUtils.WriteFile(repofs, repofs.Join(store.Default.KustomizeDir, "foo", "overlays", "fooproj", "kustomization.yaml"), []byte(""), 0666)
 				assert.NoError(t, err)
 
 				return repofs, app, "fooproj"
@@ -290,9 +290,9 @@ func Test_createApplicationFiles(t *testing.T) {
 				repofs := fs.Create(osfs.New(root))
 				sameBase, err := yaml.Marshal(app.Base())
 				assert.NoError(t, err)
-				_, err = repofs.WriteFile(repofs.Join(store.Default.KustomizeDir, "foo", "base", "kustomization.yaml"), sameBase)
+				err = billyUtils.WriteFile(repofs, repofs.Join(store.Default.KustomizeDir, "foo", "base", "kustomization.yaml"), sameBase, 0666)
 				assert.NoError(t, err)
-				_, err = repofs.WriteFile(repofs.Join(store.Default.KustomizeDir, "foo", "overlays", "fooproj", "kustomization.yaml"), []byte(""))
+				err = billyUtils.WriteFile(repofs, repofs.Join(store.Default.KustomizeDir, "foo", "overlays", "fooproj", "kustomization.yaml"), []byte(""), 0666)
 				assert.NoError(t, err)
 
 				return repofs, app, "fooproj"
@@ -328,7 +328,7 @@ func Test_getConfigFileFromPath(t *testing.T) {
 			beforeFn: func(repofs fs.FS, appName string) fs.FS {
 				conf := application.Config{AppName: appName}
 				b, _ := json.Marshal(&conf)
-				_, _ = repofs.WriteFile(fmt.Sprintf("%s/config.json", appName), b)
+				_ = billyUtils.WriteFile(repofs, fmt.Sprintf("%s/config.json", appName), b, 0666)
 				return repofs
 			},
 			assertFn: func(t *testing.T, conf *application.Config) {
@@ -347,7 +347,7 @@ func Test_getConfigFileFromPath(t *testing.T) {
 			want:    &application.Config{},
 			wantErr: "failed to unmarshal file test/config.json",
 			beforeFn: func(repofs fs.FS, appName string) fs.FS {
-				_, _ = repofs.WriteFile(fmt.Sprintf("%s/config.json", appName), []byte{})
+				_ = billyUtils.WriteFile(repofs, fmt.Sprintf("%s/config.json", appName), []byte{}, 0666)
 				return repofs
 			},
 			assertFn: nil,
@@ -382,134 +382,153 @@ func TestRunAppDelete(t *testing.T) {
 		appName     string
 		projectName string
 		global      bool
-		cloneErr    string
-		removeErr   string
 		wantErr     string
-		beforeFn    func(m *fsmocks.FS, mr *gitmocks.Repository)
+		prepareRepo func() (git.Repository, fs.FS, error)
+		assertFn    func(t *testing.T, repo git.Repository, repofs fs.FS)
 	}{
 		"Should fail when clone fails": {
-			cloneErr: "some error",
-			wantErr:  "some error",
+			wantErr: "some error",
+			prepareRepo: func() (git.Repository, fs.FS, error) {
+				return nil, nil, fmt.Errorf("some error")
+			},
 		},
 		"Should fail when app does not exist": {
 			appName: "app",
 			wantErr: "application 'app' not found",
-			beforeFn: func(mfs *fsmocks.FS, _ *gitmocks.Repository) {
-				mfs.On("ExistsOrDie", "kustomize/app").Return(false)
+			prepareRepo: func() (git.Repository, fs.FS, error) {
+				return nil, fs.Create(memfs.New()), nil
 			},
 		},
 		"Should fail if deletion of entire app directory fails": {
-			appName:   "app",
-			global:    true,
-			removeErr: "some error",
-			wantErr:   "failed to delete directory 'kustomize/app': some error",
-			beforeFn: func(mfs *fsmocks.FS, _ *gitmocks.Repository) {
+			appName: "app",
+			global:  true,
+			wantErr: "failed to delete directory 'kustomize/app': some error",
+			prepareRepo: func() (git.Repository, fs.FS, error) {
+				mfs := &fsmocks.FS{}
+				mfs.On("Join", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(func(elem ...string) string {
+					return strings.Join(elem, "/")
+				})
 				mfs.On("ExistsOrDie", "kustomize/app").Return(true)
+				mfs.On("Remove", "kustomize/app").Return(fmt.Errorf("some error"))
+				mfs.On("Stat", "kustomize/app").Return(nil, fmt.Errorf("some error"))
+				return nil, mfs, nil
 			},
 		},
 		"Should remove entire app directory when global flag is set": {
 			appName: "app",
 			global:  true,
-			beforeFn: func(mfs *fsmocks.FS, mr *gitmocks.Repository) {
-				mfs.On("ExistsOrDie", "kustomize/app").Return(true)
-				mfs.On("Remove", "kustomize/app").Return(nil)
-				mr.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
+			prepareRepo: func() (git.Repository, fs.FS, error) {
+				memfs := memfs.New()
+				_ = memfs.MkdirAll("kustomize/app/overlays/project", 0666)
+				mockRepo := &gitmocks.Repository{}
+				mockRepo.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
 					CommitMsg: "Deleted app 'app'",
 				}).Return(nil)
+				return mockRepo, fs.Create(memfs), nil
+			},
+			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
+				repo.(*gitmocks.Repository).AssertExpectations(t)
+				assert.False(t, repofs.ExistsOrDie("kustomize/app"))
 			},
 		},
 		"Should fail when overlay does not exist": {
 			appName:     "app",
 			projectName: "project",
 			wantErr:     "application 'app' not found in project 'project'",
-			beforeFn: func(mfs *fsmocks.FS, _ *gitmocks.Repository) {
-				mfs.On("ExistsOrDie", "kustomize/app").Return(true)
-				mfs.On("ExistsOrDie", "kustomize/app/overlays/project").Return(false)
-			},
-		},
-		"Should delete only overlay directory, if there are more overlays": {
-			appName:     "app",
-			projectName: "project",
-			beforeFn: func(mfs *fsmocks.FS, mr *gitmocks.Repository) {
-				mfs.On("ExistsOrDie", "kustomize/app").Return(true)
-				mfs.On("ExistsOrDie", "kustomize/app/overlays/project").Return(true)
-				mfs.On("ReadDir", "kustomize/app/overlays").Return([]os.FileInfo{
-					nil,
-					nil,
-				}, nil)
-				mr.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
-					CommitMsg: "Deleted app 'app' from project 'project'",
-				}).Return(nil)
-			},
-		},
-		"Should delete entire app directory, if there are no more overlays": {
-			appName:     "app",
-			projectName: "project",
-			beforeFn: func(mfs *fsmocks.FS, mr *gitmocks.Repository) {
-				mfs.On("ExistsOrDie", "kustomize/app").Return(true)
-				mfs.On("ExistsOrDie", "kustomize/app/overlays/project").Return(true)
-				mfs.On("ReadDir", "kustomize/app/overlays").Return([]os.FileInfo{
-					nil,
-				}, nil)
-				mr.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
-					CommitMsg: "Deleted app 'app'",
-				}).Return(nil)
+			prepareRepo: func() (git.Repository, fs.FS, error) {
+				memfs := memfs.New()
+				_ = memfs.MkdirAll("kustomize/app/overlays/project2", 0666)
+				return nil, fs.Create(memfs), nil
 			},
 		},
 		"Should fail if ReadDir fails": {
 			appName:     "app",
 			projectName: "project",
 			wantErr:     "failed to read overlays directory 'kustomize/app/overlays': some error",
-			beforeFn: func(mfs *fsmocks.FS, _ *gitmocks.Repository) {
+			prepareRepo: func() (git.Repository, fs.FS, error) {
+				mfs := &fsmocks.FS{}
+				mfs.On("Join", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(func(elem ...string) string {
+					return strings.Join(elem, "/")
+				})
 				mfs.On("ExistsOrDie", "kustomize/app").Return(true)
 				mfs.On("ExistsOrDie", "kustomize/app/overlays/project").Return(true)
 				mfs.On("ReadDir", "kustomize/app/overlays").Return(nil, fmt.Errorf("some error"))
+				return nil, mfs, nil
+			},
+		},
+		"Should delete only overlay directory, if there are more overlays": {
+			appName:     "app",
+			projectName: "project",
+			prepareRepo: func() (git.Repository, fs.FS, error) {
+				memfs := memfs.New()
+				_ = memfs.MkdirAll("kustomize/app/overlays/project", 0666)
+				_ = memfs.MkdirAll("kustomize/app/overlays/project2", 0666)
+				mockRepo := &gitmocks.Repository{}
+				mockRepo.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
+					CommitMsg: "Deleted app 'app' from project 'project'",
+				}).Return(nil)
+				return mockRepo, fs.Create(memfs), nil
+			},
+			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
+				repo.(*gitmocks.Repository).AssertExpectations(t)
+				assert.True(t, repofs.ExistsOrDie("kustomize/app/overlays"))
+				assert.False(t, repofs.ExistsOrDie("kustomize/app/overlays/project"))
+			},
+		},
+		"Should delete entire app directory, if there are no more overlays": {
+			appName:     "app",
+			projectName: "project",
+			prepareRepo: func() (git.Repository, fs.FS, error) {
+				memfs := memfs.New()
+				_ = memfs.MkdirAll("kustomize/app/overlays/project", 0666)
+				mockRepo := &gitmocks.Repository{}
+				mockRepo.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
+					CommitMsg: "Deleted app 'app'",
+				}).Return(nil)
+				return mockRepo, fs.Create(memfs), nil
+			},
+			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
+				repo.(*gitmocks.Repository).AssertExpectations(t)
+				assert.False(t, repofs.ExistsOrDie("kustomize/app"))
 			},
 		},
 		"Should fail if Persist fails": {
 			appName: "app",
 			global:  true,
 			wantErr: "failed to push to repo: some error",
-			beforeFn: func(mfs *fsmocks.FS, mr *gitmocks.Repository) {
-				mfs.On("ExistsOrDie", "kustomize/app").Return(true)
-				mr.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
+			prepareRepo: func() (git.Repository, fs.FS, error) {
+				memfs := memfs.New()
+				_ = memfs.MkdirAll("kustomize/app/overlays/project", 0666)
+				mockRepo := &gitmocks.Repository{}
+				mockRepo.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
 					CommitMsg: "Deleted app 'app'",
 				}).Return(fmt.Errorf("some error"))
+				return mockRepo, fs.Create(memfs), nil
+			},
+			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
+				repo.(*gitmocks.Repository).AssertExpectations(t)
+				assert.False(t, repofs.ExistsOrDie("kustomize/app"))
 			},
 		},
 	}
-	origBaseClone := prepareRepo
-	origRemoveAll := removeAll
+	origPrepareRepo := prepareRepo
+	defer func() { prepareRepo = origPrepareRepo }()
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			mockFS := &fsmocks.FS{}
-			mockRepo := &gitmocks.Repository{}
-			mockFS.On("Join", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(func(elem ...string) string {
-				return strings.Join(elem, "/")
-			})
+			var (
+				repo   git.Repository
+				repofs fs.FS
+			)
+
 			prepareRepo = func(_ context.Context, _ *BaseOptions) (git.Repository, fs.FS, error) {
 				var err error
-				if tt.cloneErr != "" {
-					err = fmt.Errorf(tt.cloneErr)
-				}
-
-				return mockRepo, mockFS, err
+				repo, repofs, err = tt.prepareRepo()
+				return repo, repofs, err
 			}
-			removeAll = func(_ billy.Basic, _ string) error {
-				var err error
-				if tt.removeErr != "" {
-					err = fmt.Errorf(tt.removeErr)
-				}
-
-				return err
-			}
-			if tt.beforeFn != nil {
-				tt.beforeFn(mockFS, mockRepo)
-			}
-
 			opts := &AppDeleteOptions{
 				BaseOptions: BaseOptions{
 					ProjectName: tt.projectName,
+					FS:          fs.Create(memfs.New()),
 				},
 				AppName: tt.appName,
 				Global:  tt.global,
@@ -520,10 +539,13 @@ func TestRunAppDelete(t *testing.T) {
 				} else {
 					t.Errorf("prepare() error = %v", err)
 				}
+
+				return
+			}
+
+			if tt.assertFn != nil {
+				tt.assertFn(t, repo, repofs)
 			}
 		})
 	}
-
-	prepareRepo = origBaseClone
-	removeAll = origRemoveAll
 }

@@ -23,7 +23,7 @@ func Test_parseApplication(t *testing.T) {
 			opts: &CreateOptions{
 				AppName: "foo",
 			},
-			assertFn: func(t *testing.T, a *application, ret error) {
+			assertFn: func(t *testing.T, _ *application, ret error) {
 				assert.ErrorIs(t, ret, ErrEmptyAppSpecifier)
 			},
 		},
@@ -31,7 +31,7 @@ func Test_parseApplication(t *testing.T) {
 			opts: &CreateOptions{
 				AppSpecifier: "foo",
 			},
-			assertFn: func(t *testing.T, a *application, ret error) {
+			assertFn: func(t *testing.T, _ *application, ret error) {
 				assert.ErrorIs(t, ret, ErrEmptyAppName)
 			},
 		},
@@ -41,7 +41,7 @@ func Test_parseApplication(t *testing.T) {
 				AppName:          "foo",
 				InstallationMode: "foo",
 			},
-			assertFn: func(t *testing.T, a *application, ret error) {
+			assertFn: func(t *testing.T, _ *application, ret error) {
 				assert.EqualError(t, ret, "unknown installation mode: foo")
 			},
 		},
