@@ -16,7 +16,6 @@ import (
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/ghodss/yaml"
 	memfs "github.com/go-git/go-billy/v5/memfs"
-	billyUtils "github.com/go-git/go-billy/v5/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	v1 "k8s.io/api/core/v1"
@@ -29,14 +28,14 @@ func TestRunRepoCreate(t *testing.T) {
 	tests := map[string]struct {
 		opts     *RepoCreateOptions
 		preFn    func(*gitmocks.Provider)
-		assertFn func(t *testing.T, mp *gitmocks.Provider, opts *RepoCreateOptions, ret error)
+		assertFn func(t *testing.T, mp *gitmocks.Provider, opts *RepoCreateOptions, err error)
 	}{
 		"Invalid provider": {
 			opts: &RepoCreateOptions{
 				Provider: "foobar",
 			},
-			assertFn: func(t *testing.T, mp *gitmocks.Provider, opts *RepoCreateOptions, ret error) {
-				assert.ErrorIs(t, ret, git.ErrProviderNotSupported)
+			assertFn: func(t *testing.T, _ *gitmocks.Provider, _ *RepoCreateOptions, err error) {
+				assert.ErrorIs(t, err, git.ErrProviderNotSupported)
 			},
 		},
 		"Should call CreateRepository": {
@@ -51,7 +50,7 @@ func TestRunRepoCreate(t *testing.T) {
 			preFn: func(mp *gitmocks.Provider) {
 				mp.On("CreateRepository", mock.Anything, mock.Anything).Return("", nil)
 			},
-			assertFn: func(t *testing.T, mp *gitmocks.Provider, opts *RepoCreateOptions, ret error) {
+			assertFn: func(t *testing.T, mp *gitmocks.Provider, opts *RepoCreateOptions, _ error) {
 				mp.AssertCalled(t, "CreateRepository", mock.Anything, mock.Anything)
 				o := mp.Calls[0].Arguments[1].(*git.CreateRepoOptions)
 				assert.NotNil(t, o)
@@ -70,9 +69,9 @@ func TestRunRepoCreate(t *testing.T) {
 			preFn: func(mp *gitmocks.Provider) {
 				mp.On("CreateRepository", mock.Anything, mock.Anything).Return("", fmt.Errorf("error"))
 			},
-			assertFn: func(t *testing.T, mp *gitmocks.Provider, opts *RepoCreateOptions, ret error) {
+			assertFn: func(t *testing.T, mp *gitmocks.Provider, _ *RepoCreateOptions, err error) {
 				mp.AssertCalled(t, "CreateRepository", mock.Anything, mock.Anything)
-				assert.EqualError(t, ret, "error")
+				assert.EqualError(t, err, "error")
 			},
 		},
 	}
@@ -105,7 +104,7 @@ func Test_setBootstrapOptsDefaults(t *testing.T) {
 			opts: &RepoBootstrapOptions{
 				InstallationMode: "foo",
 			},
-			assertFn: func(t *testing.T, opts *RepoBootstrapOptions, ret error) {
+			assertFn: func(t *testing.T, _ *RepoBootstrapOptions, ret error) {
 				assert.EqualError(t, ret, "unknown installation mode: foo")
 			},
 		},
@@ -172,32 +171,22 @@ func Test_setBootstrapOptsDefaults(t *testing.T) {
 
 func Test_validateRepo(t *testing.T) {
 	tests := map[string]struct {
-		preFn    func(t *testing.T, repofs fs.FS)
-		assertFn func(t *testing.T, repofs fs.FS, ret error)
+		wantErr string
+		preFn   func(t *testing.T, repofs fs.FS)
 	}{
 		"Bootstrap exists": {
-			preFn: func(t *testing.T, repofs fs.FS) {
-				err := billyUtils.WriteFile(repofs, store.Default.BootsrtrapDir, []byte{}, 0666)
-				assert.NoError(t, err)
-			},
-			assertFn: func(t *testing.T, repofs fs.FS, ret error) {
-				assert.EqualError(t, ret, fmt.Sprintf("folder %[1]s already exist in: /%[1]s", store.Default.BootsrtrapDir))
+			wantErr: fmt.Sprintf("folder %[1]s already exist in: /%[1]s", store.Default.BootsrtrapDir),
+			preFn: func(_ *testing.T, repofs fs.FS) {
+				_ = repofs.MkdirAll("bootstrap", 0666)
 			},
 		},
 		"Projects exists": {
-			preFn: func(t *testing.T, repofs fs.FS) {
-				err := billyUtils.WriteFile(repofs, store.Default.ProjectsDir, []byte{}, 0666)
-				assert.NoError(t, err)
-			},
-			assertFn: func(t *testing.T, repofs fs.FS, ret error) {
-				assert.EqualError(t, ret, fmt.Sprintf("folder %[1]s already exist in: /%[1]s", store.Default.ProjectsDir))
+			wantErr: fmt.Sprintf("folder %[1]s already exist in: /%[1]s", store.Default.ProjectsDir),
+			preFn: func(_ *testing.T, repofs fs.FS) {
+				_ = repofs.MkdirAll("projects", 0666)
 			},
 		},
-		"Valid": {
-			assertFn: func(t *testing.T, repofs fs.FS, ret error) {
-				assert.NoError(t, ret)
-			},
-		},
+		"Valid": {},
 	}
 
 	for tname, tt := range tests {
@@ -209,7 +198,15 @@ func Test_validateRepo(t *testing.T) {
 				tt.preFn(t, repofs)
 			}
 
-			tt.assertFn(t, repofs, validateRepo(repofs))
+			if err := validateRepo(repofs); err != nil {
+				if tt.wantErr != "" {
+					assert.EqualError(t, err, tt.wantErr)
+				} else {
+					t.Errorf("prepare() error = %v", err)
+				}
+
+				return
+			}
 		})
 	}
 }
@@ -336,7 +333,7 @@ func TestRunRepoBootstrap(t *testing.T) {
 					Auth:     git.Auth{Password: "test"},
 				},
 			},
-			assertFn: func(t *testing.T, r *gitmocks.Repository, repofs fs.FS, f *kubemocks.Factory, ret error) {
+			assertFn: func(t *testing.T, _ *gitmocks.Repository, _ fs.FS, _ *kubemocks.Factory, ret error) {
 				assert.NoError(t, ret)
 				assert.True(t, exitCalled)
 			},
@@ -353,7 +350,7 @@ func TestRunRepoBootstrap(t *testing.T) {
 					Auth:     git.Auth{Password: "test"},
 				},
 			},
-			preFn: func(r *gitmocks.Repository, repofs fs.FS, f *kubemocks.Factory) {
+			preFn: func(r *gitmocks.Repository, _ fs.FS, f *kubemocks.Factory) {
 				mockCS := fake.NewSimpleClientset(&v1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "argocd-initial-admin-secret",
@@ -419,7 +416,7 @@ func TestRunRepoBootstrap(t *testing.T) {
 					Auth:     git.Auth{Password: "test"},
 				},
 			},
-			preFn: func(r *gitmocks.Repository, repofs fs.FS, f *kubemocks.Factory) {
+			preFn: func(r *gitmocks.Repository, _ fs.FS, f *kubemocks.Factory) {
 				mockCS := fake.NewSimpleClientset(&v1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "argocd-initial-admin-secret",
@@ -493,7 +490,7 @@ func TestRunRepoBootstrap(t *testing.T) {
 
 			tt.opts.KubeFactory = mockFactory
 
-			exit = func(code int) { exitCalled = true }
+			exit = func(_ int) { exitCalled = true }
 			clone = func(ctx context.Context, cloneOpts *git.CloneOptions, filesystem fs.FS) (git.Repository, fs.FS, error) {
 				return mockRepo, repofs, nil
 			}
