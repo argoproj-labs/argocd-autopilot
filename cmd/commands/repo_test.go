@@ -79,16 +79,17 @@ func TestRunRepoCreate(t *testing.T) {
 
 	orgGetProvider := getGitProvider
 	for tname, tt := range tests {
-		defer func() { getGitProvider = orgGetProvider }()
-		mp := &gitmocks.Provider{}
-		if tt.preFn != nil {
-			tt.preFn(mp)
-			getGitProvider = func(opts *git.ProviderOptions) (git.Provider, error) {
-				return mp, nil
-			}
-		}
-
 		t.Run(tname, func(t *testing.T) {
+			mp := &gitmocks.Provider{}
+
+			if tt.preFn != nil {
+				tt.preFn(mp)
+				getGitProvider = func(opts *git.ProviderOptions) (git.Provider, error) {
+					return mp, nil
+				}
+				defer func() { getGitProvider = orgGetProvider }()
+			}
+
 			tt.assertFn(t, mp, tt.opts, RunRepoCreate(context.Background(), tt.opts))
 		})
 	}
@@ -198,8 +199,11 @@ func Test_validateRepo(t *testing.T) {
 			},
 		},
 	}
+
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
+			t.Parallel()
+
 			repofs := fs.Create(memfs.New())
 			if tt.preFn != nil {
 				tt.preFn(t, repofs)
@@ -293,12 +297,14 @@ func Test_buildBootstrapManifests(t *testing.T) {
 	}
 
 	orgRunKustomizeBuild := runKustomizeBuild
+	defer func() { runKustomizeBuild = orgRunKustomizeBuild }()
 
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
+			t.Parallel()
+
 			if tt.preFn != nil {
 				tt.preFn()
-				defer func() { runKustomizeBuild = orgRunKustomizeBuild }()
 			}
 			b, ret := buildBootstrapManifests(
 				tt.args.namespace,
