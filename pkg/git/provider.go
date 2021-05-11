@@ -14,8 +14,6 @@ type (
 		// CreateRepository creates the repository in the remote provider and returns a
 		// clone url
 		CreateRepository(ctx context.Context, opts *CreateRepoOptions) (string, error)
-
-		GetRepository(ctx context.Context, opts *GetRepoOptions) (string, error)
 	}
 
 	Auth struct {

@@ -49,19 +49,6 @@ func newGithub(opts *ProviderOptions) (Provider, error) {
 	return g, nil
 }
 
-func (g *github) GetRepository(ctx context.Context, opts *GetRepoOptions) (string, error) {
-	r, res, err := g.Repositories.Get(ctx, opts.Owner, opts.Name)
-	if res != nil && res.StatusCode == http.StatusNotFound {
-		return "", ErrRepoNotFound
-	}
-
-	if err != nil {
-		return "", err
-	}
-
-	return *r.CloneURL, nil
-}
-
 func (g *github) CreateRepository(ctx context.Context, opts *CreateRepoOptions) (string, error) {
 	authUser, res, err := g.Users.Get(ctx, "") // get authenticated user details
 	if err != nil {

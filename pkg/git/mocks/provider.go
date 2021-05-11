@@ -34,24 +34,3 @@ func (_m *Provider) CreateRepository(ctx context.Context, opts *git.CreateRepoOp
 
 	return r0, r1
 }
-
-// GetRepository provides a mock function with given fields: ctx, opts
-func (_m *Provider) GetRepository(ctx context.Context, opts *git.GetRepoOptions) (string, error) {
-	ret := _m.Called(ctx, opts)
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func(context.Context, *git.GetRepoOptions) string); ok {
-		r0 = rf(ctx, opts)
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, *git.GetRepoOptions) error); ok {
-		r1 = rf(ctx, opts)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
