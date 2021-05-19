@@ -44,7 +44,7 @@ type (
 var (
 	ErrProviderNotSupported = errors.New("git provider not supported")
 	ErrAuthenticationFailed = func(err error) error {
-		return fmt.Errorf("authentication failed, make sure credetials are correct: %w", err)
+		return fmt.Errorf("authentication failed, make sure credentials are correct: %w", err)
 	}
 )
 
