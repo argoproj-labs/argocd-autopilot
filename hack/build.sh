@@ -14,5 +14,5 @@ ${PACKR_CMD} build -ldflags=" \
     -X 'github.com/argoproj/argocd-autopilot/pkg/store.buildDate=${BUILD_DATE}' \
     -X 'github.com/argoproj/argocd-autopilot/pkg/store.gitCommit=${GIT_COMMIT}' \
     -X 'github.com/argoproj/argocd-autopilot/pkg/store.installationManifestsURL=${INSTALLATION_MANIFESTS_URL}' \
-    -X 'github.com/argoproj/argocd-autopilot/pkg/store.InstallationManifestsNamespacedURL=${INSTALLATION_MANIFESTS_NAMESPACED_URL}'" \
+    -X 'github.com/argoproj/argocd-autopilot/pkg/store.installationManifestsNamespacedURL=${INSTALLATION_MANIFESTS_NAMESPACED_URL}'" \
     -v -o ${OUT_FILE} ${MAIN}
