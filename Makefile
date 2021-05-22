@@ -69,13 +69,13 @@ $(OUT_DIR)/$(CLI_NAME)-linux-arm64: GO_FLAGS='GOOS=linux GOARCH=arm64 CGO_ENABLE
 $(OUT_DIR)/$(CLI_NAME)-linux-ppc64le: GO_FLAGS='GOOS=linux GOARCH=ppc64le CGO_ENABLED=0'
 $(OUT_DIR)/$(CLI_NAME)-linux-s390x: GO_FLAGS='GOOS=linux GOARCH=s390x CGO_ENABLED=0'
 
-$(OUT_DIR)/$(CLI_NAME)-%.gz:
+$(OUT_DIR)/$(CLI_NAME)-%.tar.gz:
 	@make $(OUT_DIR)/$(CLI_NAME)-$*
-	cd $(OUT_DIR) && tar -czvf $(CLI_NAME)-$*.gz $(CLI_NAME)-$* && cd ..
+	cd $(OUT_DIR) && tar -czvf $(CLI_NAME)-$*.tar.gz $(CLI_NAME)-$* && cd ..
 
 $(OUT_DIR)/$(CLI_NAME)-%.sha256:
-	@make $(OUT_DIR)/$(CLI_NAME)-$*.gz
-	openssl dgst -sha256 "$(OUT_DIR)/$(CLI_NAME)-$*.gz" | awk '{ print $$2 }' > "$(OUT_DIR)/$(CLI_NAME)-$*".sha256
+	@make $(OUT_DIR)/$(CLI_NAME)-$*.tar.gz
+	openssl dgst -sha256 "$(OUT_DIR)/$(CLI_NAME)-$*.tar.gz" | awk '{ print $$2 }' > "$(OUT_DIR)/$(CLI_NAME)-$*".sha256
 
 $(OUT_DIR)/$(CLI_NAME)-%: $(CLI_SRCS) $(GOBIN)/packr
 	@GO_FLAGS=$(GO_FLAGS) \
