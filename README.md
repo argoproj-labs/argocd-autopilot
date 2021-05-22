@@ -27,7 +27,7 @@ The Argo-CD Autopilot is a tool which offers an opinionated way of installing Ar
 VERSION=$(curl --silent "https://api.github.com/repos/argoproj-labs/argocd-autopilot/releases/latest" | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
 
 # download and extract the binary
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/$VERSION/argocd-autopilot-darwin-amd64.gz | tar zx
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/$VERSION/argocd-autopilot-darwin-amd64.tar.gz | tar zx
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
@@ -42,7 +42,7 @@ argocd-autopilot version
 VERSION=$(curl --silent "https://api.github.com/repos/argoproj-labs/argocd-autopilot/releases/latest" | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
 
 # download and extract the binary
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/$VERSION/argocd-autopilot-linux-amd64.gz | tar zx
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/$VERSION/argocd-autopilot-linux-amd64.tar.gz | tar zx
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
