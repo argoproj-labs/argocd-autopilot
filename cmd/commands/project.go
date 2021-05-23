@@ -300,7 +300,7 @@ var generateProject = func(o *GenerateProjectOptions) (*argocdv1alpha1.AppProjec
 
 var getInstallationNamespace = func(repofs fs.FS) (string, error) {
 	path := repofs.Join(store.Default.BootsrtrapDir, store.Default.ArgoCDName+".yaml")
-	a := &appsetv1alpha1.Application{}
+	a := &argocdv1alpha1.Application{}
 	if err := repofs.ReadYamls(path, a); err != nil {
 		return "", fmt.Errorf("failed to unmarshal namespace: %w", err)
 	}

@@ -251,13 +251,13 @@ func getConfigFileFromPath(repofs fs.FS, appPath string) (*application.Config, e
 	path := repofs.Join(appPath, "config.json")
 	b, err := repofs.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read file %s", path)
+		return nil, fmt.Errorf("failed to read file '%s'", path)
 	}
 
 	conf := application.Config{}
 	err = json.Unmarshal(b, &conf)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal file %s", path)
+		return nil, fmt.Errorf("failed to unmarshal file '%s'", path)
 	}
 
 	return &conf, nil

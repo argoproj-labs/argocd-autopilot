@@ -100,7 +100,7 @@ func (fs *fsimpl) ReadYamls(filename string, o ...interface{}) error {
 
 	yamls := util.SplitManifests(data)
 	if len(yamls) < len(o) {
-		return fmt.Errorf("expected at least %d manifests when splitting %s", len(o), filename)
+		return fmt.Errorf("expected at least %d manifests when reading '%s'", len(o), filename)
 	}
 
 	for i := 0; i < len(o); i++ {

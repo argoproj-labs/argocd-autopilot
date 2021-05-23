@@ -6,11 +6,12 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 
-	appsetv1alpha1 "github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
+	appset "github.com/argoproj-labs/applicationset/api/v1alpha1"
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/argoproj/argocd-autopilot/pkg/fs"
 	fsmocks "github.com/argoproj/argocd-autopilot/pkg/fs/mocks"
@@ -19,7 +20,6 @@ import (
 	"github.com/argoproj/argocd-autopilot/pkg/store"
 	"github.com/argoproj/argocd-autopilot/pkg/util"
 
-	"github.com/ghodss/yaml"
 	memfs "github.com/go-git/go-billy/v5/memfs"
 	billyUtils "github.com/go-git/go-billy/v5/util"
 	"github.com/stretchr/testify/assert"
@@ -197,11 +197,8 @@ func Test_generateProject(t *testing.T) {
 			assert.Equal(tt.wantRepoURL, gotAppSet.Spec.Generators[0].Git.RepoURL, "Application Set Repo URL")
 			assert.Equal(tt.wantRevision, gotAppSet.Spec.Generators[0].Git.Revision, "Application Set Revision")
 
-			assert.Equal(tt.wantNamespace, gotAppSet.Spec.Template.Namespace, "Application Set Template Repo URL")
+			assert.Equal(tt.wantNamespace, gotAppSet.Spec.Template.Namespace, "Application Set Template Namespace")
 			assert.Equal(tt.wantName, gotAppSet.Spec.Template.Spec.Project, "Application Set Template Project")
-			assert.Equal(tt.wantRepoURL, gotAppSet.Spec.Template.Spec.Source.RepoURL, "Application Set Template Repo URL")
-			assert.Equal(tt.wantRevision, gotAppSet.Spec.Template.Spec.Source.TargetRevision, "Application Set Template Target Revision")
-			assert.Equal(tt.wantPath, gotAppSet.Spec.Template.Spec.Source.Path, "Application Set Template Target Revision")
 		})
 	}
 }
@@ -209,69 +206,55 @@ func Test_generateProject(t *testing.T) {
 func Test_getInstallationNamespace(t *testing.T) {
 	tests := map[string]struct {
 		nsYAML   string
-		beforeFn func(m *fsmocks.FS, mockedFile *fsmocks.File)
+		beforeFn func() fs.FS
 		want     string
 		wantErr  string
 	}{
 		"should return the namespace from namespace.yaml": {
-			beforeFn: func(mockedFS *fsmocks.FS, mockedFile *fsmocks.File) {
-				nsYAML := `
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: argo-cd
-spec:
-  destination:
-    namespace: namespace
-    server: https://kubernetes.default.svc
-  source:
-    path: manifests
-    repoURL: https://github.com/owner/name
-`
-				mockedFS.On("Open", mock.Anything).Return(mockedFile, nil)
-				mockedFile.On("Read", mock.Anything).Run(func(args mock.Arguments) {
-					bytes := args[0].([]byte)
-					copy(bytes[:], nsYAML)
-				}).Return(len(nsYAML), nil).Once()
-				mockedFile.On("Read", mock.Anything).Return(0, io.EOF).Once()
+			beforeFn: func() fs.FS {
+				namespace := &argocdv1alpha1.Application{
+					Spec: argocdv1alpha1.ApplicationSpec{
+						Destination: argocdv1alpha1.ApplicationDestination{
+							Namespace: "namespace",
+						},
+					},
+				}
+				repofs := fs.Create(memfs.New())
+				_ = repofs.WriteYamls(filepath.Join(store.Default.BootsrtrapDir, store.Default.ArgoCDName+".yaml"), namespace)
+				return repofs
 			},
 			want: "namespace",
 		},
 		"should handle file not found": {
-			beforeFn: func(mockedFS *fsmocks.FS, _ *fsmocks.File) {
-				mockedFS.On("Open", mock.Anything).Return(nil, os.ErrNotExist)
+			beforeFn: func() fs.FS {
+				return fs.Create(memfs.New())
 			},
-			wantErr: "file does not exist",
+			wantErr: "failed to unmarshal namespace: file does not exist",
 		},
 		"should handle error during read": {
-			beforeFn: func(mockedFS *fsmocks.FS, mockedFile *fsmocks.File) {
-				mockedFS.On("Open", mock.Anything).Return(mockedFile, nil)
-				mockedFile.On("Read", mock.Anything).Return(0, fmt.Errorf("some error"))
+			beforeFn: func() fs.FS {
+				mfs := &fsmocks.FS{}
+				mfs.On("Join", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(func(elem ...string) string {
+					return strings.Join(elem, "/")
+				})
+				mfs.On("ReadYamls", filepath.Join(store.Default.BootsrtrapDir, store.Default.ArgoCDName+".yaml"), mock.Anything).Return(nil, fmt.Errorf("some error"))
+				return mfs
 			},
 			wantErr: "failed to read namespace file: some error",
 		},
 		"should handle corrupted namespace.yaml file": {
-			beforeFn: func(mockedFS *fsmocks.FS, mockedFile *fsmocks.File) {
-				nsYAML := "some string"
-				mockedFS.On("Open", mock.Anything).Return(mockedFile, nil)
-				mockedFile.On("Read", mock.Anything).Run(func(args mock.Arguments) {
-					bytes := args[0].([]byte)
-					copy(bytes[:], nsYAML)
-				}).Return(len(nsYAML), nil).Once()
-				mockedFile.On("Read", mock.Anything).Return(0, io.EOF).Once()
+			beforeFn: func() fs.FS {
+				repofs := fs.Create(memfs.New())
+				_ = billyUtils.WriteFile(repofs, filepath.Join(store.Default.BootsrtrapDir, store.Default.ArgoCDName+".yaml"), []byte("some string"), 0666)
+				return repofs
 			},
 			wantErr: "failed to unmarshal namespace: error unmarshaling JSON: json: cannot unmarshal string into Go value of type v1alpha1.Application",
 		},
 	}
 	for ttName, tt := range tests {
 		t.Run(ttName, func(t *testing.T) {
-			mockFile := &fsmocks.File{}
-			mockFS := &fsmocks.FS{}
-			mockFS.On("Join", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(func(elem ...string) string {
-				return strings.Join(elem, "/")
-			})
-			tt.beforeFn(mockFS, mockFile)
-			got, err := getInstallationNamespace(mockFS)
+			repofs := tt.beforeFn()
+			got, err := getInstallationNamespace(repofs)
 			if err != nil {
 				if tt.wantErr != "" {
 					assert.EqualError(t, err, tt.wantErr)
@@ -294,41 +277,30 @@ func Test_getProjectInfoFromFile(t *testing.T) {
 		name     string
 		want     *argocdv1alpha1.AppProject
 		wantErr  string
-		beforeFn func(fs.FS) (fs.FS, error)
+		beforeFn func(repofs fs.FS)
 	}{
 		"should return error if project file doesn't exist": {
 			name:    "prod.yaml",
-			wantErr: "prod.yaml not found",
+			wantErr: "file does not exist",
 		},
 		"should failed when 2 files not found": {
 			name:    "prod.yaml",
-			wantErr: "expected 2 files when splitting prod.yaml",
-			beforeFn: func(f fs.FS) (fs.FS, error) {
-				err := billyUtils.WriteFile(f, "prod.yaml", []byte("content"), 0666)
-				if err != nil {
-					return nil, err
-				}
-				return f, nil
+			wantErr: "expected at least 2 manifests when reading 'prod.yaml'",
+			beforeFn: func(repofs fs.FS) {
+				_ = billyUtils.WriteFile(repofs, "prod.yaml", []byte("content"), 0666)
 			},
 		},
 		"should return AppProject": {
 			name: "prod.yaml",
-			beforeFn: func(f fs.FS) (fs.FS, error) {
+			beforeFn: func(repofs fs.FS) {
 				appProj := argocdv1alpha1.AppProject{
 					ObjectMeta: v1.ObjectMeta{
 						Name:      "prod",
 						Namespace: "ns",
 					},
 				}
-				appSet := appsetv1alpha1.ApplicationSpec{}
-				projectYAML, _ := yaml.Marshal(&appProj)
-				appsetYAML, _ := yaml.Marshal(&appSet)
-				joinedYAML := util.JoinManifests(projectYAML, appsetYAML)
-				err := billyUtils.WriteFile(f, "prod.yaml", joinedYAML, 0666)
-				if err != nil {
-					return nil, err
-				}
-				return f, nil
+				appSet := appset.ApplicationSet{}
+				_ = repofs.WriteYamls("prod.yaml", appProj, appSet)
 			},
 			want: &argocdv1alpha1.AppProject{
 				ObjectMeta: v1.ObjectMeta{
@@ -342,14 +314,20 @@ func Test_getProjectInfoFromFile(t *testing.T) {
 		t.Run(tName, func(t *testing.T) {
 			repofs := fs.Create(memfs.New())
 			if tt.beforeFn != nil {
-				_, err := tt.beforeFn(repofs)
-				assert.NoError(t, err)
+				tt.beforeFn(repofs)
 			}
+
 			got, _, err := getProjectInfoFromFile(repofs, tt.name)
-			if (err != nil) && tt.wantErr != "" {
-				assert.EqualError(t, err, tt.wantErr)
+			if err != nil {
+				if tt.wantErr != "" {
+					assert.EqualError(t, err, tt.wantErr)
+				} else {
+					t.Errorf("getProjectInfoFromFile() error = %v", err)
+				}
+
 				return
 			}
+
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("getProjectInfoFromFile() = %v, want %v", got, tt.want)
 			}
@@ -362,7 +340,7 @@ func TestRunProjectList(t *testing.T) {
 		opts                   *ProjectListOptions
 		wantErr                string
 		prepareRepo            func(ctx context.Context, o *BaseOptions) (git.Repository, fs.FS, error)
-		getProjectInfoFromFile func(repofs fs.FS, name string) (*argocdv1alpha1.AppProject, *appsetv1alpha1.ApplicationSpec, error)
+		getProjectInfoFromFile func(repofs fs.FS, name string) (*argocdv1alpha1.AppProject, *appset.ApplicationSet, error)
 		assertFn               func(t *testing.T, out io.Writer)
 	}{
 		"should print to table": {
@@ -375,7 +353,7 @@ func TestRunProjectList(t *testing.T) {
 				_ = billyUtils.WriteFile(memfs, "projects/prod.yaml", []byte{}, 0666)
 				return nil, fs.Create(memfs), nil
 			},
-			getProjectInfoFromFile: func(_ fs.FS, _ string) (*argocdv1alpha1.AppProject, *appsetv1alpha1.ApplicationSpec, error) {
+			getProjectInfoFromFile: func(_ fs.FS, _ string) (*argocdv1alpha1.AppProject, *appset.ApplicationSet, error) {
 				appProj := &argocdv1alpha1.AppProject{
 					ObjectMeta: v1.ObjectMeta{
 						Name:      "prod",
@@ -386,7 +364,7 @@ func TestRunProjectList(t *testing.T) {
 			},
 			assertFn: func(t *testing.T, out io.Writer) {
 				str := out.(*bytes.Buffer).String()
-				assert.Contains(t, str, "NAME  NAMESPACE  CLUSTER  \n")
+				assert.Contains(t, str, "NAME  NAMESPACE  DEFAULT CLUSTER  \n")
 				assert.Contains(t, str, "prod  ns  ")
 			},
 		},
