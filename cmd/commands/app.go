@@ -5,9 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
-	"reflect"
 	"text/tabwriter"
 
 	"github.com/argoproj/argocd-autopilot/pkg/application"
@@ -18,15 +16,12 @@ import (
 	"github.com/argoproj/argocd-autopilot/pkg/util"
 
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
-	"github.com/ghodss/yaml"
 	billyUtils "github.com/go-git/go-billy/v5/util"
 	"github.com/spf13/cobra"
-	kusttypes "sigs.k8s.io/kustomize/api/types"
 )
 
 var (
-	ErrAppAlreadyInstalledOnProject = errors.New("application already installed on project")
-	ErrAppCollisionWithExistingBase = errors.New("an application with the same name and a different base already exists, consider choosing a different name")
+	ErrMissingSrcFlag = errors.New("command must include --kust-src OR --dir-src-path flags")
 )
 
 type (
@@ -100,8 +95,6 @@ func NewAppCreateCommand(opts *BaseOptions) *cobra.Command {
 	}
 	appOpts = application.AddFlags(cmd)
 
-	die(cmd.MarkFlagRequired("app"))
-
 	return cmd
 }
 
@@ -111,25 +104,19 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 		return err
 	}
 
-	if opts.AppOpts.DestServer == store.Default.DestServer {
-		opts.AppOpts.DestServer, err = getProjectDestServer(repofs, opts.ProjectName)
-		if err != nil {
-			return err
-		}
+	err = setAppOptsDefaults(repofs, opts)
+	if err != nil {
+		return err
 	}
 
-	if opts.AppOpts.DestNamespace == "" {
-		opts.AppOpts.DestNamespace = "default"
-	}
-
-	app, err := opts.AppOpts.Parse()
+	app, err := opts.AppOpts.Parse(opts.CloneOptions, opts.ProjectName)
 	if err != nil {
 		return fmt.Errorf("failed to parse application from flags: %v", err)
 	}
 
-	if err = createApplicationFiles(repofs, app, opts.ProjectName); err != nil {
-		if errors.Is(err, ErrAppAlreadyInstalledOnProject) {
-			return fmt.Errorf("application '%s' already exists in project '%s': %w", app.Name(), opts.ProjectName, ErrAppAlreadyInstalledOnProject)
+	if err = app.CreateFiles(repofs, opts.ProjectName); err != nil {
+		if errors.Is(err, application.ErrAppAlreadyInstalledOnProject) {
+			return fmt.Errorf("application '%s' already exists in project '%s': %w", app.Name(), opts.ProjectName, err)
 		}
 
 		return err
@@ -145,107 +132,31 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 	return nil
 }
 
-func createApplicationFiles(repoFS fs.FS, app application.Application, projectName string) error {
-	basePath := repoFS.Join(store.Default.KustomizeDir, app.Name(), "base")
-	overlayPath := repoFS.Join(store.Default.KustomizeDir, app.Name(), "overlays", projectName)
+func setAppOptsDefaults(repofs fs.FS, opts *AppCreateOptions) error {
+	var err error
 
-	// create Base
-	baseKustomizationPath := repoFS.Join(basePath, "kustomization.yaml")
-	baseKustomizationYAML, err := yaml.Marshal(app.Base())
-	if err != nil {
-		return fmt.Errorf("failed to marshal app base kustomization: %w", err)
-	}
-
-	if exists, err := writeApplicationFile(repoFS, baseKustomizationPath, "base", baseKustomizationYAML); err != nil {
-		return err
-	} else if exists {
-		// check if the bases are the same
-		log.G().Debug("application base with the same name exists, checking for collisions")
-		if collision, err := checkBaseCollision(repoFS, baseKustomizationPath, app.Base()); err != nil {
-			return err
-		} else if collision {
-			return ErrAppCollisionWithExistingBase
-		}
-	}
-
-	// create Overlay
-	overlayKustomizationPath := repoFS.Join(overlayPath, "kustomization.yaml")
-	overlayKustomizationYAML, err := yaml.Marshal(app.Overlay())
-	if err != nil {
-		return fmt.Errorf("failed to marshal app overlay kustomization: %w", err)
-	}
-
-	if exists, err := writeApplicationFile(repoFS, overlayKustomizationPath, "overlay", overlayKustomizationYAML); err != nil {
-		return err
-	} else if exists {
-		return ErrAppAlreadyInstalledOnProject
-	}
-
-	// get manifests - only used in flat installation mode
-	if app.Manifests() != nil {
-		manifestsPath := repoFS.Join(basePath, "install.yaml")
-		if _, err = writeApplicationFile(repoFS, manifestsPath, "manifests", app.Manifests()); err != nil {
-			return err
-		}
-	}
-
-	// if we override the namespace we also need to write the namespace manifests next to the overlay
-	if app.Namespace() != nil {
-		nsPath := repoFS.Join(overlayPath, "namespace.yaml")
-		nsYAML, err := yaml.Marshal(app.Namespace())
+	if opts.AppOpts.DestServer == store.Default.DestServer {
+		opts.AppOpts.DestServer, err = getProjectDestServer(repofs, opts.ProjectName)
 		if err != nil {
-			return fmt.Errorf("failed to marshal app overlay namespace: %w", err)
-		}
-
-		if _, err = writeApplicationFile(repoFS, nsPath, "application namespace", nsYAML); err != nil {
 			return err
 		}
 	}
 
-	configPath := repoFS.Join(overlayPath, "config.json")
-	config, err := json.Marshal(app.Config())
-	if err != nil {
-		return fmt.Errorf("failed to marshal app config.json: %w", err)
-	}
-
-	if _, err = writeApplicationFile(repoFS, configPath, "config", config); err != nil {
-		return err
+	if opts.AppOpts.DestNamespace == "" {
+		opts.AppOpts.DestNamespace = "default"
 	}
 
 	return nil
 }
 
-func checkBaseCollision(repoFS fs.FS, orgBasePath string, newBase *kusttypes.Kustomization) (bool, error) {
-	f, err := repoFS.Open(orgBasePath)
-	if err != nil {
-		return false, err
+var getProjectDestServer = func(repofs fs.FS, projectName string) (string, error) {
+	path := repofs.Join(store.Default.ProjectsDir, projectName+".yaml")
+	p := &argocdv1alpha1.AppProject{}
+	if err := repofs.ReadYamls(path, p); err != nil {
+		return "", fmt.Errorf("failed to unmarshal project: %w", err)
 	}
 
-	data, err := ioutil.ReadAll(f)
-	if err != nil {
-		return false, err
-	}
-
-	orgBase := &kusttypes.Kustomization{}
-	if err = yaml.Unmarshal(data, orgBase); err != nil {
-		return false, err
-	}
-
-	return !reflect.DeepEqual(orgBase, newBase), nil
-}
-
-func writeApplicationFile(repoFS fs.FS, path, name string, data []byte) (bool, error) {
-	absPath := repoFS.Join(repoFS.Root(), path)
-	exists, err := repoFS.CheckExistsOrWrite(path, data)
-	if err != nil {
-		return false, fmt.Errorf("failed to create '%s' file at '%s': %w", name, absPath, err)
-	} else if exists {
-		log.G().Infof("'%s' file exists in '%s'", name, absPath)
-		return true, nil
-	}
-
-	log.G().Infof("created '%s' file at '%s'", name, absPath)
-	return false, nil
+	return p.Annotations[store.Default.DestServerAnnotation], nil
 }
 
 func getCommitMsg(opts *AppCreateOptions, repofs fs.FS) string {
@@ -255,25 +166,6 @@ func getCommitMsg(opts *AppCreateOptions, repofs fs.FS) string {
 	}
 
 	return commitMsg
-}
-
-var getProjectDestServer = func(repofs fs.FS, projectName string) (string, error) {
-	f, err := repofs.Open(repofs.Join(store.Default.ProjectsDir, projectName+".yaml"))
-	if err != nil {
-		return "", err
-	}
-
-	d, err := ioutil.ReadAll(f)
-	if err != nil {
-		return "", fmt.Errorf("failed to read namespace file: %w", err)
-	}
-
-	p := &argocdv1alpha1.AppProject{}
-	if err = yaml.Unmarshal(d, p); err != nil {
-		return "", fmt.Errorf("failed to unmarshal project: %w", err)
-	}
-
-	return p.Annotations[store.Default.DestServerAnnotation], nil
 }
 
 func NewAppListCommand(opts *BaseOptions) *cobra.Command {
@@ -323,8 +215,8 @@ func RunAppList(ctx context.Context, opts *BaseOptions) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	_, _ = fmt.Fprintf(w, "PROJECT\tNAME\tDEST_NAMESPACE\tDEST_SERVER\t\n")
 
-	for _, appName := range matches {
-		conf, err := getConfigFileFromPath(repofs, appName)
+	for _, appPath := range matches {
+		conf, err := getConfigFileFromPath(repofs, appPath)
 		if err != nil {
 			return err
 		}
@@ -336,22 +228,17 @@ func RunAppList(ctx context.Context, opts *BaseOptions) error {
 	return nil
 }
 
-func getConfigFileFromPath(fs fs.FS, appName string) (*application.Config, error) {
-	confFileName := fmt.Sprintf("%s/config.json", appName)
-	file, err := fs.Open(confFileName)
+func getConfigFileFromPath(repofs fs.FS, appPath string) (*application.Config, error) {
+	path := repofs.Join(appPath, "config.json")
+	b, err := repofs.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("%s not found", confFileName)
-	}
-
-	b, err := ioutil.ReadAll(file)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read file %s", confFileName)
+		return nil, fmt.Errorf("failed to read file %s", path)
 	}
 
 	conf := application.Config{}
 	err = json.Unmarshal(b, &conf)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal file %s", confFileName)
+		return nil, fmt.Errorf("failed to unmarshal file %s", path)
 	}
 
 	return &conf, nil

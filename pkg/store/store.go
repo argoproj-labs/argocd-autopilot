@@ -51,7 +51,7 @@ var Default = struct {
 	DestServer           string
 	DestServerAnnotation string
 }{
-	KustomizeDir:         "kustomize",
+	KustomizeDir:         "apps",
 	BootsrtrapDir:        "bootstrap",
 	OverlaysDir:          "overlays",
 	BaseDir:              "base",

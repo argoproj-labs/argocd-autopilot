@@ -362,7 +362,7 @@ func TestRunProjectList(t *testing.T) {
 		opts                   *ProjectListOptions
 		wantErr                string
 		prepareRepo            func(ctx context.Context, o *BaseOptions) (git.Repository, fs.FS, error)
-		getProjectInfoFromFile func(fs fs.FS, name string) (*argocdv1alpha1.AppProject, *appsetv1alpha1.ApplicationSpec, error)
+		getProjectInfoFromFile func(repofs fs.FS, name string) (*argocdv1alpha1.AppProject, *appsetv1alpha1.ApplicationSpec, error)
 		assertFn               func(t *testing.T, out io.Writer)
 	}{
 		"should print to table": {

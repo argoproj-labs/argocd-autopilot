@@ -398,11 +398,11 @@ func setBootstrapOptsDefaults(opts RepoBootstrapOptions) (*RepoBootstrapOptions,
 	return &opts, nil
 }
 
-func validateRepo(fs fs.FS) error {
+func validateRepo(repofs fs.FS) error {
 	folders := []string{store.Default.BootsrtrapDir, store.Default.ProjectsDir}
 	for _, folder := range folders {
-		if fs.ExistsOrDie(folder) {
-			return fmt.Errorf("folder %s already exist in: %s", folder, fs.Join(fs.Root(), folder))
+		if repofs.ExistsOrDie(folder) {
+			return fmt.Errorf("folder %s already exist in: %s", folder, repofs.Join(repofs.Root(), folder))
 		}
 	}
 

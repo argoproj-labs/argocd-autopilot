@@ -1,12 +1,17 @@
 package application
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
+	"reflect"
 
+	"github.com/argoproj/argocd-autopilot/pkg/fs"
+	"github.com/argoproj/argocd-autopilot/pkg/git"
 	"github.com/argoproj/argocd-autopilot/pkg/kube"
 	"github.com/argoproj/argocd-autopilot/pkg/log"
 	"github.com/argoproj/argocd-autopilot/pkg/store"
@@ -28,50 +33,50 @@ const (
 
 var (
 	// Errors
-	ErrEmptyAppSpecifier = errors.New("empty app specifier not allowed")
-	ErrEmptyAppName      = errors.New("app name cannot be empty, please specify application name with: --app-name")
+	ErrEmptyApp                     = errors.New("empty app not allowed")
+	ErrEmptyAppName                 = errors.New("app name cannot be empty, please specify application name with: --app-name")
+	ErrAppAlreadyInstalledOnProject = errors.New("application already installed on project")
+	ErrAppCollisionWithExistingBase = errors.New("an application with the same name and a different base already exists, consider choosing a different name")
+	ErrUnknownAppType               = errors.New("unknown application type")
 )
 
 type (
 	Application interface {
 		Name() string
 
-		// Base returns the base kustomization file for this app.
-		Base() *kusttypes.Kustomization
-
-		// Manifests returns all of the applications manifests in case flat installation mode is used
-		Manifests() []byte
-
-		// Overlay returns the overlay kustomization object that is looking on this
-		// app.Base() file.
-		Overlay() *kusttypes.Kustomization
-
-		// Namespace returns a Namespace object for the application's namespace
-		Namespace() *v1.Namespace
-
-		// Config returns this app's config.json file that should be next to the overlay
-		// kustomization.yaml file. This is used by the environment's application set
-		// to generate the final argo-cd application.
-		Config() *Config
+		CreateFiles(repofs fs.FS, projectName string) error
 	}
 
 	Config struct {
-		AppName       string `json:"appName,omitempty"`
-		UserGivenName string `json:"userGivenName,omitempty"`
-		DestNamespace string `json:"destNamespace,omitempty"`
-		DestServer    string `json:"destServer,omitempty"`
+		AppName           string `json:"appName"`
+		UserGivenName     string `json:"userGivenName"`
+		DestNamespace     string `json:"destNamespace"`
+		DestServer        string `json:"destServer"`
+		SrcPath           string `json:"srcPath"`
+		SrcRepoURL        string `json:"srcRepoURL"`
+		SrcTargetRevision string `json:"srcTargetRevision"`
 	}
 
 	CreateOptions struct {
-		AppSpecifier     string
 		AppName          string
+		AppType          string
+		App              string
 		DestNamespace    string
 		DestServer       string
 		InstallationMode string
 	}
 
-	application struct {
-		opts      *CreateOptions
+	baseApp struct {
+		opts *CreateOptions
+	}
+
+	dirApp struct {
+		baseApp
+		config *Config
+	}
+
+	kustApp struct {
+		baseApp
 		base      *kusttypes.Kustomization
 		overlay   *kusttypes.Kustomization
 		manifests []byte
@@ -83,8 +88,8 @@ type (
 // AddFlags adds application creation flags to cmd.
 func AddFlags(cmd *cobra.Command) *CreateOptions {
 	co := &CreateOptions{}
-
-	cmd.Flags().StringVar(&co.AppSpecifier, "app", "", "The application specifier (e.g. argocd@v1.0.2)")
+	cmd.Flags().StringVar(&co.App, "app", "", "The application specifier")
+	cmd.Flags().StringVar(&co.AppType, "type", "kustomize", "The application type (kustomize|directory)")
 	cmd.Flags().StringVar(&co.DestServer, "dest-server", store.Default.DestServer, fmt.Sprintf("K8s cluster URL (e.g. %s)", store.Default.DestServer))
 	cmd.Flags().StringVar(&co.DestNamespace, "dest-namespace", "", "K8s target namespace (overrides the namespace specified in the kustomization.yaml)")
 	cmd.Flags().StringVar(&co.InstallationMode, "installation-mode", InstallationModeNormal, "One of: normal|flat. "+
@@ -107,64 +112,36 @@ func GenerateManifests(k *kusttypes.Kustomization) ([]byte, error) {
 
 /* CreateOptions impl */
 // Parse tries to parse `CreateOptions` into an `Application`.
-func (o *CreateOptions) Parse() (Application, error) {
-	return parseApplication(o)
+func (o *CreateOptions) Parse(co *git.CloneOptions, projectName string) (Application, error) {
+	appType := o.AppType
+	if appType == "" {
+		appType = inferAppType()
+	}
+
+	switch appType {
+	case "kustomize":
+		return newKustApp(o, co, projectName)
+	case "directory":
+		return newDirApp(o), nil
+	default:
+		return nil, ErrUnknownAppType
+	}
 }
 
-/* Application impl */
-func (app *application) Name() string {
+/* baseApp Application impl */
+func (app *baseApp) Name() string {
 	return app.opts.AppName
 }
 
-func (app *application) Base() *kusttypes.Kustomization {
-	return app.base
-}
-
-func (app *application) Overlay() *kusttypes.Kustomization {
-	return app.overlay
-}
-
-func (app *application) Namespace() *v1.Namespace {
-	return app.namespace
-}
-
-func (app *application) Config() *Config {
-	return app.config
-}
-
-func (app *application) Manifests() []byte {
-	return app.manifests
-}
-
-// fixResourcesPaths adjusts all relative paths in the kustomization file to the specified
-// `kustomizationPath`.
-func fixResourcesPaths(k *kusttypes.Kustomization, kustomizationPath string) error {
-	for i, path := range k.Resources {
-		// if path is a local file
-		if _, err := os.Stat(path); err != nil && os.IsNotExist(err) {
-			continue
-		}
-
-		ap, err := filepath.Abs(path)
-		if err != nil {
-			return err
-		}
-
-		k.Resources[i], err = filepath.Rel(kustomizationPath, ap)
-		if err != nil {
-			return err
-		}
+/* kustApp Application impl */
+func newKustApp(o *CreateOptions, co *git.CloneOptions, projectName string) (*kustApp, error) {
+	var err error
+	app := &kustApp{
+		baseApp: baseApp{o},
 	}
 
-	return nil
-}
-
-func parseApplication(o *CreateOptions) (*application, error) {
-	var err error
-	app := &application{opts: o}
-
-	if o.AppSpecifier == "" {
-		return nil, ErrEmptyAppSpecifier
+	if o.App == "" {
+		return nil, ErrEmptyApp
 	}
 
 	if o.AppName == "" {
@@ -180,10 +157,10 @@ func parseApplication(o *CreateOptions) (*application, error) {
 	}
 
 	// if app specifier is a local file
-	if _, err := os.Stat(o.AppSpecifier); err == nil {
+	if _, err := os.Stat(o.App); err == nil {
 		log.G().Warn("using flat installation mode because base is a local file")
 		o.InstallationMode = InstallationModeFlat
-		o.AppSpecifier, err = filepath.Abs(o.AppSpecifier)
+		o.App, err = filepath.Abs(o.App)
 		if err != nil {
 			return nil, err
 		}
@@ -194,7 +171,7 @@ func parseApplication(o *CreateOptions) (*application, error) {
 			APIVersion: kusttypes.KustomizationVersion,
 			Kind:       kusttypes.KustomizationKind,
 		},
-		Resources: []string{o.AppSpecifier},
+		Resources: []string{o.App},
 	}
 
 	if o.InstallationMode == InstallationModeFlat {
@@ -224,13 +201,174 @@ func parseApplication(o *CreateOptions) (*application, error) {
 	}
 
 	app.config = &Config{
-		AppName:       o.AppName,
-		UserGivenName: o.AppName,
-		DestNamespace: o.DestNamespace,
-		DestServer:    o.DestServer,
+		AppName:           o.AppName,
+		UserGivenName:     o.AppName,
+		DestNamespace:     o.DestNamespace,
+		DestServer:        o.DestServer,
+		SrcRepoURL:        co.URL,
+		SrcPath:           filepath.Join(store.Default.KustomizeDir, o.AppName, store.Default.OverlaysDir, projectName),
+		SrcTargetRevision: co.Revision,
 	}
 
 	return app, nil
+}
+
+func (app *kustApp) CreateFiles(repofs fs.FS, projectName string) error {
+	return kustCreateFiles(app, repofs, projectName)
+}
+
+func kustCreateFiles(app *kustApp, repofs fs.FS, projectName string) error {
+	// create Base
+	basePath := repofs.Join(store.Default.KustomizeDir, app.Name(), "base")
+	baseKustomizationPath := repofs.Join(basePath, "kustomization.yaml")
+	baseKustomizationYAML, err := yaml.Marshal(app.base)
+	if err != nil {
+		return fmt.Errorf("failed to marshal app base kustomization: %w", err)
+	}
+
+	if exists, err := writeFile(repofs, baseKustomizationPath, "base", baseKustomizationYAML); err != nil {
+		return err
+	} else if exists {
+		// check if the bases are the same
+		log.G().Debug("application base with the same name exists, checking for collisions")
+		if collision, err := checkBaseCollision(repofs, baseKustomizationPath, app.base); err != nil {
+			return err
+		} else if collision {
+			return ErrAppCollisionWithExistingBase
+		}
+	}
+
+	// create Overlay
+	overlayPath := repofs.Join(store.Default.KustomizeDir, app.Name(), "overlays", projectName)
+	overlayKustomizationPath := repofs.Join(overlayPath, "kustomization.yaml")
+	overlayKustomizationYAML, err := yaml.Marshal(app.overlay)
+	if err != nil {
+		return fmt.Errorf("failed to marshal app overlay kustomization: %w", err)
+	}
+
+	if exists, err := writeFile(repofs, overlayKustomizationPath, "overlay", overlayKustomizationYAML); err != nil {
+		return err
+	} else if exists {
+		return ErrAppAlreadyInstalledOnProject
+	}
+
+	// get manifests - only used in flat installation mode
+	if app.manifests != nil {
+		manifestsPath := repofs.Join(basePath, "install.yaml")
+		if _, err = writeFile(repofs, manifestsPath, "manifests", app.manifests); err != nil {
+			return err
+		}
+	}
+
+	// if we override the namespace we also need to write the namespace manifests next to the overlay
+	if app.namespace != nil {
+		nsPath := repofs.Join(overlayPath, "namespace.yaml")
+		nsYAML, err := yaml.Marshal(app.namespace)
+		if err != nil {
+			return fmt.Errorf("failed to marshal app overlay namespace: %w", err)
+		}
+
+		if _, err = writeFile(repofs, nsPath, "application namespace", nsYAML); err != nil {
+			return err
+		}
+	}
+
+	configPath := repofs.Join(overlayPath, "config.json")
+	config, err := json.Marshal(app.config)
+	if err != nil {
+		return fmt.Errorf("failed to marshal app config.json: %w", err)
+	}
+
+	if _, err = writeFile(repofs, configPath, "config", config); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+/* dirApp Application impl */
+func newDirApp(opts *CreateOptions) *dirApp {
+	app := &dirApp{
+		baseApp: baseApp{opts},
+	}
+
+	host, orgRepo, p, gitRef, _, _, _ := parseGitUrl(opts.App)
+
+	app.config = &Config{
+		AppName:           opts.AppName,
+		UserGivenName:     opts.AppName,
+		DestNamespace:     opts.DestNamespace,
+		DestServer:        opts.DestServer,
+		SrcRepoURL:        path.Join(host, orgRepo),
+		SrcPath:           p,
+		SrcTargetRevision: gitRef,
+	}
+
+	return app
+}
+
+func (app *dirApp) CreateFiles(repofs fs.FS, projectName string) error {
+	configPath := repofs.Join("apps", app.opts.AppName, projectName, "config.json")
+	config, err := json.Marshal(app.config)
+	if err != nil {
+		return fmt.Errorf("failed to marshal app config.json: %w", err)
+	}
+
+	if _, err = writeFile(repofs, configPath, "config", config); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func inferAppType() string {
+	return "kustomize"
+}
+
+func writeFile(repofs fs.FS, path, name string, data []byte) (bool, error) {
+	absPath := repofs.Join(repofs.Root(), path)
+	exists, err := repofs.CheckExistsOrWrite(path, data)
+	if err != nil {
+		return false, fmt.Errorf("failed to create '%s' file at '%s': %w", name, absPath, err)
+	} else if exists {
+		log.G().Infof("'%s' file exists in '%s'", name, absPath)
+		return true, nil
+	}
+
+	log.G().Infof("created '%s' file at '%s'", name, absPath)
+	return false, nil
+}
+
+func checkBaseCollision(repofs fs.FS, orgBasePath string, newBase *kusttypes.Kustomization) (bool, error) {
+	orgBase := &kusttypes.Kustomization{}
+	if err := repofs.ReadYamls(orgBasePath, orgBase); err != nil {
+		return false, err
+	}
+
+	return !reflect.DeepEqual(orgBase, newBase), nil
+}
+
+// fixResourcesPaths adjusts all relative paths in the kustomization file to the specified
+// `kustomizationPath`.
+func fixResourcesPaths(k *kusttypes.Kustomization, kustomizationPath string) error {
+	for i, path := range k.Resources {
+		// if path is a local file
+		if _, err := os.Stat(path); err != nil && os.IsNotExist(err) {
+			continue
+		}
+
+		ap, err := filepath.Abs(path)
+		if err != nil {
+			return err
+		}
+
+		k.Resources[i], err = filepath.Rel(kustomizationPath, ap)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 var generateManifests = func(k *kusttypes.Kustomization) ([]byte, error) {
