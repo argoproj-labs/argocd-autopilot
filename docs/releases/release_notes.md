@@ -1,6 +1,6 @@
 ## Changes:
-* new logo!
-* updated docs
+* fixed `--namespaced` bootstrap
+* implemented [#59](https://github.com/argoproj-labs/argocd-autopilot/issues/59)
 
 ## Installation:
 

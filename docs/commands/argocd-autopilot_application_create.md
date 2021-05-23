@@ -34,7 +34,7 @@ argocd-autopilot application create [APP_NAME] [flags]
       --dest-server string         K8s cluster URL (e.g. https://kubernetes.default.svc) (default "https://kubernetes.default.svc")
   -h, --help                       help for create
       --installation-mode string   One of: normal|flat. If flat, will commit the application manifests (after running kustomize build), otherwise will commit the kustomization.yaml (default "normal")
-      --type string                The application type (kustomize|directory) (default "kustomize")
+      --type string                The application type (kustomize|directory)
 ```
 
 ### Options inherited from parent commands
