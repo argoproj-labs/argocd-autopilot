@@ -16,6 +16,7 @@ import (
 	"github.com/argoproj/argocd-autopilot/pkg/util"
 
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
+	memfs "github.com/go-git/go-billy/v5/memfs"
 	billyUtils "github.com/go-git/go-billy/v5/util"
 	"github.com/spf13/cobra"
 )
@@ -104,12 +105,12 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 		return err
 	}
 
-	err = setAppOptsDefaults(repofs, opts)
+	err = setAppOptsDefaults(ctx, repofs, opts)
 	if err != nil {
 		return err
 	}
 
-	app, err := opts.AppOpts.Parse(opts.CloneOptions, opts.ProjectName)
+	app, err := opts.AppOpts.Parse(ctx, opts.CloneOptions, opts.ProjectName)
 	if err != nil {
 		return fmt.Errorf("failed to parse application from flags: %v", err)
 	}
@@ -132,7 +133,7 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 	return nil
 }
 
-func setAppOptsDefaults(repofs fs.FS, opts *AppCreateOptions) error {
+func setAppOptsDefaults(ctx context.Context, repofs fs.FS, opts *AppCreateOptions) error {
 	var err error
 
 	if opts.AppOpts.DestServer == store.Default.DestServer {
@@ -144,6 +145,24 @@ func setAppOptsDefaults(repofs fs.FS, opts *AppCreateOptions) error {
 
 	if opts.AppOpts.DestNamespace == "" {
 		opts.AppOpts.DestNamespace = "default"
+	}
+
+	if opts.AppOpts.AppType == "" {
+		host, orgRepo, p, gitRef, _, _, _ := util.ParseGitUrl(opts.AppOpts.App)
+		url := host + orgRepo
+		log.G().Infof("Cloning repo: '%s', to infer app type from path '%s'", url, p)
+		cloneOpts := &git.CloneOptions{
+			URL:      url,
+			Revision: gitRef,
+			RepoRoot: p,
+			Auth: opts.CloneOptions.Auth,
+		}
+		_, repofs, err := cloneOpts.Clone(ctx, fs.Create(memfs.New()))
+		if err != nil {
+			return err
+		}
+
+		opts.AppOpts.AppType = application.InferAppType(repofs)
 	}
 
 	return nil

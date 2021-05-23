@@ -1,7 +1,7 @@
 // Copyright 2019 The Kubernetes Authors.
 // SPDX-License-Identifier: Apache-2.0
 
-package application
+package util
 
 import (
 	"net/url"
@@ -18,7 +18,7 @@ const (
 // From strings like git@github.com:someOrg/someRepo.git or
 // https://github.com/someOrg/someRepo?ref=someHash, extract
 // the parts.
-func parseGitUrl(n string) (
+func ParseGitUrl(n string) (
 	host string, orgRepo string, path string, gitRef string, gitSubmodules bool, gitSuff string, gitTimeout time.Duration) {
 
 	if strings.Contains(n, gitDelimiter) {

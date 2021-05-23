@@ -1,12 +1,12 @@
 package application
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"reflect"
 
@@ -15,6 +15,7 @@ import (
 	"github.com/argoproj/argocd-autopilot/pkg/kube"
 	"github.com/argoproj/argocd-autopilot/pkg/log"
 	"github.com/argoproj/argocd-autopilot/pkg/store"
+	"github.com/argoproj/argocd-autopilot/pkg/util"
 
 	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
@@ -89,13 +90,30 @@ type (
 func AddFlags(cmd *cobra.Command) *CreateOptions {
 	co := &CreateOptions{}
 	cmd.Flags().StringVar(&co.App, "app", "", "The application specifier")
-	cmd.Flags().StringVar(&co.AppType, "type", "kustomize", "The application type (kustomize|directory)")
+	cmd.Flags().StringVar(&co.AppType, "type", "", "The application type (kustomize|directory)")
 	cmd.Flags().StringVar(&co.DestServer, "dest-server", store.Default.DestServer, fmt.Sprintf("K8s cluster URL (e.g. %s)", store.Default.DestServer))
 	cmd.Flags().StringVar(&co.DestNamespace, "dest-namespace", "", "K8s target namespace (overrides the namespace specified in the kustomization.yaml)")
 	cmd.Flags().StringVar(&co.InstallationMode, "installation-mode", InstallationModeNormal, "One of: normal|flat. "+
 		"If flat, will commit the application manifests (after running kustomize build), otherwise will commit the kustomization.yaml")
 
 	return co
+}
+
+// using heuristic from https://argoproj.github.io/argo-cd/user-guide/tool_detection/#tool-detection
+func InferAppType(repofs fs.FS) string {
+	if repofs.ExistsOrDie("app.yaml") && repofs.ExistsOrDie("components/params.libsonnet") {
+		return "ksonnet"
+	}
+
+	if repofs.ExistsOrDie("Chart.yaml") {
+		return "helm"
+	}
+
+	if repofs.ExistsOrDie("kustomization.yaml") || repofs.ExistsOrDie("kustomization.yml") || repofs.ExistsOrDie("Kustomization") {
+		return "kustomize"
+	}
+
+	return "directory"
 }
 
 // GenerateManifests writes the in-memory kustomization to disk, fixes relative resources and
@@ -112,13 +130,8 @@ func GenerateManifests(k *kusttypes.Kustomization) ([]byte, error) {
 
 /* CreateOptions impl */
 // Parse tries to parse `CreateOptions` into an `Application`.
-func (o *CreateOptions) Parse(co *git.CloneOptions, projectName string) (Application, error) {
-	appType := o.AppType
-	if appType == "" {
-		appType = inferAppType()
-	}
-
-	switch appType {
+func (o *CreateOptions) Parse(ctx context.Context, co *git.CloneOptions, projectName string) (Application, error) {
+	switch o.AppType {
 	case "kustomize":
 		return newKustApp(o, co, projectName)
 	case "directory":
@@ -292,15 +305,15 @@ func newDirApp(opts *CreateOptions) *dirApp {
 		baseApp: baseApp{opts},
 	}
 
-	host, orgRepo, p, gitRef, _, _, _ := parseGitUrl(opts.App)
+	host, orgRepo, path, gitRef, _, _, _ := util.ParseGitUrl(opts.App)
 
 	app.config = &Config{
 		AppName:           opts.AppName,
 		UserGivenName:     opts.AppName,
 		DestNamespace:     opts.DestNamespace,
 		DestServer:        opts.DestServer,
-		SrcRepoURL:        path.Join(host, orgRepo),
-		SrcPath:           p,
+		SrcRepoURL:        host + orgRepo,
+		SrcPath:           path,
 		SrcTargetRevision: gitRef,
 	}
 
@@ -319,10 +332,6 @@ func (app *dirApp) CreateFiles(repofs fs.FS, projectName string) error {
 	}
 
 	return nil
-}
-
-func inferAppType() string {
-	return "kustomize"
 }
 
 func writeFile(repofs fs.FS, path, name string, data []byte) (bool, error) {
