@@ -104,7 +104,7 @@ func (fs *fsimpl) ReadYamls(filename string, o ...interface{}) error {
 	}
 
 	for i, y := range yamls {
-		if y == nil {
+		if o[i] == nil {
 			continue
 		}
 

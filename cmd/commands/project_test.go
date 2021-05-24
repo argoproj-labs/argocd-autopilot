@@ -281,7 +281,7 @@ func Test_getProjectInfoFromFile(t *testing.T) {
 	}{
 		"should return error if project file doesn't exist": {
 			name:    "prod.yaml",
-			wantErr: "file does not exist",
+			wantErr: os.ErrNotExist.Error(),
 		},
 		"should failed when 2 files not found": {
 			name:    "prod.yaml",
