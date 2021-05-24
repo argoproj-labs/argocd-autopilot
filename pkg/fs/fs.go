@@ -120,8 +120,8 @@ func (fs *fsimpl) ReadYamls(filename string, o ...interface{}) error {
 func (fs *fsimpl) WriteYamls(filename string, o ...interface{}) error {
 	var err error
 	yamls := make([][]byte, len(o))
-	for i := 0; i < len(o); i++ {
-		yamls[i], err = yaml.Marshal(o[i])
+	for i, e := range o {
+		yamls[i], err = yaml.Marshal(e)
 		if err != nil {
 			return err
 		}
