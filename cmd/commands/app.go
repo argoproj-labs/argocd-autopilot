@@ -111,7 +111,7 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 		return err
 	}
 
-	app, err := opts.AppOpts.Parse(ctx, opts.CloneOptions, opts.ProjectName)
+	app, err := opts.AppOpts.Parse(opts.CloneOptions, opts.ProjectName)
 	if err != nil {
 		return fmt.Errorf("failed to parse application from flags: %v", err)
 	}
@@ -149,7 +149,7 @@ func setAppOptsDefaults(ctx context.Context, repofs fs.FS, opts *AppCreateOption
 	}
 
 	if opts.AppOpts.AppType == "" {
-		host, orgRepo, p, gitRef, _, _, _ := util.ParseGitUrl(opts.AppOpts.App)
+		host, orgRepo, p, gitRef, _, _, _ := util.ParseGitUrl(opts.AppOpts.AppSpecifier)
 		url := host + orgRepo
 		log.G().Infof("Cloning repo: '%s', to infer app type from path '%s'", url, p)
 		cloneOpts := &git.CloneOptions{
@@ -227,7 +227,7 @@ func RunAppList(ctx context.Context, opts *BaseOptions) error {
 	}
 
 	// get all apps beneath kustomize <project>\overlayes
-	matches, err := billyUtils.Glob(repofs, repofs.Join(store.Default.KustomizeDir, "*", store.Default.OverlaysDir, opts.ProjectName))
+	matches, err := billyUtils.Glob(repofs, repofs.Join(store.Default.AppsDir, "*", store.Default.OverlaysDir, opts.ProjectName))
 	if err != nil {
 		log.G().Fatalf("failed to run glob on %s", opts.ProjectName)
 	}
@@ -318,7 +318,7 @@ func RunAppDelete(ctx context.Context, opts *AppDeleteOptions) error {
 		return err
 	}
 
-	appDir := repofs.Join(store.Default.KustomizeDir, opts.AppName)
+	appDir := repofs.Join(store.Default.AppsDir, opts.AppName)
 	appExists := repofs.ExistsOrDie(appDir)
 	if !appExists {
 		return fmt.Errorf(util.Doc(fmt.Sprintf("application '%s' not found", opts.AppName)))

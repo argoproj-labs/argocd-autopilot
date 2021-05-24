@@ -145,13 +145,13 @@ func TestRunAppDelete(t *testing.T) {
 		"Should fail if deletion of entire app directory fails": {
 			appName: "app",
 			global:  true,
-			wantErr: fmt.Sprintf("failed to delete directory '%s': some error", filepath.Join(store.Default.KustomizeDir, "app")),
+			wantErr: fmt.Sprintf("failed to delete directory '%s': some error", filepath.Join(store.Default.AppsDir, "app")),
 			prepareRepo: func() (git.Repository, fs.FS, error) {
 				mfs := &fsmocks.FS{}
 				mfs.On("Join", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(func(elem ...string) string {
 					return strings.Join(elem, "/")
 				})
-				path := filepath.Join(store.Default.KustomizeDir, "app")
+				path := filepath.Join(store.Default.AppsDir, "app")
 				mfs.On("ExistsOrDie", path).Return(true)
 				mfs.On("Remove", path).Return(fmt.Errorf("some error"))
 				mfs.On("Stat", path).Return(nil, fmt.Errorf("some error"))
@@ -163,7 +163,7 @@ func TestRunAppDelete(t *testing.T) {
 			global:  true,
 			prepareRepo: func() (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
-				_ = memfs.MkdirAll(filepath.Join(store.Default.KustomizeDir, "app", store.Default.OverlaysDir, "project"), 0666)
+				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project"), 0666)
 				mockRepo := &gitmocks.Repository{}
 				mockRepo.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
 					CommitMsg: "Deleted app 'app'",
@@ -172,7 +172,7 @@ func TestRunAppDelete(t *testing.T) {
 			},
 			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
 				repo.(*gitmocks.Repository).AssertExpectations(t)
-				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.KustomizeDir, "app")))
+				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app")))
 			},
 		},
 		"Should fail when overlay does not exist": {
@@ -181,22 +181,22 @@ func TestRunAppDelete(t *testing.T) {
 			wantErr:     "application 'app' not found in project 'project'",
 			prepareRepo: func() (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
-				_ = memfs.MkdirAll(filepath.Join(store.Default.KustomizeDir, "app", store.Default.OverlaysDir, "project2"), 0666)
+				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project2"), 0666)
 				return nil, fs.Create(memfs), nil
 			},
 		},
 		"Should fail if ReadDir fails": {
 			appName:     "app",
 			projectName: "project",
-			wantErr:     fmt.Sprintf("failed to read overlays directory '%s': some error", filepath.Join(store.Default.KustomizeDir, "app", store.Default.OverlaysDir)),
+			wantErr:     fmt.Sprintf("failed to read overlays directory '%s': some error", filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir)),
 			prepareRepo: func() (git.Repository, fs.FS, error) {
 				mfs := &fsmocks.FS{}
 				mfs.On("Join", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(func(elem ...string) string {
 					return strings.Join(elem, "/")
 				})
-				mfs.On("ExistsOrDie", filepath.Join(store.Default.KustomizeDir, "app")).Return(true)
-				mfs.On("ExistsOrDie", filepath.Join(store.Default.KustomizeDir, "app", store.Default.OverlaysDir, "project")).Return(true)
-				mfs.On("ReadDir", filepath.Join(store.Default.KustomizeDir, "app", store.Default.OverlaysDir)).Return(nil, fmt.Errorf("some error"))
+				mfs.On("ExistsOrDie", filepath.Join(store.Default.AppsDir, "app")).Return(true)
+				mfs.On("ExistsOrDie", filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project")).Return(true)
+				mfs.On("ReadDir", filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir)).Return(nil, fmt.Errorf("some error"))
 				return nil, mfs, nil
 			},
 		},
@@ -205,8 +205,8 @@ func TestRunAppDelete(t *testing.T) {
 			projectName: "project",
 			prepareRepo: func() (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
-				_ = memfs.MkdirAll(filepath.Join(store.Default.KustomizeDir, "app", store.Default.OverlaysDir, "project"), 0666)
-				_ = memfs.MkdirAll(filepath.Join(store.Default.KustomizeDir, "app", store.Default.OverlaysDir, "project2"), 0666)
+				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project"), 0666)
+				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project2"), 0666)
 				mockRepo := &gitmocks.Repository{}
 				mockRepo.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
 					CommitMsg: "Deleted app 'app' from project 'project'",
@@ -215,8 +215,8 @@ func TestRunAppDelete(t *testing.T) {
 			},
 			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
 				repo.(*gitmocks.Repository).AssertExpectations(t)
-				assert.True(t, repofs.ExistsOrDie(filepath.Join(store.Default.KustomizeDir, "app", store.Default.OverlaysDir)))
-				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.KustomizeDir, "app", store.Default.OverlaysDir, "project")))
+				assert.True(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir)))
+				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project")))
 			},
 		},
 		"Should delete entire app directory, if there are no more overlays": {
@@ -224,7 +224,7 @@ func TestRunAppDelete(t *testing.T) {
 			projectName: "project",
 			prepareRepo: func() (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
-				_ = memfs.MkdirAll(filepath.Join(store.Default.KustomizeDir, "app", store.Default.OverlaysDir, "project"), 0666)
+				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project"), 0666)
 				mockRepo := &gitmocks.Repository{}
 				mockRepo.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
 					CommitMsg: "Deleted app 'app'",
@@ -233,7 +233,7 @@ func TestRunAppDelete(t *testing.T) {
 			},
 			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
 				repo.(*gitmocks.Repository).AssertExpectations(t)
-				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.KustomizeDir, "app")))
+				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app")))
 			},
 		},
 		"Should fail if Persist fails": {
@@ -242,7 +242,7 @@ func TestRunAppDelete(t *testing.T) {
 			wantErr: "failed to push to repo: some error",
 			prepareRepo: func() (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
-				_ = memfs.MkdirAll(filepath.Join(store.Default.KustomizeDir, "app", store.Default.OverlaysDir, "project"), 0666)
+				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project"), 0666)
 				mockRepo := &gitmocks.Repository{}
 				mockRepo.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
 					CommitMsg: "Deleted app 'app'",
@@ -251,7 +251,7 @@ func TestRunAppDelete(t *testing.T) {
 			},
 			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
 				repo.(*gitmocks.Repository).AssertExpectations(t)
-				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.KustomizeDir, "app")))
+				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app")))
 			},
 		},
 	}

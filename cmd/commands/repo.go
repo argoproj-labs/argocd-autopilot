@@ -627,7 +627,7 @@ func writeManifestsToRepo(repoFS fs.FS, manifests *bootstrapManifests, installat
 	}
 
 	// write ./kustomize/README.md
-	if err = billyUtils.WriteFile(repoFS, repoFS.Join(store.Default.KustomizeDir, "README.md"), kustomizationReadme, 0666); err != nil {
+	if err = billyUtils.WriteFile(repoFS, repoFS.Join(store.Default.AppsDir, "README.md"), kustomizationReadme, 0666); err != nil {
 		return err
 	}
 

@@ -257,7 +257,7 @@ var generateProject = func(o *GenerateProjectOptions) (*argocdv1alpha1.AppProjec
 						Revision: o.Revision,
 						Files: []appset.GitFileGeneratorItem{
 							{
-								Path: filepath.Join(o.InstallationPath, "apps", "**", o.Name, "config.json"),
+								Path: filepath.Join(o.InstallationPath, store.Default.AppsDir, "**", o.Name, "config.json"),
 							},
 						},
 						RequeueAfterSeconds: &DefaultApplicationSetGeneratorInterval,
@@ -416,7 +416,7 @@ func RunProjectDelete(ctx context.Context, opts *BaseOptions) error {
 		return err
 	}
 
-	projectPattern := repofs.Join(store.Default.KustomizeDir, "*", store.Default.OverlaysDir, opts.ProjectName)
+	projectPattern := repofs.Join(store.Default.AppsDir, "*", store.Default.OverlaysDir, opts.ProjectName)
 	overlays, err := billyUtils.Glob(repofs, projectPattern)
 	if err != nil {
 		return fmt.Errorf("failed to run glob on '%s': %w", projectPattern, err)

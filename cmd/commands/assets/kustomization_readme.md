@@ -11,7 +11,7 @@ argocd-autopilot app create <APP_NAME> --app <APP_SPECIFIER> -p <PROJECT_NAME>
   Such an application references a specific directory at a given repo URL, path and revision. It will be persisted in the GitOps Repository as a single file at `apps/<APP_NAME>/<PROJECT_NAME>/config.json`.  
   #### Example:  
   ```bash
-  argocd-autopilot app create dir-example --app github.com/argoproj-labs/argocd-autopilot/examples/demo-dir/ -p <PROJECT_NAME> --type directory
+  argocd-autopilot app create dir-example --app github.com/argoproj-labs/argocd-autopilot/examples/demo-dir/ -p <PROJECT_NAME> --type dir
   ```
 
 * ### Kustomize application

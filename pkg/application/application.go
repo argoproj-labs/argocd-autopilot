@@ -1,7 +1,6 @@
 package application
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -34,8 +33,8 @@ const (
 
 var (
 	// Errors
-	ErrEmptyApp                     = errors.New("empty app not allowed")
-	ErrEmptyAppName                 = errors.New("app name can not be empty, please specify application name with: --app-name")
+	ErrEmptyAppSpecifier            = errors.New("empty app not allowed")
+	ErrEmptyAppName                 = errors.New("app name can not be empty, please specify application name")
 	ErrEmptyProjectName             = errors.New("project name can not be empty, please specificy project name with: --project")
 	ErrAppAlreadyInstalledOnProject = errors.New("application already installed on project")
 	ErrAppCollisionWithExistingBase = errors.New("an application with the same name and a different base already exists, consider choosing a different name")
@@ -62,7 +61,7 @@ type (
 	CreateOptions struct {
 		AppName          string
 		AppType          string
-		App              string
+		AppSpecifier     string
 		DestNamespace    string
 		DestServer       string
 		InstallationMode string
@@ -90,8 +89,8 @@ type (
 // AddFlags adds application creation flags to cmd.
 func AddFlags(cmd *cobra.Command) *CreateOptions {
 	opts := &CreateOptions{}
-	cmd.Flags().StringVar(&opts.App, "app", "", "The application specifier")
-	cmd.Flags().StringVar(&opts.AppType, "type", "", "The application type (kustomize|directory)")
+	cmd.Flags().StringVar(&opts.AppSpecifier, "app", "", "The application specifier (e.g. github.com/argoproj/argo-workflows/manifests/cluster-install/?ref=v3.0.3)")
+	cmd.Flags().StringVar(&opts.AppType, "type", "", "The application type (kustomize|dir)")
 	cmd.Flags().StringVar(&opts.DestServer, "dest-server", store.Default.DestServer, fmt.Sprintf("K8s cluster URL (e.g. %s)", store.Default.DestServer))
 	cmd.Flags().StringVar(&opts.DestNamespace, "dest-namespace", "", "K8s target namespace (overrides the namespace specified in the kustomization.yaml)")
 	cmd.Flags().StringVar(&opts.InstallationMode, "installation-mode", InstallationModeNormal, "One of: normal|flat. "+
@@ -114,7 +113,7 @@ func InferAppType(repofs fs.FS) string {
 		return "kustomize"
 	}
 
-	return "directory"
+	return "dir"
 }
 
 // GenerateManifests writes the in-memory kustomization to disk, fixes relative resources and
@@ -131,11 +130,11 @@ func GenerateManifests(k *kusttypes.Kustomization) ([]byte, error) {
 
 /* CreateOptions impl */
 // Parse tries to parse `CreateOptions` into an `Application`.
-func (o *CreateOptions) Parse(ctx context.Context, co *git.CloneOptions, projectName string) (Application, error) {
+func (o *CreateOptions) Parse(co *git.CloneOptions, projectName string) (Application, error) {
 	switch o.AppType {
 	case "kustomize":
 		return newKustApp(o, co, projectName)
-	case "directory":
+	case "dir":
 		return newDirApp(o), nil
 	default:
 		return nil, ErrUnknownAppType
@@ -154,8 +153,8 @@ func newKustApp(o *CreateOptions, co *git.CloneOptions, projectName string) (*ku
 		baseApp: baseApp{o},
 	}
 
-	if o.App == "" {
-		return nil, ErrEmptyApp
+	if o.AppSpecifier == "" {
+		return nil, ErrEmptyAppSpecifier
 	}
 
 	if o.AppName == "" {
@@ -175,10 +174,10 @@ func newKustApp(o *CreateOptions, co *git.CloneOptions, projectName string) (*ku
 	}
 
 	// if app specifier is a local file
-	if _, err := os.Stat(o.App); err == nil {
+	if _, err := os.Stat(o.AppSpecifier); err == nil {
 		log.G().Warn("using flat installation mode because base is a local file")
 		o.InstallationMode = InstallationModeFlat
-		o.App, err = filepath.Abs(o.App)
+		o.AppSpecifier, err = filepath.Abs(o.AppSpecifier)
 		if err != nil {
 			return nil, err
 		}
@@ -189,7 +188,7 @@ func newKustApp(o *CreateOptions, co *git.CloneOptions, projectName string) (*ku
 			APIVersion: kusttypes.KustomizationVersion,
 			Kind:       kusttypes.KustomizationKind,
 		},
-		Resources: []string{o.App},
+		Resources: []string{o.AppSpecifier},
 	}
 
 	if o.InstallationMode == InstallationModeFlat {
@@ -224,7 +223,7 @@ func newKustApp(o *CreateOptions, co *git.CloneOptions, projectName string) (*ku
 		DestNamespace:     o.DestNamespace,
 		DestServer:        o.DestServer,
 		SrcRepoURL:        co.URL,
-		SrcPath:           filepath.Join(store.Default.KustomizeDir, o.AppName, store.Default.OverlaysDir, projectName),
+		SrcPath:           filepath.Join(store.Default.AppsDir, o.AppName, store.Default.OverlaysDir, projectName),
 		SrcTargetRevision: co.Revision,
 	}
 
@@ -237,7 +236,7 @@ func (app *kustApp) CreateFiles(repofs fs.FS, projectName string) error {
 
 func kustCreateFiles(app *kustApp, repofs fs.FS, projectName string) error {
 	// create Base
-	basePath := repofs.Join(store.Default.KustomizeDir, app.Name(), "base")
+	basePath := repofs.Join(store.Default.AppsDir, app.Name(), "base")
 	baseKustomizationPath := repofs.Join(basePath, "kustomization.yaml")
 	baseKustomizationYAML, err := yaml.Marshal(app.base)
 	if err != nil {
@@ -257,7 +256,7 @@ func kustCreateFiles(app *kustApp, repofs fs.FS, projectName string) error {
 	}
 
 	// create Overlay
-	overlayPath := repofs.Join(store.Default.KustomizeDir, app.Name(), "overlays", projectName)
+	overlayPath := repofs.Join(store.Default.AppsDir, app.Name(), "overlays", projectName)
 	overlayKustomizationPath := repofs.Join(overlayPath, "kustomization.yaml")
 	overlayKustomizationYAML, err := yaml.Marshal(app.overlay)
 	if err != nil {
@@ -310,7 +309,7 @@ func newDirApp(opts *CreateOptions) *dirApp {
 		baseApp: baseApp{opts},
 	}
 
-	host, orgRepo, path, gitRef, _, _, _ := util.ParseGitUrl(opts.App)
+	host, orgRepo, path, gitRef, _, _, _ := util.ParseGitUrl(opts.AppSpecifier)
 
 	app.config = &Config{
 		AppName:           opts.AppName,
@@ -326,7 +325,7 @@ func newDirApp(opts *CreateOptions) *dirApp {
 }
 
 func (app *dirApp) CreateFiles(repofs fs.FS, projectName string) error {
-	configPath := repofs.Join("apps", app.opts.AppName, projectName, "config.json")
+	configPath := repofs.Join(store.Default.AppsDir, app.opts.AppName, projectName, "config.json")
 	config, err := json.Marshal(app.config)
 	if err != nil {
 		return fmt.Errorf("failed to marshal app config.json: %w", err)

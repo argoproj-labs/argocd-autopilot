@@ -399,7 +399,7 @@ func TestRunRepoBootstrap(t *testing.T) {
 
 				// kustomize
 				assert.True(t, repofs.ExistsOrDie(repofs.Join(
-					store.Default.KustomizeDir,
+					store.Default.AppsDir,
 					"README.md",
 				)))
 			},
@@ -465,7 +465,7 @@ func TestRunRepoBootstrap(t *testing.T) {
 
 				// kustomize
 				assert.True(t, repofs.ExistsOrDie(repofs.Join(
-					store.Default.KustomizeDir,
+					store.Default.AppsDir,
 					"README.md",
 				)))
 			},

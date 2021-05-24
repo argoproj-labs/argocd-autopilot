@@ -40,24 +40,24 @@ func Test_newKustApp(t *testing.T) {
 			opts: &CreateOptions{
 				AppName: "name",
 			},
-			wantErr: ErrEmptyApp.Error(),
+			wantErr: ErrEmptyAppSpecifier.Error(),
 		},
 		"No app name": {
 			opts: &CreateOptions{
-				App: "app",
+				AppSpecifier: "app",
 			},
 			wantErr: ErrEmptyAppName.Error(),
 		},
 		"No project name": {
 			opts: &CreateOptions{
-				App:     "app",
+				AppSpecifier:     "app",
 				AppName: "name",
 			},
 			wantErr: ErrEmptyProjectName.Error(),
 		},
 		"Invalid installation mode": {
 			opts: &CreateOptions{
-				App:              "app",
+				AppSpecifier:              "app",
 				AppName:          "name",
 				InstallationMode: "foo",
 			},
@@ -66,7 +66,7 @@ func Test_newKustApp(t *testing.T) {
 		},
 		"Normal installation mode": {
 			opts: &CreateOptions{
-				App:     "app",
+				AppSpecifier:     "app",
 				AppName: "name",
 			},
 			srcRepoURL:        "github.com/owner/repo",
@@ -80,7 +80,7 @@ func Test_newKustApp(t *testing.T) {
 				assert.True(t, reflect.DeepEqual(&Config{
 					AppName:           "name",
 					UserGivenName:     "name",
-					SrcPath:           filepath.Join(store.Default.KustomizeDir, "name", store.Default.OverlaysDir, "project"),
+					SrcPath:           filepath.Join(store.Default.AppsDir, "name", store.Default.OverlaysDir, "project"),
 					SrcRepoURL:        "github.com/owner/repo",
 					SrcTargetRevision: "branch",
 				}, a.config))
@@ -89,7 +89,7 @@ func Test_newKustApp(t *testing.T) {
 		"Flat installation mode with namespace": {
 			run: true,
 			opts: &CreateOptions{
-				App:              "app",
+				AppSpecifier:              "app",
 				AppName:          "name",
 				InstallationMode: InstallationModeFlat,
 				DestNamespace:    "namespace",
@@ -107,7 +107,7 @@ func Test_newKustApp(t *testing.T) {
 					AppName:           "name",
 					UserGivenName:     "name",
 					DestNamespace:     "namespace",
-					SrcPath:           filepath.Join(store.Default.KustomizeDir, "name", store.Default.OverlaysDir, "project"),
+					SrcPath:           filepath.Join(store.Default.AppsDir, "name", store.Default.OverlaysDir, "project"),
 					SrcRepoURL:        "github.com/owner/repo",
 					SrcTargetRevision: "branch",
 				}, a.config))
@@ -261,12 +261,12 @@ func Test_kustCreateFiles(t *testing.T) {
 			},
 			assertFn: func(t *testing.T, repofs fs.FS, err error) {
 				assert.NoError(t, err)
-				assert.True(t, repofs.ExistsOrDie(store.Default.KustomizeDir), "kustomization dir should exist")
-				assert.True(t, repofs.ExistsOrDie(repofs.Join(store.Default.KustomizeDir, "app", store.Default.BaseDir, "kustomization.yaml")), "base kustomization should exist")
-				assert.False(t, repofs.ExistsOrDie(repofs.Join(store.Default.KustomizeDir, "app", store.Default.BaseDir, "install.yaml")), "install file should not exist")
-				assert.True(t, repofs.ExistsOrDie(repofs.Join(store.Default.KustomizeDir, "app", store.Default.OverlaysDir, "project", "kustomization.yaml")), "overlay kustomization should exist")
-				assert.True(t, repofs.ExistsOrDie(repofs.Join(store.Default.KustomizeDir, "app", store.Default.OverlaysDir, "project", "config.json")), "overlay config should exist")
-				assert.False(t, repofs.ExistsOrDie(repofs.Join(store.Default.KustomizeDir, "app", store.Default.OverlaysDir, "project", "namespace.yaml")), "overlay namespace should not exist")
+				assert.True(t, repofs.ExistsOrDie(store.Default.AppsDir), "kustomization dir should exist")
+				assert.True(t, repofs.ExistsOrDie(repofs.Join(store.Default.AppsDir, "app", store.Default.BaseDir, "kustomization.yaml")), "base kustomization should exist")
+				assert.False(t, repofs.ExistsOrDie(repofs.Join(store.Default.AppsDir, "app", store.Default.BaseDir, "install.yaml")), "install file should not exist")
+				assert.True(t, repofs.ExistsOrDie(repofs.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project", "kustomization.yaml")), "overlay kustomization should exist")
+				assert.True(t, repofs.ExistsOrDie(repofs.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project", "config.json")), "overlay config should exist")
+				assert.False(t, repofs.ExistsOrDie(repofs.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project", "namespace.yaml")), "overlay namespace should not exist")
 			},
 		},
 		"Should create install.yaml when manifests exist": {
@@ -284,7 +284,7 @@ func Test_kustCreateFiles(t *testing.T) {
 			},
 			assertFn: func(t *testing.T, repofs fs.FS, err error) {
 				assert.NoError(t, err)
-				installFile := repofs.Join(store.Default.KustomizeDir, "app", store.Default.BaseDir, "install.yaml")
+				installFile := repofs.Join(store.Default.AppsDir, "app", store.Default.BaseDir, "install.yaml")
 				assert.True(t, repofs.ExistsOrDie(installFile), "install file should exist")
 				data, _ := repofs.ReadFile(installFile)
 				assert.Equal(t, "some manifests", string(data))
@@ -305,7 +305,7 @@ func Test_kustCreateFiles(t *testing.T) {
 			},
 			assertFn: func(t *testing.T, repofs fs.FS, err error) {
 				assert.NoError(t, err)
-				assert.True(t, repofs.ExistsOrDie(repofs.Join(store.Default.KustomizeDir, "app", store.Default.OverlaysDir, "project", "namespace.yaml")), "overlay namespace should exist")
+				assert.True(t, repofs.ExistsOrDie(repofs.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project", "namespace.yaml")), "overlay namespace should exist")
 			},
 		},
 		"Should fail when base kustomization is different from kustRes": {
@@ -333,7 +333,7 @@ func Test_kustCreateFiles(t *testing.T) {
 					},
 					Resources: []string{"github.com/owner/different_repo?ref=v1.2.3"},
 				}
-				_ = repofs.WriteYamls(repofs.Join(store.Default.KustomizeDir, "app", store.Default.BaseDir, "kustomization.yaml"), origBase)
+				_ = repofs.WriteYamls(repofs.Join(store.Default.AppsDir, "app", store.Default.BaseDir, "kustomization.yaml"), origBase)
 				return app, repofs, "project"
 			},
 			assertFn: func(t *testing.T, _ fs.FS, err error) {
@@ -358,7 +358,7 @@ func Test_kustCreateFiles(t *testing.T) {
 					},
 					Resources: []string{"github.com/owner/different_repo?ref=v1.2.3"},
 				}
-				_ = repofs.WriteYamls(repofs.Join(store.Default.KustomizeDir, "app", store.Default.OverlaysDir, "project", "kustomization.yaml"), origBase)
+				_ = repofs.WriteYamls(repofs.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project", "kustomization.yaml"), origBase)
 				return app, repofs, "project"
 			},
 			assertFn: func(t *testing.T, _ fs.FS, err error) {
