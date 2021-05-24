@@ -5,6 +5,7 @@ argocd-autopilot app create <APP_NAME> --app <APP_SPECIFIER> -p <PROJECT_NAME>
 ```
 
 ## Application Types
+> If you don't specify the application `--type` argocd-autopilot will try to clone the source repository and infer the application type [automatically](https://argoproj.github.io/argo-cd/user-guide/tool_detection/#tool-detection)
 
 * ### Directory application
   Such an application references a specific directory at a given repo URL, path and revision. It will be persisted in the GitOps Repository as a single file at `apps/<APP_NAME>/<PROJECT_NAME>/config.json`.  

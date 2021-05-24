@@ -73,6 +73,9 @@ func NewAppCreateCommand(opts *BaseOptions) *cobra.Command {
 
 		--git-token <token> --repo <repo_url>
 
+# using the --type flag (kustomize|directory) is optional. If it is ommitted, <BIN> will clone
+# the --app repository, and infer the type automatically.
+
 # Create a new application from kustomization in a remote repository
 
 	<BIN> app create <new_app_name> --app github.com/some_org/some_repo/manifests?ref=v1.2.3 --project project_name
