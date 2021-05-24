@@ -11,7 +11,7 @@ import (
 	"github.com/argoproj/argocd-autopilot/pkg/store"
 	"github.com/argoproj/argocd-autopilot/pkg/util"
 
-	memfs "github.com/go-git/go-billy/v5/memfs"
+	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/spf13/cobra"
 )
 

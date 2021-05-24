@@ -12,7 +12,6 @@ import (
 	"github.com/argoproj/argocd-autopilot/pkg/git"
 	"github.com/argoproj/argocd-autopilot/pkg/kube"
 	"github.com/argoproj/argocd-autopilot/pkg/store"
-
 	"github.com/go-git/go-billy/v5/memfs"
 	billyUtils "github.com/go-git/go-billy/v5/util"
 	"github.com/stretchr/testify/assert"
@@ -50,14 +49,14 @@ func Test_newKustApp(t *testing.T) {
 		},
 		"No project name": {
 			opts: &CreateOptions{
-				AppSpecifier:     "app",
-				AppName: "name",
+				AppSpecifier: "app",
+				AppName:      "name",
 			},
 			wantErr: ErrEmptyProjectName.Error(),
 		},
 		"Invalid installation mode": {
 			opts: &CreateOptions{
-				AppSpecifier:              "app",
+				AppSpecifier:     "app",
 				AppName:          "name",
 				InstallationMode: "foo",
 			},
@@ -66,8 +65,8 @@ func Test_newKustApp(t *testing.T) {
 		},
 		"Normal installation mode": {
 			opts: &CreateOptions{
-				AppSpecifier:     "app",
-				AppName: "name",
+				AppSpecifier: "app",
+				AppName:      "name",
 			},
 			srcRepoURL:        "github.com/owner/repo",
 			srcTargetRevision: "branch",
@@ -89,7 +88,7 @@ func Test_newKustApp(t *testing.T) {
 		"Flat installation mode with namespace": {
 			run: true,
 			opts: &CreateOptions{
-				AppSpecifier:              "app",
+				AppSpecifier:     "app",
 				AppName:          "name",
 				InstallationMode: InstallationModeFlat,
 				DestNamespace:    "namespace",
@@ -375,6 +374,106 @@ func Test_kustCreateFiles(t *testing.T) {
 			app, repofs, projectName := tt.beforeFn()
 			err := app.CreateFiles(repofs, projectName)
 			tt.assertFn(t, repofs, err)
+		})
+	}
+}
+
+func TestInferAppType(t *testing.T) {
+	tests := map[string]struct {
+		want     string
+		beforeFn func() fs.FS
+	}{
+		"Should return ksonnet if required files are present": {
+			want: "ksonnet",
+			beforeFn: func() fs.FS {
+				memfs := memfs.New()
+				_ = billyUtils.WriteFile(memfs, "app.yaml", []byte{}, 0666)
+				_ = billyUtils.WriteFile(memfs, "components/params.libsonnet", []byte{}, 0666)
+				return fs.Create(memfs)
+			},
+		},
+		"Should not return ksonnet if 'app.yaml' is missing": {
+			want: AppTypeDirectory,
+			beforeFn: func() fs.FS {
+				memfs := memfs.New()
+				_ = billyUtils.WriteFile(memfs, "components/params.libsonnet", []byte{}, 0666)
+				return fs.Create(memfs)
+			},
+		},
+		"Should not return ksonnet if 'components/params.libsonnet' is missing": {
+			want: AppTypeDirectory,
+			beforeFn: func() fs.FS {
+				memfs := memfs.New()
+				_ = billyUtils.WriteFile(memfs, "app.yaml", []byte{}, 0666)
+				return fs.Create(memfs)
+			},
+		},
+		"Should return ksonnet as the highest priority": {
+			want: "ksonnet",
+			beforeFn: func() fs.FS {
+				memfs := memfs.New()
+				_ = billyUtils.WriteFile(memfs, "app.yaml", []byte{}, 0666)
+				_ = billyUtils.WriteFile(memfs, "components/params.libsonnet", []byte{}, 0666)
+				_ = billyUtils.WriteFile(memfs, "Chart.yaml", []byte{}, 0666)
+				_ = billyUtils.WriteFile(memfs, "kustomization.yaml", []byte{}, 0666)
+				return fs.Create(memfs)
+			},
+		},
+		"Should return helm if 'Chart.yaml' is present": {
+			want: "helm",
+			beforeFn: func() fs.FS {
+				memfs := memfs.New()
+				_ = billyUtils.WriteFile(memfs, "Chart.yaml", []byte{}, 0666)
+				return fs.Create(memfs)
+			},
+		},
+		"Should return helm as a higher priority than kustomize": {
+			want: "helm",
+			beforeFn: func() fs.FS {
+				memfs := memfs.New()
+				_ = billyUtils.WriteFile(memfs, "Chart.yaml", []byte{}, 0666)
+				_ = billyUtils.WriteFile(memfs, "kustomization.yaml", []byte{}, 0666)
+				return fs.Create(memfs)
+			},
+		},
+		"Should return kustomize if 'kustomization.yaml' file is present": {
+			want: AppTypeKustomize,
+			beforeFn: func() fs.FS {
+				memfs := memfs.New()
+				_ = billyUtils.WriteFile(memfs, "kustomization.yaml", []byte{}, 0666)
+				return fs.Create(memfs)
+			},
+		},
+		"Should return kustomize if 'kustomization.yml' file is present": {
+			want: AppTypeKustomize,
+			beforeFn: func() fs.FS {
+				memfs := memfs.New()
+				_ = billyUtils.WriteFile(memfs, "kustomization.yml", []byte{}, 0666)
+				return fs.Create(memfs)
+			},
+		},
+		"Should return kustomize if 'Kustomization' folder is present": {
+			want: AppTypeKustomize,
+			beforeFn: func() fs.FS {
+				memfs := memfs.New()
+				_ = memfs.MkdirAll("Kustomization", 0666)
+				return fs.Create(memfs)
+			},
+		},
+		"Should return dir if no other match": {
+			want: AppTypeDirectory,
+			beforeFn: func() fs.FS {
+				memfs := memfs.New()
+				return fs.Create(memfs)
+			},
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			repofs := tt.beforeFn()
+			if got := InferAppType(repofs); got != tt.want {
+				t.Errorf("InferAppType() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }

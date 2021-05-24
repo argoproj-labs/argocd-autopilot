@@ -8,17 +8,18 @@ import (
 	"strings"
 	"testing"
 
+	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/argoproj/argocd-autopilot/pkg/application"
 	"github.com/argoproj/argocd-autopilot/pkg/fs"
 	fsmocks "github.com/argoproj/argocd-autopilot/pkg/fs/mocks"
 	"github.com/argoproj/argocd-autopilot/pkg/git"
 	gitmocks "github.com/argoproj/argocd-autopilot/pkg/git/mocks"
 	"github.com/argoproj/argocd-autopilot/pkg/store"
-
 	"github.com/go-git/go-billy/v5/memfs"
 	billyUtils "github.com/go-git/go-billy/v5/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func Test_getCommitMsg(t *testing.T) {
@@ -195,12 +196,13 @@ func TestRunAppDelete(t *testing.T) {
 					return strings.Join(elem, "/")
 				})
 				mfs.On("ExistsOrDie", filepath.Join(store.Default.AppsDir, "app")).Return(true)
+				mfs.On("ExistsOrDie", filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir)).Return(true)
 				mfs.On("ExistsOrDie", filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project")).Return(true)
 				mfs.On("ReadDir", filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir)).Return(nil, fmt.Errorf("some error"))
 				return nil, mfs, nil
 			},
 		},
-		"Should delete only overlay directory, if there are more overlays": {
+		"Should delete only overlay directory of a kustApp, if there are more overlays": {
 			appName:     "app",
 			projectName: "project",
 			prepareRepo: func() (git.Repository, fs.FS, error) {
@@ -219,12 +221,48 @@ func TestRunAppDelete(t *testing.T) {
 				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project")))
 			},
 		},
-		"Should delete entire app directory, if there are no more overlays": {
+		"Should delete entire app directory of a kustApp, if there are no more overlays": {
 			appName:     "app",
 			projectName: "project",
 			prepareRepo: func() (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
 				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project"), 0666)
+				mockRepo := &gitmocks.Repository{}
+				mockRepo.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
+					CommitMsg: "Deleted app 'app'",
+				}).Return(nil)
+				return mockRepo, fs.Create(memfs), nil
+			},
+			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
+				repo.(*gitmocks.Repository).AssertExpectations(t)
+				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app")))
+			},
+		},
+		"Should delete only project directory of a dirApp, if there are more projects": {
+			appName:     "app",
+			projectName: "project",
+			prepareRepo: func() (git.Repository, fs.FS, error) {
+				memfs := memfs.New()
+				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", "project"), 0666)
+				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", "project2"), 0666)
+				mockRepo := &gitmocks.Repository{}
+				mockRepo.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
+					CommitMsg: "Deleted app 'app' from project 'project'",
+				}).Return(nil)
+				return mockRepo, fs.Create(memfs), nil
+			},
+			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
+				repo.(*gitmocks.Repository).AssertExpectations(t)
+				assert.True(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app")))
+				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app", "project")))
+			},
+		},
+		"Should delete entire app directory of a dirApp": {
+			appName:     "app",
+			projectName: "project",
+			prepareRepo: func() (git.Repository, fs.FS, error) {
+				memfs := memfs.New()
+				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", "project"), 0666)
 				mockRepo := &gitmocks.Repository{}
 				mockRepo.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
 					CommitMsg: "Deleted app 'app'",
@@ -281,7 +319,7 @@ func TestRunAppDelete(t *testing.T) {
 				if tt.wantErr != "" {
 					assert.EqualError(t, err, tt.wantErr)
 				} else {
-					t.Errorf("prepare() error = %v", err)
+					t.Errorf("RunAppDelete() error = %v", err)
 				}
 
 				return
@@ -289,6 +327,244 @@ func TestRunAppDelete(t *testing.T) {
 
 			if tt.assertFn != nil {
 				tt.assertFn(t, repo, repofs)
+			}
+		})
+	}
+}
+
+func Test_getProjectDestServer(t *testing.T) {
+	tests := map[string]struct {
+		want     string
+		wantErr  string
+		beforeFn func() fs.FS
+	}{
+		"Should return dest server from file": {
+			want: "https://dest.server",
+			beforeFn: func() fs.FS {
+				repofs := fs.Create(memfs.New())
+				project := &argocdv1alpha1.AppProject{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       argocdv1alpha1.AppProjectSchemaGroupVersionKind.Kind,
+						APIVersion: argocdv1alpha1.AppProjectSchemaGroupVersionKind.GroupVersion().String(),
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "project",
+						Annotations: map[string]string{
+							store.Default.DestServerAnnotation: "https://dest.server",
+						},
+					},
+				}
+				_ = repofs.WriteYamls(repofs.Join(store.Default.ProjectsDir, "project.yaml"), project)
+				return repofs
+			},
+		},
+		"Should fail if project file is not available": {
+			wantErr: "failed to unmarshal project: file does not exist",
+			beforeFn: func() fs.FS {
+				repofs := fs.Create(memfs.New())
+				return repofs
+			},
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			repofs := tt.beforeFn()
+			got, err := getProjectDestServer(repofs, "project")
+			if err != nil {
+				if tt.wantErr != "" {
+					assert.EqualError(t, err, tt.wantErr)
+				} else {
+					t.Errorf("getProjectDestServer() error = %v", err)
+				}
+
+				return
+			}
+
+			if got != tt.want {
+				t.Errorf("getProjectDestServer() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_setAppOptsDefaults(t *testing.T) {
+	tests := map[string]struct {
+		opts     *AppCreateOptions
+		wantErr  string
+		beforeFn func() fs.FS
+		assertFn func(*testing.T, *AppCreateOptions)
+	}{
+		"Should change nothing if all fields are set": {
+			opts: &AppCreateOptions{
+				AppOpts: &application.CreateOptions{
+					DestServer:    "https://dest.server",
+					DestNamespace: "namespace",
+					AppType:       application.AppTypeKustomize,
+				},
+			},
+			assertFn: func(t *testing.T, opts *AppCreateOptions) {
+				assert.Equal(t, "https://dest.server", opts.AppOpts.DestServer)
+				assert.Equal(t, "namespace", opts.AppOpts.DestNamespace)
+				assert.Equal(t, application.AppTypeKustomize, opts.AppOpts.AppType)
+			},
+		},
+		"Should set namespace to 'default', if empty": {
+			opts: &AppCreateOptions{
+				AppOpts: &application.CreateOptions{
+					DestServer: "https://dest.server",
+					AppType:    application.AppTypeKustomize,
+				},
+			},
+			assertFn: func(t *testing.T, opts *AppCreateOptions) {
+				assert.Equal(t, "default", opts.AppOpts.DestNamespace)
+			},
+		},
+		"Should read server from project, if empty": {
+			opts: &AppCreateOptions{
+				BaseOptions: BaseOptions{
+					ProjectName: "project",
+				},
+				AppOpts: &application.CreateOptions{
+					DestNamespace: "namespace",
+					AppType:       application.AppTypeKustomize,
+				},
+			},
+			beforeFn: func() fs.FS {
+				repofs := fs.Create(memfs.New())
+				project := &argocdv1alpha1.AppProject{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       argocdv1alpha1.AppProjectSchemaGroupVersionKind.Kind,
+						APIVersion: argocdv1alpha1.AppProjectSchemaGroupVersionKind.GroupVersion().String(),
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "project",
+						Annotations: map[string]string{
+							store.Default.DestServerAnnotation: "https://dest.server",
+						},
+					},
+				}
+				_ = repofs.WriteYamls(repofs.Join(store.Default.ProjectsDir, "project.yaml"), project)
+				return repofs
+			},
+			assertFn: func(t *testing.T, opts *AppCreateOptions) {
+				assert.Equal(t, "https://dest.server", opts.AppOpts.DestServer)
+			},
+		},
+		"Should read server from project, if set to default": {
+			opts: &AppCreateOptions{
+				BaseOptions: BaseOptions{
+					ProjectName: "project",
+				},
+				AppOpts: &application.CreateOptions{
+					DestServer:    store.Default.DestServer,
+					DestNamespace: "namespace",
+					AppType:       application.AppTypeKustomize,
+				},
+			},
+			beforeFn: func() fs.FS {
+				repofs := fs.Create(memfs.New())
+				project := &argocdv1alpha1.AppProject{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       argocdv1alpha1.AppProjectSchemaGroupVersionKind.Kind,
+						APIVersion: argocdv1alpha1.AppProjectSchemaGroupVersionKind.GroupVersion().String(),
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "project",
+						Annotations: map[string]string{
+							store.Default.DestServerAnnotation: "https://dest.server",
+						},
+					},
+				}
+				_ = repofs.WriteYamls(repofs.Join(store.Default.ProjectsDir, "project.yaml"), project)
+				return repofs
+			},
+			assertFn: func(t *testing.T, opts *AppCreateOptions) {
+				assert.Equal(t, "https://dest.server", opts.AppOpts.DestServer)
+			},
+		},
+		"Should infer appType from repo, if empty": {
+			opts: &AppCreateOptions{
+				BaseOptions: BaseOptions{
+					CloneOptions: &git.CloneOptions{
+						Auth: git.Auth{},
+					},
+				},
+				AppOpts: &application.CreateOptions{
+					AppSpecifier:  "github.com/owner/repo/some/path",
+					DestServer:    "https://dest.server",
+					DestNamespace: "namespace",
+				},
+			},
+			beforeFn: func() fs.FS {
+				clone = func(_ context.Context, _ *git.CloneOptions, _ fs.FS) (git.Repository, fs.FS, error) {
+					return nil, fs.Create(memfs.New()), nil
+				}
+
+				return nil
+			},
+			assertFn: func(t *testing.T, opts *AppCreateOptions) {
+				assert.Equal(t, application.AppTypeDirectory, opts.AppOpts.AppType)
+			},
+		},
+		"Should fail if can't read server from project": {
+			opts: &AppCreateOptions{
+				BaseOptions: BaseOptions{
+					ProjectName: "project",
+				},
+				AppOpts: &application.CreateOptions{
+					DestNamespace: "namespace",
+					AppType:       application.AppTypeKustomize,
+				},
+			},
+			wantErr: "failed to unmarshal project: file does not exist",
+			beforeFn: func() fs.FS {
+				return fs.Create(memfs.New())
+			},
+		},
+		"Should fail if can't infer appType": {
+			opts: &AppCreateOptions{
+				BaseOptions: BaseOptions{
+					CloneOptions: &git.CloneOptions{
+						Auth: git.Auth{},
+					},
+				},
+				AppOpts: &application.CreateOptions{
+					AppSpecifier:  "github.com/owner/repo/some/path",
+					DestServer:    "https://dest.server",
+					DestNamespace: "namespace",
+				},
+			},
+			wantErr: "some error",
+			beforeFn: func() fs.FS {
+				clone = func(_ context.Context, _ *git.CloneOptions, _ fs.FS) (git.Repository, fs.FS, error) {
+					return nil, nil, fmt.Errorf("some error")
+				}
+
+				return nil
+			},
+		},
+	}
+	origClone := clone
+	defer func() { clone = origClone }()
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			var repofs fs.FS
+			if tt.beforeFn != nil {
+				repofs = tt.beforeFn()
+			}
+
+			if err := setAppOptsDefaults(context.Background(), repofs, tt.opts); err != nil {
+				if tt.wantErr != "" {
+					assert.EqualError(t, err, tt.wantErr)
+				} else {
+					t.Errorf("setAppOptsDefaults() error = %v", err)
+				}
+
+				return
+			}
+
+			if tt.assertFn != nil {
+				tt.assertFn(t, tt.opts)
 			}
 		})
 	}

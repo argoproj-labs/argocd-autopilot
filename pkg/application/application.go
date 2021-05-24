@@ -29,6 +29,11 @@ import (
 const (
 	InstallationModeFlat   = "flat"
 	InstallationModeNormal = "normal"
+
+	AppTypeKsonnet   = "ksonnet"
+	AppTypeHelm      = "helm"
+	AppTypeKustomize = "kustomize"
+	AppTypeDirectory = "dir"
 )
 
 var (
@@ -102,18 +107,18 @@ func AddFlags(cmd *cobra.Command) *CreateOptions {
 // using heuristic from https://argoproj.github.io/argo-cd/user-guide/tool_detection/#tool-detection
 func InferAppType(repofs fs.FS) string {
 	if repofs.ExistsOrDie("app.yaml") && repofs.ExistsOrDie("components/params.libsonnet") {
-		return "ksonnet"
+		return AppTypeKsonnet
 	}
 
 	if repofs.ExistsOrDie("Chart.yaml") {
-		return "helm"
+		return AppTypeHelm
 	}
 
 	if repofs.ExistsOrDie("kustomization.yaml") || repofs.ExistsOrDie("kustomization.yml") || repofs.ExistsOrDie("Kustomization") {
-		return "kustomize"
+		return AppTypeKustomize
 	}
 
-	return "dir"
+	return AppTypeDirectory
 }
 
 // GenerateManifests writes the in-memory kustomization to disk, fixes relative resources and
@@ -132,9 +137,9 @@ func GenerateManifests(k *kusttypes.Kustomization) ([]byte, error) {
 // Parse tries to parse `CreateOptions` into an `Application`.
 func (o *CreateOptions) Parse(co *git.CloneOptions, projectName string) (Application, error) {
 	switch o.AppType {
-	case "kustomize":
+	case AppTypeKustomize:
 		return newKustApp(o, co, projectName)
-	case "dir":
+	case AppTypeDirectory:
 		return newDirApp(o), nil
 	default:
 		return nil, ErrUnknownAppType

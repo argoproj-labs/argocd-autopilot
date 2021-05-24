@@ -16,7 +16,7 @@ import (
 	"github.com/argoproj/argocd-autopilot/pkg/util"
 
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
-	memfs "github.com/go-git/go-billy/v5/memfs"
+	"github.com/go-git/go-billy/v5/memfs"
 	billyUtils "github.com/go-git/go-billy/v5/util"
 	"github.com/spf13/cobra"
 )
@@ -137,7 +137,7 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 func setAppOptsDefaults(ctx context.Context, repofs fs.FS, opts *AppCreateOptions) error {
 	var err error
 
-	if opts.AppOpts.DestServer == store.Default.DestServer {
+	if opts.AppOpts.DestServer == store.Default.DestServer || opts.AppOpts.DestServer == "" {
 		opts.AppOpts.DestServer, err = getProjectDestServer(repofs, opts.ProjectName)
 		if err != nil {
 			return err
@@ -158,18 +158,18 @@ func setAppOptsDefaults(ctx context.Context, repofs fs.FS, opts *AppCreateOption
 			RepoRoot: p,
 			Auth:     opts.CloneOptions.Auth,
 		}
-		_, repofs, err := cloneOpts.Clone(ctx, fs.Create(memfs.New()))
+		_, fs, err := clone(ctx, cloneOpts, fs.Create(memfs.New()))
 		if err != nil {
 			return err
 		}
 
-		opts.AppOpts.AppType = application.InferAppType(repofs)
+		opts.AppOpts.AppType = application.InferAppType(fs)
 	}
 
 	return nil
 }
 
-var getProjectDestServer = func(repofs fs.FS, projectName string) (string, error) {
+func getProjectDestServer(repofs fs.FS, projectName string) (string, error) {
 	path := repofs.Join(store.Default.ProjectsDir, projectName+".yaml")
 	p := &argocdv1alpha1.AppProject{}
 	if err := repofs.ReadYamls(path, p); err != nil {
@@ -330,8 +330,13 @@ func RunAppDelete(ctx context.Context, opts *AppDeleteOptions) error {
 		dirToRemove = appDir
 	} else {
 		appOverlaysDir := repofs.Join(appDir, store.Default.OverlaysDir)
-		projectDir := repofs.Join(appOverlaysDir, opts.ProjectName)
-		overlayExists := repofs.ExistsOrDie(projectDir)
+		overlaysExists := repofs.ExistsOrDie(appOverlaysDir)
+		if !overlaysExists {
+			appOverlaysDir = appDir
+		}
+
+		appProjectDir := repofs.Join(appOverlaysDir, opts.ProjectName)
+		overlayExists := repofs.ExistsOrDie(appProjectDir)
 		if !overlayExists {
 			return fmt.Errorf(util.Doc(fmt.Sprintf("application '%s' not found in project '%s'", opts.AppName, opts.ProjectName)))
 		}
@@ -345,7 +350,7 @@ func RunAppDelete(ctx context.Context, opts *AppDeleteOptions) error {
 			dirToRemove = appDir
 		} else {
 			commitMsg += fmt.Sprintf(" from project '%s'", opts.ProjectName)
-			dirToRemove = projectDir
+			dirToRemove = appProjectDir
 		}
 	}
 
