@@ -21,10 +21,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	ErrMissingSrcFlag = errors.New("command must include --kust-src OR --dir-src-path flags")
-)
-
 type (
 	AppCreateOptions struct {
 		BaseOptions
@@ -95,6 +91,8 @@ func NewAppCreateCommand(opts *BaseOptions) *cobra.Command {
 		},
 	}
 	appOpts = application.AddFlags(cmd)
+
+	die(cmd.MarkFlagRequired("app"))
 
 	return cmd
 }
