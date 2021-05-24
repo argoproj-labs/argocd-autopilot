@@ -32,12 +32,12 @@ argocd-autopilot application create [APP_NAME] [flags]
 ### Options
 
 ```
-      --app string                 The application specifier
+      --app string                 The application specifier (e.g. github.com/argoproj/argo-workflows/manifests/cluster-install/?ref=v3.0.3)
       --dest-namespace string      K8s target namespace (overrides the namespace specified in the kustomization.yaml)
       --dest-server string         K8s cluster URL (e.g. https://kubernetes.default.svc) (default "https://kubernetes.default.svc")
   -h, --help                       help for create
       --installation-mode string   One of: normal|flat. If flat, will commit the application manifests (after running kustomize build), otherwise will commit the kustomization.yaml (default "normal")
-      --type string                The application type (kustomize|directory)
+      --type string                The application type (kustomize|dir)
 ```
 
 ### Options inherited from parent commands
