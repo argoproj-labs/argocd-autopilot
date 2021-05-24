@@ -497,7 +497,7 @@ func TestRunProjectDelete(t *testing.T) {
 			wantErr:     "failed to delete project 'project': " + os.ErrNotExist.Error(),
 			prepareRepo: func() (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
-				_ = memfs.MkdirAll("kustomize/app1/overlays/project", 0666)
+				_ = memfs.MkdirAll(filepath.Join(store.Default.KustomizeDir, "app1", store.Default.OverlaysDir, "project"), 0666)
 				mockRepo := &gitmocks.Repository{}
 				mockRepo.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
 					CommitMsg: "Deleted project 'project'",
@@ -510,8 +510,8 @@ func TestRunProjectDelete(t *testing.T) {
 			wantErr:     "failed to push to repo: some error",
 			prepareRepo: func() (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
-				_ = memfs.MkdirAll("kustomize/app1/overlays/project", 0666)
-				_ = billyUtils.WriteFile(memfs, "projects/project.yaml", []byte{}, 0666)
+				_ = memfs.MkdirAll(filepath.Join(store.Default.KustomizeDir, "app1", store.Default.OverlaysDir, "project"), 0666)
+				_ = billyUtils.WriteFile(memfs, filepath.Join(store.Default.ProjectsDir, "project.yaml"), []byte{}, 0666)
 				mockRepo := &gitmocks.Repository{}
 				mockRepo.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
 					CommitMsg: "Deleted project 'project'",
@@ -523,8 +523,8 @@ func TestRunProjectDelete(t *testing.T) {
 			projectName: "project",
 			prepareRepo: func() (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
-				_ = memfs.MkdirAll("kustomize/app1/overlays/project", 0666)
-				_ = billyUtils.WriteFile(memfs, "projects/project.yaml", []byte{}, 0666)
+				_ = memfs.MkdirAll(filepath.Join(store.Default.KustomizeDir, "app1", store.Default.OverlaysDir, "project"), 0666)
+				_ = billyUtils.WriteFile(memfs, filepath.Join(store.Default.ProjectsDir, "project.yaml"), []byte{}, 0666)
 				mockRepo := &gitmocks.Repository{}
 				mockRepo.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
 					CommitMsg: "Deleted project 'project'",
@@ -533,16 +533,16 @@ func TestRunProjectDelete(t *testing.T) {
 			},
 			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
 				repo.(*gitmocks.Repository).AssertExpectations(t)
-				assert.False(t, repofs.ExistsOrDie("kustomize/app1"))
+				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.KustomizeDir, "app1")))
 			},
 		},
 		"Should remove only overlay, if app contains more overlays": {
 			projectName: "project",
 			prepareRepo: func() (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
-				_ = memfs.MkdirAll("kustomize/app1/overlays/project", 0666)
-				_ = memfs.MkdirAll("kustomize/app1/overlays/project2", 0666)
-				_ = billyUtils.WriteFile(memfs, "projects/project.yaml", []byte{}, 0666)
+				_ = memfs.MkdirAll(filepath.Join(store.Default.KustomizeDir, "app1", store.Default.OverlaysDir, "project"), 0666)
+				_ = memfs.MkdirAll(filepath.Join(store.Default.KustomizeDir, "app1", store.Default.OverlaysDir, "project2"), 0666)
+				_ = billyUtils.WriteFile(memfs, filepath.Join(store.Default.ProjectsDir, "project.yaml"), []byte{}, 0666)
 				mockRepo := &gitmocks.Repository{}
 				mockRepo.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
 					CommitMsg: "Deleted project 'project'",
@@ -551,18 +551,18 @@ func TestRunProjectDelete(t *testing.T) {
 			},
 			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
 				repo.(*gitmocks.Repository).AssertExpectations(t)
-				assert.True(t, repofs.ExistsOrDie("kustomize/app1/overlays"))
-				assert.False(t, repofs.ExistsOrDie("kustomize/app1/overlays/project"))
+				assert.True(t, repofs.ExistsOrDie(filepath.Join(store.Default.KustomizeDir, "app1", store.Default.OverlaysDir)))
+				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.KustomizeDir, "app1", store.Default.OverlaysDir, "project")))
 			},
 		},
 		"Should handle multiple apps": {
 			projectName: "project",
 			prepareRepo: func() (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
-				_ = memfs.MkdirAll("kustomize/app1/overlays/project", 0666)
-				_ = memfs.MkdirAll("kustomize/app1/overlays/project2", 0666)
-				_ = memfs.MkdirAll("kustomize/app2/overlays/project", 0666)
-				_ = billyUtils.WriteFile(memfs, "projects/project.yaml", []byte{}, 0666)
+				_ = memfs.MkdirAll(filepath.Join(store.Default.KustomizeDir, "app1", store.Default.OverlaysDir, "project"), 0666)
+				_ = memfs.MkdirAll(filepath.Join(store.Default.KustomizeDir, "app1", store.Default.OverlaysDir, "project2"), 0666)
+				_ = memfs.MkdirAll(filepath.Join(store.Default.KustomizeDir, "app2", store.Default.OverlaysDir, "project"), 0666)
+				_ = billyUtils.WriteFile(memfs, filepath.Join(store.Default.ProjectsDir, "project.yaml"), []byte{}, 0666)
 				mockRepo := &gitmocks.Repository{}
 				mockRepo.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
 					CommitMsg: "Deleted project 'project'",
@@ -571,9 +571,9 @@ func TestRunProjectDelete(t *testing.T) {
 			},
 			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
 				repo.(*gitmocks.Repository).AssertExpectations(t)
-				assert.True(t, repofs.ExistsOrDie("kustomize/app1/overlays"))
-				assert.False(t, repofs.ExistsOrDie("kustomize/app1/overlays/project"))
-				assert.False(t, repofs.ExistsOrDie("kustomize/app2"))
+				assert.True(t, repofs.ExistsOrDie(filepath.Join(store.Default.KustomizeDir, "app1", store.Default.OverlaysDir)))
+				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.KustomizeDir, "app1", store.Default.OverlaysDir, "project")))
+				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.KustomizeDir, "app2")))
 			},
 		},
 	}

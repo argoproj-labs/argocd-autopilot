@@ -35,7 +35,8 @@ const (
 var (
 	// Errors
 	ErrEmptyApp                     = errors.New("empty app not allowed")
-	ErrEmptyAppName                 = errors.New("app name cannot be empty, please specify application name with: --app-name")
+	ErrEmptyAppName                 = errors.New("app name can not be empty, please specify application name with: --app-name")
+	ErrEmptyProjectName             = errors.New("project name can not be empty, please specificy project name with: --project")
 	ErrAppAlreadyInstalledOnProject = errors.New("application already installed on project")
 	ErrAppCollisionWithExistingBase = errors.New("an application with the same name and a different base already exists, consider choosing a different name")
 	ErrUnknownAppType               = errors.New("unknown application type")
@@ -88,15 +89,15 @@ type (
 
 // AddFlags adds application creation flags to cmd.
 func AddFlags(cmd *cobra.Command) *CreateOptions {
-	co := &CreateOptions{}
-	cmd.Flags().StringVar(&co.App, "app", "", "The application specifier")
-	cmd.Flags().StringVar(&co.AppType, "type", "", "The application type (kustomize|directory)")
-	cmd.Flags().StringVar(&co.DestServer, "dest-server", store.Default.DestServer, fmt.Sprintf("K8s cluster URL (e.g. %s)", store.Default.DestServer))
-	cmd.Flags().StringVar(&co.DestNamespace, "dest-namespace", "", "K8s target namespace (overrides the namespace specified in the kustomization.yaml)")
-	cmd.Flags().StringVar(&co.InstallationMode, "installation-mode", InstallationModeNormal, "One of: normal|flat. "+
+	opts := &CreateOptions{}
+	cmd.Flags().StringVar(&opts.App, "app", "", "The application specifier")
+	cmd.Flags().StringVar(&opts.AppType, "type", "", "The application type (kustomize|directory)")
+	cmd.Flags().StringVar(&opts.DestServer, "dest-server", store.Default.DestServer, fmt.Sprintf("K8s cluster URL (e.g. %s)", store.Default.DestServer))
+	cmd.Flags().StringVar(&opts.DestNamespace, "dest-namespace", "", "K8s target namespace (overrides the namespace specified in the kustomization.yaml)")
+	cmd.Flags().StringVar(&opts.InstallationMode, "installation-mode", InstallationModeNormal, "One of: normal|flat. "+
 		"If flat, will commit the application manifests (after running kustomize build), otherwise will commit the kustomization.yaml")
 
-	return co
+	return opts
 }
 
 // using heuristic from https://argoproj.github.io/argo-cd/user-guide/tool_detection/#tool-detection
@@ -159,6 +160,10 @@ func newKustApp(o *CreateOptions, co *git.CloneOptions, projectName string) (*ku
 
 	if o.AppName == "" {
 		return nil, ErrEmptyAppName
+	}
+
+	if projectName == "" {
+		return nil, ErrEmptyProjectName
 	}
 
 	switch o.InstallationMode {

@@ -3,11 +3,13 @@ package application
 import (
 	"fmt"
 	"io/ioutil"
+	"path/filepath"
 	"reflect"
 	"testing"
 
 	"github.com/argoproj/argocd-autopilot/pkg/fs"
 	fsmocks "github.com/argoproj/argocd-autopilot/pkg/fs/mocks"
+	"github.com/argoproj/argocd-autopilot/pkg/git"
 	"github.com/argoproj/argocd-autopilot/pkg/kube"
 	"github.com/argoproj/argocd-autopilot/pkg/store"
 
@@ -26,78 +28,113 @@ func Test_newKustApp(t *testing.T) {
 	}
 
 	tests := map[string]struct {
-		opts     *CreateOptions
-		assertFn func(*testing.T, *kustApp, error)
+		run               bool
+		opts              *CreateOptions
+		srcRepoURL        string
+		srcTargetRevision string
+		projectName       string
+		wantErr           string
+		assertFn          func(*testing.T, *kustApp)
 	}{
 		"No app specifier": {
 			opts: &CreateOptions{
-				AppName: "foo",
+				AppName: "name",
 			},
-			assertFn: func(t *testing.T, _ *kustApp, ret error) {
-				assert.ErrorIs(t, ret, ErrEmptyApp)
-			},
+			wantErr: ErrEmptyApp.Error(),
 		},
 		"No app name": {
 			opts: &CreateOptions{
-				KustRes: "foo",
+				App: "app",
 			},
-			assertFn: func(t *testing.T, _ *kustApp, ret error) {
-				assert.ErrorIs(t, ret, ErrEmptyAppName)
+			wantErr: ErrEmptyAppName.Error(),
+		},
+		"No project name": {
+			opts: &CreateOptions{
+				App:     "app",
+				AppName: "name",
 			},
+			wantErr: ErrEmptyProjectName.Error(),
 		},
 		"Invalid installation mode": {
 			opts: &CreateOptions{
-				KustRes:          "foo",
-				AppName:          "foo",
+				App:              "app",
+				AppName:          "name",
 				InstallationMode: "foo",
 			},
-			assertFn: func(t *testing.T, _ *kustApp, ret error) {
-				assert.EqualError(t, ret, "unknown installation mode: foo")
-			},
+			projectName: "project",
+			wantErr:     "unknown installation mode: foo",
 		},
 		"Normal installation mode": {
 			opts: &CreateOptions{
-				KustRes: "foo",
-				AppName: "foo",
+				App:     "app",
+				AppName: "name",
 			},
-			assertFn: func(t *testing.T, a *kustApp, ret error) {
-				assert.NoError(t, ret)
-				assert.Equal(t, "foo", a.base.Resources[0])
+			srcRepoURL:        "github.com/owner/repo",
+			srcTargetRevision: "branch",
+			projectName:       "project",
+			assertFn: func(t *testing.T, a *kustApp) {
+				assert.Equal(t, "app", a.base.Resources[0])
 				assert.Equal(t, "../../base", a.overlay.Resources[0])
 				assert.Nil(t, a.namespace)
 				assert.Nil(t, a.manifests)
 				assert.True(t, reflect.DeepEqual(&Config{
-					AppName:       "foo",
-					UserGivenName: "foo",
+					AppName:           "name",
+					UserGivenName:     "name",
+					SrcPath:           filepath.Join(store.Default.KustomizeDir, "name", store.Default.OverlaysDir, "project"),
+					SrcRepoURL:        "github.com/owner/repo",
+					SrcTargetRevision: "branch",
 				}, a.config))
 			},
 		},
 		"Flat installation mode with namespace": {
+			run: true,
 			opts: &CreateOptions{
-				KustRes:          "foo",
-				AppName:          "foo",
+				App:              "app",
+				AppName:          "name",
 				InstallationMode: InstallationModeFlat,
-				DestNamespace:    "foo",
+				DestNamespace:    "namespace",
 			},
-			assertFn: func(t *testing.T, a *kustApp, ret error) {
-				assert.NoError(t, ret)
+			srcRepoURL:        "github.com/owner/repo",
+			srcTargetRevision: "branch",
+			projectName:       "project",
+			assertFn: func(t *testing.T, a *kustApp) {
 				assert.Equal(t, "install.yaml", a.base.Resources[0])
 				assert.Equal(t, []byte("foo"), a.manifests)
 				assert.Equal(t, "../../base", a.overlay.Resources[0])
 				assert.Equal(t, "namespace.yaml", a.overlay.Resources[1])
-				assert.Equal(t, "foo", a.namespace.ObjectMeta.Name)
+				assert.Equal(t, "namespace", a.namespace.ObjectMeta.Name)
 				assert.True(t, reflect.DeepEqual(&Config{
-					AppName:       "foo",
-					UserGivenName: "foo",
-					DestNamespace: "foo",
+					AppName:           "name",
+					UserGivenName:     "name",
+					DestNamespace:     "namespace",
+					SrcPath:           filepath.Join(store.Default.KustomizeDir, "name", store.Default.OverlaysDir, "project"),
+					SrcRepoURL:        "github.com/owner/repo",
+					SrcTargetRevision: "branch",
 				}, a.config))
 			},
 		},
 	}
 	for tname, tt := range tests {
+		// if !tt.run {
+		// continue
+		// }
 		t.Run(tname, func(t *testing.T) {
-			app, err := newKustApp(tt.opts)
-			tt.assertFn(t, app, err)
+			co := &git.CloneOptions{
+				URL:      tt.srcRepoURL,
+				Revision: tt.srcTargetRevision,
+			}
+			app, err := newKustApp(tt.opts, co, tt.projectName)
+			if err != nil {
+				if tt.wantErr != "" {
+					assert.EqualError(t, err, tt.wantErr)
+				} else {
+					t.Errorf("prepare() error = %v", err)
+				}
+
+				return
+			}
+
+			tt.assertFn(t, app)
 		})
 	}
 }
