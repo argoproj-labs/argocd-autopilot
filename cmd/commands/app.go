@@ -111,7 +111,7 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 		return err
 	}
 
-	app, err := opts.AppOpts.Parse(opts.CloneOptions, opts.ProjectName)
+	app, err := opts.AppOpts.Parse(opts.ProjectName, opts.CloneOptions.URL, opts.CloneOptions.Revision)
 	if err != nil {
 		return fmt.Errorf("failed to parse application from flags: %v", err)
 	}

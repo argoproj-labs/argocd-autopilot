@@ -10,7 +10,6 @@ import (
 	"reflect"
 
 	"github.com/argoproj/argocd-autopilot/pkg/fs"
-	"github.com/argoproj/argocd-autopilot/pkg/git"
 	"github.com/argoproj/argocd-autopilot/pkg/kube"
 	"github.com/argoproj/argocd-autopilot/pkg/log"
 	"github.com/argoproj/argocd-autopilot/pkg/store"
@@ -184,10 +183,10 @@ func GenerateManifests(k *kusttypes.Kustomization) ([]byte, error) {
 
 /* CreateOptions impl */
 // Parse tries to parse `CreateOptions` into an `Application`.
-func (o *CreateOptions) Parse(co *git.CloneOptions, projectName string) (Application, error) {
+func (o *CreateOptions) Parse(projectName, repoURL, targetRevision string) (Application, error) {
 	switch o.AppType {
 	case AppTypeKustomize:
-		return newKustApp(o, co, projectName)
+		return newKustApp(o, projectName, repoURL, targetRevision)
 	case AppTypeDirectory:
 		return newDirApp(o), nil
 	default:
@@ -201,7 +200,7 @@ func (app *baseApp) Name() string {
 }
 
 /* kustApp Application impl */
-func newKustApp(o *CreateOptions, co *git.CloneOptions, projectName string) (*kustApp, error) {
+func newKustApp(o *CreateOptions, projectName, repoURL, targetRevision string) (*kustApp, error) {
 	var err error
 	app := &kustApp{
 		baseApp: baseApp{o},
@@ -276,9 +275,9 @@ func newKustApp(o *CreateOptions, co *git.CloneOptions, projectName string) (*ku
 		UserGivenName:     o.AppName,
 		DestNamespace:     o.DestNamespace,
 		DestServer:        o.DestServer,
-		SrcRepoURL:        co.URL,
+		SrcRepoURL:        repoURL,
 		SrcPath:           filepath.Join(store.Default.AppsDir, o.AppName, store.Default.OverlaysDir, projectName),
-		SrcTargetRevision: co.Revision,
+		SrcTargetRevision: targetRevision,
 	}
 
 	return app, nil

@@ -9,7 +9,6 @@ import (
 
 	"github.com/argoproj/argocd-autopilot/pkg/fs"
 	fsmocks "github.com/argoproj/argocd-autopilot/pkg/fs/mocks"
-	"github.com/argoproj/argocd-autopilot/pkg/git"
 	"github.com/argoproj/argocd-autopilot/pkg/kube"
 	"github.com/argoproj/argocd-autopilot/pkg/store"
 	"github.com/go-git/go-billy/v5/memfs"
@@ -115,11 +114,7 @@ func Test_newKustApp(t *testing.T) {
 	}
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
-			co := &git.CloneOptions{
-				URL:      tt.srcRepoURL,
-				Revision: tt.srcTargetRevision,
-			}
-			app, err := newKustApp(tt.opts, co, tt.projectName)
+			app, err := newKustApp(tt.opts, tt.projectName, tt.srcRepoURL, tt.srcTargetRevision)
 			if err != nil {
 				if tt.wantErr != "" {
 					assert.EqualError(t, err, tt.wantErr)
