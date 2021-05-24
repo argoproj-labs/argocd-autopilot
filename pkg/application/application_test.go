@@ -114,9 +114,6 @@ func Test_newKustApp(t *testing.T) {
 		},
 	}
 	for tname, tt := range tests {
-		// if !tt.run {
-		// continue
-		// }
 		t.Run(tname, func(t *testing.T) {
 			co := &git.CloneOptions{
 				URL:      tt.srcRepoURL,
@@ -242,12 +239,10 @@ func Test_writeFile(t *testing.T) {
 
 func Test_kustCreateFiles(t *testing.T) {
 	tests := map[string]struct {
-		run      bool
 		beforeFn func() (*kustApp, fs.FS, string)
 		assertFn func(*testing.T, fs.FS, error)
 	}{
 		"Should create all files for a simple application": {
-			run: true,
 			beforeFn: func() (*kustApp, fs.FS, string) {
 				app := &kustApp{
 					baseApp: baseApp{
@@ -269,7 +264,6 @@ func Test_kustCreateFiles(t *testing.T) {
 			},
 		},
 		"Should create install.yaml when manifests exist": {
-			run: true,
 			beforeFn: func() (*kustApp, fs.FS, string) {
 				app := &kustApp{
 					baseApp: baseApp{
@@ -290,7 +284,6 @@ func Test_kustCreateFiles(t *testing.T) {
 			},
 		},
 		"Should create namespace.yaml when needed": {
-			run: true,
 			beforeFn: func() (*kustApp, fs.FS, string) {
 				app := &kustApp{
 					baseApp: baseApp{
@@ -308,7 +301,6 @@ func Test_kustCreateFiles(t *testing.T) {
 			},
 		},
 		"Should fail when base kustomization is different from kustRes": {
-			run: true,
 			beforeFn: func() (*kustApp, fs.FS, string) {
 				app := &kustApp{
 					baseApp: baseApp{
@@ -340,7 +332,6 @@ func Test_kustCreateFiles(t *testing.T) {
 			},
 		},
 		"Should fail when overlay already exists": {
-			run: true,
 			beforeFn: func() (*kustApp, fs.FS, string) {
 				app := &kustApp{
 					baseApp: baseApp{
@@ -367,10 +358,6 @@ func Test_kustCreateFiles(t *testing.T) {
 	}
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
-			if !tt.run {
-				return
-			}
-
 			app, repofs, projectName := tt.beforeFn()
 			err := app.CreateFiles(repofs, projectName)
 			tt.assertFn(t, repofs, err)
@@ -473,6 +460,85 @@ func TestInferAppType(t *testing.T) {
 			repofs := tt.beforeFn()
 			if got := InferAppType(repofs); got != tt.want {
 				t.Errorf("InferAppType() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDeleteFromProject(t *testing.T) {
+	tests := map[string]struct {
+		wantErr  string
+		beforeFn func() fs.FS
+		assertFn func(*testing.T, fs.FS)
+	}{
+		"Should remove entire app folder, if it contains only one overlay": {
+			beforeFn: func() fs.FS {
+				memfs := memfs.New()
+				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project"), 0666)
+				return fs.Create(memfs)
+			},
+			assertFn: func(t *testing.T, repofs fs.FS) {
+				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir)))
+			},
+		},
+		"Should delete just the overlay, if there are more": {
+			beforeFn: func() fs.FS {
+				memfs := memfs.New()
+				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project"), 0666)
+				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project2"), 0666)
+				return fs.Create(memfs)
+			},
+			assertFn: func(t *testing.T, repofs fs.FS) {
+				assert.True(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir)))
+				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project")))
+			},
+		},
+		"Should remove directory apps": {
+			beforeFn: func() fs.FS {
+				memfs := memfs.New()
+				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", "project"), 0666)
+				return fs.Create(memfs)
+			},
+			assertFn: func(t *testing.T, repofs fs.FS) {
+				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app")))
+			},
+		},
+		"Should not delete anything, if kust app is not in project": {
+			beforeFn: func() fs.FS {
+				memfs := memfs.New()
+				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project2"), 0666)
+				return fs.Create(memfs)
+			},
+			assertFn: func(t *testing.T, repofs fs.FS) {
+				assert.True(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app")))
+			},
+		},
+		"Should not delete anything, if dir app is not in project": {
+			beforeFn: func() fs.FS {
+				memfs := memfs.New()
+				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", "project2"), 0666)
+				return fs.Create(memfs)
+			},
+			assertFn: func(t *testing.T, repofs fs.FS) {
+				assert.True(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app")))
+			},
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			repofs := tt.beforeFn()
+			if err := DeleteFromProject(repofs, "app", "project"); err != nil {
+				if tt.wantErr != "" {
+					assert.EqualError(t, err, tt.wantErr)
+				} else {
+					t.Errorf("DeleteFromProject() error = %v", err)
+				}
+
+				return
+			}
+
+			if tt.assertFn != nil {
+				tt.assertFn(t, repofs)
 			}
 		})
 	}

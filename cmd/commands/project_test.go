@@ -555,6 +555,23 @@ func TestRunProjectDelete(t *testing.T) {
 				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app1", store.Default.OverlaysDir, "project")))
 			},
 		},
+		"Should remove directory apps": {
+			projectName: "project",
+			prepareRepo: func() (git.Repository, fs.FS, error) {
+				memfs := memfs.New()
+				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app1", "project"), 0666)
+				_ = billyUtils.WriteFile(memfs, filepath.Join(store.Default.ProjectsDir, "project.yaml"), []byte{}, 0666)
+				mockRepo := &gitmocks.Repository{}
+				mockRepo.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
+					CommitMsg: "Deleted project 'project'",
+				}).Return(nil)
+				return mockRepo, fs.Create(memfs), nil
+			},
+			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
+				repo.(*gitmocks.Repository).AssertExpectations(t)
+				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app1")))
+			},
+		},
 		"Should handle multiple apps": {
 			projectName: "project",
 			prepareRepo: func() (git.Repository, fs.FS, error) {
@@ -562,6 +579,9 @@ func TestRunProjectDelete(t *testing.T) {
 				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app1", store.Default.OverlaysDir, "project"), 0666)
 				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app1", store.Default.OverlaysDir, "project2"), 0666)
 				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app2", store.Default.OverlaysDir, "project"), 0666)
+				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app3", "project"), 0666)
+				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app4", "project"), 0666)
+				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app4", "project3"), 0666)
 				_ = billyUtils.WriteFile(memfs, filepath.Join(store.Default.ProjectsDir, "project.yaml"), []byte{}, 0666)
 				mockRepo := &gitmocks.Repository{}
 				mockRepo.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
@@ -574,6 +594,8 @@ func TestRunProjectDelete(t *testing.T) {
 				assert.True(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app1", store.Default.OverlaysDir)))
 				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app1", store.Default.OverlaysDir, "project")))
 				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app2")))
+				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app3")))
+				assert.True(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app4")))
 			},
 		},
 	}

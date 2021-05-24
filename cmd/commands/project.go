@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"text/tabwriter"
 
+	"github.com/argoproj/argocd-autopilot/pkg/application"
 	"github.com/argoproj/argocd-autopilot/pkg/argocd"
 	"github.com/argoproj/argocd-autopilot/pkg/fs"
 	"github.com/argoproj/argocd-autopilot/pkg/git"
@@ -416,33 +417,15 @@ func RunProjectDelete(ctx context.Context, opts *BaseOptions) error {
 		return err
 	}
 
-	projectPattern := repofs.Join(store.Default.AppsDir, "*", store.Default.OverlaysDir, opts.ProjectName)
-	overlays, err := billyUtils.Glob(repofs, projectPattern)
+	allApps, err := repofs.ReadDir(store.Default.AppsDir)
 	if err != nil {
-		return fmt.Errorf("failed to run glob on '%s': %w", projectPattern, err)
+		return fmt.Errorf("failed to list all applications")
 	}
 
-	for _, overlay := range overlays {
-		appOverlaysDir := filepath.Dir(overlay)
-		allOverlays, err := repofs.ReadDir(appOverlaysDir)
+	for _, app := range allApps {
+		err = application.DeleteFromProject(repofs, app.Name(), opts.ProjectName)
 		if err != nil {
-			return fmt.Errorf("failed to read overlays directory '%s': %w", appOverlaysDir, err)
-		}
-
-		appDir := filepath.Dir(appOverlaysDir)
-		appName := filepath.Base(appDir)
-		var dirToRemove string
-		if len(allOverlays) == 1 {
-			dirToRemove = appDir
-			log.G().Infof("Deleting app '%s'", appName)
-		} else {
-			dirToRemove = overlay
-			log.G().Infof("Deleting overlay from app '%s'", appName)
-		}
-
-		err = billyUtils.RemoveAll(repofs, dirToRemove)
-		if err != nil {
-			return fmt.Errorf("failed to delete directory '%s': %w", dirToRemove, err)
+			return err
 		}
 	}
 

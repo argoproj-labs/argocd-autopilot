@@ -55,11 +55,11 @@ func TestNewRepoSpecFromUrl(t *testing.T) {
 			for _, pathName := range pathNames {
 				for _, hrefArg := range hrefArgs {
 					uri := makeUrl(hostRaw, orgRepo, pathName, hrefArg)
-					host, orgRepo, path, ref, _, _, _ := ParseGitUrl(uri)
+					host, org, path, ref, _, _, _ := ParseGitUrl(uri)
 					if host != hostSpec {
 						bad = append(bad, []string{"host", uri, host, hostSpec})
 					}
-					if orgRepo != orgRepo {
+					if org != orgRepo {
 						bad = append(bad, []string{"orgRepo", uri, orgRepo, orgRepo})
 					}
 					if path != pathName {
@@ -86,7 +86,6 @@ func TestNewRepoSpecFromUrl(t *testing.T) {
 
 func TestNewRepoSpecFromUrl_CloneSpecs(t *testing.T) {
 	testcases := []struct {
-		run       bool
 		input     string
 		cloneSpec string
 		absPath   string
@@ -123,12 +122,6 @@ func TestNewRepoSpecFromUrl_CloneSpecs(t *testing.T) {
 			ref:       "v1.0.0",
 		},
 		{
-			input:     "https://itfs.mycompany.com/collection/project/_git/somerepos/somedir?version=v1.0.0",
-			cloneSpec: "https://itfs.mycompany.com/collection/project/_git/somerepos",
-			absPath:   "somedir",
-			ref:       "v1.0.0",
-		},
-		{
 			input:     "git::https://itfs.mycompany.com/collection/project/_git/somerepos",
 			cloneSpec: "https://itfs.mycompany.com/collection/project/_git/somerepos",
 			absPath:   "",
@@ -136,9 +129,6 @@ func TestNewRepoSpecFromUrl_CloneSpecs(t *testing.T) {
 		},
 	}
 	for _, testcase := range testcases {
-		if !testcase.run {
-			continue
-		}
 		host, orgRepo, path, ref, _, suffix, _ := ParseGitUrl(testcase.input)
 		cloneSpec := host + orgRepo + suffix
 		if cloneSpec != testcase.cloneSpec {

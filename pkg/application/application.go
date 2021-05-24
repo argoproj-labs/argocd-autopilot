@@ -17,6 +17,7 @@ import (
 	"github.com/argoproj/argocd-autopilot/pkg/util"
 
 	"github.com/ghodss/yaml"
+	billyUtils "github.com/go-git/go-billy/v5/util"
 	"github.com/spf13/cobra"
 	v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/kustomize/api/filesys"
@@ -119,6 +120,54 @@ func InferAppType(repofs fs.FS) string {
 	}
 
 	return AppTypeDirectory
+}
+
+func DeleteFromProject(repofs fs.FS, appName, projectName string) error {
+	var dirToCheck string
+	appDir := repofs.Join(store.Default.AppsDir, appName)
+	appOverlay := repofs.Join(appDir, store.Default.OverlaysDir)
+	if repofs.ExistsOrDie(appOverlay) {
+		// kustApp
+		dirToCheck = appOverlay
+	} else {
+		// dirApp
+		dirToCheck = appDir
+	}
+
+	allProjects, err := repofs.ReadDir(dirToCheck)
+	if err != nil {
+		return fmt.Errorf("failed to check projects in '%s': %w", appName, err)
+	}
+
+	if !isInProject(allProjects, projectName) {
+		return nil
+	}
+
+	var dirToRemove string
+	if len(allProjects) == 1 {
+		dirToRemove = appDir
+		log.G().Infof("Deleting app '%s'", appName)
+	} else {
+		dirToRemove = repofs.Join(dirToCheck, projectName)
+		log.G().Infof("Deleting app '%s' from project '%s'", appName, projectName)
+	}
+
+	err = billyUtils.RemoveAll(repofs, dirToRemove)
+	if err != nil {
+		return fmt.Errorf("failed to delete directory '%s': %w", dirToRemove, err)
+	}
+
+	return nil
+}
+
+func isInProject(allProjects []os.FileInfo, projectName string) bool {
+	for _, project := range allProjects {
+		if project.Name() == projectName {
+			return true
+		}
+	}
+
+	return false
 }
 
 // GenerateManifests writes the in-memory kustomization to disk, fixes relative resources and
