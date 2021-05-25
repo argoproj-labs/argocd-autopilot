@@ -164,6 +164,7 @@ func setAppOptsDefaults(ctx context.Context, repofs fs.FS, opts *AppCreateOption
 		}
 
 		opts.AppOpts.AppType = application.InferAppType(fs)
+		log.G().Infof("Inferred AppType: %s", opts.AppOpts.AppType)
 	}
 
 	return nil
