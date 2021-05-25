@@ -73,7 +73,7 @@ func NewAppCreateCommand(opts *BaseOptions) *cobra.Command {
 
 		--git-token <token> --repo <repo_url>
 
-# using the --type flag (kustomize|directory) is optional. If it is ommitted, <BIN> will clone
+# using the --type flag (kustomize|dir) is optional. If it is ommitted, <BIN> will clone
 # the --app repository, and infer the type automatically.
 
 # Create a new application from kustomization in a remote repository
@@ -227,7 +227,7 @@ func RunAppList(ctx context.Context, opts *BaseOptions) error {
 		return err
 	}
 
-	// get all apps beneath kustomize <project>\overlayes
+	// get all apps beneath apps/*/overlays/<project>
 	matches, err := billyUtils.Glob(repofs, repofs.Join(store.Default.AppsDir, "*", store.Default.OverlaysDir, opts.ProjectName))
 	if err != nil {
 		log.G().Fatalf("failed to run glob on %s", opts.ProjectName)

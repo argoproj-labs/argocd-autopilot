@@ -163,7 +163,6 @@ func Test_generateProject(t *testing.T) {
 		wantRevision           string
 		wantDefaultDestServer  string
 		wantProject            string
-		wantPath               string
 	}{
 		"should generate project and appset with correct values": {
 			o: &GenerateProjectOptions{
@@ -180,7 +179,6 @@ func Test_generateProject(t *testing.T) {
 			wantRepoURL:            "repoUrl",
 			wantRevision:           "revision",
 			wantDefaultDestServer:  "defaultDestServer",
-			wantPath:               "some/path/kustomize/{{appName}}/overlays/name",
 		},
 	}
 	for ttname, tt := range tests {
