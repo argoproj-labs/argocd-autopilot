@@ -15,20 +15,20 @@ type FS struct {
 	mock.Mock
 }
 
-// CheckExistsOrWrite provides a mock function with given fields: path, data
-func (_m *FS) CheckExistsOrWrite(path string, data []byte) (bool, error) {
-	ret := _m.Called(path, data)
+// CheckExistsOrWrite provides a mock function with given fields: filename, data
+func (_m *FS) CheckExistsOrWrite(filename string, data []byte) (bool, error) {
+	ret := _m.Called(filename, data)
 
 	var r0 bool
 	if rf, ok := ret.Get(0).(func(string, []byte) bool); ok {
-		r0 = rf(path, data)
+		r0 = rf(filename, data)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
 
 	var r1 error
 	if rf, ok := ret.Get(1).(func(string, []byte) error); ok {
-		r1 = rf(path, data)
+		r1 = rf(filename, data)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -243,6 +243,46 @@ func (_m *FS) ReadDir(path string) ([]iofs.FileInfo, error) {
 	return r0, r1
 }
 
+// ReadFile provides a mock function with given fields: filename
+func (_m *FS) ReadFile(filename string) ([]byte, error) {
+	ret := _m.Called(filename)
+
+	var r0 []byte
+	if rf, ok := ret.Get(0).(func(string) []byte); ok {
+		r0 = rf(filename)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]byte)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(filename)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ReadYamls provides a mock function with given fields: filename, o
+func (_m *FS) ReadYamls(filename string, o ...interface{}) error {
+	var _ca []interface{}
+	_ca = append(_ca, filename)
+	_ca = append(_ca, o...)
+	ret := _m.Called(_ca...)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, ...interface{}) error); ok {
+		r0 = rf(filename, o...)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // Readlink provides a mock function with given fields: link
 func (_m *FS) Readlink(link string) (string, error) {
 	ret := _m.Called(link)
@@ -364,4 +404,21 @@ func (_m *FS) TempFile(dir string, prefix string) (billy.File, error) {
 	}
 
 	return r0, r1
+}
+
+// WriteYamls provides a mock function with given fields: filename, o
+func (_m *FS) WriteYamls(filename string, o ...interface{}) error {
+	var _ca []interface{}
+	_ca = append(_ca, filename)
+	_ca = append(_ca, o...)
+	ret := _m.Called(_ca...)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, ...interface{}) error); ok {
+		r0 = rf(filename, o...)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }

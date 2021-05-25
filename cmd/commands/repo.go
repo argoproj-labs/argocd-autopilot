@@ -21,7 +21,7 @@ import (
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	argocdsettings "github.com/argoproj/argo-cd/v2/util/settings"
 	"github.com/ghodss/yaml"
-	memfs "github.com/go-git/go-billy/v5/memfs"
+	"github.com/go-git/go-billy/v5/memfs"
 	billyUtils "github.com/go-git/go-billy/v5/util"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -398,11 +398,11 @@ func setBootstrapOptsDefaults(opts RepoBootstrapOptions) (*RepoBootstrapOptions,
 	return &opts, nil
 }
 
-func validateRepo(fs fs.FS) error {
+func validateRepo(repofs fs.FS) error {
 	folders := []string{store.Default.BootsrtrapDir, store.Default.ProjectsDir}
 	for _, folder := range folders {
-		if fs.ExistsOrDie(folder) {
-			return fmt.Errorf("folder %s already exist in: %s", folder, fs.Join(fs.Root(), folder))
+		if repofs.ExistsOrDie(folder) {
+			return fmt.Errorf("folder %s already exist in: %s", folder, repofs.Join(repofs.Root(), folder))
 		}
 	}
 
@@ -626,8 +626,8 @@ func writeManifestsToRepo(repoFS fs.FS, manifests *bootstrapManifests, installat
 		return err
 	}
 
-	// write ./kustomize/README.md
-	if err = billyUtils.WriteFile(repoFS, repoFS.Join(store.Default.KustomizeDir, "README.md"), kustomizationReadme, 0666); err != nil {
+	// write ./apps/README.md
+	if err = billyUtils.WriteFile(repoFS, repoFS.Join(store.Default.AppsDir, "README.md"), kustomizationReadme, 0666); err != nil {
 		return err
 	}
 

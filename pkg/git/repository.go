@@ -164,12 +164,11 @@ var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 	}
 
 	cloneOpts := &gg.CloneOptions{
-		URL:          opts.URL,
-		Auth:         getAuth(opts.Auth),
-		SingleBranch: true,
-		Depth:        1,
-		Progress:     os.Stderr,
-		Tags:         gg.NoTags,
+		URL:      opts.URL,
+		Auth:     getAuth(opts.Auth),
+		Depth:    1,
+		Progress: os.Stderr,
+		Tags:     gg.NoTags,
 	}
 
 	if opts.Revision != "" {

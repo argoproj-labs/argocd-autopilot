@@ -35,7 +35,7 @@ type Store struct {
 
 var Default = struct {
 	BootsrtrapDir        string
-	KustomizeDir         string
+	AppsDir              string
 	OverlaysDir          string
 	BaseDir              string
 	ArgoCDName           string
@@ -51,7 +51,7 @@ var Default = struct {
 	DestServer           string
 	DestServerAnnotation string
 }{
-	KustomizeDir:         "kustomize",
+	AppsDir:              "apps",
 	BootsrtrapDir:        "bootstrap",
 	OverlaysDir:          "overlays",
 	BaseDir:              "base",

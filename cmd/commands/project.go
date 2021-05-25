@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"text/tabwriter"
 
+	"github.com/argoproj/argocd-autopilot/pkg/application"
 	"github.com/argoproj/argocd-autopilot/pkg/argocd"
 	"github.com/argoproj/argocd-autopilot/pkg/fs"
 	"github.com/argoproj/argocd-autopilot/pkg/git"
@@ -258,7 +258,7 @@ var generateProject = func(o *GenerateProjectOptions) (*argocdv1alpha1.AppProjec
 						Revision: o.Revision,
 						Files: []appset.GitFileGeneratorItem{
 							{
-								Path: filepath.Join(o.InstallationPath, "kustomize", "**", "overlays", o.Name, "config.json"),
+								Path: filepath.Join(o.InstallationPath, store.Default.AppsDir, "**", o.Name, "config.json"),
 							},
 						},
 						RequeueAfterSeconds: &DefaultApplicationSetGeneratorInterval,
@@ -268,22 +268,22 @@ var generateProject = func(o *GenerateProjectOptions) (*argocdv1alpha1.AppProjec
 			Template: appset.ApplicationSetTemplate{
 				ApplicationSetTemplateMeta: appset.ApplicationSetTemplateMeta{
 					Namespace: o.Namespace,
-					Name:      fmt.Sprintf("%s-{{userGivenName}}", o.Name),
+					Name:      fmt.Sprintf("%s-{{ userGivenName }}", o.Name),
 					Labels: map[string]string{
 						"app.kubernetes.io/managed-by": store.Default.ManagedBy,
-						"app.kubernetes.io/name":       "{{appName}}",
+						"app.kubernetes.io/name":       "{{ appName }}",
 					},
 				},
 				Spec: appsetv1alpha1.ApplicationSpec{
 					Project: o.Name,
 					Source: appsetv1alpha1.ApplicationSource{
-						RepoURL:        o.RepoURL,
-						TargetRevision: o.Revision,
-						Path:           filepath.Join(o.InstallationPath, "kustomize", "{{appName}}", "overlays", o.Name),
+						RepoURL:        "{{ srcRepoURL }}",
+						Path:           "{{ srcPath }}",
+						TargetRevision: "{{ srcTargetRevision }}",
 					},
 					Destination: appsetv1alpha1.ApplicationDestination{
-						Server:    "{{destServer}}",
-						Namespace: "{{destNamespace}}",
+						Server:    "{{ destServer }}",
+						Namespace: "{{ destNamespace }}",
 					},
 					SyncPolicy: &appsetv1alpha1.SyncPolicy{
 						Automated: &appsetv1alpha1.SyncPolicyAutomated{
@@ -300,18 +300,9 @@ var generateProject = func(o *GenerateProjectOptions) (*argocdv1alpha1.AppProjec
 }
 
 var getInstallationNamespace = func(repofs fs.FS) (string, error) {
-	f, err := repofs.Open(repofs.Join(store.Default.BootsrtrapDir, store.Default.ArgoCDName+".yaml"))
-	if err != nil {
-		return "", err
-	}
-
-	d, err := ioutil.ReadAll(f)
-	if err != nil {
-		return "", fmt.Errorf("failed to read namespace file: %w", err)
-	}
-
-	a := &appsetv1alpha1.Application{}
-	if err = yaml.Unmarshal(d, a); err != nil {
+	path := repofs.Join(store.Default.BootsrtrapDir, store.Default.ArgoCDName+".yaml")
+	a := &argocdv1alpha1.Application{}
+	if err := repofs.ReadYamls(path, a); err != nil {
 		return "", fmt.Errorf("failed to unmarshal namespace: %w", err)
 	}
 
@@ -362,7 +353,7 @@ func RunProjectList(ctx context.Context, opts *ProjectListOptions) error {
 	}
 
 	w := tabwriter.NewWriter(opts.Out, 0, 0, 2, ' ', 0)
-	_, _ = fmt.Fprintf(w, "NAME\tNAMESPACE\tCLUSTER\t\n")
+	_, _ = fmt.Fprintf(w, "NAME\tNAMESPACE\tDEFAULT CLUSTER\t\n")
 
 	for _, name := range matches {
 		proj, _, err := getProjectInfoFromFile(repofs, name)
@@ -370,43 +361,21 @@ func RunProjectList(ctx context.Context, opts *ProjectListOptions) error {
 			return err
 		}
 
-		fmt.Fprintf(w, "%s\t%s\t%s\n", proj.Name, proj.Namespace, proj.ClusterName)
+		fmt.Fprintf(w, "%s\t%s\t%s\n", proj.Name, proj.Namespace, proj.Annotations[store.Default.DestServerAnnotation])
 	}
 
 	w.Flush()
 	return nil
 }
 
-var getProjectInfoFromFile = func(fs fs.FS, name string) (*argocdv1alpha1.AppProject, *appsetv1alpha1.ApplicationSpec, error) {
-	file, err := fs.Open(name)
-	if err != nil {
-		return nil, nil, fmt.Errorf("%s not found", name)
+var getProjectInfoFromFile = func(repofs fs.FS, name string) (*argocdv1alpha1.AppProject, *appset.ApplicationSet, error) {
+	proj := &argocdv1alpha1.AppProject{}
+	appSet := &appset.ApplicationSet{}
+	if err := repofs.ReadYamls(name, proj, appSet); err != nil {
+		return nil, nil, err
 	}
 
-	b, err := ioutil.ReadAll(file)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to read file %s", name)
-	}
-
-	yamls := util.SplitManifests(b)
-	if len(yamls) != 2 {
-		return nil, nil, fmt.Errorf("expected 2 files when splitting %s", name)
-	}
-
-	proj := argocdv1alpha1.AppProject{}
-	err = yaml.Unmarshal(yamls[0], &proj)
-
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to unmarshal %s", name)
-	}
-
-	appSet := appsetv1alpha1.ApplicationSpec{}
-	err = yaml.Unmarshal(yamls[1], &proj)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to unmarshal %s", name)
-	}
-
-	return &proj, &appSet, nil
+	return proj, appSet, nil
 }
 
 func NewProjectDeleteCommand(opts *BaseOptions) *cobra.Command {
@@ -448,33 +417,15 @@ func RunProjectDelete(ctx context.Context, opts *BaseOptions) error {
 		return err
 	}
 
-	projectPattern := repofs.Join(store.Default.KustomizeDir, "*", store.Default.OverlaysDir, opts.ProjectName)
-	overlays, err := billyUtils.Glob(repofs, projectPattern)
+	allApps, err := repofs.ReadDir(store.Default.AppsDir)
 	if err != nil {
-		return fmt.Errorf("failed to run glob on '%s': %w", projectPattern, err)
+		return fmt.Errorf("failed to list all applications")
 	}
 
-	for _, overlay := range overlays {
-		appOverlaysDir := filepath.Dir(overlay)
-		allOverlays, err := repofs.ReadDir(appOverlaysDir)
+	for _, app := range allApps {
+		err = application.DeleteFromProject(repofs, app.Name(), opts.ProjectName)
 		if err != nil {
-			return fmt.Errorf("failed to read overlays directory '%s': %w", appOverlaysDir, err)
-		}
-
-		appDir := filepath.Dir(appOverlaysDir)
-		appName := filepath.Base(appDir)
-		var dirToRemove string
-		if len(allOverlays) == 1 {
-			dirToRemove = appDir
-			log.G().Infof("Deleting app '%s'", appName)
-		} else {
-			dirToRemove = overlay
-			log.G().Infof("Deleting overlay from app '%s'", appName)
-		}
-
-		err = billyUtils.RemoveAll(repofs, dirToRemove)
-		if err != nil {
-			return fmt.Errorf("failed to delete directory '%s': %w", dirToRemove, err)
+			return err
 		}
 	}
 
