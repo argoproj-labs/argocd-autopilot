@@ -1,3 +1,6 @@
+// The following file was copied from https://github.com/kubernetes-sigs/kustomize/blob/master/api/internal/git/repospec.go
+// and modified to expose the ParseGitUrl function
+
 // Copyright 2019 The Kubernetes Authors.
 // SPDX-License-Identifier: Apache-2.0
 

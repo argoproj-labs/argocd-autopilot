@@ -1,3 +1,6 @@
+// The following code was copied from https://github.com/kubernetes-sigs/kustomize/blob/master/api/internal/git/repospec_test.go
+// and modified to test the copied repospec.go
+
 // Copyright 2019 The Kubernetes Authors.
 // SPDX-License-Identifier: Apache-2.0
 
