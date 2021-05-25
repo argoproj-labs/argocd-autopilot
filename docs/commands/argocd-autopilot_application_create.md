@@ -20,7 +20,7 @@ argocd-autopilot application create [APP_NAME] [flags]
 
         --git-token <token> --repo <repo_url>
 
-# using the --type flag (kustomize|directory) is optional. If it is ommitted, argocd-autopilot will clone
+# using the --type flag (kustomize|dir) is optional. If it is ommitted, argocd-autopilot will clone
 # the --app repository, and infer the type automatically.
 
 # Create a new application from kustomization in a remote repository
