@@ -1,5 +1,12 @@
 # Changelog:
 
+# v0.1.7
+
+* Fixed `--namespaced` bootstrap
+* fix typo in auth error message
+* Support for directory type application
+* Renamed the binary archive from just .gz zo .tar.gz
+
 # v0.1.6
 * new logo!
 * updated docs

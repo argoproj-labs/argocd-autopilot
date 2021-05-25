@@ -1,6 +1,20 @@
-## Changes:
-* fixed `--namespaced` bootstrap
-* implemented [#59](https://github.com/argoproj-labs/argocd-autopilot/issues/59)
+### Bug fixes:
+
+* Fixed `--namespaced` bootstrap [#61](https://github.com/argoproj-labs/argocd-autopilot/pull/61)
+* fix typo in auth error message [#60](https://github.com/argoproj-labs/argocd-autopilot/pull/60)
+
+### Features:
+
+* Support for directory type application [#59](https://github.com/argoproj-labs/argocd-autopilot/issues/59)
+
+### Additional changes
+
+* Renamed the binary archive from just .gz zo .tar.gz [#62](https://github.com/argoproj-labs/argocd-autopilot/pull/62)
+
+### Contributors:
+
+- Engin Diri ([@dirien](https://github.com/dirien))
+- Christopher Baklid ([@inveracity](https://github.com/inveracity))
 
 ## Installation:
 
