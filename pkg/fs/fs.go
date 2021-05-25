@@ -103,12 +103,12 @@ func (fs *fsimpl) ReadYamls(filename string, o ...interface{}) error {
 		return fmt.Errorf("expected at least %d manifests when reading '%s'", len(o), filename)
 	}
 
-	for i, y := range yamls {
-		if o[i] == nil {
+	for i, e := range o {
+		if e == nil {
 			continue
 		}
 
-		err = yaml.Unmarshal(y, o[i])
+		err = yaml.Unmarshal(yamls[i], e)
 		if err != nil {
 			return err
 		}

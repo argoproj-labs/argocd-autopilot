@@ -281,12 +281,11 @@ func Test_clone(t *testing.T) {
 				},
 			},
 			expectedOpts: &gg.CloneOptions{
-				URL:          "https://test",
-				Auth:         nil,
-				SingleBranch: true,
-				Depth:        1,
-				Progress:     os.Stderr,
-				Tags:         gg.NoTags,
+				URL:      "https://test",
+				Auth:     nil,
+				Depth:    1,
+				Progress: os.Stderr,
+				Tags:     gg.NoTags,
 			},
 			assertFn: func(t *testing.T, r *repo) {
 				assert.NotNil(t, r)
@@ -309,10 +308,9 @@ func Test_clone(t *testing.T) {
 					Username: "asd",
 					Password: "123",
 				},
-				SingleBranch: true,
-				Depth:        1,
-				Progress:     os.Stderr,
-				Tags:         gg.NoTags,
+				Depth:    1,
+				Progress: os.Stderr,
+				Tags:     gg.NoTags,
 			},
 			assertFn: func(t *testing.T, r *repo) {
 				assert.NotNil(t, r)
@@ -326,11 +324,10 @@ func Test_clone(t *testing.T) {
 				},
 			},
 			expectedOpts: &gg.CloneOptions{
-				URL:          "https://test",
-				SingleBranch: true,
-				Depth:        1,
-				Progress:     os.Stderr,
-				Tags:         gg.NoTags,
+				URL:      "https://test",
+				Depth:    1,
+				Progress: os.Stderr,
+				Tags:     gg.NoTags,
 			},
 			retErr:  fmt.Errorf("error"),
 			wantErr: true,
@@ -348,7 +345,6 @@ func Test_clone(t *testing.T) {
 			},
 			expectedOpts: &gg.CloneOptions{
 				URL:           "https://test",
-				SingleBranch:  true,
 				Depth:         1,
 				Progress:      os.Stderr,
 				Tags:          gg.NoTags,
