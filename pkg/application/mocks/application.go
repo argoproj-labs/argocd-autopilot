@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	fs "github.com/argoproj/argocd-autopilot/pkg/fs"
+	fs "github.com/argoproj-labs/argocd-autopilot/pkg/fs"
 	mock "github.com/stretchr/testify/mock"
 )
 

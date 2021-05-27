@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
-	g "github.com/argoproj/argocd-autopilot/pkg/git/github"
+	g "github.com/argoproj-labs/argocd-autopilot/pkg/git/github"
+
 	gh "github.com/google/go-github/v34/github"
 )
 

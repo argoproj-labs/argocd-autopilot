@@ -5,7 +5,7 @@ package mocks
 import (
 	context "context"
 
-	kube "github.com/argoproj/argocd-autopilot/pkg/kube"
+	kube "github.com/argoproj-labs/argocd-autopilot/pkg/kube"
 	kubernetes "k8s.io/client-go/kubernetes"
 
 	mock "github.com/stretchr/testify/mock"

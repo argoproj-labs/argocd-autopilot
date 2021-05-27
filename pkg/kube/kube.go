@@ -5,8 +5,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/argoproj/argocd-autopilot/pkg/log"
-	"github.com/argoproj/argocd-autopilot/pkg/util"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/log"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"

@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/argoproj/argocd-autopilot/pkg/fs/mocks"
-	"github.com/argoproj/argocd-autopilot/pkg/util"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/fs/mocks"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 
 	"github.com/ghodss/yaml"
 	"github.com/go-git/go-billy/v5"

@@ -7,10 +7,11 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/argoproj/argocd-autopilot/pkg/fs"
-	fsmocks "github.com/argoproj/argocd-autopilot/pkg/fs/mocks"
-	"github.com/argoproj/argocd-autopilot/pkg/kube"
-	"github.com/argoproj/argocd-autopilot/pkg/store"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/fs"
+	fsmocks "github.com/argoproj-labs/argocd-autopilot/pkg/fs/mocks"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/kube"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
+
 	"github.com/go-git/go-billy/v5/memfs"
 	billyUtils "github.com/go-git/go-billy/v5/util"
 	"github.com/stretchr/testify/assert"

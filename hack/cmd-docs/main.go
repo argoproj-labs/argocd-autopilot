@@ -10,7 +10,7 @@ import (
 
 	"github.com/spf13/cobra/doc"
 
-	"github.com/argoproj/argocd-autopilot/cmd/commands"
+	"github.com/argoproj-labs/argocd-autopilot/cmd/commands"
 )
 
 const (
