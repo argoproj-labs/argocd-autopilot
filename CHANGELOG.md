@@ -1,5 +1,9 @@
 # Changelog:
 
+# v0.1.8
+
+* Fix -p option in README.md
+* renamed module from `argoproj/argocd-autopilot` to `argoproj-labs/argocd-autopilot`
 # v0.1.7
 
 * Fixed `--namespaced` bootstrap
