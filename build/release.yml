@@ -143,6 +143,9 @@ steps:
         title: darwin_amd64
         environment:
          - TARGET=darwin-amd64
+    retry:
+      maxAttempts: 3
+      delay: 1
     when:
       steps:
       - name: test
