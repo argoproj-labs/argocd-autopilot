@@ -17,38 +17,31 @@ steps:
     repo: ${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}
     revision: ${{CF_BRANCH}}
 
-  build_helper_image:
+  prepare_env_vars: &deps
     stage: Prepare
-    title: build helper image
-    type: build
-    image_name: helper
-    tag: ${{CF_BRANCH_TAG_NORMALIZED}}
-    dockerfile:
-      content: |-
-        FROM golang:1.16.3-alpine3.13
-        RUN apk -U add --no-cache ca-certificates git make gcc g++ curl bash && update-ca-certificates
-        ENTRYPOINT [ "/bin/bash" ]
-    buildkit: true
-    disable_push: true
+    title: prepare-env & download modules
+    image: quay.io/codefresh/golang-ci-helper:latest
+    commands:
+    - cf_export GO111MODULE=on
+    - cf_export GOCACHE=/codefresh/volume/gocache # change gopath to codefresh shared volume
+    - cf_export GOPATH=/codefresh/volume/gopath
+    - cf_export PATH=$PATH:/codefresh/volume/gopath/bin
     when:
       steps:
       - name: main_clone
         on:
         - success
 
-  prepare_env_vars: &deps
+  download_modules:
+    <<: *deps
     stage: Prepare
-    title: prepare-env & download modules
-    image: ${{build_helper_image}}
+    title: download modules
     commands:
-    - cf_export GO111MODULE=on
-    - cf_export GOCACHE=/codefresh/volume/gocache # change gopath to codefresh shared volume
-    - cf_export GOPATH=/codefresh/volume/gopath
-    - cf_export PATH=$PATH:/codefresh/volume/gopath/bin
     - go mod download -x
+    - make clean
     when:
       steps:
-      - name: build_helper_image
+      - name: prepare_env_vars
         on:
         - success
 
@@ -61,7 +54,7 @@ steps:
     - make check-worktree
     when:
       steps:
-      - name: prepare_env_vars
+      - name: download_modules
         on:
         - success
 
@@ -74,7 +67,7 @@ steps:
     - make check-worktree
     when:
       steps:
-      - name: prepare_env_vars
+      - name: download_modules
         on:
         - success
 

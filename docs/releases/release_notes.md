@@ -1,20 +1,15 @@
 ### Bug fixes:
 
-* Fixed `--namespaced` bootstrap [#61](https://github.com/argoproj-labs/argocd-autopilot/pull/61)
-* fix typo in auth error message [#60](https://github.com/argoproj-labs/argocd-autopilot/pull/60)
-
-### Features:
-
-* Support for directory type application [#59](https://github.com/argoproj-labs/argocd-autopilot/issues/59)
+* Fix -p option in README.md [#66](https://github.com/argoproj-labs/argocd-autopilot/pull/66)
 
 ### Additional changes
 
-* Renamed the binary archive from just .gz zo .tar.gz [#62](https://github.com/argoproj-labs/argocd-autopilot/pull/62)
+* renamed `argoproj/argocd-autopilot` to `argoproj-labs/argocd-autopilot` [#60](https://github.com/argoproj-labs/argocd-autopilot/pull/67)
 
 ### Contributors:
 
-- Engin Diri ([@dirien](https://github.com/dirien))
-- Christopher Baklid ([@inveracity](https://github.com/inveracity))
+- Joe Bowbeer ([@joebowbeer](https://github.com/joebowbeer))
+- Noam Gal ([@noam-codefresh](https://github.com/noam-codefresh))
 
 ## Installation:
 

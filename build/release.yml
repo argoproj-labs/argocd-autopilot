@@ -17,30 +17,10 @@ steps:
     repo: ${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}
     revision: ${{CF_BRANCH}}
 
-  build_helper_image:
-    stage: Prepare
-    title: build tester image
-    type: build
-    image_name: helper
-    tag: ${{CF_BRANCH_TAG_NORMALIZED}}
-    dockerfile:
-      content: |-
-        FROM golang:1.16.3-alpine3.13
-        RUN apk -U add --no-cache ca-certificates git make gcc g++ curl bash openssl && update-ca-certificates
-        RUN curl -L https://github.com/cli/cli/releases/download/v1.9.2/gh_1.9.2_linux_amd64.tar.gz | tar zx && mv ./gh_1.9.2_linux_amd64/bin/gh /usr/local/bin
-        ENTRYPOINT [ "/bin/bash" ]
-    buildkit: true
-    disable_push: true
-    when:
-      steps:
-      - name: main_clone
-        on:
-        - success
-
   check_version: &deps
     stage: Prepare
     title: check version
-    image: ${{build_helper_image}}
+    image: quay.io/codefresh/golang-ci-helper:latest
     commands:
     - cf_export GO111MODULE=on
     - cf_export GOCACHE=/codefresh/volume/gocache # change gopath to codefresh shared volume
@@ -50,7 +30,7 @@ steps:
     - (gh release view ${{CF_BRANCH}} --repo ${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}) && (echo release with the same name already exists && exit 1) || echo no release with the name ${{CF_BRANCH}}, we can continue!
     when:
       steps:
-      - name: build_helper_image
+      - name: main_clone
         on:
         - success
 
@@ -163,6 +143,9 @@ steps:
         title: darwin_amd64
         environment:
          - TARGET=darwin-amd64
+    retry:
+      maxAttempts: 3
+      delay: 1
     when:
       steps:
       - name: test

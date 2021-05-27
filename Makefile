@@ -1,4 +1,4 @@
-VERSION=v0.1.7
+VERSION=v0.1.8
 OUT_DIR=dist
 
 CLI_NAME?=argocd-autopilot
@@ -151,6 +151,7 @@ $(GOBIN)/mockery:
 	@echo installing: mockery
 	@curl -L -o dist/mockery.tar.gz -- https://github.com/vektra/mockery/releases/download/v1.1.1/mockery_1.1.1_$(shell uname -s)_$(shell uname -m).tar.gz
 	@tar zxvf dist/mockery.tar.gz mockery
+	@rm dist/mockery.tar.gz
 	@chmod +x mockery
 	@mkdir -p $(GOBIN)
 	@mv mockery $(GOBIN)/mockery
