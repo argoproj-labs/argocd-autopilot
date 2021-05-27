@@ -1,8 +1,9 @@
 package commands
 
 import (
-	"github.com/argoproj/argocd-autopilot/pkg/store"
-	"github.com/argoproj/argocd-autopilot/pkg/util"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"

@@ -6,12 +6,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/argoproj/argocd-autopilot/pkg/argocd"
-	"github.com/argoproj/argocd-autopilot/pkg/fs"
-	"github.com/argoproj/argocd-autopilot/pkg/git"
-	gitmocks "github.com/argoproj/argocd-autopilot/pkg/git/mocks"
-	kubemocks "github.com/argoproj/argocd-autopilot/pkg/kube/mocks"
-	"github.com/argoproj/argocd-autopilot/pkg/store"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/argocd"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/fs"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/git"
+	gitmocks "github.com/argoproj-labs/argocd-autopilot/pkg/git/mocks"
+	kubemocks "github.com/argoproj-labs/argocd-autopilot/pkg/kube/mocks"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
 
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/ghodss/yaml"

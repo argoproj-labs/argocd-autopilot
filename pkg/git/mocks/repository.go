@@ -5,7 +5,7 @@ package mocks
 import (
 	context "context"
 
-	git "github.com/argoproj/argocd-autopilot/pkg/git"
+	git "github.com/argoproj-labs/argocd-autopilot/pkg/git"
 	mock "github.com/stretchr/testify/mock"
 )
 

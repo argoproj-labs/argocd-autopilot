@@ -4,9 +4,10 @@ import (
 	"context"
 	"syscall"
 
-	"github.com/argoproj/argocd-autopilot/cmd/commands"
-	"github.com/argoproj/argocd-autopilot/pkg/log"
-	"github.com/argoproj/argocd-autopilot/pkg/util"
+	"github.com/argoproj-labs/argocd-autopilot/cmd/commands"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/log"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
+
 	"github.com/sirupsen/logrus"
 	_ "k8s.io/client-go/plugin/pkg/client/auth" // used for authentication with cloud providers
 )

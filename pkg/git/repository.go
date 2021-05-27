@@ -5,9 +5,9 @@ import (
 	"errors"
 	"os"
 
-	"github.com/argoproj/argocd-autopilot/pkg/fs"
-	"github.com/argoproj/argocd-autopilot/pkg/git/gogit"
-	"github.com/argoproj/argocd-autopilot/pkg/log"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/fs"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/git/gogit"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/log"
 
 	billy "github.com/go-git/go-billy/v5"
 	gg "github.com/go-git/go-git/v5"

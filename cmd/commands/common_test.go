@@ -6,10 +6,10 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/argoproj/argocd-autopilot/pkg/fs"
-	fsmocks "github.com/argoproj/argocd-autopilot/pkg/fs/mocks"
-	"github.com/argoproj/argocd-autopilot/pkg/git"
-	gitmocks "github.com/argoproj/argocd-autopilot/pkg/git/mocks"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/fs"
+	fsmocks "github.com/argoproj-labs/argocd-autopilot/pkg/fs/mocks"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/git"
+	gitmocks "github.com/argoproj-labs/argocd-autopilot/pkg/git/mocks"
 
 	"github.com/stretchr/testify/assert"
 )

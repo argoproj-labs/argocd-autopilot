@@ -7,9 +7,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/argoproj/argocd-autopilot/pkg/fs"
-	"github.com/argoproj/argocd-autopilot/pkg/git/gogit"
-	"github.com/argoproj/argocd-autopilot/pkg/git/gogit/mocks"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/fs"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/git/gogit"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/git/gogit/mocks"
 
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"

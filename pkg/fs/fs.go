@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/argoproj/argocd-autopilot/pkg/util"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 
 	"github.com/ghodss/yaml"
 	"github.com/go-git/go-billy/v5"

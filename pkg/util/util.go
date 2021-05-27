@@ -8,8 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/argoproj/argocd-autopilot/pkg/log"
-	"github.com/argoproj/argocd-autopilot/pkg/store"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/log"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
+
 	"github.com/briandowns/spinner"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -135,12 +136,12 @@ func JoinManifests(manifests ...[]byte) []byte {
 	return []byte(strings.Join(res, yamlSeperator))
 }
 
-func SplitManifests(manifests []byte) [][]byte  {
+func SplitManifests(manifests []byte) [][]byte {
 	str := string(manifests)
 	stringManifests := strings.Split(str, yamlSeperator)
-	res := make([][]byte, 0, len(stringManifests)) 
+	res := make([][]byte, 0, len(stringManifests))
 	for _, m := range stringManifests {
-		 res = append(res, []byte(m))
+		res = append(res, []byte(m))
 	}
 	return res
 }

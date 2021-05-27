@@ -1,4 +1,4 @@
-module github.com/argoproj/argocd-autopilot
+module github.com/argoproj-labs/argocd-autopilot
 
 go 1.16
 
