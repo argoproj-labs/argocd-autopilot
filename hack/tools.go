@@ -3,6 +3,6 @@
 package main
 
 import (
-  // "go run github.com/gobuffalo/packr/packr" in Makefile
-  "github.com/gobuffalo/packr/packr"
+	// "go run github.com/gobuffalo/packr/packr" in Makefile
+	_ "github.com/gobuffalo/packr/packr"
 )
