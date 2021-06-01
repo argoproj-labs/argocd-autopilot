@@ -83,6 +83,6 @@ func addFlags(cmd *cobra.Command) (*BaseOptions, error) {
 		CloneOptions: cloneOptions,
 		FS:           fs.Create(memfs.New()),
 	}
-	cmd.PersistentFlags().StringVarP(&o.ProjectName, "project", "p", "", "Project name")
+
 	return o, nil
 }
