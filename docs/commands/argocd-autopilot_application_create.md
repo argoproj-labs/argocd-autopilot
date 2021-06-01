@@ -37,6 +37,7 @@ argocd-autopilot application create [APP_NAME] [flags]
       --dest-server string         K8s cluster URL (e.g. https://kubernetes.default.svc) (default "https://kubernetes.default.svc")
   -h, --help                       help for create
       --installation-mode string   One of: normal|flat. If flat, will commit the application manifests (after running kustomize build), otherwise will commit the kustomization.yaml (default "normal")
+  -p, --project string             Project name
       --type string                The application type (kustomize|dir)
 ```
 
@@ -45,7 +46,6 @@ argocd-autopilot application create [APP_NAME] [flags]
 ```
   -t, --git-token string           Your git provider api token [GIT_TOKEN]
       --installation-path string   The path where we of the installation files (defaults to the root of the repository [GIT_INSTALLATION_PATH]
-  -p, --project string             Project name
       --repo string                Repository URL [GIT_REPO]
       --revision string            Repository branch, tag or commit hash (defaults to HEAD)
 ```

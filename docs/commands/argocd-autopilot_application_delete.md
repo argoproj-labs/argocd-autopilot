@@ -29,8 +29,9 @@ argocd-autopilot application delete [APP_NAME] [flags]
 ### Options
 
 ```
-  -g, --global   global
-  -h, --help     help for delete
+  -g, --global           global
+  -h, --help             help for delete
+  -p, --project string   Project name
 ```
 
 ### Options inherited from parent commands
@@ -38,7 +39,6 @@ argocd-autopilot application delete [APP_NAME] [flags]
 ```
   -t, --git-token string           Your git provider api token [GIT_TOKEN]
       --installation-path string   The path where we of the installation files (defaults to the root of the repository [GIT_INSTALLATION_PATH]
-  -p, --project string             Project name
       --repo string                Repository URL [GIT_REPO]
       --revision string            Repository branch, tag or commit hash (defaults to HEAD)
 ```
