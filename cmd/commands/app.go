@@ -95,7 +95,10 @@ func NewAppCreateCommand(opts *BaseOptions) *cobra.Command {
 	}
 	appOpts = application.AddFlags(cmd)
 
+	cmd.Flags().StringVarP(&opts.ProjectName, "project", "p", "", "Project name")
+
 	die(cmd.MarkFlagRequired("app"))
+	die(cmd.MarkFlagRequired("project"))
 
 	return cmd
 }
@@ -308,6 +311,7 @@ func NewAppDeleteCommand(opts *BaseOptions) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().StringVarP(&opts.ProjectName, "project", "p", "", "Project name")
 	cmd.Flags().BoolVarP(&global, "global", "g", false, "global")
 
 	return cmd
