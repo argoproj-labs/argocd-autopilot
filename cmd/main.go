@@ -8,6 +8,7 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/log"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 
+	"github.com/gobuffalo/packr"
 	"github.com/sirupsen/logrus"
 	_ "k8s.io/client-go/plugin/pkg/client/auth" // used for authentication with cloud providers
 )
@@ -26,4 +27,13 @@ func main() {
 	if err := c.ExecuteContext(ctx); err != nil {
 		log.G(ctx).Fatal(err)
 	}
+}
+
+// instead of using packr to generate these we just keep these here
+func init() {
+	util.Die(packr.PackJSONBytes("../../assets", "README.md", "\"dGhpcyBpcyBoZXJlIGp1c3QgdG8gZml4IHRoaXMgaXNzdWU6IGh0dHBzOi8vZ2l0aHViLmNvbS9hcmdvcHJvai9hcmdvLWNkL2lzc3Vlcy8yOTA3\""))
+	util.Die(packr.PackJSONBytes("../../assets", "badge.svg", "\"bW9jaw==\""))
+	util.Die(packr.PackJSONBytes("../../assets", "builtin-policy.csv", "\"bW9jaw==\""))
+	util.Die(packr.PackJSONBytes("../../assets", "model.conf", "\"bW9jaw==\""))
+	util.Die(packr.PackJSONBytes("../../assets", "swagger.json", "\"Im1vY2si\""))
 }
