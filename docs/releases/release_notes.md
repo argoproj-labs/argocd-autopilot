@@ -1,15 +1,16 @@
 ### Bug fixes:
 
-* Fix -p option in README.md [#66](https://github.com/argoproj-labs/argocd-autopilot/pull/66)
+* `--project` flag shows in unrelated commands and not marked as required where it should be.
 
 ### Additional changes
 
-* renamed `argoproj/argocd-autopilot` to `argoproj-labs/argocd-autopilot` [#60](https://github.com/argoproj-labs/argocd-autopilot/pull/67)
+* Added `brew` formula for `argocd-autopilot` [#31](https://github.com/argoproj-labs/argocd-autopilot/issues/31)
 
 ### Contributors:
 
-- Joe Bowbeer ([@joebowbeer](https://github.com/joebowbeer))
+- Stéphane Este-Gracias ([@sestegra](https://github.com/sestegra))
 - Noam Gal ([@noam-codefresh](https://github.com/noam-codefresh))
+- Roi Kramer ([@roi-codefresh](https://github.com/roi-codefresh))
 
 ## Installation:
 
@@ -31,6 +32,16 @@ argocd-autopilot version
 ```
 
 ### Mac
+#### Using brew
+```bash
+# install
+brew install argocd-autopilot
+
+# check the installation
+argocd-autopilot version
+```
+
+#### Using curl
 ```bash
 # get the latest version or change to a specific version
 VERSION=$(curl --silent "https://api.github.com/repos/argoproj-labs/argocd-autopilot/releases/latest" | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
