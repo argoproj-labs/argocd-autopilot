@@ -1,5 +1,14 @@
 # Changelog:
 
+# v0.1.9
+### Bug fixes:
+
+* `--project` flag shows in unrelated commands and not marked as required where it should be.
+
+### Additional changes
+
+* Added `brew` formula for `argocd-autopilot` [#31](https://github.com/argoproj-labs/argocd-autopilot/issues/31)
+
 # v0.1.8
 
 * Fix -p option in README.md
