@@ -18,7 +18,6 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 
-	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	argocdsettings "github.com/argoproj/argo-cd/v2/util/settings"
 	"github.com/ghodss/yaml"
 	"github.com/go-git/go-billy/v5/memfs"
@@ -38,8 +37,8 @@ const (
 //go:embed assets/projects_readme.md
 var projectReadme []byte
 
-//go:embed assets/kustomization_readme.md
-var kustomizationReadme []byte
+//go:embed assets/apps_readme.md
+var appsReadme []byte
 
 // used for mocking
 var (
@@ -76,6 +75,7 @@ type (
 	bootstrapManifests struct {
 		bootstrapApp           []byte
 		rootApp                []byte
+		clusterResAppSet       []byte
 		argocdApp              []byte
 		repoCreds              []byte
 		applyManifests         []byte
@@ -332,7 +332,11 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 
 	// push results to repo
 	log.G().Infof("pushing bootstrap manifests to repo")
-	if err = r.Persist(ctx, &git.PushOptions{CommitMsg: "Autopilot Bootstrap at " + opts.CloneOptions.RepoRoot}); err != nil {
+	commitMsg := "Autopilot Bootstrap"
+	if opts.CloneOptions.RepoRoot != "" {
+		commitMsg = "Autopilot Bootstrap at " + opts.CloneOptions.RepoRoot
+	}
+	if err = r.Persist(ctx, &git.PushOptions{CommitMsg: commitMsg}); err != nil {
 		return err
 	}
 
@@ -409,68 +413,14 @@ func validateRepo(repofs fs.FS) error {
 	return nil
 }
 
-type createBootstrapAppOptions struct {
+type createAppOptions struct {
 	name        string
 	namespace   string
 	repoURL     string
 	revision    string
 	srcPath     string
+	destServer  string
 	noFinalizer bool
-}
-
-func createApp(opts *createBootstrapAppOptions) ([]byte, error) {
-	app := &argocdv1alpha1.Application{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       argocdv1alpha1.ApplicationSchemaGroupVersionKind.Kind,
-			APIVersion: argocdv1alpha1.ApplicationSchemaGroupVersionKind.GroupVersion().String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: opts.namespace,
-			Name:      opts.name,
-			Labels: map[string]string{
-				"app.kubernetes.io/managed-by": store.Default.ManagedBy,
-				"app.kubernetes.io/name":       opts.name,
-			},
-			Finalizers: []string{
-				"resources-finalizer.argocd.argoproj.io",
-			},
-		},
-		Spec: argocdv1alpha1.ApplicationSpec{
-			Project: "default",
-			Source: argocdv1alpha1.ApplicationSource{
-				RepoURL:        opts.repoURL,
-				Path:           opts.srcPath,
-				TargetRevision: opts.revision,
-			},
-			Destination: argocdv1alpha1.ApplicationDestination{
-				Server:    store.Default.DestServer,
-				Namespace: opts.namespace,
-			},
-			SyncPolicy: &argocdv1alpha1.SyncPolicy{
-				Automated: &argocdv1alpha1.SyncPolicyAutomated{
-					SelfHeal: true,
-					Prune:    true,
-				},
-				SyncOptions: []string{
-					"allowEmpty=true",
-				},
-			},
-			IgnoreDifferences: []argocdv1alpha1.ResourceIgnoreDifferences{
-				{
-					Group: "argoproj.io",
-					Kind:  "Application",
-					JSONPointers: []string{
-						"/status",
-					},
-				},
-			},
-		},
-	}
-	if opts.noFinalizer {
-		app.ObjectMeta.Finalizers = []string{}
-	}
-
-	return yaml.Marshal(app)
 }
 
 func waitClusterReady(ctx context.Context, f kube.Factory, timeout time.Duration, namespace string) error {
@@ -531,7 +481,7 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 	var err error
 	manifests := &bootstrapManifests{}
 
-	manifests.bootstrapApp, err = createApp(&createBootstrapAppOptions{
+	manifests.bootstrapApp, err = createApp(&createAppOptions{
 		name:      store.Default.BootsrtrapAppName,
 		namespace: namespace,
 		repoURL:   cloneOpts.URL,
@@ -542,7 +492,7 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 		return nil, err
 	}
 
-	manifests.rootApp, err = createApp(&createBootstrapAppOptions{
+	manifests.rootApp, err = createApp(&createAppOptions{
 		name:      store.Default.RootAppName,
 		namespace: namespace,
 		repoURL:   cloneOpts.URL,
@@ -553,7 +503,7 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 		return nil, err
 	}
 
-	manifests.argocdApp, err = createApp(&createBootstrapAppOptions{
+	manifests.argocdApp, err = createApp(&createAppOptions{
 		name:        store.Default.ArgoCDName,
 		namespace:   namespace,
 		repoURL:     cloneOpts.URL,
@@ -621,13 +571,15 @@ func writeManifestsToRepo(repoFS fs.FS, manifests *bootstrapManifests, installat
 		return err
 	}
 
+	// write cluster-resources appset
+
 	// write ./projects/README.md
 	if err = billyUtils.WriteFile(repoFS, repoFS.Join(store.Default.ProjectsDir, "README.md"), projectReadme, 0666); err != nil {
 		return err
 	}
 
 	// write ./apps/README.md
-	if err = billyUtils.WriteFile(repoFS, repoFS.Join(store.Default.AppsDir, "README.md"), kustomizationReadme, 0666); err != nil {
+	if err = billyUtils.WriteFile(repoFS, repoFS.Join(store.Default.AppsDir, "README.md"), appsReadme, 0666); err != nil {
 		return err
 	}
 

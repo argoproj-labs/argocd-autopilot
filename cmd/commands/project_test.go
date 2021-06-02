@@ -17,6 +17,7 @@ import (
 	gitmocks "github.com/argoproj-labs/argocd-autopilot/pkg/git/mocks"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
+	"github.com/ghodss/yaml"
 
 	appset "github.com/argoproj-labs/applicationset/api/v1alpha1"
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
@@ -184,7 +185,12 @@ func Test_generateProject(t *testing.T) {
 	for ttname, tt := range tests {
 		t.Run(ttname, func(t *testing.T) {
 			assert := assert.New(t)
-			gotProject, gotAppSet := generateProject(tt.o)
+			gotProject := &argocdv1alpha1.AppProject{}
+			gotAppSet := &appset.ApplicationSet{}
+			gotProjectYAML, gotAppSetYAML, _, _, _ := generateProjectManifests(tt.o)
+			assert.NoError(yaml.Unmarshal(gotProjectYAML, gotProject))
+			assert.NoError(yaml.Unmarshal(gotAppSetYAML, gotAppSet))
+
 			assert.Equal(tt.wantName, gotProject.Name, "Project Name")
 			assert.Equal(tt.wantNamespace, gotProject.Namespace, "Project Namespace")
 			assert.Equal(tt.wantProjectDescription, gotProject.Spec.Description, "Project Description")

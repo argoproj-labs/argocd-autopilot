@@ -2,10 +2,12 @@ package commands
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/argoproj-labs/argocd-autopilot/pkg/application"
@@ -26,6 +28,9 @@ import (
 )
 
 var DefaultApplicationSetGeneratorInterval int64 = 20
+
+//go:embed assets/cluster_res_readme.md
+var clusterResReadmeTpl []byte
 
 type (
 	ProjectCreateOptions struct {
@@ -98,7 +103,7 @@ func NewProjectCreateCommand(opts *BaseOptions) *cobra.Command {
 
 # Create a new project in a specific path inside the GitOps repo
 
-  <BIN> project create <PROJECT_NAME> --installation-path path/to/installation_root
+	<BIN> project create <PROJECT_NAME> --installation-path path/to/installation_root
 `),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
@@ -155,8 +160,9 @@ func RunProjectCreate(ctx context.Context, opts *ProjectCreateOptions) error {
 			return err
 		}
 	}
+	cleanDestServer := cleanServerAddr(destServer)
 
-	project, appSet := generateProject(&GenerateProjectOptions{
+	projectYAML, appsetYAML, clusterResAppYAML, clusterResReadme, err := generateProjectManifests(&GenerateProjectOptions{
 		Name:              opts.Name,
 		Namespace:         installationNamespace,
 		RepoURL:           opts.CloneOptions.URL,
@@ -164,21 +170,12 @@ func RunProjectCreate(ctx context.Context, opts *ProjectCreateOptions) error {
 		InstallationPath:  opts.CloneOptions.RepoRoot,
 		DefaultDestServer: destServer,
 	})
-
-	projectYAML, err := yaml.Marshal(project)
 	if err != nil {
-		return fmt.Errorf("failed to marshal project: %w", err)
+		return fmt.Errorf("failed to generate project resources: %w", err)
 	}
-
-	appsetYAML, err := yaml.Marshal(appSet)
-	if err != nil {
-		return fmt.Errorf("failed to marshal appSet: %w", err)
-	}
-
-	joinedYAML := util.JoinManifests(projectYAML, appsetYAML)
 
 	if opts.DryRun {
-		log.G().Printf("%s", joinedYAML)
+		log.G().Printf("%s", util.JoinManifests(projectYAML, appsetYAML, clusterResAppYAML))
 		return nil
 	}
 
@@ -189,12 +186,35 @@ func RunProjectCreate(ctx context.Context, opts *ProjectCreateOptions) error {
 		}
 	}
 
-	if err = billyUtils.WriteFile(repofs, repofs.Join(store.Default.ProjectsDir, opts.Name+".yaml"), joinedYAML, 0666); err != nil {
+	if err = billyUtils.WriteFile(
+		repofs,
+		repofs.Join(store.Default.ProjectsDir, opts.Name+".yaml"),
+		util.JoinManifests(projectYAML, appsetYAML),
+		0666,
+	); err != nil {
 		return fmt.Errorf("failed to create project file: %w", err)
 	}
 
+	if err = billyUtils.WriteFile(
+		repofs,
+		repofs.Join(store.Default.BootsrtrapDir, store.Default.ClusterResourcesDir, cleanDestServer+".yaml"),
+		clusterResAppYAML,
+		0666,
+	); err != nil {
+		return fmt.Errorf("failed to create cluster resources application file: %w", err)
+	}
+
+	if err = billyUtils.WriteFile(
+		repofs,
+		repofs.Join(store.Default.BootsrtrapDir, store.Default.ClusterResourcesDir, cleanDestServer, "README.md"),
+		clusterResReadme,
+		0666,
+	); err != nil {
+		return fmt.Errorf("failed to create cluster resources README.md file: %w", err)
+	}
+
 	log.G().Infof("pushing new project manifest to repo")
-	if err = r.Persist(ctx, &git.PushOptions{CommitMsg: "Added project " + opts.Name}); err != nil {
+	if err = r.Persist(ctx, &git.PushOptions{CommitMsg: fmt.Sprintf("Added project '%s'", opts.Name)}); err != nil {
 		return err
 	}
 
@@ -203,8 +223,8 @@ func RunProjectCreate(ctx context.Context, opts *ProjectCreateOptions) error {
 	return nil
 }
 
-var generateProject = func(o *GenerateProjectOptions) (*argocdv1alpha1.AppProject, *appset.ApplicationSet) {
-	appProject := &argocdv1alpha1.AppProject{
+func generateProjectManifests(o *GenerateProjectOptions) (projectYAML, appSetYAML, clusterResAppYAML, clusterResReadme []byte, err error) {
+	project := &argocdv1alpha1.AppProject{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       argocdv1alpha1.AppProjectSchemaGroupVersionKind.Kind,
 			APIVersion: argocdv1alpha1.AppProjectSchemaGroupVersionKind.GroupVersion().String(),
@@ -239,6 +259,10 @@ var generateProject = func(o *GenerateProjectOptions) (*argocdv1alpha1.AppProjec
 				},
 			},
 		},
+	}
+	if projectYAML, err = yaml.Marshal(project); err != nil {
+		err = fmt.Errorf("failed to marshal AppProject: %w", err)
+		return
 	}
 
 	appSet := &appset.ApplicationSet{
@@ -295,8 +319,26 @@ var generateProject = func(o *GenerateProjectOptions) (*argocdv1alpha1.AppProjec
 			},
 		},
 	}
+	if appSetYAML, err = yaml.Marshal(appSet); err != nil {
+		err = fmt.Errorf("failed to marshal ApplicationSet: %w", err)
+		return
+	}
 
-	return appProject, appSet
+	if clusterResAppYAML, err = createApp(&createAppOptions{
+		repoURL:     o.RepoURL,
+		revision:    o.Revision,
+		name:        "cluster-resources-" + cleanServerAddr(o.DefaultDestServer),
+		srcPath:     filepath.Join(o.InstallationPath, store.Default.BootsrtrapDir, store.Default.ClusterResourcesDir, cleanServerAddr(o.DefaultDestServer)),
+		destServer:  o.DefaultDestServer,
+		noFinalizer: true,
+	}); err != nil {
+		err = fmt.Errorf("failed to marshal cluster-resources application: %w", err)
+		return
+	}
+
+	clusterResReadme = []byte(strings.ReplaceAll(string(clusterResReadmeTpl), "{CLUSTER}", o.DefaultDestServer))
+
+	return
 }
 
 var getInstallationNamespace = func(repofs fs.FS) (string, error) {
@@ -440,4 +482,12 @@ func RunProjectDelete(ctx context.Context, opts *BaseOptions) error {
 	}
 
 	return nil
+}
+
+func cleanServerAddr(addr string) string {
+	return strings.NewReplacer(
+		"https://", "",
+		"http://", "",
+		"/", ".",
+	).Replace(addr)
 }

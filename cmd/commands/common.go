@@ -10,6 +10,9 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/log"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
+	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
+	"github.com/ghodss/yaml"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/spf13/cobra"
@@ -85,4 +88,63 @@ func addFlags(cmd *cobra.Command) (*BaseOptions, error) {
 	}
 
 	return o, nil
+}
+
+func createApp(opts *createAppOptions) ([]byte, error) {
+	if opts.destServer == "" {
+		opts.destServer = store.Default.DestServer
+	}
+
+	app := &argocdv1alpha1.Application{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       argocdv1alpha1.ApplicationSchemaGroupVersionKind.Kind,
+			APIVersion: argocdv1alpha1.ApplicationSchemaGroupVersionKind.GroupVersion().String(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: opts.namespace,
+			Name:      opts.name,
+			Labels: map[string]string{
+				"app.kubernetes.io/managed-by": store.Default.ManagedBy,
+				"app.kubernetes.io/name":       opts.name,
+			},
+			Finalizers: []string{
+				"resources-finalizer.argocd.argoproj.io",
+			},
+		},
+		Spec: argocdv1alpha1.ApplicationSpec{
+			Project: "default",
+			Source: argocdv1alpha1.ApplicationSource{
+				RepoURL:        opts.repoURL,
+				Path:           opts.srcPath,
+				TargetRevision: opts.revision,
+			},
+			Destination: argocdv1alpha1.ApplicationDestination{
+				Server:    opts.destServer,
+				Namespace: opts.namespace,
+			},
+			SyncPolicy: &argocdv1alpha1.SyncPolicy{
+				Automated: &argocdv1alpha1.SyncPolicyAutomated{
+					SelfHeal: true,
+					Prune:    true,
+				},
+				SyncOptions: []string{
+					"allowEmpty=true",
+				},
+			},
+			IgnoreDifferences: []argocdv1alpha1.ResourceIgnoreDifferences{
+				{
+					Group: "argoproj.io",
+					Kind:  "Application",
+					JSONPointers: []string{
+						"/status",
+					},
+				},
+			},
+		},
+	}
+	if opts.noFinalizer {
+		app.ObjectMeta.Finalizers = []string{}
+	}
+
+	return yaml.Marshal(app)
 }
