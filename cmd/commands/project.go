@@ -2,7 +2,6 @@ package commands
 
 import (
 	"context"
-	_ "embed"
 	"fmt"
 	"io"
 	"os"
@@ -19,18 +18,12 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 
 	appset "github.com/argoproj-labs/applicationset/api/v1alpha1"
-	appsetv1alpha1 "github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/ghodss/yaml"
 	billyUtils "github.com/go-git/go-billy/v5/util"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-var DefaultApplicationSetGeneratorInterval int64 = 20
-
-//go:embed assets/cluster_res_readme.md
-var clusterResReadmeTpl []byte
 
 type (
 	ProjectCreateOptions struct {
@@ -47,12 +40,13 @@ type (
 	}
 
 	GenerateProjectOptions struct {
-		Name              string
-		Namespace         string
-		DefaultDestServer string
-		RepoURL           string
-		Revision          string
-		InstallationPath  string
+		Name               string
+		Namespace          string
+		DefaultDestServer  string
+		DefaultDestContext string
+		RepoURL            string
+		Revision           string
+		InstallationPath   string
 	}
 )
 
@@ -160,57 +154,56 @@ func RunProjectCreate(ctx context.Context, opts *ProjectCreateOptions) error {
 			return err
 		}
 	}
-	cleanDestServer := cleanServerAddr(destServer)
 
-	projectYAML, appsetYAML, clusterResAppYAML, clusterResReadme, err := generateProjectManifests(&GenerateProjectOptions{
-		Name:              opts.Name,
-		Namespace:         installationNamespace,
-		RepoURL:           opts.CloneOptions.URL,
-		Revision:          opts.CloneOptions.Revision,
-		InstallationPath:  opts.CloneOptions.RepoRoot,
-		DefaultDestServer: destServer,
+	projectYAML, appsetYAML, clusterResReadme, clusterResConf, err := generateProjectManifests(&GenerateProjectOptions{
+		Name:               opts.Name,
+		Namespace:          installationNamespace,
+		RepoURL:            opts.CloneOptions.URL,
+		Revision:           opts.CloneOptions.Revision,
+		InstallationPath:   opts.CloneOptions.RepoRoot,
+		DefaultDestServer:  destServer,
+		DefaultDestContext: opts.DestKubeContext,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to generate project resources: %w", err)
 	}
 
 	if opts.DryRun {
-		log.G().Printf("%s", util.JoinManifests(projectYAML, appsetYAML, clusterResAppYAML))
+		log.G().Printf("%s", util.JoinManifests(projectYAML, appsetYAML))
 		return nil
 	}
+
+	bulkWrites := []fs.BulkWriteRequest{}
 
 	if opts.DestKubeContext != "" {
 		log.G().Infof("adding cluster: %s", opts.DestKubeContext)
 		if err = opts.AddCmd.Execute(ctx, opts.DestKubeContext); err != nil {
 			return fmt.Errorf("failed to add new cluster credentials: %w", err)
 		}
+
+		if !repofs.ExistsOrDie(repofs.Join(store.Default.BootsrtrapDir, store.Default.ClusterResourcesDir, opts.DestKubeContext)) {
+			bulkWrites = append(bulkWrites, fs.BulkWriteRequest{
+				Filename: repofs.Join(store.Default.BootsrtrapDir, store.Default.ClusterResourcesDir, opts.DestKubeContext+".json"),
+				Data:     clusterResConf,
+				ErrMsg:   "failed to write cluster config",
+			})
+
+			bulkWrites = append(bulkWrites, fs.BulkWriteRequest{
+				Filename: repofs.Join(store.Default.BootsrtrapDir, store.Default.ClusterResourcesDir, opts.DestKubeContext, "README.md"),
+				Data:     clusterResReadme,
+				ErrMsg:   "failed to write cluster resources readme",
+			})
+		}
 	}
 
-	if err = billyUtils.WriteFile(
-		repofs,
-		repofs.Join(store.Default.ProjectsDir, opts.Name+".yaml"),
-		util.JoinManifests(projectYAML, appsetYAML),
-		0666,
-	); err != nil {
-		return fmt.Errorf("failed to create project file: %w", err)
-	}
+	bulkWrites = append(bulkWrites, fs.BulkWriteRequest{
+		Filename: repofs.Join(store.Default.ProjectsDir, opts.Name+".yaml"),
+		Data:     util.JoinManifests(projectYAML, appsetYAML),
+		ErrMsg:   "failed to create project file",
+	})
 
-	if err = billyUtils.WriteFile(
-		repofs,
-		repofs.Join(store.Default.BootsrtrapDir, store.Default.ClusterResourcesDir, cleanDestServer+".yaml"),
-		clusterResAppYAML,
-		0666,
-	); err != nil {
-		return fmt.Errorf("failed to create cluster resources application file: %w", err)
-	}
-
-	if err = billyUtils.WriteFile(
-		repofs,
-		repofs.Join(store.Default.BootsrtrapDir, store.Default.ClusterResourcesDir, cleanDestServer, "README.md"),
-		clusterResReadme,
-		0666,
-	); err != nil {
-		return fmt.Errorf("failed to create cluster resources README.md file: %w", err)
+	if err = repofs.BulkWrite(bulkWrites...); err != nil {
+		return err
 	}
 
 	log.G().Infof("pushing new project manifest to repo")
@@ -223,7 +216,7 @@ func RunProjectCreate(ctx context.Context, opts *ProjectCreateOptions) error {
 	return nil
 }
 
-func generateProjectManifests(o *GenerateProjectOptions) (projectYAML, appSetYAML, clusterResAppYAML, clusterResReadme []byte, err error) {
+func generateProjectManifests(o *GenerateProjectOptions) (projectYAML, appSetYAML, clusterResReadme, clusterResConfig []byte, err error) {
 	project := &argocdv1alpha1.AppProject{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       argocdv1alpha1.AppProjectSchemaGroupVersionKind.Kind,
@@ -265,78 +258,48 @@ func generateProjectManifests(o *GenerateProjectOptions) (projectYAML, appSetYAM
 		return
 	}
 
-	appSet := &appset.ApplicationSet{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "ApplicationSet",
-			APIVersion: appset.GroupVersion.String(),
+	appSetYAML, err = createAppSet(&createAppSetOptions{
+		name:          o.Name,
+		namespace:     o.Namespace,
+		appName:       fmt.Sprintf("%s-{{ userGivenName }}", o.Name),
+		appNamespace:  o.Namespace,
+		repoURL:       "{{ srcRepoURL }}",
+		srcPath:       "{{ srcPath }}",
+		revision:      "{{ srcTargetRevision }}",
+		destServer:    "{{ destServer }}",
+		destNamespace: "{{ destNamespace }}",
+		prune:         true,
+		appLabels: map[string]string{
+			"app.kubernetes.io/managed-by": store.Default.ManagedBy,
+			"app.kubernetes.io/name":       "{{ appName }}",
 		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      o.Name,
-			Namespace: o.Namespace,
-		},
-		Spec: appset.ApplicationSetSpec{
-			Generators: []appset.ApplicationSetGenerator{
-				{
-					Git: &appset.GitGenerator{
-						RepoURL:  o.RepoURL,
-						Revision: o.Revision,
-						Files: []appset.GitFileGeneratorItem{
-							{
-								Path: filepath.Join(o.InstallationPath, store.Default.AppsDir, "**", o.Name, "config.json"),
-							},
-						},
-						RequeueAfterSeconds: &DefaultApplicationSetGeneratorInterval,
-					},
-				},
-			},
-			Template: appset.ApplicationSetTemplate{
-				ApplicationSetTemplateMeta: appset.ApplicationSetTemplateMeta{
-					Namespace: o.Namespace,
-					Name:      fmt.Sprintf("%s-{{ userGivenName }}", o.Name),
-					Labels: map[string]string{
-						"app.kubernetes.io/managed-by": store.Default.ManagedBy,
-						"app.kubernetes.io/name":       "{{ appName }}",
-					},
-				},
-				Spec: appsetv1alpha1.ApplicationSpec{
-					Project: o.Name,
-					Source: appsetv1alpha1.ApplicationSource{
-						RepoURL:        "{{ srcRepoURL }}",
-						Path:           "{{ srcPath }}",
-						TargetRevision: "{{ srcTargetRevision }}",
-					},
-					Destination: appsetv1alpha1.ApplicationDestination{
-						Server:    "{{ destServer }}",
-						Namespace: "{{ destNamespace }}",
-					},
-					SyncPolicy: &appsetv1alpha1.SyncPolicy{
-						Automated: &appsetv1alpha1.SyncPolicyAutomated{
-							SelfHeal: true,
-							Prune:    true,
+		generators: []appset.ApplicationSetGenerator{
+			{
+				Git: &appset.GitGenerator{
+					RepoURL:  o.RepoURL,
+					Revision: o.Revision,
+					Files: []appset.GitFileGeneratorItem{
+						{
+							Path: filepath.Join(o.InstallationPath, store.Default.AppsDir, "**", o.Name, "config.json"),
 						},
 					},
+					RequeueAfterSeconds: &DefaultApplicationSetGeneratorInterval,
 				},
 			},
 		},
-	}
-	if appSetYAML, err = yaml.Marshal(appSet); err != nil {
+	})
+	if err != nil {
 		err = fmt.Errorf("failed to marshal ApplicationSet: %w", err)
 		return
 	}
 
-	if clusterResAppYAML, err = createApp(&createAppOptions{
-		repoURL:     o.RepoURL,
-		revision:    o.Revision,
-		name:        "cluster-resources-" + cleanServerAddr(o.DefaultDestServer),
-		srcPath:     filepath.Join(o.InstallationPath, store.Default.BootsrtrapDir, store.Default.ClusterResourcesDir, cleanServerAddr(o.DefaultDestServer)),
-		destServer:  o.DefaultDestServer,
-		noFinalizer: true,
-	}); err != nil {
-		err = fmt.Errorf("failed to marshal cluster-resources application: %w", err)
+	clusterResReadme = []byte(strings.ReplaceAll(string(clusterResReadmeTpl), "{CLUSTER}", o.DefaultDestServer))
+
+	clusterResConfig, err = yaml.Marshal(&application.ClusterResConfig{Name: o.DefaultDestContext, Server: o.DefaultDestServer})
+	if err != nil {
+		err = fmt.Errorf("failed to create cluster resources config: %w", err)
 		return
 	}
-
-	clusterResReadme = []byte(strings.ReplaceAll(string(clusterResReadmeTpl), "{CLUSTER}", o.DefaultDestServer))
 
 	return
 }
@@ -482,12 +445,4 @@ func RunProjectDelete(ctx context.Context, opts *BaseOptions) error {
 	}
 
 	return nil
-}
-
-func cleanServerAddr(addr string) string {
-	return strings.NewReplacer(
-		"https://", "",
-		"http://", "",
-		"/", ".",
-	).Replace(addr)
 }

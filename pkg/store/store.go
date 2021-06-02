@@ -51,6 +51,7 @@ var Default = struct {
 	WaitInterval         time.Duration
 	DestServer           string
 	DestServerAnnotation string
+	ClusterContextName   string
 }{
 	AppsDir:              "apps",
 	BootsrtrapDir:        "bootstrap",
@@ -68,6 +69,7 @@ var Default = struct {
 	WaitInterval:         time.Second * 3,
 	DestServer:           "https://kubernetes.default.svc",
 	DestServerAnnotation: "argocd-autopilot.argoproj-labs.io/default-dest-server",
+	ClusterContextName:   "in-cluster",
 }
 
 // Get returns the global store

@@ -33,6 +33,12 @@ type FS interface {
 
 	// WriteYamls write the data as yaml into the file
 	WriteYamls(filename string, o ...interface{}) error
+
+	// BulkWrite accepts multiple write requests and perform them sequentially. If it encounters
+	// an error it stops it's operation and returns this error.
+	//
+	// default file permission is 0644.
+	BulkWrite(writes ...BulkWriteRequest) error
 }
 
 type fsimpl struct {
@@ -41,6 +47,13 @@ type fsimpl struct {
 
 type File interface {
 	billy.File
+}
+
+type BulkWriteRequest struct {
+	Filename string
+	Data     []byte
+	Perm     os.FileMode
+	ErrMsg   string
 }
 
 func Create(bfs billy.Filesystem) FS {
@@ -129,4 +142,21 @@ func (fs *fsimpl) WriteYamls(filename string, o ...interface{}) error {
 
 	data := util.JoinManifests(yamls...)
 	return billyUtils.WriteFile(fs, filename, data, 0666)
+}
+
+func (fs *fsimpl) BulkWrite(writes ...BulkWriteRequest) error {
+	for _, req := range writes {
+		var perm os.FileMode = 0644
+		if req.Perm != 0 {
+			perm = req.Perm
+		}
+
+		if err := billyUtils.WriteFile(fs, req.Filename, req.Data, perm); err != nil {
+			if req.ErrMsg != "" {
+				return fmt.Errorf("%s: %w", req.ErrMsg, err)
+			}
+			return err
+		}
+	}
+	return nil
 }

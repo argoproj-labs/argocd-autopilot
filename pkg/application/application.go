@@ -63,6 +63,11 @@ type (
 		SrcTargetRevision string `json:"srcTargetRevision"`
 	}
 
+	ClusterResConfig struct {
+		Name   string `json:"name"`
+		Server string `json:"server"`
+	}
+
 	CreateOptions struct {
 		AppName          string
 		AppType          string
@@ -265,7 +270,6 @@ func newKustApp(o *CreateOptions, projectName, repoURL, targetRevision string) (
 	}
 
 	if o.DestNamespace != "" && o.DestNamespace != "default" {
-		app.overlay.Resources = append(app.overlay.Resources, "namespace.yaml")
 		app.overlay.Namespace = o.DestNamespace
 		app.namespace = kube.GenerateNamespace(o.DestNamespace)
 	}
@@ -330,14 +334,23 @@ func kustCreateFiles(app *kustApp, repofs fs.FS, projectName string) error {
 		}
 	}
 
+	// verify that the dest server already exists
+	clusterName, err := serverToClusterName(repofs, app.opts.DestServer)
+	if err != nil {
+		return fmt.Errorf("failed to get cluster name for the specified dest-server: %w", err)
+	}
+	if clusterName == "" {
+		return fmt.Errorf("cluster '%s' is yet configured, you need to create a project that uses this cluster first", app.opts.DestServer)
+	}
+
 	// if we override the namespace we also need to write the namespace manifests next to the overlay
 	if app.namespace != nil {
-		nsPath := repofs.Join(overlayPath, "namespace.yaml")
 		nsYAML, err := yaml.Marshal(app.namespace)
 		if err != nil {
 			return fmt.Errorf("failed to marshal app overlay namespace: %w", err)
 		}
 
+		nsPath := repofs.Join(store.Default.BootsrtrapDir, store.Default.ClusterResourcesDir, clusterName, app.namespace.Name+"-ns.yaml")
 		if _, err = writeFile(repofs, nsPath, "application namespace", nsYAML); err != nil {
 			return err
 		}
