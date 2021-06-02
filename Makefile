@@ -14,7 +14,6 @@ DEV_INSTALLATION_MANIFESTS_NAMESPACED_URL="manifests/namespace-install"
 CLI_SRCS := $(shell find . -name '*.go')
 
 MKDOCS_DOCKER_IMAGE?=squidfunk/mkdocs-material:4.1.1
-PACKR_CMD=$(shell if [ "`which packr`" ]; then echo "packr"; else echo "\"go run github.com/gobuffalo/packr/packr\""; fi)
 
 GIT_COMMIT=$(shell git rev-parse HEAD)
 BUILD_DATE=$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
@@ -81,13 +80,12 @@ $(OUT_DIR)/$(CLI_NAME)-%.sha256:
 	@make $(OUT_DIR)/$(CLI_NAME)-$*.tar.gz
 	openssl dgst -sha256 "$(OUT_DIR)/$(CLI_NAME)-$*.tar.gz" | awk '{ print $$2 }' > "$(OUT_DIR)/$(CLI_NAME)-$*".sha256
 
-$(OUT_DIR)/$(CLI_NAME)-%: $(CLI_SRCS) $(GOBIN)/packr
+$(OUT_DIR)/$(CLI_NAME)-%: $(CLI_SRCS)
 	@GO_FLAGS=$(GO_FLAGS) \
 	BUILD_DATE=$(BUILD_DATE) \
 	BINARY_NAME=$(CLI_NAME) \
 	VERSION=$(VERSION) \
 	GIT_COMMIT=$(GIT_COMMIT) \
-	PACKR_CMD=$(PACKR_CMD) \
 	OUT_FILE=$(OUT_DIR)/$(CLI_NAME)-$* \
 	INSTALLATION_MANIFESTS_URL=$(INSTALLATION_MANIFESTS_URL) \
 	INSTALLATION_MANIFESTS_NAMESPACED_URL=$(INSTALLATION_MANIFESTS_NAMESPACED_URL) \
@@ -171,11 +169,4 @@ $(GOBIN)/interfacer:
 	@cd /tmp
 	@echo installing: interfacer
 	@GO111MODULE=on go get -v github.com/rjeczalik/interfaces/cmd/interfacer@v0.1.1
-	@cd ${cwd}
-
-$(GOBIN)/packr: cwd=$(shell pwd)
-$(GOBIN)/packr:
-	@cd /tmp
-	@echo installing: packr
-	@GO111MODULE=on go get -v github.com/gobuffalo/packr/packr@v1.30.1
 	@cd ${cwd}
