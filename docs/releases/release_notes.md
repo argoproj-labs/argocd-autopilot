@@ -1,15 +1,9 @@
 ### Bug fixes:
 
-* `--project` flag shows in unrelated commands and not marked as required where it should be.
+* removed dependency on `packr` for compiling source with additional assets required by argo-cd dependency.
 
-### Additional changes
-
-* Added `brew` formula for `argocd-autopilot` [#31](https://github.com/argoproj-labs/argocd-autopilot/issues/31)
 
 ### Contributors:
-
-- Stéphane Este-Gracias ([@sestegra](https://github.com/sestegra))
-- Noam Gal ([@noam-codefresh](https://github.com/noam-codefresh))
 - Roi Kramer ([@roi-codefresh](https://github.com/roi-codefresh))
 
 ## Installation:
