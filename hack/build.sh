@@ -7,8 +7,7 @@ if [[ ! -z "${GO_FLAGS}" ]]; then
     done
 fi
 
-${PACKR_CMD} build -ldflags=" \
-    -extldflags '-static' \
+go build -ldflags=" \
     -X 'github.com/argoproj-labs/argocd-autopilot/pkg/store.binaryName=${BINARY_NAME}' \
     -X 'github.com/argoproj-labs/argocd-autopilot/pkg/store.version=${VERSION}' \
     -X 'github.com/argoproj-labs/argocd-autopilot/pkg/store.buildDate=${BUILD_DATE}' \
