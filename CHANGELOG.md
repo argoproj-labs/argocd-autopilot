@@ -1,5 +1,11 @@
 # Changelog:
 
+# v0.1.10
+
+### Bug fixes:
+
+* removed dependency on `packr` for compiling source with additional assets required by argo-cd dependency.
+
 # v0.1.9
 ### Bug fixes:
 
