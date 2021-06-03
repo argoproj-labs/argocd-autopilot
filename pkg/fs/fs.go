@@ -12,7 +12,7 @@ import (
 	billyUtils "github.com/go-git/go-billy/v5/util"
 )
 
-//go:generate mockery --name FS
+//go:generate mockery --name FS --filename fs.go
 
 type FS interface {
 	billy.Filesystem

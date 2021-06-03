@@ -22,7 +22,7 @@ import (
 )
 
 //go:generate mockery --dir gogit --all --output gogit/mocks --case snake
-//go:generate mockery --name Repository
+//go:generate mockery --name Repository --filename repository.go
 
 type (
 	// Repository represents a git repository
