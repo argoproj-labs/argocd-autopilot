@@ -109,7 +109,7 @@ func peelQuery(arg string) (string, string, time.Duration, bool) {
 func parseHostSpec(n string) (string, string) {
 	var host string
 	// Start accumulating the host part.
-	for _, p := range []string{
+	for _, p := range [...]string{
 		// Order matters here.
 		"git::", "gh:", "ssh://", "https://", "http://",
 		"git@", "github.com:", "github.com/"} {
@@ -134,7 +134,7 @@ func parseHostSpec(n string) (string, string) {
 	}
 
 	// If host is a http(s) or ssh URL, grab the domain part.
-	for _, p := range []string{
+	for _, p := range [...]string{
 		"ssh://", "https://", "http://"} {
 		if strings.HasSuffix(host, p) {
 			i := strings.Index(n, "/")

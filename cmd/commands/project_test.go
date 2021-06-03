@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/argoproj-labs/argocd-autopilot/pkg/application"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/fs"
 	fsmocks "github.com/argoproj-labs/argocd-autopilot/pkg/fs/mocks"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/git"
@@ -164,15 +165,17 @@ func Test_generateProject(t *testing.T) {
 		wantRevision           string
 		wantDefaultDestServer  string
 		wantProject            string
+		wantContextName        string
 	}{
 		"should generate project and appset with correct values": {
 			o: &GenerateProjectOptions{
-				Name:              "name",
-				Namespace:         "namespace",
-				DefaultDestServer: "defaultDestServer",
-				RepoURL:           "repoUrl",
-				Revision:          "revision",
-				InstallationPath:  "some/path",
+				Name:               "name",
+				Namespace:          "namespace",
+				DefaultDestServer:  "defaultDestServer",
+				DefaultDestContext: "some-context-name",
+				RepoURL:            "repoUrl",
+				Revision:           "revision",
+				InstallationPath:   "some/path",
 			},
 			wantName:               "name",
 			wantNamespace:          "namespace",
@@ -180,6 +183,7 @@ func Test_generateProject(t *testing.T) {
 			wantRepoURL:            "repoUrl",
 			wantRevision:           "revision",
 			wantDefaultDestServer:  "defaultDestServer",
+			wantContextName:        "some-context-name",
 		},
 	}
 	for ttname, tt := range tests {
@@ -187,9 +191,14 @@ func Test_generateProject(t *testing.T) {
 			assert := assert.New(t)
 			gotProject := &argocdv1alpha1.AppProject{}
 			gotAppSet := &appset.ApplicationSet{}
-			gotProjectYAML, gotAppSetYAML, _, _, _ := generateProjectManifests(tt.o)
+			gotClusterResConf := &application.ClusterResConfig{}
+			gotProjectYAML, gotAppSetYAML, _, gotClusterResConfigYAML, _ := generateProjectManifests(tt.o)
 			assert.NoError(yaml.Unmarshal(gotProjectYAML, gotProject))
 			assert.NoError(yaml.Unmarshal(gotAppSetYAML, gotAppSet))
+			assert.NoError(yaml.Unmarshal(gotClusterResConfigYAML, gotClusterResConf))
+
+			assert.Equal(tt.wantContextName, gotClusterResConf.Name)
+			assert.Equal(tt.wantDefaultDestServer, gotClusterResConf.Server)
 
 			assert.Equal(tt.wantName, gotProject.Name, "Project Name")
 			assert.Equal(tt.wantNamespace, gotProject.Namespace, "Project Namespace")
