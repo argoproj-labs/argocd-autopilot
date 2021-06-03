@@ -99,8 +99,8 @@ func Test_newKustApp(t *testing.T) {
 			assertFn: func(t *testing.T, a *kustApp) {
 				assert.Equal(t, "install.yaml", a.base.Resources[0])
 				assert.Equal(t, []byte("foo"), a.manifests)
+				assert.Equal(t, 1, len(a.overlay.Resources))
 				assert.Equal(t, "../../base", a.overlay.Resources[0])
-				assert.Equal(t, "namespace.yaml", a.overlay.Resources[1])
 				assert.Equal(t, "namespace", a.namespace.ObjectMeta.Name)
 				assert.True(t, reflect.DeepEqual(&Config{
 					AppName:           "name",
