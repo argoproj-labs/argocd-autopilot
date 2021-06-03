@@ -12,6 +12,7 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/application"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/argocd"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/fs"
+	fsutils "github.com/argoproj-labs/argocd-autopilot/pkg/fs/utils"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/git"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/log"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
@@ -173,7 +174,7 @@ func RunProjectCreate(ctx context.Context, opts *ProjectCreateOptions) error {
 		return nil
 	}
 
-	bulkWrites := []fs.BulkWriteRequest{}
+	bulkWrites := []fsutils.BulkWriteRequest{}
 
 	if opts.DestKubeContext != "" {
 		log.G().Infof("adding cluster: %s", opts.DestKubeContext)
@@ -182,13 +183,13 @@ func RunProjectCreate(ctx context.Context, opts *ProjectCreateOptions) error {
 		}
 
 		if !repofs.ExistsOrDie(repofs.Join(store.Default.BootsrtrapDir, store.Default.ClusterResourcesDir, opts.DestKubeContext)) {
-			bulkWrites = append(bulkWrites, fs.BulkWriteRequest{
+			bulkWrites = append(bulkWrites, fsutils.BulkWriteRequest{
 				Filename: repofs.Join(store.Default.BootsrtrapDir, store.Default.ClusterResourcesDir, opts.DestKubeContext+".json"),
 				Data:     clusterResConf,
 				ErrMsg:   "failed to write cluster config",
 			})
 
-			bulkWrites = append(bulkWrites, fs.BulkWriteRequest{
+			bulkWrites = append(bulkWrites, fsutils.BulkWriteRequest{
 				Filename: repofs.Join(store.Default.BootsrtrapDir, store.Default.ClusterResourcesDir, opts.DestKubeContext, "README.md"),
 				Data:     clusterResReadme,
 				ErrMsg:   "failed to write cluster resources readme",
@@ -196,13 +197,13 @@ func RunProjectCreate(ctx context.Context, opts *ProjectCreateOptions) error {
 		}
 	}
 
-	bulkWrites = append(bulkWrites, fs.BulkWriteRequest{
+	bulkWrites = append(bulkWrites, fsutils.BulkWriteRequest{
 		Filename: repofs.Join(store.Default.ProjectsDir, opts.Name+".yaml"),
 		Data:     util.JoinManifests(projectYAML, appsetYAML),
 		ErrMsg:   "failed to create project file",
 	})
 
-	if err = repofs.BulkWrite(bulkWrites...); err != nil {
+	if err = fsutils.BulkWrite(repofs, bulkWrites...); err != nil {
 		return err
 	}
 

@@ -6,7 +6,7 @@ import (
 	"fmt"
 )
 
-//go:generate mockery -name Provider -filename provider.go
+//go:generate mockery --name Provider
 
 type (
 	// Provider represents a git provider

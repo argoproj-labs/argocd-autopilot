@@ -24,7 +24,7 @@ import (
 	kusttypes "sigs.k8s.io/kustomize/api/types"
 )
 
-//go:generate mockery -name Application -filename application.go
+//go:generate mockery --name Application
 
 const (
 	InstallationModeFlat   = "flat"

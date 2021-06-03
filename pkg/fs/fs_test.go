@@ -105,7 +105,6 @@ func Test_fsimpl_CheckExistsOrWrite(t *testing.T) {
 		want     bool
 		wantErr  string
 		beforeFn func(m *mocks.FS)
-		assertFn func(t *testing.T, mockedFile *mocks.File)
 	}{
 		"should exists": {
 			args: args{path: "/usr/bar", data: []byte{}},

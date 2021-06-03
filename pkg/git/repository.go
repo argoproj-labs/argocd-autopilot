@@ -21,8 +21,8 @@ import (
 	"github.com/spf13/viper"
 )
 
-//go:generate mockery -dir gogit -all -output gogit/mocks -case snake
-//go:generate mockery -name Repository -filename repository.go
+//go:generate mockery --dir gogit --all --output gogit/mocks --case snake
+//go:generate mockery --name Repository
 
 type (
 	// Repository represents a git repository

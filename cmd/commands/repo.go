@@ -11,6 +11,7 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/application"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/argocd"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/fs"
+	fsutils "github.com/argoproj-labs/argocd-autopilot/pkg/fs/utils"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/git"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/kube"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/log"
@@ -569,22 +570,22 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 }
 
 func writeManifestsToRepo(repoFS fs.FS, manifests *bootstrapManifests, installationMode string) error {
-	var bulkWrites []fs.BulkWriteRequest
+	var bulkWrites []fsutils.BulkWriteRequest
 	argocdPath := repoFS.Join(store.Default.BootsrtrapDir, store.Default.ArgoCDName)
 	clusterResReadme := []byte(strings.ReplaceAll(string(clusterResReadmeTpl), "{CLUSTER}", store.Default.ClusterContextName))
 
 	if installationMode == installationModeNormal {
-		bulkWrites = []fs.BulkWriteRequest{
+		bulkWrites = []fsutils.BulkWriteRequest{
 			{Filename: repoFS.Join(argocdPath, "kustomization.yaml"), Data: manifests.bootstrapKustomization},
 			{Filename: repoFS.Join(argocdPath, "namespace.yaml"), Data: manifests.namespace},
 		}
 	} else {
-		bulkWrites = []fs.BulkWriteRequest{
+		bulkWrites = []fsutils.BulkWriteRequest{
 			{Filename: repoFS.Join(argocdPath, "install.yaml"), Data: manifests.applyManifests},
 		}
 	}
 
-	bulkWrites = append(bulkWrites, []fs.BulkWriteRequest{
+	bulkWrites = append(bulkWrites, []fsutils.BulkWriteRequest{
 		{Filename: repoFS.Join(store.Default.BootsrtrapDir, store.Default.RootAppName+".yaml"), Data: manifests.rootApp},                                                    // write projects root app
 		{Filename: repoFS.Join(store.Default.BootsrtrapDir, store.Default.ArgoCDName+".yaml"), Data: manifests.argocdApp},                                                   // write argocd app
 		{Filename: repoFS.Join(store.Default.BootsrtrapDir, store.Default.ClusterResourcesDir+".yaml"), Data: manifests.clusterResAppSet},                                   // write cluster-resources appset
@@ -594,7 +595,7 @@ func writeManifestsToRepo(repoFS fs.FS, manifests *bootstrapManifests, installat
 		{Filename: repoFS.Join(store.Default.AppsDir, "README.md"), Data: appsReadme},                                                                                       // write ./apps/README.md
 	}...)
 
-	return repoFS.BulkWrite(bulkWrites...)
+	return fsutils.BulkWrite(repoFS, bulkWrites...)
 }
 
 func createBootstrapKustomization(namespace, repoURL, appSpecifier string) (*kusttypes.Kustomization, error) {

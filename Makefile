@@ -151,13 +151,13 @@ check-worktree:
 $(GOBIN)/mockery:
 	@mkdir dist || true
 	@echo installing: mockery
-	@curl -L -o dist/mockery.tar.gz -- https://github.com/vektra/mockery/releases/download/v1.1.1/mockery_1.1.1_$(shell uname -s)_$(shell uname -m).tar.gz
+	@curl -L -o dist/mockery.tar.gz -- https://github.com/vektra/mockery/releases/download/v2.8.0/mockery_2.8.0_$(shell uname -s)_$(shell uname -m).tar.gz
 	@tar zxvf dist/mockery.tar.gz mockery
 	@rm dist/mockery.tar.gz
 	@chmod +x mockery
 	@mkdir -p $(GOBIN)
 	@mv mockery $(GOBIN)/mockery
-	@mockery -version
+	@mockery --version
 
 $(GOBIN)/golangci-lint:
 	@mkdir dist || true
