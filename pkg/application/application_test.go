@@ -11,6 +11,8 @@ import (
 	fsmocks "github.com/argoproj-labs/argocd-autopilot/pkg/fs/mocks"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/kube"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
+	"github.com/ghodss/yaml"
+	v1 "k8s.io/api/core/v1"
 
 	"github.com/go-git/go-billy/v5/memfs"
 	billyUtils "github.com/go-git/go-billy/v5/util"
@@ -18,6 +20,19 @@ import (
 	"github.com/stretchr/testify/mock"
 	kusttypes "sigs.k8s.io/kustomize/api/types"
 )
+
+func bootstrapMockFS(t *testing.T, repofs fs.FS) {
+	clusterResConf := &ClusterResConfig{Name: store.Default.ClusterContextName, Server: store.Default.DestServer}
+	clusterResConfJSON, err := yaml.Marshal(clusterResConf)
+	assert.NoError(t, err)
+	err = billyUtils.WriteFile(
+		repofs,
+		repofs.Join(store.Default.BootsrtrapDir, store.Default.ClusterResourcesDir, store.Default.ClusterContextName+".json"),
+		clusterResConfJSON,
+		0644,
+	)
+	assert.NoError(t, err)
+}
 
 func Test_newKustApp(t *testing.T) {
 	orgGenerateManifests := generateManifests
@@ -243,7 +258,8 @@ func Test_kustCreateFiles(t *testing.T) {
 				app := &kustApp{
 					baseApp: baseApp{
 						opts: &CreateOptions{
-							AppName: "app",
+							AppName:    "app",
+							DestServer: store.Default.DestServer,
 						},
 					},
 				}
@@ -262,9 +278,11 @@ func Test_kustCreateFiles(t *testing.T) {
 		"Should create install.yaml when manifests exist": {
 			beforeFn: func() (*kustApp, fs.FS, string) {
 				app := &kustApp{
+
 					baseApp: baseApp{
 						opts: &CreateOptions{
-							AppName: "app",
+							AppName:    "app",
+							DestServer: store.Default.DestServer,
 						},
 					},
 					manifests: []byte("some manifests"),
@@ -279,21 +297,27 @@ func Test_kustCreateFiles(t *testing.T) {
 				assert.Equal(t, "some manifests", string(data))
 			},
 		},
-		"Should create namespace.yaml when needed": {
+		"Should create namespace.yaml on the correct cluster resources directory when needed": {
 			beforeFn: func() (*kustApp, fs.FS, string) {
 				app := &kustApp{
 					baseApp: baseApp{
 						opts: &CreateOptions{
-							AppName: "app",
+							AppName:    "app",
+							DestServer: store.Default.DestServer,
 						},
 					},
-					namespace: kube.GenerateNamespace("namespace"),
+					namespace: kube.GenerateNamespace("foo"),
 				}
 				return app, fs.Create(memfs.New()), "project"
 			},
 			assertFn: func(t *testing.T, repofs fs.FS, err error) {
 				assert.NoError(t, err)
-				assert.True(t, repofs.ExistsOrDie(repofs.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project", "namespace.yaml")), "overlay namespace should exist")
+				path := repofs.Join(store.Default.BootsrtrapDir, store.Default.ClusterResourcesDir, store.Default.ClusterContextName, "foo-ns.yaml")
+				ns, err := repofs.ReadFile(path)
+				assert.NoError(t, err, "namespace file should exist in cluster-resources dir")
+				namespace := &v1.Namespace{}
+				assert.NoError(t, yaml.Unmarshal(ns, namespace))
+				assert.Equal(t, "foo", namespace.Name)
 			},
 		},
 		"Should fail when base kustomization is different from kustRes": {
@@ -301,7 +325,8 @@ func Test_kustCreateFiles(t *testing.T) {
 				app := &kustApp{
 					baseApp: baseApp{
 						opts: &CreateOptions{
-							AppName: "app",
+							AppName:    "app",
+							DestServer: store.Default.DestServer,
 						},
 					},
 					base: &kusttypes.Kustomization{
@@ -332,7 +357,8 @@ func Test_kustCreateFiles(t *testing.T) {
 				app := &kustApp{
 					baseApp: baseApp{
 						opts: &CreateOptions{
-							AppName: "app",
+							AppName:    "app",
+							DestServer: store.Default.DestServer,
 						},
 					},
 				}
@@ -355,6 +381,7 @@ func Test_kustCreateFiles(t *testing.T) {
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
 			app, repofs, projectName := tt.beforeFn()
+			bootstrapMockFS(t, repofs)
 			err := app.CreateFiles(repofs, projectName)
 			tt.assertFn(t, repofs, err)
 		})

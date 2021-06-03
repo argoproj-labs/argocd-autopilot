@@ -340,7 +340,7 @@ func kustCreateFiles(app *kustApp, repofs fs.FS, projectName string) error {
 		return fmt.Errorf("failed to get cluster name for the specified dest-server: %w", err)
 	}
 	if clusterName == "" {
-		return fmt.Errorf("cluster '%s' is yet configured, you need to create a project that uses this cluster first", app.opts.DestServer)
+		return fmt.Errorf("cluster '%s' is not configured yet, you need to create a project that uses this cluster first", app.opts.DestServer)
 	}
 
 	// if we override the namespace we also need to write the namespace manifests next to the overlay
