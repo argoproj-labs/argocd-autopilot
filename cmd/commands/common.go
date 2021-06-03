@@ -178,6 +178,7 @@ type createAppSetOptions struct {
 	namespace     string
 	appName       string
 	appNamespace  string
+	appProject    string
 	repoURL       string
 	revision      string
 	srcPath       string
@@ -238,6 +239,10 @@ func createAppSet(o *createAppSetOptions) ([]byte, error) {
 			"app.kubernetes.io/managed-by": store.Default.ManagedBy,
 			"app.kubernetes.io/name":       o.appName,
 		}
+	}
+
+	if o.appProject != "" {
+		appSet.Spec.Template.Spec.Project = o.appProject
 	}
 
 	if o.noFinalizer {

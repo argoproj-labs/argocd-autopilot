@@ -264,6 +264,7 @@ func generateProjectManifests(o *GenerateProjectOptions) (projectYAML, appSetYAM
 		namespace:     o.Namespace,
 		appName:       fmt.Sprintf("%s-{{ userGivenName }}", o.Name),
 		appNamespace:  o.Namespace,
+		appProject:    o.Name,
 		repoURL:       "{{ srcRepoURL }}",
 		srcPath:       "{{ srcPath }}",
 		revision:      "{{ srcTargetRevision }}",
