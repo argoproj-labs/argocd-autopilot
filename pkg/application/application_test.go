@@ -1,6 +1,7 @@
 package application
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -22,7 +23,7 @@ import (
 
 func bootstrapMockFS(t *testing.T, repofs fs.FS) {
 	clusterResConf := &ClusterResConfig{Name: store.Default.ClusterContextName, Server: store.Default.DestServer}
-	clusterResConfJSON, err := yaml.Marshal(clusterResConf)
+	clusterResConfJSON, err := json.Marshal(clusterResConf)
 	assert.NoError(t, err)
 	err = billyUtils.WriteFile(
 		repofs,
