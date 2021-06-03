@@ -600,7 +600,7 @@ func Test_newDirApp(t *testing.T) {
 					UserGivenName:     "fooapp",
 					DestNamespace:     "fizz",
 					DestServer:        "buzz",
-					SrcRepoURL:        "github.com/foo/bar",
+					SrcRepoURL:        "https://github.com/foo/bar",
 					SrcTargetRevision: "v0.1.2",
 					SrcPath:           "somepath/in/repo",
 				},
@@ -610,7 +610,7 @@ func Test_newDirApp(t *testing.T) {
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
 			if got := newDirApp(tt.opts); !reflect.DeepEqual(got.config, tt.want.config) {
-				t.Errorf("newDirApp() = %v, want %v", got, tt.want)
+				t.Errorf("newDirApp() = %+v, want %+v", got.config, tt.want.config)
 			}
 		})
 	}
