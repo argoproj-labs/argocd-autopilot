@@ -188,10 +188,10 @@ func GenerateManifests(k *kusttypes.Kustomization) ([]byte, error) {
 
 /* CreateOptions impl */
 // Parse tries to parse `CreateOptions` into an `Application`.
-func (o *CreateOptions) Parse(projectName, repoURL, targetRevision string) (Application, error) {
+func (o *CreateOptions) Parse(projectName, repoURL, targetRevision, repoRoot string) (Application, error) {
 	switch o.AppType {
 	case AppTypeKustomize:
-		return newKustApp(o, projectName, repoURL, targetRevision)
+		return newKustApp(o, projectName, repoURL, targetRevision, repoRoot)
 	case AppTypeDirectory:
 		return newDirApp(o), nil
 	default:
@@ -205,7 +205,7 @@ func (app *baseApp) Name() string {
 }
 
 /* kustApp Application impl */
-func newKustApp(o *CreateOptions, projectName, repoURL, targetRevision string) (*kustApp, error) {
+func newKustApp(o *CreateOptions, projectName, repoURL, targetRevision, repoRoot string) (*kustApp, error) {
 	var err error
 	app := &kustApp{
 		baseApp: baseApp{o},
@@ -280,7 +280,7 @@ func newKustApp(o *CreateOptions, projectName, repoURL, targetRevision string) (
 		DestNamespace:     o.DestNamespace,
 		DestServer:        o.DestServer,
 		SrcRepoURL:        repoURL,
-		SrcPath:           filepath.Join(store.Default.AppsDir, o.AppName, store.Default.OverlaysDir, projectName),
+		SrcPath:           filepath.Join(repoRoot, store.Default.AppsDir, o.AppName, store.Default.OverlaysDir, projectName),
 		SrcTargetRevision: targetRevision,
 	}
 

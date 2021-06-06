@@ -46,6 +46,7 @@ func Test_newKustApp(t *testing.T) {
 		opts              *CreateOptions
 		srcRepoURL        string
 		srcTargetRevision string
+		srcRepoRoot       string
 		projectName       string
 		wantErr           string
 		assertFn          func(*testing.T, *kustApp)
@@ -130,7 +131,7 @@ func Test_newKustApp(t *testing.T) {
 	}
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
-			app, err := newKustApp(tt.opts, tt.projectName, tt.srcRepoURL, tt.srcTargetRevision)
+			app, err := newKustApp(tt.opts, tt.projectName, tt.srcRepoURL, tt.srcTargetRevision, tt.srcRepoRoot)
 			if err != nil {
 				if tt.wantErr != "" {
 					assert.EqualError(t, err, tt.wantErr)
