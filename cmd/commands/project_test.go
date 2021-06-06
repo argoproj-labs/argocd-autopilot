@@ -11,12 +11,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/argoproj-labs/argocd-autopilot/pkg/application"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/fs"
 	fsmocks "github.com/argoproj-labs/argocd-autopilot/pkg/fs/mocks"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/git"
 	gitmocks "github.com/argoproj-labs/argocd-autopilot/pkg/git/mocks"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
+	"github.com/ghodss/yaml"
 
 	appset "github.com/argoproj-labs/applicationset/api/v1alpha1"
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
@@ -85,7 +87,7 @@ func TestRunProjectCreate(t *testing.T) {
 			prepareRepo: func() (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
 				mockedRepo := &gitmocks.Repository{}
-				mockedRepo.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{CommitMsg: "Added project project"}).Return(fmt.Errorf("failed to persist"))
+				mockedRepo.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{CommitMsg: "Added project 'project'"}).Return(fmt.Errorf("failed to persist"))
 				return mockedRepo, fs.Create(memfs), nil
 			},
 			getInstallationNamespace: func(_ fs.FS) (string, error) {
@@ -98,7 +100,7 @@ func TestRunProjectCreate(t *testing.T) {
 			prepareRepo: func() (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
 				mockedRepo := &gitmocks.Repository{}
-				mockedRepo.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{CommitMsg: "Added project project"}).Return(nil)
+				mockedRepo.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{CommitMsg: "Added project 'project'"}).Return(nil)
 				return mockedRepo, fs.Create(memfs), nil
 			},
 			getInstallationNamespace: func(_ fs.FS) (string, error) {
@@ -163,15 +165,17 @@ func Test_generateProject(t *testing.T) {
 		wantRevision           string
 		wantDefaultDestServer  string
 		wantProject            string
+		wantContextName        string
 	}{
 		"should generate project and appset with correct values": {
 			o: &GenerateProjectOptions{
-				Name:              "name",
-				Namespace:         "namespace",
-				DefaultDestServer: "defaultDestServer",
-				RepoURL:           "repoUrl",
-				Revision:          "revision",
-				InstallationPath:  "some/path",
+				Name:               "name",
+				Namespace:          "namespace",
+				DefaultDestServer:  "defaultDestServer",
+				DefaultDestContext: "some-context-name",
+				RepoURL:            "repoUrl",
+				Revision:           "revision",
+				InstallationPath:   "some/path",
 			},
 			wantName:               "name",
 			wantNamespace:          "namespace",
@@ -179,12 +183,23 @@ func Test_generateProject(t *testing.T) {
 			wantRepoURL:            "repoUrl",
 			wantRevision:           "revision",
 			wantDefaultDestServer:  "defaultDestServer",
+			wantContextName:        "some-context-name",
 		},
 	}
 	for ttname, tt := range tests {
 		t.Run(ttname, func(t *testing.T) {
 			assert := assert.New(t)
-			gotProject, gotAppSet := generateProject(tt.o)
+			gotProject := &argocdv1alpha1.AppProject{}
+			gotAppSet := &appset.ApplicationSet{}
+			gotClusterResConf := &application.ClusterResConfig{}
+			gotProjectYAML, gotAppSetYAML, _, gotClusterResConfigYAML, _ := generateProjectManifests(tt.o)
+			assert.NoError(yaml.Unmarshal(gotProjectYAML, gotProject))
+			assert.NoError(yaml.Unmarshal(gotAppSetYAML, gotAppSet))
+			assert.NoError(yaml.Unmarshal(gotClusterResConfigYAML, gotClusterResConf))
+
+			assert.Equal(tt.wantContextName, gotClusterResConf.Name)
+			assert.Equal(tt.wantDefaultDestServer, gotClusterResConf.Server)
+
 			assert.Equal(tt.wantName, gotProject.Name, "Project Name")
 			assert.Equal(tt.wantNamespace, gotProject.Namespace, "Project Namespace")
 			assert.Equal(tt.wantProjectDescription, gotProject.Spec.Description, "Project Description")

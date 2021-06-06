@@ -1,6 +1,7 @@
 package application
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -11,13 +12,27 @@ import (
 	fsmocks "github.com/argoproj-labs/argocd-autopilot/pkg/fs/mocks"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/kube"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
-
+	"github.com/ghodss/yaml"
 	"github.com/go-git/go-billy/v5/memfs"
 	billyUtils "github.com/go-git/go-billy/v5/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	v1 "k8s.io/api/core/v1"
 	kusttypes "sigs.k8s.io/kustomize/api/types"
 )
+
+func bootstrapMockFS(t *testing.T, repofs fs.FS) {
+	clusterResConf := &ClusterResConfig{Name: store.Default.ClusterContextName, Server: store.Default.DestServer}
+	clusterResConfJSON, err := json.Marshal(clusterResConf)
+	assert.NoError(t, err)
+	err = billyUtils.WriteFile(
+		repofs,
+		repofs.Join(store.Default.BootsrtrapDir, store.Default.ClusterResourcesDir, store.Default.ClusterContextName+".json"),
+		clusterResConfJSON,
+		0644,
+	)
+	assert.NoError(t, err)
+}
 
 func Test_newKustApp(t *testing.T) {
 	orgGenerateManifests := generateManifests
@@ -31,6 +46,7 @@ func Test_newKustApp(t *testing.T) {
 		opts              *CreateOptions
 		srcRepoURL        string
 		srcTargetRevision string
+		srcRepoRoot       string
 		projectName       string
 		wantErr           string
 		assertFn          func(*testing.T, *kustApp)
@@ -99,8 +115,8 @@ func Test_newKustApp(t *testing.T) {
 			assertFn: func(t *testing.T, a *kustApp) {
 				assert.Equal(t, "install.yaml", a.base.Resources[0])
 				assert.Equal(t, []byte("foo"), a.manifests)
+				assert.Equal(t, 1, len(a.overlay.Resources))
 				assert.Equal(t, "../../base", a.overlay.Resources[0])
-				assert.Equal(t, "namespace.yaml", a.overlay.Resources[1])
 				assert.Equal(t, "namespace", a.namespace.ObjectMeta.Name)
 				assert.True(t, reflect.DeepEqual(&Config{
 					AppName:           "name",
@@ -115,7 +131,7 @@ func Test_newKustApp(t *testing.T) {
 	}
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
-			app, err := newKustApp(tt.opts, tt.projectName, tt.srcRepoURL, tt.srcTargetRevision)
+			app, err := newKustApp(tt.opts, tt.projectName, tt.srcRepoURL, tt.srcTargetRevision, tt.srcRepoRoot)
 			if err != nil {
 				if tt.wantErr != "" {
 					assert.EqualError(t, err, tt.wantErr)
@@ -243,7 +259,8 @@ func Test_kustCreateFiles(t *testing.T) {
 				app := &kustApp{
 					baseApp: baseApp{
 						opts: &CreateOptions{
-							AppName: "app",
+							AppName:    "app",
+							DestServer: store.Default.DestServer,
 						},
 					},
 				}
@@ -262,9 +279,11 @@ func Test_kustCreateFiles(t *testing.T) {
 		"Should create install.yaml when manifests exist": {
 			beforeFn: func() (*kustApp, fs.FS, string) {
 				app := &kustApp{
+
 					baseApp: baseApp{
 						opts: &CreateOptions{
-							AppName: "app",
+							AppName:    "app",
+							DestServer: store.Default.DestServer,
 						},
 					},
 					manifests: []byte("some manifests"),
@@ -279,21 +298,43 @@ func Test_kustCreateFiles(t *testing.T) {
 				assert.Equal(t, "some manifests", string(data))
 			},
 		},
-		"Should create namespace.yaml when needed": {
+		"Should create namespace.yaml on the correct cluster resources directory when needed": {
 			beforeFn: func() (*kustApp, fs.FS, string) {
 				app := &kustApp{
 					baseApp: baseApp{
 						opts: &CreateOptions{
-							AppName: "app",
+							AppName:    "app",
+							DestServer: store.Default.DestServer,
 						},
 					},
-					namespace: kube.GenerateNamespace("namespace"),
+					namespace: kube.GenerateNamespace("foo"),
 				}
 				return app, fs.Create(memfs.New()), "project"
 			},
 			assertFn: func(t *testing.T, repofs fs.FS, err error) {
 				assert.NoError(t, err)
-				assert.True(t, repofs.ExistsOrDie(repofs.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project", "namespace.yaml")), "overlay namespace should exist")
+				path := repofs.Join(store.Default.BootsrtrapDir, store.Default.ClusterResourcesDir, store.Default.ClusterContextName, "foo-ns.yaml")
+				ns, err := repofs.ReadFile(path)
+				assert.NoError(t, err, "namespace file should exist in cluster-resources dir")
+				namespace := &v1.Namespace{}
+				assert.NoError(t, yaml.Unmarshal(ns, namespace))
+				assert.Equal(t, "foo", namespace.Name)
+			},
+		},
+		"Should fail if trying to install an application with destServer that is not configured yet": {
+			beforeFn: func() (*kustApp, fs.FS, string) {
+				app := &kustApp{
+					baseApp: baseApp{
+						opts: &CreateOptions{
+							AppName:    "app",
+							DestServer: "foo",
+						},
+					},
+				}
+				return app, fs.Create(memfs.New()), "project"
+			},
+			assertFn: func(t *testing.T, repofs fs.FS, err error) {
+				assert.Error(t, err, "cluster 'foo' is not configured yet, you need to create a project that uses this cluster first")
 			},
 		},
 		"Should fail when base kustomization is different from kustRes": {
@@ -301,7 +342,8 @@ func Test_kustCreateFiles(t *testing.T) {
 				app := &kustApp{
 					baseApp: baseApp{
 						opts: &CreateOptions{
-							AppName: "app",
+							AppName:    "app",
+							DestServer: store.Default.DestServer,
 						},
 					},
 					base: &kusttypes.Kustomization{
@@ -332,7 +374,8 @@ func Test_kustCreateFiles(t *testing.T) {
 				app := &kustApp{
 					baseApp: baseApp{
 						opts: &CreateOptions{
-							AppName: "app",
+							AppName:    "app",
+							DestServer: store.Default.DestServer,
 						},
 					},
 				}
@@ -355,6 +398,7 @@ func Test_kustCreateFiles(t *testing.T) {
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
 			app, repofs, projectName := tt.beforeFn()
+			bootstrapMockFS(t, repofs)
 			err := app.CreateFiles(repofs, projectName)
 			tt.assertFn(t, repofs, err)
 		})
@@ -536,6 +580,115 @@ func TestDeleteFromProject(t *testing.T) {
 			if tt.assertFn != nil {
 				tt.assertFn(t, repofs)
 			}
+		})
+	}
+}
+
+func Test_newDirApp(t *testing.T) {
+	tests := map[string]struct {
+		opts *CreateOptions
+		want *dirApp
+	}{
+		"Basic": {
+			opts: &CreateOptions{
+				AppName:       "fooapp",
+				AppSpecifier:  "github.com/foo/bar/somepath/in/repo?ref=v0.1.2",
+				DestNamespace: "fizz",
+				DestServer:    "buzz",
+			},
+			want: &dirApp{
+				config: &Config{
+					AppName:           "fooapp",
+					UserGivenName:     "fooapp",
+					DestNamespace:     "fizz",
+					DestServer:        "buzz",
+					SrcRepoURL:        "https://github.com/foo/bar",
+					SrcTargetRevision: "v0.1.2",
+					SrcPath:           "somepath/in/repo",
+				},
+			},
+		},
+	}
+	for tname, tt := range tests {
+		t.Run(tname, func(t *testing.T) {
+			if got := newDirApp(tt.opts); !reflect.DeepEqual(got.config, tt.want.config) {
+				t.Errorf("newDirApp() = %+v, want %+v", got.config, tt.want.config)
+			}
+		})
+	}
+}
+
+func Test_dirApp_CreateFiles(t *testing.T) {
+	tests := map[string]struct {
+		projectName string
+		app         *dirApp
+		assertFn    func(*testing.T, fs.FS, error)
+	}{
+		"Should not create namespace if app namespace is 'default'": {
+			app: &dirApp{
+				baseApp: baseApp{
+					opts: &CreateOptions{
+						AppName:       "foo",
+						AppSpecifier:  "github.com/foo/bar/path",
+						DestNamespace: "default",
+						DestServer:    store.Default.DestServer,
+					},
+				},
+			},
+			assertFn: func(t *testing.T, repofs fs.FS, e error) {
+				exists, err := repofs.Exists(repofs.Join(
+					store.Default.BootsrtrapDir,
+					store.Default.ClusterResourcesDir,
+					store.Default.ClusterContextName,
+					"default-ns.yaml",
+				))
+				assert.NoError(t, err)
+				assert.False(t, exists)
+			},
+		},
+		"Should fail with destServer that is not configured yet": {
+			app: &dirApp{
+				baseApp: baseApp{
+					opts: &CreateOptions{
+						AppName:       "foo",
+						AppSpecifier:  "github.com/foo/bar/path",
+						DestNamespace: "default",
+						DestServer:    "some.new.server",
+					},
+				},
+			},
+			assertFn: func(t *testing.T, repofs fs.FS, err error) {
+				assert.Error(t, err, "cluster 'some.new.server' is not configured yet, you need to create a project that uses this cluster first")
+			},
+		},
+		"Should create namespace in correct cluster resources dir": {
+			app: &dirApp{
+				baseApp: baseApp{
+					opts: &CreateOptions{
+						AppName:       "foo",
+						AppSpecifier:  "github.com/foo/bar/path",
+						DestNamespace: "buzz",
+						DestServer:    store.Default.DestServer,
+					},
+				},
+			},
+			assertFn: func(t *testing.T, repofs fs.FS, e error) {
+				exists, err := repofs.Exists(repofs.Join(
+					store.Default.BootsrtrapDir,
+					store.Default.ClusterResourcesDir,
+					store.Default.ClusterContextName,
+					"buzz-ns.yaml",
+				))
+				assert.NoError(t, err)
+				assert.True(t, exists)
+			},
+		},
+	}
+	for tname, tt := range tests {
+		t.Run(tname, func(t *testing.T) {
+			repofs := fs.Create(memfs.New())
+			bootstrapMockFS(t, repofs)
+			tt.assertFn(t, repofs, tt.app.CreateFiles(repofs, tt.projectName))
 		})
 	}
 }

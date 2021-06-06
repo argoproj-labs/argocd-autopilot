@@ -12,8 +12,8 @@ import (
 	billyUtils "github.com/go-git/go-billy/v5/util"
 )
 
-//go:generate mockery -name FS -filename fs.go
-//go:generate mockery -name File -filename file.go
+//go:generate mockery --name FS --filename fs.go
+
 type FS interface {
 	billy.Filesystem
 
@@ -37,10 +37,6 @@ type FS interface {
 
 type fsimpl struct {
 	billy.Filesystem
-}
-
-type File interface {
-	billy.File
 }
 
 func Create(bfs billy.Filesystem) FS {

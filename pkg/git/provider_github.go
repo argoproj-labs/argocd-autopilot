@@ -10,7 +10,7 @@ import (
 	gh "github.com/google/go-github/v34/github"
 )
 
-//go:generate mockery -dir github -all -output github/mocks -case snake
+//go:generate mockery --dir github --all --output github/mocks --case snake
 type github struct {
 	opts         *ProviderOptions
 	Repositories g.Repositories

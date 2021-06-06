@@ -2,7 +2,7 @@ package commands
 
 import (
 	"context"
-	_ "embed"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,17 +12,17 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/application"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/argocd"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/fs"
+	fsutils "github.com/argoproj-labs/argocd-autopilot/pkg/fs/utils"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/git"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/kube"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/log"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 
-	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
+	appset "github.com/argoproj-labs/applicationset/api/v1alpha1"
 	argocdsettings "github.com/argoproj/argo-cd/v2/util/settings"
 	"github.com/ghodss/yaml"
 	"github.com/go-git/go-billy/v5/memfs"
-	billyUtils "github.com/go-git/go-billy/v5/util"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	v1 "k8s.io/api/core/v1"
@@ -34,12 +34,6 @@ const (
 	installationModeFlat   = "flat"
 	installationModeNormal = "normal"
 )
-
-//go:embed assets/projects_readme.md
-var projectReadme []byte
-
-//go:embed assets/kustomization_readme.md
-var kustomizationReadme []byte
 
 // used for mocking
 var (
@@ -76,6 +70,8 @@ type (
 	bootstrapManifests struct {
 		bootstrapApp           []byte
 		rootApp                []byte
+		clusterResAppSet       []byte
+		clusterResConfig       []byte
 		argocdApp              []byte
 		repoCreds              []byte
 		applyManifests         []byte
@@ -285,6 +281,7 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 	// Dry Run check
 	if opts.DryRun {
 		fmt.Printf("%s", util.JoinManifests(
+			manifests.namespace,
 			manifests.applyManifests,
 			manifests.repoCreds,
 			manifests.bootstrapApp,
@@ -313,12 +310,12 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 	// apply built manifest to k8s cluster
 	log.G().Infof("using context: \"%s\", namespace: \"%s\"", opts.KubeContext, opts.Namespace)
 	log.G().Infof("applying bootstrap manifests to cluster...")
-	if err = opts.KubeFactory.Apply(ctx, opts.Namespace, util.JoinManifests(manifests.applyManifests, manifests.repoCreds)); err != nil {
+	if err = opts.KubeFactory.Apply(ctx, opts.Namespace, util.JoinManifests(manifests.namespace, manifests.applyManifests, manifests.repoCreds)); err != nil {
 		return fmt.Errorf("failed to apply bootstrap manifests to cluster: %w", err)
 	}
 
 	// write argocd manifests
-	if err = writeManifestsToRepo(opts.FS, manifests, opts.InstallationMode); err != nil {
+	if err = writeManifestsToRepo(opts.FS, manifests, opts.InstallationMode, opts.Namespace); err != nil {
 		return fmt.Errorf("failed to write manifests to repo: %w", err)
 	}
 
@@ -332,7 +329,11 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 
 	// push results to repo
 	log.G().Infof("pushing bootstrap manifests to repo")
-	if err = r.Persist(ctx, &git.PushOptions{CommitMsg: "Autopilot Bootstrap at " + opts.CloneOptions.RepoRoot}); err != nil {
+	commitMsg := "Autopilot Bootstrap"
+	if opts.CloneOptions.RepoRoot != "" {
+		commitMsg = "Autopilot Bootstrap at " + opts.CloneOptions.RepoRoot
+	}
+	if err = r.Persist(ctx, &git.PushOptions{CommitMsg: commitMsg}); err != nil {
 		return err
 	}
 
@@ -409,70 +410,6 @@ func validateRepo(repofs fs.FS) error {
 	return nil
 }
 
-type createBootstrapAppOptions struct {
-	name        string
-	namespace   string
-	repoURL     string
-	revision    string
-	srcPath     string
-	noFinalizer bool
-}
-
-func createApp(opts *createBootstrapAppOptions) ([]byte, error) {
-	app := &argocdv1alpha1.Application{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       argocdv1alpha1.ApplicationSchemaGroupVersionKind.Kind,
-			APIVersion: argocdv1alpha1.ApplicationSchemaGroupVersionKind.GroupVersion().String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: opts.namespace,
-			Name:      opts.name,
-			Labels: map[string]string{
-				"app.kubernetes.io/managed-by": store.Default.ManagedBy,
-				"app.kubernetes.io/name":       opts.name,
-			},
-			Finalizers: []string{
-				"resources-finalizer.argocd.argoproj.io",
-			},
-		},
-		Spec: argocdv1alpha1.ApplicationSpec{
-			Project: "default",
-			Source: argocdv1alpha1.ApplicationSource{
-				RepoURL:        opts.repoURL,
-				Path:           opts.srcPath,
-				TargetRevision: opts.revision,
-			},
-			Destination: argocdv1alpha1.ApplicationDestination{
-				Server:    store.Default.DestServer,
-				Namespace: opts.namespace,
-			},
-			SyncPolicy: &argocdv1alpha1.SyncPolicy{
-				Automated: &argocdv1alpha1.SyncPolicyAutomated{
-					SelfHeal: true,
-					Prune:    true,
-				},
-				SyncOptions: []string{
-					"allowEmpty=true",
-				},
-			},
-			IgnoreDifferences: []argocdv1alpha1.ResourceIgnoreDifferences{
-				{
-					Group: "argoproj.io",
-					Kind:  "Application",
-					JSONPointers: []string{
-						"/status",
-					},
-				},
-			},
-		},
-	}
-	if opts.noFinalizer {
-		app.ObjectMeta.Finalizers = []string{}
-	}
-
-	return yaml.Marshal(app)
-}
-
 func waitClusterReady(ctx context.Context, f kube.Factory, timeout time.Duration, namespace string) error {
 	return f.Wait(ctx, &kube.WaitOptions{
 		Interval: store.Default.WaitInterval,
@@ -531,7 +468,7 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 	var err error
 	manifests := &bootstrapManifests{}
 
-	manifests.bootstrapApp, err = createApp(&createBootstrapAppOptions{
+	manifests.bootstrapApp, err = createApp(&createAppOptions{
 		name:      store.Default.BootsrtrapAppName,
 		namespace: namespace,
 		repoURL:   cloneOpts.URL,
@@ -542,7 +479,7 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 		return nil, err
 	}
 
-	manifests.rootApp, err = createApp(&createBootstrapAppOptions{
+	manifests.rootApp, err = createApp(&createAppOptions{
 		name:      store.Default.RootAppName,
 		namespace: namespace,
 		repoURL:   cloneOpts.URL,
@@ -553,7 +490,7 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 		return nil, err
 	}
 
-	manifests.argocdApp, err = createApp(&createBootstrapAppOptions{
+	manifests.argocdApp, err = createApp(&createAppOptions{
 		name:        store.Default.ArgoCDName,
 		namespace:   namespace,
 		repoURL:     cloneOpts.URL,
@@ -565,15 +502,57 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 		return nil, err
 	}
 
+	manifests.clusterResAppSet, err = createAppSet(&createAppSetOptions{
+		name:         store.Default.ClusterResourcesDir,
+		namespace:    namespace,
+		repoURL:      cloneOpts.URL,
+		revision:     cloneOpts.Revision,
+		appName:      store.Default.ClusterResourcesDir + "-{{name}}",
+		appNamespace: namespace,
+		destServer:   "{{server}}",
+		noFinalizer:  true,
+		prune:        false,
+		srcPath:      filepath.Join(cloneOpts.RepoRoot, store.Default.BootsrtrapDir, store.Default.ClusterResourcesDir, "{{name}}"),
+		generators: []appset.ApplicationSetGenerator{
+			{
+				Git: &appset.GitGenerator{
+					RepoURL:  cloneOpts.URL,
+					Revision: cloneOpts.Revision,
+					Files: []appset.GitFileGeneratorItem{
+						{
+							Path: filepath.Join(
+								cloneOpts.RepoRoot,
+								store.Default.BootsrtrapDir,
+								store.Default.ClusterResourcesDir,
+								"*.json",
+							),
+						},
+					},
+					RequeueAfterSeconds: &DefaultApplicationSetGeneratorInterval,
+				},
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	manifests.clusterResConfig, err = json.Marshal(&application.ClusterResConfig{Name: store.Default.ClusterContextName, Server: store.Default.DestServer})
+	if err != nil {
+		return nil, err
+	}
+
 	k, err := createBootstrapKustomization(namespace, cloneOpts.URL, appSpecifier)
 	if err != nil {
 		return nil, err
 	}
 
-	ns := kube.GenerateNamespace(namespace)
-	manifests.namespace, err = yaml.Marshal(ns)
-	if err != nil {
-		return nil, err
+	if namespace != "" && namespace != "default" {
+		ns := kube.GenerateNamespace(namespace)
+		manifests.namespace, err = yaml.Marshal(ns)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	manifests.applyManifests, err = runKustomizeBuild(k)
@@ -594,44 +573,40 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 	return manifests, nil
 }
 
-func writeManifestsToRepo(repoFS fs.FS, manifests *bootstrapManifests, installationMode string) error {
+func writeManifestsToRepo(repoFS fs.FS, manifests *bootstrapManifests, installationMode, namespace string) error {
+	var bulkWrites []fsutils.BulkWriteRequest
 	argocdPath := repoFS.Join(store.Default.BootsrtrapDir, store.Default.ArgoCDName)
-	var err error
-	if installationMode == installationModeNormal {
-		if err = billyUtils.WriteFile(repoFS, repoFS.Join(argocdPath, "kustomization.yaml"), manifests.bootstrapKustomization, 0666); err != nil {
-			return err
-		}
+	clusterResReadme := []byte(strings.ReplaceAll(string(clusterResReadmeTpl), "{CLUSTER}", store.Default.ClusterContextName))
 
-		if err = billyUtils.WriteFile(repoFS, repoFS.Join(argocdPath, "namespace.yaml"), manifests.namespace, 0666); err != nil {
-			return err
+	if installationMode == installationModeNormal {
+		bulkWrites = []fsutils.BulkWriteRequest{
+			{Filename: repoFS.Join(argocdPath, "kustomization.yaml"), Data: manifests.bootstrapKustomization},
 		}
 	} else {
-		if err = billyUtils.WriteFile(repoFS, repoFS.Join(argocdPath, "install.yaml"), manifests.applyManifests, 0666); err != nil {
-			return err
+		bulkWrites = []fsutils.BulkWriteRequest{
+			{Filename: repoFS.Join(argocdPath, "install.yaml"), Data: manifests.applyManifests},
 		}
 	}
 
-	// write projects root app
-	if err = billyUtils.WriteFile(repoFS, repoFS.Join(store.Default.BootsrtrapDir, store.Default.RootAppName+".yaml"), manifests.rootApp, 0666); err != nil {
-		return err
+	bulkWrites = append(bulkWrites, []fsutils.BulkWriteRequest{
+		{Filename: repoFS.Join(store.Default.BootsrtrapDir, store.Default.RootAppName+".yaml"), Data: manifests.rootApp},                                                    // write projects root app
+		{Filename: repoFS.Join(store.Default.BootsrtrapDir, store.Default.ArgoCDName+".yaml"), Data: manifests.argocdApp},                                                   // write argocd app
+		{Filename: repoFS.Join(store.Default.BootsrtrapDir, store.Default.ClusterResourcesDir+".yaml"), Data: manifests.clusterResAppSet},                                   // write cluster-resources appset
+		{Filename: repoFS.Join(store.Default.BootsrtrapDir, store.Default.ClusterResourcesDir, store.Default.ClusterContextName, "README.md"), Data: clusterResReadme},      // write ./bootstrap/cluster-resources/in-cluster/README.md
+		{Filename: repoFS.Join(store.Default.BootsrtrapDir, store.Default.ClusterResourcesDir, store.Default.ClusterContextName+".json"), Data: manifests.clusterResConfig}, // write ./bootstrap/cluster-resources/in-cluster.json
+		{Filename: repoFS.Join(store.Default.ProjectsDir, "README.md"), Data: projectReadme},                                                                                // write ./projects/README.md
+		{Filename: repoFS.Join(store.Default.AppsDir, "README.md"), Data: appsReadme},                                                                                       // write ./apps/README.md
+	}...)
+
+	if manifests.namespace != nil {
+		// write ./bootstrap/cluster-resources/in-cluster/...-ns.yaml
+		bulkWrites = append(
+			bulkWrites,
+			fsutils.BulkWriteRequest{Filename: repoFS.Join(store.Default.BootsrtrapDir, store.Default.ClusterResourcesDir, store.Default.ClusterContextName, namespace+"-ns.yaml"), Data: manifests.namespace},
+		)
 	}
 
-	// write argocd app
-	if err = billyUtils.WriteFile(repoFS, repoFS.Join(store.Default.BootsrtrapDir, store.Default.ArgoCDName+".yaml"), manifests.argocdApp, 0666); err != nil {
-		return err
-	}
-
-	// write ./projects/README.md
-	if err = billyUtils.WriteFile(repoFS, repoFS.Join(store.Default.ProjectsDir, "README.md"), projectReadme, 0666); err != nil {
-		return err
-	}
-
-	// write ./apps/README.md
-	if err = billyUtils.WriteFile(repoFS, repoFS.Join(store.Default.AppsDir, "README.md"), kustomizationReadme, 0666); err != nil {
-		return err
-	}
-
-	return nil
+	return fsutils.BulkWrite(repoFS, bulkWrites...)
 }
 
 func createBootstrapKustomization(namespace, repoURL, appSpecifier string) (*kusttypes.Kustomization, error) {
@@ -643,7 +618,6 @@ func createBootstrapKustomization(namespace, repoURL, appSpecifier string) (*kus
 	k := &kusttypes.Kustomization{
 		Resources: []string{
 			appSpecifier,
-			"namespace.yaml",
 		},
 		TypeMeta: kusttypes.TypeMeta{
 			APIVersion: kusttypes.KustomizationVersion,

@@ -20,7 +20,7 @@ import (
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 )
 
-//go:generate mockery -name Factory -filename kube.go
+//go:generate mockery --name Factory --filename kube.go
 
 const (
 	defaultPollInterval = time.Second * 2

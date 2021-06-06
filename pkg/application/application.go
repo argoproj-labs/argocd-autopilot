@@ -24,7 +24,7 @@ import (
 	kusttypes "sigs.k8s.io/kustomize/api/types"
 )
 
-//go:generate mockery -name Application -filename application.go
+//go:generate mockery --name Application --filename application.go
 
 const (
 	InstallationModeFlat   = "flat"
@@ -61,6 +61,11 @@ type (
 		SrcPath           string `json:"srcPath"`
 		SrcRepoURL        string `json:"srcRepoURL"`
 		SrcTargetRevision string `json:"srcTargetRevision"`
+	}
+
+	ClusterResConfig struct {
+		Name   string `json:"name"`
+		Server string `json:"server"`
 	}
 
 	CreateOptions struct {
@@ -183,10 +188,10 @@ func GenerateManifests(k *kusttypes.Kustomization) ([]byte, error) {
 
 /* CreateOptions impl */
 // Parse tries to parse `CreateOptions` into an `Application`.
-func (o *CreateOptions) Parse(projectName, repoURL, targetRevision string) (Application, error) {
+func (o *CreateOptions) Parse(projectName, repoURL, targetRevision, repoRoot string) (Application, error) {
 	switch o.AppType {
 	case AppTypeKustomize:
-		return newKustApp(o, projectName, repoURL, targetRevision)
+		return newKustApp(o, projectName, repoURL, targetRevision, repoRoot)
 	case AppTypeDirectory:
 		return newDirApp(o), nil
 	default:
@@ -200,7 +205,7 @@ func (app *baseApp) Name() string {
 }
 
 /* kustApp Application impl */
-func newKustApp(o *CreateOptions, projectName, repoURL, targetRevision string) (*kustApp, error) {
+func newKustApp(o *CreateOptions, projectName, repoURL, targetRevision, repoRoot string) (*kustApp, error) {
 	var err error
 	app := &kustApp{
 		baseApp: baseApp{o},
@@ -265,7 +270,6 @@ func newKustApp(o *CreateOptions, projectName, repoURL, targetRevision string) (
 	}
 
 	if o.DestNamespace != "" && o.DestNamespace != "default" {
-		app.overlay.Resources = append(app.overlay.Resources, "namespace.yaml")
 		app.overlay.Namespace = o.DestNamespace
 		app.namespace = kube.GenerateNamespace(o.DestNamespace)
 	}
@@ -276,7 +280,7 @@ func newKustApp(o *CreateOptions, projectName, repoURL, targetRevision string) (
 		DestNamespace:     o.DestNamespace,
 		DestServer:        o.DestServer,
 		SrcRepoURL:        repoURL,
-		SrcPath:           filepath.Join(store.Default.AppsDir, o.AppName, store.Default.OverlaysDir, projectName),
+		SrcPath:           filepath.Join(repoRoot, store.Default.AppsDir, o.AppName, store.Default.OverlaysDir, projectName),
 		SrcTargetRevision: targetRevision,
 	}
 
@@ -330,15 +334,13 @@ func kustCreateFiles(app *kustApp, repofs fs.FS, projectName string) error {
 		}
 	}
 
-	// if we override the namespace we also need to write the namespace manifests next to the overlay
-	if app.namespace != nil {
-		nsPath := repofs.Join(overlayPath, "namespace.yaml")
-		nsYAML, err := yaml.Marshal(app.namespace)
-		if err != nil {
-			return fmt.Errorf("failed to marshal app overlay namespace: %w", err)
-		}
+	clusterName, err := getClusterName(repofs, app.opts.DestServer)
+	if err != nil {
+		return err
+	}
 
-		if _, err = writeFile(repofs, nsPath, "application namespace", nsYAML); err != nil {
+	if app.namespace != nil {
+		if err = createNamespaceManifest(repofs, clusterName, app.namespace); err != nil {
 			return err
 		}
 	}
@@ -353,6 +355,31 @@ func kustCreateFiles(app *kustApp, repofs fs.FS, projectName string) error {
 		return err
 	}
 
+	return nil
+}
+
+func getClusterName(repofs fs.FS, destServer string) (string, error) {
+	// verify that the dest server already exists
+	clusterName, err := serverToClusterName(repofs, destServer)
+	if err != nil {
+		return "", fmt.Errorf("failed to get cluster name for the specified dest-server: %w", err)
+	}
+	if clusterName == "" {
+		return "", fmt.Errorf("cluster '%s' is not configured yet, you need to create a project that uses this cluster first", destServer)
+	}
+	return clusterName, nil
+}
+
+func createNamespaceManifest(repofs fs.FS, clusterName string, namespace *v1.Namespace) error {
+	nsYAML, err := yaml.Marshal(namespace)
+	if err != nil {
+		return fmt.Errorf("failed to marshal app overlay namespace: %w", err)
+	}
+
+	nsPath := repofs.Join(store.Default.BootsrtrapDir, store.Default.ClusterResourcesDir, clusterName, namespace.Name+"-ns.yaml")
+	if _, err = writeFile(repofs, nsPath, "application namespace", nsYAML); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -386,6 +413,17 @@ func (app *dirApp) CreateFiles(repofs fs.FS, projectName string) error {
 
 	if _, err = writeFile(repofs, configPath, "config", config); err != nil {
 		return err
+	}
+
+	clusterName, err := getClusterName(repofs, app.opts.DestServer)
+	if err != nil {
+		return err
+	}
+
+	if app.opts.DestNamespace != "" && app.opts.DestNamespace != "default" {
+		if err = createNamespaceManifest(repofs, clusterName, kube.GenerateNamespace(app.opts.DestNamespace)); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -456,17 +494,6 @@ var generateManifests = func(k *kusttypes.Kustomization) ([]byte, error) {
 
 	if err = ioutil.WriteFile(kustomizationPath, kyaml, 0400); err != nil {
 		return nil, err
-	}
-
-	if k.Namespace != "" {
-		log.G().Debug("detected namespace on kustomization, generating namespace.yaml file")
-		ns, err := yaml.Marshal(kube.GenerateNamespace(k.Namespace))
-		if err != nil {
-			return nil, err
-		}
-		if err = ioutil.WriteFile(filepath.Join(td, "namespace.yaml"), ns, 0400); err != nil {
-			return nil, err
-		}
 	}
 
 	log.G().WithFields(log.Fields{
