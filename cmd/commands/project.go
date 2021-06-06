@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -297,7 +298,7 @@ func generateProjectManifests(o *GenerateProjectOptions) (projectYAML, appSetYAM
 
 	clusterResReadme = []byte(strings.ReplaceAll(string(clusterResReadmeTpl), "{CLUSTER}", o.DefaultDestServer))
 
-	clusterResConfig, err = yaml.Marshal(&application.ClusterResConfig{Name: o.DefaultDestContext, Server: o.DefaultDestServer})
+	clusterResConfig, err = json.Marshal(&application.ClusterResConfig{Name: o.DefaultDestContext, Server: o.DefaultDestServer})
 	if err != nil {
 		err = fmt.Errorf("failed to create cluster resources config: %w", err)
 		return
