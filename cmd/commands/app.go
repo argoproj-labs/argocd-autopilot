@@ -23,40 +23,54 @@ import (
 
 type (
 	AppCreateOptions struct {
-		BaseOptions
-		AppOpts *application.CreateOptions
+		CloneOpts    *git.CloneOptions
+		SrcCloneOpts *git.CloneOptions
+		ProjectName  string
+		AppOpts      *application.CreateOptions
 	}
 
 	AppDeleteOptions struct {
-		BaseOptions
-		AppName string
-		Global  bool
+		CloneOpts   *git.CloneOptions
+		ProjectName string
+		AppName     string
+		Global      bool
+	}
+
+	AppListOptions struct {
+		CloneOpts   *git.CloneOptions
+		ProjectName string
 	}
 )
 
 func NewAppCommand() *cobra.Command {
+	var cloneOpts *git.CloneOptions
+
 	cmd := &cobra.Command{
 		Use:     "application",
 		Aliases: []string{"app"},
 		Short:   "Manage applications",
+		PersistentPreRun: func(_ *cobra.Command, _ []string) {
+			cloneOpts.Parse()
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.HelpFunc()(cmd, args)
 			exit(1)
 		},
 	}
-	opts, err := addFlags(cmd)
-	die(err)
+	cloneOpts = git.AddFlags(cmd, memfs.New(), "")
 
-	cmd.AddCommand(NewAppCreateCommand(opts))
-	cmd.AddCommand(NewAppListCommand(opts))
-	cmd.AddCommand(NewAppDeleteCommand(opts))
+	cmd.AddCommand(NewAppCreateCommand(cloneOpts))
+	cmd.AddCommand(NewAppListCommand(cloneOpts))
+	cmd.AddCommand(NewAppDeleteCommand(cloneOpts))
 
 	return cmd
 }
 
-func NewAppCreateCommand(opts *BaseOptions) *cobra.Command {
+func NewAppCreateCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 	var (
-		appOpts *application.CreateOptions
+		appsCloneOpts *git.CloneOptions
+		appOpts       *application.CreateOptions
+		projectName   string
 	)
 
 	cmd := &cobra.Command{
@@ -80,22 +94,27 @@ func NewAppCreateCommand(opts *BaseOptions) *cobra.Command {
 
 	<BIN> app create <new_app_name> --app github.com/some_org/some_repo/manifests?ref=v1.2.3 --project project_name
 `),
+		PreRun: func(_ *cobra.Command, _ []string) {
+			appsCloneOpts.Parse()
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				log.G().Fatal("must enter application name")
 			}
 
 			appOpts.AppName = args[0]
-
 			return RunAppCreate(cmd.Context(), &AppCreateOptions{
-				BaseOptions: *opts,
-				AppOpts:     appOpts,
+				CloneOpts:    cloneOpts,
+				SrcCloneOpts: appsCloneOpts,
+				ProjectName:  projectName,
+				AppOpts:      appOpts,
 			})
 		},
 	}
-	appOpts = application.AddFlags(cmd)
 
-	cmd.Flags().StringVarP(&opts.ProjectName, "project", "p", "", "Project name")
+	cmd.Flags().StringVarP(&projectName, "project", "p", "", "Project name")
+	appsCloneOpts = git.AddFlags(cmd, memfs.New(), "apps")
+	appOpts = application.AddFlags(cmd)
 
 	die(cmd.MarkFlagRequired("app"))
 	die(cmd.MarkFlagRequired("project"))
@@ -104,22 +123,40 @@ func NewAppCreateCommand(opts *BaseOptions) *cobra.Command {
 }
 
 func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
-	r, repofs, err := prepareRepo(ctx, &opts.BaseOptions)
+	r, repofs, err := prepareRepo(ctx, opts.CloneOpts, opts.ProjectName)
 	if err != nil {
 		return err
 	}
 
-	err = setAppOptsDefaults(ctx, repofs, opts)
-	if err != nil {
+	var (
+		appsRepo git.Repository
+		appsfs   fs.FS
+	)
+
+	if opts.SrcCloneOpts.Repo != "" {
+		if opts.SrcCloneOpts.Auth.Password == "" {
+			opts.SrcCloneOpts.Auth.Password = opts.CloneOpts.Auth.Password
+		}
+
+		appsRepo, appsfs, err = clone(ctx, opts.SrcCloneOpts)
+		if err != nil {
+			return err
+		}
+	} else {
+		opts.SrcCloneOpts = opts.CloneOpts
+		appsRepo, appsfs = r, repofs
+	}
+
+	if err = setAppOptsDefaults(ctx, repofs, opts); err != nil {
 		return err
 	}
 
-	app, err := opts.AppOpts.Parse(opts.ProjectName, opts.CloneOptions.URL, opts.CloneOptions.Revision)
+	app, err := opts.AppOpts.Parse(opts.ProjectName, opts.SrcCloneOpts.URL(), opts.SrcCloneOpts.Revision())
 	if err != nil {
 		return fmt.Errorf("failed to parse application from flags: %v", err)
 	}
 
-	if err = app.CreateFiles(repofs, opts.ProjectName); err != nil {
+	if err = app.CreateFiles(repofs, appsfs, opts.ProjectName); err != nil {
 		if errors.Is(err, application.ErrAppAlreadyInstalledOnProject) {
 			return fmt.Errorf("application '%s' already exists in project '%s': %w", app.Name(), opts.ProjectName, err)
 		}
@@ -127,9 +164,16 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 		return err
 	}
 
+	if opts.SrcCloneOpts != opts.CloneOpts {
+		log.G().Info("committing changes to apps repo...")
+		if err = appsRepo.Persist(ctx, &git.PushOptions{CommitMsg: getCommitMsg(opts, appsfs)}); err != nil {
+			return fmt.Errorf("failed to push to apps repo: %w", err)
+		}
+	}
+
 	log.G().Info("committing changes to gitops repo...")
 	if err = r.Persist(ctx, &git.PushOptions{CommitMsg: getCommitMsg(opts, repofs)}); err != nil {
-		return fmt.Errorf("failed to push to repo: %w", err)
+		return fmt.Errorf("failed to push to gitops repo: %w", err)
 	}
 
 	log.G().Infof("installed application: %s", opts.AppOpts.AppName)
@@ -152,16 +196,14 @@ func setAppOptsDefaults(ctx context.Context, repofs fs.FS, opts *AppCreateOption
 	}
 
 	if opts.AppOpts.AppType == "" {
-		host, orgRepo, p, gitRef, _, _, _ := util.ParseGitUrl(opts.AppOpts.AppSpecifier)
-		url := host + orgRepo
-		log.G().Infof("Cloning repo: '%s', to infer app type from path '%s'", url, p)
+		log.G().Infof("Cloning app from %s to infer App Type", opts.AppOpts.AppSpecifier)
 		cloneOpts := &git.CloneOptions{
-			URL:      url,
-			Revision: gitRef,
-			RepoRoot: p,
-			Auth:     opts.CloneOptions.Auth,
+			Repo: opts.AppOpts.AppSpecifier,
+			Auth: opts.CloneOpts.Auth,
+			FS:   memfs.New(),
 		}
-		_, fs, err := clone(ctx, cloneOpts, fs.Create(memfs.New()))
+		cloneOpts.Parse()
+		_, fs, err := clone(ctx, cloneOpts)
 		if err != nil {
 			return err
 		}
@@ -192,7 +234,7 @@ func getCommitMsg(opts *AppCreateOptions, repofs fs.FS) string {
 	return commitMsg
 }
 
-func NewAppListCommand(opts *BaseOptions) *cobra.Command {
+func NewAppListCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list [PROJECT_NAME]",
 		Short: "List all applications in a project",
@@ -215,17 +257,19 @@ func NewAppListCommand(opts *BaseOptions) *cobra.Command {
 			if len(args) < 1 {
 				log.G().Fatal("must enter a project name")
 			}
-			opts.ProjectName = args[0]
 
-			return RunAppList(cmd.Context(), opts)
+			return RunAppList(cmd.Context(), &AppListOptions{
+				CloneOpts:   cloneOpts,
+				ProjectName: args[0],
+			})
 		},
 	}
 
 	return cmd
 }
 
-func RunAppList(ctx context.Context, opts *BaseOptions) error {
-	_, repofs, err := prepareRepo(ctx, opts)
+func RunAppList(ctx context.Context, opts *AppListOptions) error {
+	_, repofs, err := prepareRepo(ctx, opts.CloneOpts, opts.ProjectName)
 	if err != nil {
 		return err
 	}
@@ -268,10 +312,10 @@ func getConfigFileFromPath(repofs fs.FS, appPath string) (*application.Config, e
 	return &conf, nil
 }
 
-func NewAppDeleteCommand(opts *BaseOptions) *cobra.Command {
+func NewAppDeleteCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 	var (
-		appName string
-		global  bool
+		projectName string
+		global      bool
 	)
 
 	cmd := &cobra.Command{
@@ -297,28 +341,27 @@ func NewAppDeleteCommand(opts *BaseOptions) *cobra.Command {
 				log.G().Fatal("must enter application name")
 			}
 
-			appName = args[0]
-
-			if opts.ProjectName == "" && !global {
+			if projectName == "" && !global {
 				log.G().Fatal("must enter project name OR use '--global' flag")
 			}
 
 			return RunAppDelete(cmd.Context(), &AppDeleteOptions{
-				BaseOptions: *opts,
-				AppName:     appName,
+				CloneOpts:   cloneOpts,
+				ProjectName: projectName,
+				AppName:     args[0],
 				Global:      global,
 			})
 		},
 	}
 
-	cmd.Flags().StringVarP(&opts.ProjectName, "project", "p", "", "Project name")
+	cmd.Flags().StringVarP(&projectName, "project", "p", "", "Project name")
 	cmd.Flags().BoolVarP(&global, "global", "g", false, "global")
 
 	return cmd
 }
 
 func RunAppDelete(ctx context.Context, opts *AppDeleteOptions) error {
-	r, repofs, err := prepareRepo(ctx, &opts.BaseOptions)
+	r, repofs, err := prepareRepo(ctx, opts.CloneOpts, opts.ProjectName)
 	if err != nil {
 		return err
 	}

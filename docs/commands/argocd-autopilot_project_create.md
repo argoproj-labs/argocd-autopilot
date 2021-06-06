@@ -67,10 +67,8 @@ argocd-autopilot project create [PROJECT] [flags]
 ### Options inherited from parent commands
 
 ```
-  -t, --git-token string           Your git provider api token [GIT_TOKEN]
-      --installation-path string   The path where we of the installation files (defaults to the root of the repository [GIT_INSTALLATION_PATH]
-      --repo string                Repository URL [GIT_REPO]
-      --revision string            Repository branch, tag or commit hash (defaults to HEAD)
+  -t, --git-token string   Your git provider api token [GIT_TOKEN]
+      --repo string        Repository URL [GIT_REPO]
 ```
 
 ### SEE ALSO

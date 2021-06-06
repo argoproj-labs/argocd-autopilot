@@ -21,6 +21,7 @@ import (
 	appset "github.com/argoproj-labs/applicationset/api/v1alpha1"
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/ghodss/yaml"
+	"github.com/go-git/go-billy/v5/memfs"
 	billyUtils "github.com/go-git/go-billy/v5/util"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,16 +29,21 @@ import (
 
 type (
 	ProjectCreateOptions struct {
-		BaseOptions
-		Name            string
+		CloneOpts       *git.CloneOptions
+		ProjectName     string
 		DestKubeContext string
 		DryRun          bool
 		AddCmd          argocd.AddClusterCmd
 	}
 
+	ProjectDeleteOptions struct {
+		CloneOpts   *git.CloneOptions
+		ProjectName string
+	}
+
 	ProjectListOptions struct {
-		BaseOptions
-		Out io.Writer
+		CloneOpts *git.CloneOptions
+		Out       io.Writer
 	}
 
 	GenerateProjectOptions struct {
@@ -52,26 +58,30 @@ type (
 )
 
 func NewProjectCommand() *cobra.Command {
+	var cloneOpts *git.CloneOptions
+
 	cmd := &cobra.Command{
 		Use:     "project",
 		Aliases: []string{"proj"},
 		Short:   "Manage projects",
+		PersistentPreRun: func(_ *cobra.Command, _ []string) {
+			cloneOpts.Parse()
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.HelpFunc()(cmd, args)
 			exit(1)
 		},
 	}
+	cloneOpts = git.AddFlags(cmd, memfs.New(), "")
 
-	opts, err := addFlags(cmd)
-	die(err)
-	cmd.AddCommand(NewProjectCreateCommand(opts))
-	cmd.AddCommand(NewProjectListCommand(opts))
-	cmd.AddCommand(NewProjectDeleteCommand(opts))
+	cmd.AddCommand(NewProjectCreateCommand(cloneOpts))
+	cmd.AddCommand(NewProjectListCommand(cloneOpts))
+	cmd.AddCommand(NewProjectDeleteCommand(cloneOpts))
 
 	return cmd
 }
 
-func NewProjectCreateCommand(opts *BaseOptions) *cobra.Command {
+func NewProjectCreateCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 	var (
 		kubeContext string
 		dryRun      bool
@@ -104,11 +114,10 @@ func NewProjectCreateCommand(opts *BaseOptions) *cobra.Command {
 			if len(args) < 1 {
 				log.G().Fatal("must enter project name")
 			}
-			name := args[0]
 
 			return RunProjectCreate(cmd.Context(), &ProjectCreateOptions{
-				BaseOptions:     *opts,
-				Name:            name,
+				CloneOpts:       cloneOpts,
+				ProjectName:     args[0],
 				DestKubeContext: kubeContext,
 				DryRun:          dryRun,
 				AddCmd:          addCmd,
@@ -131,7 +140,7 @@ func RunProjectCreate(ctx context.Context, opts *ProjectCreateOptions) error {
 		installationNamespace string
 	)
 
-	r, repofs, err := prepareRepo(ctx, &opts.BaseOptions)
+	r, repofs, err := prepareRepo(ctx, opts.CloneOpts, "")
 	if err != nil {
 		return err
 	}
@@ -141,9 +150,9 @@ func RunProjectCreate(ctx context.Context, opts *ProjectCreateOptions) error {
 		return fmt.Errorf(util.Doc("Bootstrap folder not found, please execute `<BIN> repo bootstrap --installation-path %s` command"), repofs.Root())
 	}
 
-	projectExists := repofs.ExistsOrDie(repofs.Join(store.Default.ProjectsDir, opts.Name+".yaml"))
+	projectExists := repofs.ExistsOrDie(repofs.Join(store.Default.ProjectsDir, opts.ProjectName+".yaml"))
 	if projectExists {
-		return fmt.Errorf("project '%s' already exists", opts.Name)
+		return fmt.Errorf("project '%s' already exists", opts.ProjectName)
 	}
 
 	log.G().Debug("repository is ok")
@@ -157,11 +166,11 @@ func RunProjectCreate(ctx context.Context, opts *ProjectCreateOptions) error {
 	}
 
 	projectYAML, appsetYAML, clusterResReadme, clusterResConf, err := generateProjectManifests(&GenerateProjectOptions{
-		Name:               opts.Name,
+		Name:               opts.ProjectName,
 		Namespace:          installationNamespace,
-		RepoURL:            opts.CloneOptions.URL,
-		Revision:           opts.CloneOptions.Revision,
-		InstallationPath:   opts.CloneOptions.RepoRoot,
+		RepoURL:            opts.CloneOpts.URL(),
+		Revision:           opts.CloneOpts.Revision(),
+		InstallationPath:   opts.CloneOpts.Path(),
 		DefaultDestServer:  destServer,
 		DefaultDestContext: opts.DestKubeContext,
 	})
@@ -198,7 +207,7 @@ func RunProjectCreate(ctx context.Context, opts *ProjectCreateOptions) error {
 	}
 
 	bulkWrites = append(bulkWrites, fsutils.BulkWriteRequest{
-		Filename: repofs.Join(store.Default.ProjectsDir, opts.Name+".yaml"),
+		Filename: repofs.Join(store.Default.ProjectsDir, opts.ProjectName+".yaml"),
 		Data:     util.JoinManifests(projectYAML, appsetYAML),
 		ErrMsg:   "failed to create project file",
 	})
@@ -208,11 +217,11 @@ func RunProjectCreate(ctx context.Context, opts *ProjectCreateOptions) error {
 	}
 
 	log.G().Infof("pushing new project manifest to repo")
-	if err = r.Persist(ctx, &git.PushOptions{CommitMsg: fmt.Sprintf("Added project '%s'", opts.Name)}); err != nil {
+	if err = r.Persist(ctx, &git.PushOptions{CommitMsg: fmt.Sprintf("Added project '%s'", opts.ProjectName)}); err != nil {
 		return err
 	}
 
-	log.G().Infof("project created: '%s'", opts.Name)
+	log.G().Infof("project created: '%s'", opts.ProjectName)
 
 	return nil
 }
@@ -316,8 +325,7 @@ var getInstallationNamespace = func(repofs fs.FS) (string, error) {
 	return a.Spec.Destination.Namespace, nil
 }
 
-func NewProjectListCommand(opts *BaseOptions) *cobra.Command {
-
+func NewProjectListCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list ",
 		Short: "Lists all the projects on a git repository",
@@ -337,10 +345,9 @@ func NewProjectListCommand(opts *BaseOptions) *cobra.Command {
 	<BIN> project list
 `),
 		RunE: func(cmd *cobra.Command, args []string) error {
-
 			return RunProjectList(cmd.Context(), &ProjectListOptions{
-				BaseOptions: *opts,
-				Out:         os.Stdout,
+				CloneOpts: cloneOpts,
+				Out:       os.Stdout,
 			})
 		},
 	}
@@ -349,7 +356,7 @@ func NewProjectListCommand(opts *BaseOptions) *cobra.Command {
 }
 
 func RunProjectList(ctx context.Context, opts *ProjectListOptions) error {
-	_, repofs, err := prepareRepo(ctx, &opts.BaseOptions)
+	_, repofs, err := prepareRepo(ctx, opts.CloneOpts, "")
 	if err != nil {
 		return err
 	}
@@ -385,7 +392,7 @@ var getProjectInfoFromFile = func(repofs fs.FS, name string) (*argocdv1alpha1.Ap
 	return proj, appSet, nil
 }
 
-func NewProjectDeleteCommand(opts *BaseOptions) *cobra.Command {
+func NewProjectDeleteCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete [PROJECT_NAME]",
 		Short: "Delete a project and all of its applications",
@@ -409,17 +416,18 @@ func NewProjectDeleteCommand(opts *BaseOptions) *cobra.Command {
 				log.G().Fatal("must enter project name")
 			}
 
-			opts.ProjectName = args[0]
-
-			return RunProjectDelete(cmd.Context(), opts)
+			return RunProjectDelete(cmd.Context(), &ProjectDeleteOptions{
+				CloneOpts:   cloneOpts,
+				ProjectName: args[0],
+			})
 		},
 	}
 
 	return cmd
 }
 
-func RunProjectDelete(ctx context.Context, opts *BaseOptions) error {
-	r, repofs, err := prepareRepo(ctx, opts)
+func RunProjectDelete(ctx context.Context, opts *ProjectDeleteOptions) error {
+	r, repofs, err := prepareRepo(ctx, opts.CloneOpts, opts.ProjectName)
 	if err != nil {
 		return err
 	}

@@ -10,10 +10,8 @@ import (
 )
 
 func NewRoot() *cobra.Command {
-	s := store.Get()
-
 	cmd := &cobra.Command{
-		Use: s.BinaryName,
+		Use: store.Get().BinaryName,
 		Short: util.Doc(`<BIN> is used for installing and managing argo-cd installations and argo-cd
 applications using gitops`),
 		Long: util.Doc(`<BIN> is used for installing and managing argo-cd installations and argo-cd

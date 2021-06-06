@@ -62,9 +62,9 @@ type (
 		DryRun           bool
 		HidePassword     bool
 		Timeout          time.Duration
-		FS               fs.FS
-		KubeFactory      kube.Factory
-		CloneOptions     *git.CloneOptions
+		// FS               fs.FS
+		KubeFactory  kube.Factory
+		CloneOptions *git.CloneOptions
 	}
 
 	bootstrapManifests struct {
@@ -97,14 +97,7 @@ func NewRepoCommand() *cobra.Command {
 }
 
 func NewRepoCreateCommand() *cobra.Command {
-	var (
-		provider string
-		owner    string
-		repo     string
-		token    string
-		public   bool
-		host     string
-	)
+	var opts *RepoCreateOptions
 
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -127,30 +120,13 @@ func NewRepoCreateCommand() *cobra.Command {
 
     <BIN> repo create --owner foo --name bar --git-token abc123 --public
 `),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return RunRepoCreate(cmd.Context(), &RepoCreateOptions{
-				Provider: provider,
-				Owner:    owner,
-				Repo:     repo,
-				Token:    token,
-				Public:   public,
-				Host:     host,
-			})
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			_, err := RunRepoCreate(cmd.Context(), opts)
+			return err
 		},
 	}
 
-	die(viper.BindEnv("git-token", "GIT_TOKEN"))
-
-	cmd.Flags().StringVarP(&provider, "provider", "p", "github", "The git provider, "+fmt.Sprintf("one of: %v", strings.Join(git.Providers(), "|")))
-	cmd.Flags().StringVarP(&owner, "owner", "o", "", "The name of the owner or organiaion")
-	cmd.Flags().StringVarP(&repo, "name", "n", "", "The name of the repository")
-	cmd.Flags().StringVarP(&token, "git-token", "t", "", "Your git provider api token [GIT_TOKEN]")
-	cmd.Flags().StringVar(&host, "host", "", "The git provider address (for on-premise git providers)")
-	cmd.Flags().BoolVar(&public, "public", false, "If true, will create the repository as public (default is false)")
-
-	die(cmd.MarkFlagRequired("owner"))
-	die(cmd.MarkFlagRequired("name"))
-	die(cmd.MarkFlagRequired("git-token"))
+	opts = AddRepoCreateFlags(cmd, "")
 
 	return cmd
 }
@@ -162,8 +138,8 @@ func NewRepoBootstrapCommand() *cobra.Command {
 		dryRun           bool
 		hidePassword     bool
 		installationMode string
+		cloneOpts        *git.CloneOptions
 		f                kube.Factory
-		repoOpts         *git.CloneOptions
 	)
 
 	cmd := &cobra.Command{
@@ -189,7 +165,9 @@ func NewRepoBootstrapCommand() *cobra.Command {
 
 	<BIN> repo bootstrap --repo https://github.com/example/repo --installation-path path/to/installation_root
 `),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		PersistentPreRun: func(_ *cobra.Command, _ []string) {
+			cloneOpts.Parse()
+		}, RunE: func(cmd *cobra.Command, args []string) error {
 			return RunRepoBootstrap(cmd.Context(), &RepoBootstrapOptions{
 				AppSpecifier:     appSpecifier,
 				InstallationMode: installationMode,
@@ -199,15 +177,11 @@ func NewRepoBootstrapCommand() *cobra.Command {
 				DryRun:           dryRun,
 				HidePassword:     hidePassword,
 				Timeout:          util.MustParseDuration(cmd.Flag("request-timeout").Value.String()),
-				FS:               fs.Create(memfs.New()),
 				KubeFactory:      f,
-				CloneOptions:     repoOpts,
+				CloneOptions:     cloneOpts,
 			})
 		},
 	}
-
-	die(viper.BindEnv("git-token", "GIT_TOKEN"))
-	die(viper.BindEnv("repo", "GIT_REPO"))
 
 	cmd.Flags().StringVar(&appSpecifier, "app", "", "The application specifier (e.g. argocd@v1.0.2)")
 	cmd.Flags().BoolVar(&namespaced, "namespaced", false, "If true, install a namespaced version of argo-cd (no need for cluster-role)")
@@ -216,9 +190,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 	cmd.Flags().StringVar(&installationMode, "installation-mode", "normal", "One of: normal|flat. "+
 		"If flat, will commit the bootstrap manifests, otherwise will commit the bootstrap kustomization.yaml")
 
-	// add application flags
-	repoOpts, err := git.AddFlags(cmd)
-	die(err)
+	cloneOpts = git.AddFlags(cmd, memfs.New(), "")
 
 	// add kubernetes flags
 	f = kube.AddFlags(cmd.Flags())
@@ -226,7 +198,42 @@ func NewRepoBootstrapCommand() *cobra.Command {
 	return cmd
 }
 
-func RunRepoCreate(ctx context.Context, opts *RepoCreateOptions) error {
+func AddRepoCreateFlags(cmd *cobra.Command, prefix string) *RepoCreateOptions {
+	opts := &RepoCreateOptions{}
+
+	if prefix != "" {
+		if !strings.HasSuffix(prefix, "-") {
+			prefix += "-"
+		}
+
+		envPrefix := strings.ReplaceAll(strings.ToUpper(prefix), "-", "_")
+
+		cmd.Flags().StringVar(&opts.Owner, prefix+"owner", "", "The name of the owner or organiaion")
+		cmd.Flags().StringVar(&opts.Repo, prefix+"name", "", "The name of the repository")
+		cmd.Flags().StringVar(&opts.Token, prefix+"git-token", "", fmt.Sprintf("Your git provider api token [%sGIT_TOKEN]", envPrefix))
+		cmd.Flags().StringVar(&opts.Provider, prefix+"provider", "github", fmt.Sprintf("The git provider, one of: %v", strings.Join(git.Providers(), "|")))
+		cmd.Flags().StringVar(&opts.Host, prefix+"host", "", "The git provider address (for on-premise git providers)")
+		cmd.Flags().BoolVar(&opts.Public, prefix+"public", false, "If true, will create the repository as public (default is false)")
+
+		die(viper.BindEnv(prefix+"git-token", envPrefix+"GIT_TOKEN"))
+	} else {
+		cmd.Flags().StringVarP(&opts.Owner, "owner", "o", "", "The name of the owner or organiaion")
+		cmd.Flags().StringVarP(&opts.Repo, "name", "n", "", "The name of the repository")
+		cmd.Flags().StringVarP(&opts.Token, "git-token", "t", "", "Your git provider api token [GIT_TOKEN]")
+		cmd.Flags().StringVarP(&opts.Provider, "provider", "p", "github", fmt.Sprintf("The git provider, one of: %v", strings.Join(git.Providers(), "|")))
+		cmd.Flags().StringVar(&opts.Host, "host", "", "The git provider address (for on-premise git providers)")
+		cmd.Flags().BoolVar(&opts.Public, "public", false, "If true, will create the repository as public (default is false)")
+
+		die(viper.BindEnv("git-token", "GIT_TOKEN"))
+		die(cmd.MarkFlagRequired("owner"))
+		die(cmd.MarkFlagRequired("name"))
+		die(cmd.MarkFlagRequired("git-token"))
+	}
+
+	return opts
+}
+
+func RunRepoCreate(ctx context.Context, opts *RepoCreateOptions) (*git.CloneOptions, error) {
 	p, err := getGitProvider(&git.ProviderOptions{
 		Type: opts.Provider,
 		Auth: &git.Auth{
@@ -236,7 +243,7 @@ func RunRepoCreate(ctx context.Context, opts *RepoCreateOptions) error {
 		Host: opts.Host,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	log.G().Infof("creating repo: %s/%s", opts.Owner, opts.Repo)
@@ -246,25 +253,32 @@ func RunRepoCreate(ctx context.Context, opts *RepoCreateOptions) error {
 		Private: !opts.Public,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
+
 	log.G().Infof("repo created at: %s", repoUrl)
 
-	return nil
+	co := &git.CloneOptions{
+		Repo: repoUrl,
+		FS:   memfs.New(),
+		Auth: git.Auth{
+			Password: opts.Token,
+		},
+	}
+	co.Parse()
+	return co, nil
 }
 
 func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
-	var (
-		err error
-		r   git.Repository
-	)
+	var err error
+
 	if opts, err = setBootstrapOptsDefaults(*opts); err != nil {
 		return err
 	}
 
 	log.G().WithFields(log.Fields{
-		"repo-url":     opts.CloneOptions.URL,
-		"revision":     opts.CloneOptions.Revision,
+		"repo-url":     opts.CloneOptions.URL(),
+		"revision":     opts.CloneOptions.Revision(),
 		"namespace":    opts.Namespace,
 		"kube-context": opts.KubeContext,
 	}).Debug("starting with options: ")
@@ -294,13 +308,13 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 	log.G().Infof("cloning repo: %s", opts.CloneOptions.URL)
 
 	// clone GitOps repo
-	r, opts.FS, err = clone(ctx, opts.CloneOptions, opts.FS)
+	r, repofs, err := clone(ctx, opts.CloneOptions)
 	if err != nil {
 		return err
 	}
 
-	log.G().Infof("using revision: \"%s\", installation path: \"%s\"", opts.CloneOptions.Revision, opts.CloneOptions.RepoRoot)
-	if err = validateRepo(opts.FS); err != nil {
+	log.G().Infof("using revision: \"%s\", installation path: \"%s\"", opts.CloneOptions.Revision(), opts.CloneOptions.Path())
+	if err = validateRepo(repofs); err != nil {
 		return err
 	}
 
@@ -314,7 +328,7 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 	}
 
 	// write argocd manifests
-	if err = writeManifestsToRepo(opts.FS, manifests, opts.InstallationMode); err != nil {
+	if err = writeManifestsToRepo(repofs, manifests, opts.InstallationMode); err != nil {
 		return fmt.Errorf("failed to write manifests to repo: %w", err)
 	}
 
@@ -329,9 +343,10 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 	// push results to repo
 	log.G().Infof("pushing bootstrap manifests to repo")
 	commitMsg := "Autopilot Bootstrap"
-	if opts.CloneOptions.RepoRoot != "" {
-		commitMsg = "Autopilot Bootstrap at " + opts.CloneOptions.RepoRoot
+	if opts.CloneOptions.Path() != "" {
+		commitMsg = "Autopilot Bootstrap at " + opts.CloneOptions.Path()
 	}
+
 	if err = r.Persist(ctx, &git.PushOptions{CommitMsg: commitMsg}); err != nil {
 		return err
 	}
@@ -470,9 +485,9 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 	manifests.bootstrapApp, err = createApp(&createAppOptions{
 		name:      store.Default.BootsrtrapAppName,
 		namespace: namespace,
-		repoURL:   cloneOpts.URL,
-		revision:  cloneOpts.Revision,
-		srcPath:   filepath.Join(cloneOpts.RepoRoot, store.Default.BootsrtrapDir),
+		repoURL:   cloneOpts.URL(),
+		revision:  cloneOpts.Revision(),
+		srcPath:   filepath.Join(cloneOpts.Path(), store.Default.BootsrtrapDir),
 	})
 	if err != nil {
 		return nil, err
@@ -481,9 +496,9 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 	manifests.rootApp, err = createApp(&createAppOptions{
 		name:      store.Default.RootAppName,
 		namespace: namespace,
-		repoURL:   cloneOpts.URL,
-		revision:  cloneOpts.Revision,
-		srcPath:   filepath.Join(cloneOpts.RepoRoot, store.Default.ProjectsDir),
+		repoURL:   cloneOpts.URL(),
+		revision:  cloneOpts.Revision(),
+		srcPath:   filepath.Join(cloneOpts.Path(), store.Default.ProjectsDir),
 	})
 	if err != nil {
 		return nil, err
@@ -492,9 +507,9 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 	manifests.argocdApp, err = createApp(&createAppOptions{
 		name:        store.Default.ArgoCDName,
 		namespace:   namespace,
-		repoURL:     cloneOpts.URL,
-		revision:    cloneOpts.Revision,
-		srcPath:     filepath.Join(cloneOpts.RepoRoot, store.Default.BootsrtrapDir, store.Default.ArgoCDName),
+		repoURL:     cloneOpts.URL(),
+		revision:    cloneOpts.Revision(),
+		srcPath:     filepath.Join(cloneOpts.Path(), store.Default.BootsrtrapDir, store.Default.ArgoCDName),
 		noFinalizer: true,
 	})
 	if err != nil {
@@ -504,23 +519,23 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 	manifests.clusterResAppSet, err = createAppSet(&createAppSetOptions{
 		name:         store.Default.ClusterResourcesDir,
 		namespace:    namespace,
-		repoURL:      cloneOpts.URL,
-		revision:     cloneOpts.Revision,
+		repoURL:      cloneOpts.URL(),
+		revision:     cloneOpts.Revision(),
 		appName:      store.Default.ClusterResourcesDir + "-{{name}}",
 		appNamespace: namespace,
 		destServer:   "{{server}}",
 		noFinalizer:  true,
 		prune:        false,
-		srcPath:      filepath.Join(cloneOpts.RepoRoot, store.Default.BootsrtrapDir, store.Default.ClusterResourcesDir, "{{name}}"),
+		srcPath:      filepath.Join(cloneOpts.Path(), store.Default.BootsrtrapDir, store.Default.ClusterResourcesDir, "{{name}}"),
 		generators: []appset.ApplicationSetGenerator{
 			{
 				Git: &appset.GitGenerator{
-					RepoURL:  cloneOpts.URL,
-					Revision: cloneOpts.Revision,
+					RepoURL:  cloneOpts.URL(),
+					Revision: cloneOpts.Revision(),
 					Files: []appset.GitFileGeneratorItem{
 						{
 							Path: filepath.Join(
-								cloneOpts.RepoRoot,
+								cloneOpts.Path(),
 								store.Default.BootsrtrapDir,
 								store.Default.ClusterResourcesDir,
 								"*.json",
@@ -541,7 +556,7 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 		return nil, err
 	}
 
-	k, err := createBootstrapKustomization(namespace, cloneOpts.URL, appSpecifier)
+	k, err := createBootstrapKustomization(namespace, cloneOpts.URL(), appSpecifier)
 	if err != nil {
 		return nil, err
 	}

@@ -48,9 +48,7 @@ func Test_getCommitMsg(t *testing.T) {
 			m := &fsmocks.FS{}
 			m.On("Root").Return(tt.root)
 			opts := &AppCreateOptions{
-				BaseOptions: BaseOptions{
-					ProjectName: tt.projectName,
-				},
+				ProjectName: tt.projectName,
 				AppOpts: &application.CreateOptions{
 					AppName: tt.appName,
 				},
@@ -303,18 +301,15 @@ func TestRunAppDelete(t *testing.T) {
 				repofs fs.FS
 			)
 
-			prepareRepo = func(_ context.Context, _ *BaseOptions) (git.Repository, fs.FS, error) {
+			prepareRepo = func(_ context.Context, _ *git.CloneOptions, _ string) (git.Repository, fs.FS, error) {
 				var err error
 				repo, repofs, err = tt.prepareRepo()
 				return repo, repofs, err
 			}
 			opts := &AppDeleteOptions{
-				BaseOptions: BaseOptions{
-					ProjectName: tt.projectName,
-					FS:          fs.Create(memfs.New()),
-				},
-				AppName: tt.appName,
-				Global:  tt.global,
+				ProjectName: tt.projectName,
+				AppName:     tt.appName,
+				Global:      tt.global,
 			}
 			if err := RunAppDelete(context.Background(), opts); err != nil {
 				if tt.wantErr != "" {
@@ -422,9 +417,7 @@ func Test_setAppOptsDefaults(t *testing.T) {
 		},
 		"Should read server from project, if empty": {
 			opts: &AppCreateOptions{
-				BaseOptions: BaseOptions{
-					ProjectName: "project",
-				},
+				ProjectName: "project",
 				AppOpts: &application.CreateOptions{
 					DestNamespace: "namespace",
 					AppType:       application.AppTypeKustomize,
@@ -453,9 +446,7 @@ func Test_setAppOptsDefaults(t *testing.T) {
 		},
 		"Should read server from project, if set to default": {
 			opts: &AppCreateOptions{
-				BaseOptions: BaseOptions{
-					ProjectName: "project",
-				},
+				ProjectName: "project",
 				AppOpts: &application.CreateOptions{
 					DestServer:    store.Default.DestServer,
 					DestNamespace: "namespace",
@@ -485,10 +476,8 @@ func Test_setAppOptsDefaults(t *testing.T) {
 		},
 		"Should infer appType from repo, if empty": {
 			opts: &AppCreateOptions{
-				BaseOptions: BaseOptions{
-					CloneOptions: &git.CloneOptions{
-						Auth: git.Auth{},
-					},
+				CloneOpts: &git.CloneOptions{
+					Auth: git.Auth{},
 				},
 				AppOpts: &application.CreateOptions{
 					AppSpecifier:  "github.com/owner/repo/some/path",
@@ -497,7 +486,7 @@ func Test_setAppOptsDefaults(t *testing.T) {
 				},
 			},
 			beforeFn: func() fs.FS {
-				clone = func(_ context.Context, _ *git.CloneOptions, _ fs.FS) (git.Repository, fs.FS, error) {
+				clone = func(_ context.Context, _ *git.CloneOptions) (git.Repository, fs.FS, error) {
 					return nil, fs.Create(memfs.New()), nil
 				}
 
@@ -509,9 +498,7 @@ func Test_setAppOptsDefaults(t *testing.T) {
 		},
 		"Should fail if can't read server from project": {
 			opts: &AppCreateOptions{
-				BaseOptions: BaseOptions{
-					ProjectName: "project",
-				},
+				ProjectName: "project",
 				AppOpts: &application.CreateOptions{
 					DestNamespace: "namespace",
 					AppType:       application.AppTypeKustomize,
@@ -524,10 +511,8 @@ func Test_setAppOptsDefaults(t *testing.T) {
 		},
 		"Should fail if can't infer appType": {
 			opts: &AppCreateOptions{
-				BaseOptions: BaseOptions{
-					CloneOptions: &git.CloneOptions{
-						Auth: git.Auth{},
-					},
+				CloneOpts: &git.CloneOptions{
+					Auth: git.Auth{},
 				},
 				AppOpts: &application.CreateOptions{
 					AppSpecifier:  "github.com/owner/repo/some/path",
@@ -537,7 +522,7 @@ func Test_setAppOptsDefaults(t *testing.T) {
 			},
 			wantErr: "some error",
 			beforeFn: func() fs.FS {
-				clone = func(_ context.Context, _ *git.CloneOptions, _ fs.FS) (git.Repository, fs.FS, error) {
+				clone = func(_ context.Context, _ *git.CloneOptions) (git.Repository, fs.FS, error) {
 					return nil, nil, fmt.Errorf("some error")
 				}
 

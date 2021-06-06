@@ -4,6 +4,7 @@ package mocks
 
 import (
 	fs "github.com/argoproj-labs/argocd-autopilot/pkg/fs"
+
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -12,13 +13,13 @@ type Application struct {
 	mock.Mock
 }
 
-// CreateFiles provides a mock function with given fields: repofs, projectName
-func (_m *Application) CreateFiles(repofs fs.FS, projectName string) error {
-	ret := _m.Called(repofs, projectName)
+// CreateFiles provides a mock function with given fields: repofs, appsfs, projectName
+func (_m *Application) CreateFiles(repofs fs.FS, appsfs fs.FS, projectName string) error {
+	ret := _m.Called(repofs, appsfs, projectName)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(fs.FS, string) error); ok {
-		r0 = rf(repofs, projectName)
+	if rf, ok := ret.Get(0).(func(fs.FS, fs.FS, string) error); ok {
+		r0 = rf(repofs, appsfs, projectName)
 	} else {
 		r0 = ret.Error(0)
 	}

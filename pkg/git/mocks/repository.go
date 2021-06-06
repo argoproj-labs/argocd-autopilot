@@ -6,6 +6,7 @@ import (
 	context "context"
 
 	git "github.com/argoproj-labs/argocd-autopilot/pkg/git"
+
 	mock "github.com/stretchr/testify/mock"
 )
 
