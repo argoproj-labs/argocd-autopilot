@@ -281,6 +281,7 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 	// Dry Run check
 	if opts.DryRun {
 		fmt.Printf("%s", util.JoinManifests(
+			manifests.namespace,
 			manifests.applyManifests,
 			manifests.repoCreds,
 			manifests.bootstrapApp,
@@ -309,12 +310,12 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 	// apply built manifest to k8s cluster
 	log.G().Infof("using context: \"%s\", namespace: \"%s\"", opts.KubeContext, opts.Namespace)
 	log.G().Infof("applying bootstrap manifests to cluster...")
-	if err = opts.KubeFactory.Apply(ctx, opts.Namespace, util.JoinManifests(manifests.applyManifests, manifests.repoCreds)); err != nil {
+	if err = opts.KubeFactory.Apply(ctx, opts.Namespace, util.JoinManifests(manifests.namespace, manifests.applyManifests, manifests.repoCreds)); err != nil {
 		return fmt.Errorf("failed to apply bootstrap manifests to cluster: %w", err)
 	}
 
 	// write argocd manifests
-	if err = writeManifestsToRepo(opts.FS, manifests, opts.InstallationMode); err != nil {
+	if err = writeManifestsToRepo(opts.FS, manifests, opts.InstallationMode, opts.Namespace); err != nil {
 		return fmt.Errorf("failed to write manifests to repo: %w", err)
 	}
 
@@ -546,10 +547,12 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 		return nil, err
 	}
 
-	ns := kube.GenerateNamespace(namespace)
-	manifests.namespace, err = yaml.Marshal(ns)
-	if err != nil {
-		return nil, err
+	if namespace != "" && namespace != "default" {
+		ns := kube.GenerateNamespace(namespace)
+		manifests.namespace, err = yaml.Marshal(ns)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	manifests.applyManifests, err = runKustomizeBuild(k)
@@ -570,7 +573,7 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 	return manifests, nil
 }
 
-func writeManifestsToRepo(repoFS fs.FS, manifests *bootstrapManifests, installationMode string) error {
+func writeManifestsToRepo(repoFS fs.FS, manifests *bootstrapManifests, installationMode, namespace string) error {
 	var bulkWrites []fsutils.BulkWriteRequest
 	argocdPath := repoFS.Join(store.Default.BootsrtrapDir, store.Default.ArgoCDName)
 	clusterResReadme := []byte(strings.ReplaceAll(string(clusterResReadmeTpl), "{CLUSTER}", store.Default.ClusterContextName))
@@ -578,7 +581,6 @@ func writeManifestsToRepo(repoFS fs.FS, manifests *bootstrapManifests, installat
 	if installationMode == installationModeNormal {
 		bulkWrites = []fsutils.BulkWriteRequest{
 			{Filename: repoFS.Join(argocdPath, "kustomization.yaml"), Data: manifests.bootstrapKustomization},
-			{Filename: repoFS.Join(argocdPath, "namespace.yaml"), Data: manifests.namespace},
 		}
 	} else {
 		bulkWrites = []fsutils.BulkWriteRequest{
@@ -595,6 +597,14 @@ func writeManifestsToRepo(repoFS fs.FS, manifests *bootstrapManifests, installat
 		{Filename: repoFS.Join(store.Default.ProjectsDir, "README.md"), Data: projectReadme},                                                                                // write ./projects/README.md
 		{Filename: repoFS.Join(store.Default.AppsDir, "README.md"), Data: appsReadme},                                                                                       // write ./apps/README.md
 	}...)
+
+	if manifests.namespace != nil {
+		// write ./bootstrap/cluster-resources/in-cluster/...-ns.yaml
+		bulkWrites = append(
+			bulkWrites,
+			fsutils.BulkWriteRequest{Filename: repoFS.Join(store.Default.BootsrtrapDir, store.Default.ClusterResourcesDir, store.Default.ClusterContextName, namespace+"-ns.yaml"), Data: manifests.namespace},
+		)
+	}
 
 	return fsutils.BulkWrite(repoFS, bulkWrites...)
 }

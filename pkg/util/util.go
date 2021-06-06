@@ -131,6 +131,9 @@ func MustParseDuration(dur string) time.Duration {
 func JoinManifests(manifests ...[]byte) []byte {
 	res := make([]string, 0, len(manifests))
 	for _, m := range manifests {
+		if m == nil {
+			continue
+		}
 		res = append(res, string(m))
 	}
 	return []byte(strings.Join(res, yamlSeperator))
