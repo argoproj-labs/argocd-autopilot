@@ -112,21 +112,14 @@ func Test_getAuth(t *testing.T) {
 }
 
 func Test_repo_initBranch(t *testing.T) {
-	type args struct {
-		ctx        context.Context
-		branchName string
-	}
 	tests := map[string]struct {
-		args     args
-		wantErr  bool
-		retErr   error
-		assertFn func(t *testing.T, r *mocks.Repository, wt *mocks.Worktree)
+		branchName string
+		wantErr    bool
+		retErr     error
+		assertFn   func(t *testing.T, r *mocks.Repository, wt *mocks.Worktree)
 	}{
 		"Init current branch": {
-			args: args{
-				ctx:        context.Background(),
-				branchName: "",
-			},
+			branchName: "",
 			assertFn: func(t *testing.T, r *mocks.Repository, wt *mocks.Worktree) {
 				r.AssertNotCalled(t, "Worktree")
 				wt.AssertCalled(t, "Commit", "initial commit", mock.Anything)
@@ -134,10 +127,7 @@ func Test_repo_initBranch(t *testing.T) {
 			},
 		},
 		"Init and checkout branch": {
-			args: args{
-				ctx: context.Background(),
-			},
-			assertFn: func(t *testing.T, r *mocks.Repository, wt *mocks.Worktree) {
+			assertFn: func(t *testing.T, _ *mocks.Repository, wt *mocks.Worktree) {
 				wt.AssertCalled(t, "Commit", "initial commit", mock.Anything)
 				b := plumbing.NewBranchReferenceName("test")
 				wt.AssertCalled(t, "Checkout", &gg.CheckoutOptions{
@@ -147,13 +137,10 @@ func Test_repo_initBranch(t *testing.T) {
 			},
 		},
 		"Error": {
-			args: args{
-				ctx:        context.Background(),
-				branchName: "test",
-			},
-			wantErr: true,
-			retErr:  fmt.Errorf("error"),
-			assertFn: func(t *testing.T, r *mocks.Repository, wt *mocks.Worktree) {
+			branchName: "test",
+			wantErr:    true,
+			retErr:     fmt.Errorf("error"),
+			assertFn: func(t *testing.T, _ *mocks.Repository, wt *mocks.Worktree) {
 				wt.AssertCalled(t, "Commit", "initial commit", mock.Anything)
 				wt.AssertNotCalled(t, "Checkout")
 			},
@@ -173,7 +160,7 @@ func Test_repo_initBranch(t *testing.T) {
 
 			r := &repo{Repository: mockRepo}
 
-			if err := r.initBranch(tt.args.ctx, tt.args.branchName); (err != nil) != tt.wantErr {
+			if err := r.initBranch(context.Background(), tt.branchName); (err != nil) != tt.wantErr {
 				t.Errorf("repo.checkout() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -181,24 +168,16 @@ func Test_repo_initBranch(t *testing.T) {
 }
 
 func Test_initRepo(t *testing.T) {
-	type args struct {
-		ctx  context.Context
-		opts *CloneOptions
-	}
 	tests := map[string]struct {
-		args     args
+		opts     *CloneOptions
 		want     Repository
 		wantErr  bool
 		retErr   error
 		assertFn func(t *testing.T, r *mocks.Repository, w *mocks.Worktree)
 	}{
 		"Basic": {
-			args: args{
-				ctx: context.Background(),
-				opts: &CloneOptions{
-					URL:      "http://test",
-					Revision: "test",
-				},
+			opts: &CloneOptions{
+				Repo: "https://github.com/owner/name?ref=test",
 			},
 			assertFn: func(t *testing.T, r *mocks.Repository, w *mocks.Worktree) {
 				r.AssertCalled(t, "CreateRemote")
@@ -207,12 +186,8 @@ func Test_initRepo(t *testing.T) {
 			},
 		},
 		"Error": {
-			args: args{
-				ctx: context.Background(),
-				opts: &CloneOptions{
-					URL:      "http://test",
-					Revision: "test",
-				},
+			opts: &CloneOptions{
+				Repo: "https://github.com/owner/name?ref=test",
 			},
 			retErr:  fmt.Errorf("error"),
 			wantErr: true,
@@ -239,11 +214,13 @@ func Test_initRepo(t *testing.T) {
 			ggInitRepo = func(s storage.Storer, worktree billy.Filesystem) (gogit.Repository, error) { return mockRepo, nil }
 			worktree = func(r gogit.Repository) (gogit.Worktree, error) { return mockWt, nil }
 
-			got, err := initRepo(tt.args.ctx, tt.args.opts)
+			tt.opts.Parse()
+			got, err := initRepo(context.Background(), tt.opts)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("initRepo() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+
 			if !tt.wantErr {
 				assert.NotNil(t, got)
 			}
@@ -252,36 +229,25 @@ func Test_initRepo(t *testing.T) {
 }
 
 func Test_clone(t *testing.T) {
-	type args struct {
-		ctx  context.Context
-		opts *CloneOptions
-	}
 	tests := map[string]struct {
-		args         args
+		opts         *CloneOptions
 		retErr       error
 		wantErr      bool
 		assertFn     func(*testing.T, *repo)
 		expectedOpts *gg.CloneOptions
 	}{
 		"NilOpts": {
-			args: args{
-				ctx:  context.Background(),
-				opts: nil,
-			},
 			wantErr: true,
 			assertFn: func(t *testing.T, r *repo) {
 				assert.Nil(t, r)
 			},
 		},
 		"No Auth": {
-			args: args{
-				ctx: context.Background(),
-				opts: &CloneOptions{
-					URL: "https://test",
-				},
+			opts: &CloneOptions{
+				Repo: "https://github.com/owner/name",
 			},
 			expectedOpts: &gg.CloneOptions{
-				URL:      "https://test",
+				URL:      "https://github.com/owner/name",
 				Auth:     nil,
 				Depth:    1,
 				Progress: os.Stderr,
@@ -292,18 +258,15 @@ func Test_clone(t *testing.T) {
 			},
 		},
 		"With Auth": {
-			args: args{
-				ctx: context.Background(),
-				opts: &CloneOptions{
-					URL: "https://test",
-					Auth: Auth{
-						Username: "asd",
-						Password: "123",
-					},
+			opts: &CloneOptions{
+				Repo: "https://github.com/owner/name",
+				Auth: Auth{
+					Username: "asd",
+					Password: "123",
 				},
 			},
 			expectedOpts: &gg.CloneOptions{
-				URL: "https://test",
+				URL: "https://github.com/owner/name",
 				Auth: &http.BasicAuth{
 					Username: "asd",
 					Password: "123",
@@ -317,14 +280,11 @@ func Test_clone(t *testing.T) {
 			},
 		},
 		"Error": {
-			args: args{
-				ctx: context.Background(),
-				opts: &CloneOptions{
-					URL: "https://test",
-				},
+			opts: &CloneOptions{
+				Repo: "https://github.com/owner/name",
 			},
 			expectedOpts: &gg.CloneOptions{
-				URL:      "https://test",
+				URL:      "https://github.com/owner/name",
 				Depth:    1,
 				Progress: os.Stderr,
 				Tags:     gg.NoTags,
@@ -336,15 +296,11 @@ func Test_clone(t *testing.T) {
 			},
 		},
 		"With Revision": {
-			args: args{
-				ctx: context.Background(),
-				opts: &CloneOptions{
-					URL:      "https://test",
-					Revision: "test",
-				},
+			opts: &CloneOptions{
+				Repo: "https://github.com/owner/name?ref=test",
 			},
 			expectedOpts: &gg.CloneOptions{
-				URL:           "https://test",
+				URL:           "https://github.com/owner/name",
 				Depth:         1,
 				Progress:      os.Stderr,
 				Tags:          gg.NoTags,
@@ -362,21 +318,28 @@ func Test_clone(t *testing.T) {
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
 			mockRepo := &mocks.Repository{}
-			ggClone = func(ctx context.Context, s storage.Storer, worktree billy.Filesystem, o *gg.CloneOptions) (gogit.Repository, error) {
+			ggClone = func(_ context.Context, _ storage.Storer, _ billy.Filesystem, o *gg.CloneOptions) (gogit.Repository, error) {
 				if tt.expectedOpts != nil {
 					assert.True(t, reflect.DeepEqual(o, tt.expectedOpts), "opts not equal")
 				}
+
 				if tt.retErr != nil {
 					return nil, tt.retErr
 				}
+
 				return mockRepo, nil
 			}
 
-			got, err := clone(tt.args.ctx, tt.args.opts)
+			if tt.opts != nil {
+				tt.opts.Parse()
+			}
+
+			got, err := clone(context.Background(), tt.opts)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("clone() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+
 			tt.assertFn(t, got)
 		})
 	}
@@ -393,7 +356,7 @@ func TestClone(t *testing.T) {
 	}{
 		"No error": {
 			opts: &CloneOptions{
-				URL: "http://test",
+				Repo: "https://github.com/owner/name",
 			},
 			assertFn: func(t *testing.T, r Repository, _ fs.FS) {
 				assert.NotNil(t, r)
@@ -410,7 +373,7 @@ func TestClone(t *testing.T) {
 		},
 		"EmptyRepo": {
 			opts: &CloneOptions{
-				URL: "http://test",
+				Repo: "https://github.com/owner/name",
 			},
 			assertFn: func(t *testing.T, r Repository, repofs fs.FS) {
 				assert.NotNil(t, r)
@@ -422,7 +385,7 @@ func TestClone(t *testing.T) {
 		},
 		"AnotherErr": {
 			opts: &CloneOptions{
-				URL: "http://test",
+				Repo: "https://github.com/owner/name",
 			},
 			assertFn: func(t *testing.T, r Repository, repofs fs.FS) {
 				assert.Nil(t, r)
@@ -434,23 +397,10 @@ func TestClone(t *testing.T) {
 		},
 		"Use chroot": {
 			opts: &CloneOptions{
-				URL:      "http://test",
-				RepoRoot: "some/folder",
+				Repo: "https://github.com/owner/name/some/folder",
 			},
 			assertFn: func(t *testing.T, _ Repository, repofs fs.FS) {
 				assert.Equal(t, "/some/folder", repofs.Root())
-			},
-			expectInitCalled: false,
-		},
-		"Fail chroot": {
-			opts: &CloneOptions{
-				URL:      "http://test",
-				RepoRoot: "../outside",
-			},
-			wantErr: true,
-			assertFn: func(t *testing.T, r Repository, repofs fs.FS) {
-				assert.Nil(t, r)
-				assert.Nil(t, repofs)
 			},
 			expectInitCalled: false,
 		},
@@ -463,7 +413,6 @@ func TestClone(t *testing.T) {
 
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
-			repofs := fs.Create(memfs.New())
 			r := &repo{}
 			clone = func(_ context.Context, _ *CloneOptions) (*repo, error) {
 				if tt.cloneErr != nil {
@@ -481,44 +430,40 @@ func TestClone(t *testing.T) {
 				return r, nil
 			}
 
-			gotRepo, gotFS, err := tt.opts.Clone(context.Background(), repofs)
+			if tt.opts != nil {
+				tt.opts.Parse()
+				tt.opts.FS = memfs.New()
+			}
+
+			gotRepo, gotFS, err := tt.opts.Clone(context.Background())
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Clone() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+
 			tt.assertFn(t, gotRepo, gotFS)
 		})
 	}
 }
 
 func Test_repo_Persist(t *testing.T) {
-	type args struct {
-		ctx  context.Context
-		opts *PushOptions
-	}
 	tests := map[string]struct {
-		args     args
+		opts     *PushOptions
 		wantErr  bool
 		retErr   error
 		assertFn func(t *testing.T, r *mocks.Repository, w *mocks.Worktree)
 	}{
 		"NilOpts": {
-			args: args{
-				ctx:  context.Background(),
-				opts: nil,
-			},
+			opts:    nil,
 			wantErr: true,
-			assertFn: func(t *testing.T, r *mocks.Repository, w *mocks.Worktree) {
+			assertFn: func(t *testing.T, r *mocks.Repository, _ *mocks.Worktree) {
 				r.AssertNotCalled(t, "PushContext")
 			},
 		},
 		"Default add pattern": {
-			args: args{
-				ctx: context.Background(),
-				opts: &PushOptions{
-					AddGlobPattern: "",
-					CommitMsg:      "hello",
-				},
+			opts: &PushOptions{
+				AddGlobPattern: "",
+				CommitMsg:      "hello",
 			},
 			wantErr: false,
 			assertFn: func(t *testing.T, r *mocks.Repository, w *mocks.Worktree) {
@@ -532,12 +477,9 @@ func Test_repo_Persist(t *testing.T) {
 			},
 		},
 		"With add pattern": {
-			args: args{
-				ctx: context.Background(),
-				opts: &PushOptions{
-					AddGlobPattern: "test",
-					CommitMsg:      "hello",
-				},
+			opts: &PushOptions{
+				AddGlobPattern: "test",
+				CommitMsg:      "hello",
 			},
 			wantErr: false,
 			assertFn: func(t *testing.T, r *mocks.Repository, w *mocks.Worktree) {
@@ -569,7 +511,7 @@ func Test_repo_Persist(t *testing.T) {
 				return mockWt, tt.retErr
 			}
 
-			if err := r.Persist(tt.args.ctx, tt.args.opts); (err != nil) != tt.wantErr {
+			if err := r.Persist(context.Background(), tt.opts); (err != nil) != tt.wantErr {
 				t.Errorf("repo.Persist() error = %v, wantErr %v", err, tt.wantErr)
 			}
 

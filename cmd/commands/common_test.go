@@ -82,7 +82,7 @@ func TestBaseOptions_prepareRepo(t *testing.T) {
 			mockRepo := &gitmocks.Repository{}
 			mockFS := &fsmocks.FS{}
 			tt.beforeFn(mockFS)
-			clone = func(_ context.Context, _ *git.CloneOptions, _ fs.FS) (git.Repository, fs.FS, error) {
+			clone = func(_ context.Context, _ *git.CloneOptions) (git.Repository, fs.FS, error) {
 				var err error
 				if tt.cloneErr != "" {
 					err = fmt.Errorf(tt.cloneErr)
@@ -90,12 +90,7 @@ func TestBaseOptions_prepareRepo(t *testing.T) {
 
 				return mockRepo, mockFS, err
 			}
-			o := &BaseOptions{
-				CloneOptions: &git.CloneOptions{},
-				FS:           nil,
-				ProjectName:  tt.projectName,
-			}
-			gotRepo, gotFS, err := prepareRepo(context.Background(), o)
+			gotRepo, gotFS, err := prepareRepo(context.Background(), &git.CloneOptions{}, tt.projectName)
 			if err != nil {
 				if tt.wantErr != "" {
 					assert.EqualError(t, err, tt.wantErr)

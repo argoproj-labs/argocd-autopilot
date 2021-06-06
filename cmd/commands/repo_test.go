@@ -28,13 +28,14 @@ func TestRunRepoCreate(t *testing.T) {
 	tests := map[string]struct {
 		opts     *RepoCreateOptions
 		preFn    func(*gitmocks.Provider)
-		assertFn func(t *testing.T, mp *gitmocks.Provider, opts *RepoCreateOptions, err error)
+		assertFn func(t *testing.T, mp *gitmocks.Provider, opts *RepoCreateOptions, cloneOpts *git.CloneOptions, err error)
 	}{
 		"Invalid provider": {
 			opts: &RepoCreateOptions{
 				Provider: "foobar",
 			},
-			assertFn: func(t *testing.T, _ *gitmocks.Provider, _ *RepoCreateOptions, err error) {
+			assertFn: func(t *testing.T, _ *gitmocks.Provider, _ *RepoCreateOptions, cloneOpts *git.CloneOptions, err error) {
+				assert.Nil(t, cloneOpts)
 				assert.ErrorIs(t, err, git.ErrProviderNotSupported)
 			},
 		},
@@ -48,9 +49,16 @@ func TestRunRepoCreate(t *testing.T) {
 				Host:     "",
 			},
 			preFn: func(mp *gitmocks.Provider) {
-				mp.On("CreateRepository", mock.Anything, mock.Anything).Return("", nil)
+				mp.On("CreateRepository", mock.Anything, mock.Anything).Return("https://github.com/owner/name/path?ref=revision", nil)
 			},
-			assertFn: func(t *testing.T, mp *gitmocks.Provider, opts *RepoCreateOptions, _ error) {
+			assertFn: func(t *testing.T, mp *gitmocks.Provider, opts *RepoCreateOptions, cloneOpts *git.CloneOptions, _ error) {
+				expected := &git.CloneOptions{
+					Repo: "https://github.com/owner/name/path?ref=revision",
+				}
+				expected.Parse()
+				assert.Equal(t, "https://github.com/owner/name", cloneOpts.URL())
+				assert.Equal(t, "revision", cloneOpts.Revision())
+				assert.Equal(t, "path", cloneOpts.Path())
 				mp.AssertCalled(t, "CreateRepository", mock.Anything, mock.Anything)
 				o := mp.Calls[0].Arguments[1].(*git.CreateRepoOptions)
 				assert.NotNil(t, o)
@@ -69,7 +77,8 @@ func TestRunRepoCreate(t *testing.T) {
 			preFn: func(mp *gitmocks.Provider) {
 				mp.On("CreateRepository", mock.Anything, mock.Anything).Return("", fmt.Errorf("error"))
 			},
-			assertFn: func(t *testing.T, mp *gitmocks.Provider, _ *RepoCreateOptions, err error) {
+			assertFn: func(t *testing.T, mp *gitmocks.Provider, _ *RepoCreateOptions, cloneOpts *git.CloneOptions, err error) {
+				assert.Nil(t, cloneOpts)
 				mp.AssertCalled(t, "CreateRepository", mock.Anything, mock.Anything)
 				assert.EqualError(t, err, "error")
 			},
@@ -89,7 +98,8 @@ func TestRunRepoCreate(t *testing.T) {
 				defer func() { getGitProvider = orgGetProvider }()
 			}
 
-			tt.assertFn(t, mp, tt.opts, RunRepoCreate(context.Background(), tt.opts))
+			gotCloneOpts, gotErr := RunRepoCreate(context.Background(), tt.opts)
+			tt.assertFn(t, mp, tt.opts, gotCloneOpts, gotErr)
 		})
 	}
 }
@@ -227,16 +237,9 @@ func Test_buildBootstrapManifests(t *testing.T) {
 				namespace:    "foo",
 				appSpecifier: "bar",
 				cloneOpts: &git.CloneOptions{
-					Revision: "main",
-					URL:      "https://github.com/foo/bar",
-					RepoRoot: "/installation1",
-					Auth:     git.Auth{Password: "test"},
+					Repo: "https://github.com/foo/bar/installation1?ref=main",
+					Auth: git.Auth{Password: "test"},
 				},
-			},
-			preFn: func() {
-				runKustomizeBuild = func(k *kusttypes.Kustomization) ([]byte, error) {
-					return []byte("test"), nil
-				}
 			},
 			assertFn: func(t *testing.T, b *bootstrapManifests, ret error) {
 				assert.NoError(t, ret)
@@ -244,51 +247,41 @@ func Test_buildBootstrapManifests(t *testing.T) {
 
 				argocdApp := &argocdv1alpha1.Application{}
 				assert.NoError(t, yaml.Unmarshal(b.argocdApp, argocdApp))
-				assert.Equal(t, argocdApp.Spec.Source.RepoURL, "https://github.com/foo/bar")
-				assert.Equal(t, argocdApp.Spec.Source.Path, filepath.Join(
-					"/installation1",
-					store.Default.BootsrtrapDir,
-					store.Default.ArgoCDName,
-				))
-				assert.Equal(t, argocdApp.Spec.Source.TargetRevision, "main")
+				assert.Equal(t, "https://github.com/foo/bar", argocdApp.Spec.Source.RepoURL)
+				assert.Equal(t, filepath.Join("installation1", store.Default.BootsrtrapDir, store.Default.ArgoCDName), argocdApp.Spec.Source.Path)
+				assert.Equal(t, "main", argocdApp.Spec.Source.TargetRevision)
 				assert.Equal(t, 0, len(argocdApp.ObjectMeta.Finalizers))
-				assert.Equal(t, argocdApp.Spec.Destination.Namespace, "foo")
-				assert.Equal(t, argocdApp.Spec.Destination.Server, store.Default.DestServer)
+				assert.Equal(t, "foo", argocdApp.Spec.Destination.Namespace)
+				assert.Equal(t, store.Default.DestServer, argocdApp.Spec.Destination.Server)
 
 				bootstrapApp := &argocdv1alpha1.Application{}
 				assert.NoError(t, yaml.Unmarshal(b.bootstrapApp, bootstrapApp))
-				assert.Equal(t, bootstrapApp.Spec.Source.RepoURL, "https://github.com/foo/bar")
-				assert.Equal(t, bootstrapApp.Spec.Source.Path, filepath.Join(
-					"/installation1",
-					store.Default.BootsrtrapDir,
-				))
-				assert.Equal(t, bootstrapApp.Spec.Source.TargetRevision, "main")
+				assert.Equal(t, "https://github.com/foo/bar", bootstrapApp.Spec.Source.RepoURL)
+				assert.Equal(t, filepath.Join("installation1", store.Default.BootsrtrapDir), bootstrapApp.Spec.Source.Path)
+				assert.Equal(t, "main", bootstrapApp.Spec.Source.TargetRevision)
 				assert.NotEqual(t, 0, len(bootstrapApp.ObjectMeta.Finalizers))
-				assert.Equal(t, bootstrapApp.Spec.Destination.Namespace, "foo")
-				assert.Equal(t, bootstrapApp.Spec.Destination.Server, store.Default.DestServer)
+				assert.Equal(t, "foo", bootstrapApp.Spec.Destination.Namespace)
+				assert.Equal(t, store.Default.DestServer, bootstrapApp.Spec.Destination.Server)
 
 				rootApp := &argocdv1alpha1.Application{}
 				assert.NoError(t, yaml.Unmarshal(b.rootApp, rootApp))
-				assert.Equal(t, rootApp.Spec.Source.RepoURL, "https://github.com/foo/bar")
-				assert.Equal(t, rootApp.Spec.Source.Path, filepath.Join(
-					"/installation1",
-					store.Default.ProjectsDir,
-				))
-				assert.Equal(t, rootApp.Spec.Source.TargetRevision, "main")
+				assert.Equal(t, "https://github.com/foo/bar", rootApp.Spec.Source.RepoURL)
+				assert.Equal(t, filepath.Join("installation1", store.Default.ProjectsDir), rootApp.Spec.Source.Path)
+				assert.Equal(t, "main", rootApp.Spec.Source.TargetRevision)
 				assert.NotEqual(t, 0, len(rootApp.ObjectMeta.Finalizers))
-				assert.Equal(t, rootApp.Spec.Destination.Namespace, "foo")
-				assert.Equal(t, rootApp.Spec.Destination.Server, store.Default.DestServer)
+				assert.Equal(t, "foo", rootApp.Spec.Destination.Namespace)
+				assert.Equal(t, store.Default.DestServer, rootApp.Spec.Destination.Server)
 
 				ns := &v1.Namespace{}
 				assert.NoError(t, yaml.Unmarshal(b.namespace, ns))
-				assert.Equal(t, ns.ObjectMeta.Name, "foo")
+				assert.Equal(t, "foo", ns.ObjectMeta.Name)
 
 				creds := &v1.Secret{}
 				assert.NoError(t, yaml.Unmarshal(b.repoCreds, &creds))
-				assert.Equal(t, creds.ObjectMeta.Name, store.Default.RepoCredsSecretName)
-				assert.Equal(t, creds.ObjectMeta.Namespace, "foo")
-				assert.Equal(t, creds.Data["git_token"], []byte("test"))
-				assert.Equal(t, creds.Data["git_username"], []byte(store.Default.GitUsername))
+				assert.Equal(t, store.Default.RepoCredsSecretName, creds.ObjectMeta.Name)
+				assert.Equal(t, "foo", creds.ObjectMeta.Namespace)
+				assert.Equal(t, []byte("test"), creds.Data["git_token"])
+				assert.Equal(t, []byte(store.Default.GitUsername), creds.Data["git_username"])
 			},
 		},
 	}
@@ -296,18 +289,20 @@ func Test_buildBootstrapManifests(t *testing.T) {
 	orgRunKustomizeBuild := runKustomizeBuild
 	defer func() { runKustomizeBuild = orgRunKustomizeBuild }()
 
+	runKustomizeBuild = func(k *kusttypes.Kustomization) ([]byte, error) {
+		return []byte("test"), nil
+	}
+
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
-			t.Parallel()
+			tt.args.cloneOpts.Parse()
 
-			if tt.preFn != nil {
-				tt.preFn()
-			}
 			b, ret := buildBootstrapManifests(
 				tt.args.namespace,
 				tt.args.appSpecifier,
 				tt.args.cloneOpts,
 			)
+
 			tt.assertFn(t, b, ret)
 		})
 	}
@@ -327,10 +322,8 @@ func TestRunRepoBootstrap(t *testing.T) {
 				KubeContext:      "foo",
 				Namespace:        "bar",
 				CloneOptions: &git.CloneOptions{
-					Revision: "main",
-					URL:      "https://github.com/foo/bar",
-					RepoRoot: "/installation1",
-					Auth:     git.Auth{Password: "test"},
+					Repo: "https://github.com/foo/bar/installation1?ref=main",
+					Auth: git.Auth{Password: "test"},
 				},
 			},
 			assertFn: func(t *testing.T, _ *gitmocks.Repository, _ fs.FS, _ *kubemocks.Factory, ret error) {
@@ -344,10 +337,8 @@ func TestRunRepoBootstrap(t *testing.T) {
 				KubeContext:      "foo",
 				Namespace:        "bar",
 				CloneOptions: &git.CloneOptions{
-					Revision: "main",
-					URL:      "https://github.com/foo/bar",
-					RepoRoot: "/installation1",
-					Auth:     git.Auth{Password: "test"},
+					Repo: "https://github.com/foo/bar/installation1?ref=main",
+					Auth: git.Auth{Password: "test"},
 				},
 			},
 			preFn: func(r *gitmocks.Repository, _ fs.FS, f *kubemocks.Factory) {
@@ -410,10 +401,8 @@ func TestRunRepoBootstrap(t *testing.T) {
 				KubeContext:      "foo",
 				Namespace:        "bar",
 				CloneOptions: &git.CloneOptions{
-					Revision: "main",
-					URL:      "https://github.com/foo/bar",
-					RepoRoot: "/installation1",
-					Auth:     git.Auth{Password: "test"},
+					Repo: "https://github.com/foo/bar/installation1?ref=main",
+					Auth: git.Auth{Password: "test"},
 				},
 			},
 			preFn: func(r *gitmocks.Repository, _ fs.FS, f *kubemocks.Factory) {
@@ -491,7 +480,7 @@ func TestRunRepoBootstrap(t *testing.T) {
 			tt.opts.KubeFactory = mockFactory
 
 			exit = func(_ int) { exitCalled = true }
-			clone = func(ctx context.Context, cloneOpts *git.CloneOptions, filesystem fs.FS) (git.Repository, fs.FS, error) {
+			clone = func(ctx context.Context, cloneOpts *git.CloneOptions) (git.Repository, fs.FS, error) {
 				return mockRepo, repofs, nil
 			}
 			runKustomizeBuild = func(k *kusttypes.Kustomization) ([]byte, error) { return []byte("test"), nil }

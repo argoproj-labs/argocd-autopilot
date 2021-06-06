@@ -3,9 +3,9 @@ package commands
 import (
 	"fmt"
 
-	"github.com/spf13/cobra"
-
 	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
+
+	"github.com/spf13/cobra"
 )
 
 func NewVersionCommand() *cobra.Command {

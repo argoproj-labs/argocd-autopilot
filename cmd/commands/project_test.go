@@ -18,10 +18,10 @@ import (
 	gitmocks "github.com/argoproj-labs/argocd-autopilot/pkg/git/mocks"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
-	"github.com/ghodss/yaml"
 
 	appset "github.com/argoproj-labs/applicationset/api/v1alpha1"
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
+	"github.com/ghodss/yaml"
 	"github.com/go-git/go-billy/v5/memfs"
 	billyUtils "github.com/go-git/go-billy/v5/util"
 	"github.com/stretchr/testify/assert"
@@ -127,12 +127,10 @@ func TestRunProjectCreate(t *testing.T) {
 			)
 
 			opts := &ProjectCreateOptions{
-				Name: tt.projectName,
-				BaseOptions: BaseOptions{
-					CloneOptions: &git.CloneOptions{},
-				},
+				CloneOpts:   &git.CloneOptions{},
+				ProjectName: tt.projectName,
 			}
-			prepareRepo = func(_ context.Context, _ *BaseOptions) (git.Repository, fs.FS, error) {
+			prepareRepo = func(_ context.Context, _ *git.CloneOptions, _ string) (git.Repository, fs.FS, error) {
 				var err error
 				repo, repofs, err = tt.prepareRepo()
 				return repo, repofs, err
@@ -352,16 +350,16 @@ func TestRunProjectList(t *testing.T) {
 	tests := map[string]struct {
 		opts                   *ProjectListOptions
 		wantErr                string
-		prepareRepo            func(ctx context.Context, o *BaseOptions) (git.Repository, fs.FS, error)
+		prepareRepo            func(ctx context.Context, cloneOpts *git.CloneOptions, projectName string) (git.Repository, fs.FS, error)
 		getProjectInfoFromFile func(repofs fs.FS, name string) (*argocdv1alpha1.AppProject, *appset.ApplicationSet, error)
 		assertFn               func(t *testing.T, out io.Writer)
 	}{
 		"should print to table": {
 			opts: &ProjectListOptions{
-				BaseOptions: BaseOptions{},
-				Out:         &bytes.Buffer{},
+				CloneOpts: &git.CloneOptions{},
+				Out:       &bytes.Buffer{},
 			},
-			prepareRepo: func(_ context.Context, _ *BaseOptions) (git.Repository, fs.FS, error) {
+			prepareRepo: func(_ context.Context, _ *git.CloneOptions, _ string) (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
 				_ = billyUtils.WriteFile(memfs, "projects/prod.yaml", []byte{}, 0666)
 				return nil, fs.Create(memfs), nil
@@ -621,14 +619,13 @@ func TestRunProjectDelete(t *testing.T) {
 				repofs fs.FS
 			)
 
-			prepareRepo = func(_ context.Context, _ *BaseOptions) (git.Repository, fs.FS, error) {
+			prepareRepo = func(_ context.Context, _ *git.CloneOptions, _ string) (git.Repository, fs.FS, error) {
 				var err error
 				repo, repofs, err = tt.prepareRepo()
 				return repo, repofs, err
 			}
-			opts := &BaseOptions{
+			opts := &ProjectDeleteOptions{
 				ProjectName: tt.projectName,
-				FS:          fs.Create(memfs.New()),
 			}
 			if err := RunProjectDelete(context.Background(), opts); err != nil {
 				if tt.wantErr != "" {

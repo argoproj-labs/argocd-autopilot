@@ -251,8 +251,8 @@ func Test_writeFile(t *testing.T) {
 
 func Test_kustCreateFiles(t *testing.T) {
 	tests := map[string]struct {
-		beforeFn func() (*kustApp, fs.FS, string)
-		assertFn func(*testing.T, fs.FS, error)
+		beforeFn func() (app *kustApp, repofs fs.FS, projectName string)
+		assertFn func(t *testing.T, repofs fs.FS, err error)
 	}{
 		"Should create all files for a simple application": {
 			beforeFn: func() (*kustApp, fs.FS, string) {
@@ -264,22 +264,22 @@ func Test_kustCreateFiles(t *testing.T) {
 						},
 					},
 				}
-				return app, fs.Create(memfs.New()), "project"
+				repofs := fs.Create(memfs.New())
+				return app, repofs, "project"
 			},
 			assertFn: func(t *testing.T, repofs fs.FS, err error) {
 				assert.NoError(t, err)
-				assert.True(t, repofs.ExistsOrDie(store.Default.AppsDir), "kustomization dir should exist")
+
+				assert.True(t, repofs.ExistsOrDie(repofs.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project", "config.json")), "overlay config should exist")
 				assert.True(t, repofs.ExistsOrDie(repofs.Join(store.Default.AppsDir, "app", store.Default.BaseDir, "kustomization.yaml")), "base kustomization should exist")
 				assert.False(t, repofs.ExistsOrDie(repofs.Join(store.Default.AppsDir, "app", store.Default.BaseDir, "install.yaml")), "install file should not exist")
 				assert.True(t, repofs.ExistsOrDie(repofs.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project", "kustomization.yaml")), "overlay kustomization should exist")
-				assert.True(t, repofs.ExistsOrDie(repofs.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project", "config.json")), "overlay config should exist")
 				assert.False(t, repofs.ExistsOrDie(repofs.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project", "namespace.yaml")), "overlay namespace should not exist")
 			},
 		},
 		"Should create install.yaml when manifests exist": {
 			beforeFn: func() (*kustApp, fs.FS, string) {
 				app := &kustApp{
-
 					baseApp: baseApp{
 						opts: &CreateOptions{
 							AppName:    "app",
@@ -288,7 +288,8 @@ func Test_kustCreateFiles(t *testing.T) {
 					},
 					manifests: []byte("some manifests"),
 				}
-				return app, fs.Create(memfs.New()), "project"
+				repofs := fs.Create(memfs.New())
+				return app, repofs, "project"
 			},
 			assertFn: func(t *testing.T, repofs fs.FS, err error) {
 				assert.NoError(t, err)
@@ -309,7 +310,8 @@ func Test_kustCreateFiles(t *testing.T) {
 					},
 					namespace: kube.GenerateNamespace("foo"),
 				}
-				return app, fs.Create(memfs.New()), "project"
+				repofs := fs.Create(memfs.New())
+				return app, repofs, "project"
 			},
 			assertFn: func(t *testing.T, repofs fs.FS, err error) {
 				assert.NoError(t, err)
@@ -331,9 +333,10 @@ func Test_kustCreateFiles(t *testing.T) {
 						},
 					},
 				}
-				return app, fs.Create(memfs.New()), "project"
+				repofs := fs.Create(memfs.New())
+				return app, repofs, "project"
 			},
-			assertFn: func(t *testing.T, repofs fs.FS, err error) {
+			assertFn: func(t *testing.T, _ fs.FS, err error) {
 				assert.Error(t, err, "cluster 'foo' is not configured yet, you need to create a project that uses this cluster first")
 			},
 		},
@@ -635,7 +638,7 @@ func Test_dirApp_CreateFiles(t *testing.T) {
 					},
 				},
 			},
-			assertFn: func(t *testing.T, repofs fs.FS, e error) {
+			assertFn: func(t *testing.T, repofs fs.FS, _ error) {
 				exists, err := repofs.Exists(repofs.Join(
 					store.Default.BootsrtrapDir,
 					store.Default.ClusterResourcesDir,
@@ -657,7 +660,7 @@ func Test_dirApp_CreateFiles(t *testing.T) {
 					},
 				},
 			},
-			assertFn: func(t *testing.T, repofs fs.FS, err error) {
+			assertFn: func(t *testing.T, _ fs.FS, err error) {
 				assert.Error(t, err, "cluster 'some.new.server' is not configured yet, you need to create a project that uses this cluster first")
 			},
 		},
@@ -672,7 +675,7 @@ func Test_dirApp_CreateFiles(t *testing.T) {
 					},
 				},
 			},
-			assertFn: func(t *testing.T, repofs fs.FS, e error) {
+			assertFn: func(t *testing.T, repofs fs.FS, _ error) {
 				exists, err := repofs.Exists(repofs.Join(
 					store.Default.BootsrtrapDir,
 					store.Default.ClusterResourcesDir,

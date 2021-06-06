@@ -56,6 +56,7 @@ func (g *github) CreateRepository(ctx context.Context, opts *CreateRepoOptions) 
 		if res.StatusCode == 401 {
 			return "", ErrAuthenticationFailed(err)
 		}
+	
 		return "", err
 	}
 
@@ -72,6 +73,7 @@ func (g *github) CreateRepository(ctx context.Context, opts *CreateRepoOptions) 
 		if res.StatusCode == 404 {
 			return "", fmt.Errorf("owner %s not found: %w", opts.Owner, err)
 		}
+
 		return "", err
 	}
 
