@@ -308,7 +308,7 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 
 	// apply built manifest to k8s cluster
 	log.G().Infof("using context: \"%s\", namespace: \"%s\"", opts.KubeContext, opts.Namespace)
-	log.G().Infof("applying bootstrap manifests to cluster...")
+	log.G().Infof("applying bootstrap manifests to cluster...\n%s", manifests.applyManifests)
 	if err = opts.KubeFactory.Apply(ctx, opts.Namespace, util.JoinManifests(manifests.applyManifests, manifests.repoCreds)); err != nil {
 		return fmt.Errorf("failed to apply bootstrap manifests to cluster: %w", err)
 	}
@@ -608,7 +608,6 @@ func createBootstrapKustomization(namespace, repoURL, appSpecifier string) (*kus
 	k := &kusttypes.Kustomization{
 		Resources: []string{
 			appSpecifier,
-			"namespace.yaml",
 		},
 		TypeMeta: kusttypes.TypeMeta{
 			APIVersion: kusttypes.KustomizationVersion,

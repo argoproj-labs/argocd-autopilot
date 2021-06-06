@@ -482,6 +482,23 @@ var generateManifests = func(k *kusttypes.Kustomization) ([]byte, error) {
 	}
 	defer os.RemoveAll(td)
 
+	if k.Namespace != "" {
+		log.G().Debug("detected namespace on kustomization, generating namespace.yaml file")
+		ns, err := yaml.Marshal(kube.GenerateNamespace(k.Namespace))
+		if err != nil {
+			return nil, err
+		}
+
+		if err = ioutil.WriteFile(filepath.Join(td, "namespace.yaml"), ns, 0400); err != nil {
+			return nil, err
+		}
+
+		k.Resources = append(k.Resources, "namespace.yaml")
+		defer func() {
+			k.Resources = k.Resources[:1]
+		}()
+	}
+
 	kustomizationPath := filepath.Join(td, "kustomization.yaml")
 	if err = fixResourcesPaths(k, kustomizationPath); err != nil {
 		return nil, err
