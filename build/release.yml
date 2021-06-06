@@ -175,6 +175,18 @@ steps:
         on:
         - success
 
+  bump_brew_formula:
+    stage: Release
+    title: bump brew formula version
+    image: linuxbrew/linuxbrew:latest
+    commands:
+      - brew bump-formula-pr --strict --no-browser --tag ${{CF_BRANCH_TAG_NORMALIZED}} --revision ${{CF_REVISION}}
+    when:
+      steps:
+      - name: create_release
+        on:
+        - success
+
   push_prod:
     stage: Release
     title: promote images
