@@ -27,10 +27,16 @@ You can use any clone URL to a valid git repo, provided that the token you suppl
 export GIT_REPO=https://github.com/owner/name
 ```
 
-#### Optional
+#### Using a Specific Installation Path
 If you want the autopilot-managed folder structure to reside under some sub-folder in your repository, you can also export the following env variable:
 ```
-export GIT_INSTALLATION_PATH=some/relative/path
+export GIT_REPO=https://github.com/owner/name/some/relative/path
+```
+
+#### Using a Specific Revision
+If you want to use a specific branch for your GitOps repository operations, you can use the `ref` query parameter:
+```
+export GIT_REPO=https://github.com/owner/name?ref=gitops_branch
 ```
 
 All the following commands will use the variables you supplied in order to manage your GitOps repository.
