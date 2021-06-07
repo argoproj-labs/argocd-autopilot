@@ -43,6 +43,7 @@ var (
 	ErrEmptyProjectName             = errors.New("project name can not be empty, please specificy project name with: --project")
 	ErrAppAlreadyInstalledOnProject = errors.New("application already installed on project")
 	ErrAppCollisionWithExistingBase = errors.New("an application with the same name and a different base already exists, consider choosing a different name")
+	ErrAppBaseOnDifferentRepo       = errors.New("an application with the same name already exists in a different repo, consider choosing a different name")
 	ErrUnknownAppType               = errors.New("unknown application type")
 )
 
@@ -292,17 +293,15 @@ func (app *kustApp) CreateFiles(repofs fs.FS, projectName string) error {
 }
 
 func kustCreateFiles(app *kustApp, repofs fs.FS, projectName string) error {
-	// create Base
-	basePath := repofs.Join(store.Default.AppsDir, app.Name(), "base")
-	baseKustomizationPath := repofs.Join(basePath, "kustomization.yaml")
-	baseKustomizationYAML, err := yaml.Marshal(app.base)
-	if err != nil {
-		return fmt.Errorf("failed to marshal app base kustomization: %w", err)
-	}
+	var err error
 
-	if exists, err := writeFile(repofs, baseKustomizationPath, "base", baseKustomizationYAML); err != nil {
-		return err
-	} else if exists {
+	// create Base
+	appPath := repofs.Join(store.Default.AppsDir, app.Name())
+	basePath := repofs.Join(appPath, "base")
+	baseKustomizationPath := repofs.Join(basePath, "kustomization.yaml")
+
+	// check if base is in the same filesystem
+	if repofs.ExistsOrDie(baseKustomizationPath) {
 		// check if the bases are the same
 		log.G().Debug("application base with the same name exists, checking for collisions")
 		if collision, err := checkBaseCollision(repofs, baseKustomizationPath, app.base); err != nil {
@@ -312,21 +311,22 @@ func kustCreateFiles(app *kustApp, repofs fs.FS, projectName string) error {
 		}
 	}
 
-	// create Overlay
-	overlayPath := repofs.Join(store.Default.AppsDir, app.Name(), "overlays", projectName)
-	overlayKustomizationPath := repofs.Join(overlayPath, "kustomization.yaml")
-	overlayKustomizationYAML, err := yaml.Marshal(app.overlay)
-	if err != nil {
-		return fmt.Errorf("failed to marshal app overlay kustomization: %w", err)
+	if err = repofs.WriteYamls(baseKustomizationPath, app.base); err != nil {
+		return err
 	}
 
-	if exists, err := writeFile(repofs, overlayKustomizationPath, "overlay", overlayKustomizationYAML); err != nil {
-		return err
-	} else if exists {
+	// create Overlay
+	overlayPath := repofs.Join(appPath, "overlays", projectName)
+	overlayKustomizationPath := repofs.Join(overlayPath, "kustomization.yaml")
+	if repofs.ExistsOrDie(overlayKustomizationPath) {
 		return ErrAppAlreadyInstalledOnProject
 	}
 
-	// get manifests - only used in flat installation mode
+	if err = repofs.WriteYamls(overlayKustomizationPath, app.overlay); err != nil {
+		return err
+	}
+
+	// create manifests - only used in flat installation mode
 	if app.manifests != nil {
 		manifestsPath := repofs.Join(basePath, "install.yaml")
 		if _, err = writeFile(repofs, manifestsPath, "manifests", app.manifests); err != nil {
@@ -390,13 +390,13 @@ func newDirApp(opts *CreateOptions) *dirApp {
 	}
 
 	host, orgRepo, path, gitRef, _, _, _ := util.ParseGitUrl(opts.AppSpecifier)
-
+	url := host + orgRepo
 	app.config = &Config{
 		AppName:           opts.AppName,
 		UserGivenName:     opts.AppName,
 		DestNamespace:     opts.DestNamespace,
 		DestServer:        opts.DestServer,
-		SrcRepoURL:        host + orgRepo,
+		SrcRepoURL:        url,
 		SrcPath:           path,
 		SrcTargetRevision: gitRef,
 	}
@@ -405,7 +405,8 @@ func newDirApp(opts *CreateOptions) *dirApp {
 }
 
 func (app *dirApp) CreateFiles(repofs fs.FS, projectName string) error {
-	configPath := repofs.Join(store.Default.AppsDir, app.opts.AppName, projectName, "config.json")
+	basePath := repofs.Join(store.Default.AppsDir, app.opts.AppName, projectName)
+	configPath := repofs.Join(basePath, "config.json")
 	config, err := json.Marshal(app.config)
 	if err != nil {
 		return fmt.Errorf("failed to marshal app config.json: %w", err)

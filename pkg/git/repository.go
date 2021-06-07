@@ -3,11 +3,14 @@ package git
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
+	"strings"
 
 	"github.com/argoproj-labs/argocd-autopilot/pkg/fs"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/git/gogit"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/log"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 
 	billy "github.com/go-git/go-billy/v5"
 	gg "github.com/go-git/go-git/v5"
@@ -33,11 +36,12 @@ type (
 
 	CloneOptions struct {
 		// URL clone url
-		URL      string
-		Revision string
-		RepoRoot string
+		Repo     string
 		Auth     Auth
-		fs       billy.Filesystem
+		FS       billy.Filesystem
+		url      string
+		revision string
+		path     string
 	}
 
 	PushOptions struct {
@@ -54,6 +58,7 @@ type (
 // Errors
 var (
 	ErrNilOpts      = errors.New("options cannot be nil")
+	ErrNoParse      = errors.New("must call Parse before using CloneOptions")
 	ErrRepoNotFound = errors.New("git repository not found")
 )
 
@@ -72,43 +77,55 @@ var (
 	}
 )
 
-func AddFlags(cmd *cobra.Command) (*CloneOptions, error) {
-	co := &CloneOptions{}
-
-	cmd.PersistentFlags().StringVar(&co.URL, "repo", "", "Repository URL [GIT_REPO]")
-	cmd.PersistentFlags().StringVar(&co.Revision, "revision", "", "Repository branch, tag or commit hash (defaults to HEAD)")
-	cmd.PersistentFlags().StringVar(&co.RepoRoot, "installation-path", "", "The path where we of the installation files (defaults to the root of the repository [GIT_INSTALLATION_PATH]")
-	cmd.PersistentFlags().StringVarP(&co.Auth.Password, "git-token", "t", "", "Your git provider api token [GIT_TOKEN]")
-
-	if err := viper.BindEnv("git-token", "GIT_TOKEN"); err != nil {
-		return nil, err
+func AddFlags(cmd *cobra.Command, fs billy.Filesystem, prefix string) *CloneOptions {
+	co := &CloneOptions{
+		FS: fs,
 	}
 
-	if err := viper.BindEnv("repo", "GIT_REPO"); err != nil {
-		return nil, err
+	if prefix == "" {
+		cmd.PersistentFlags().StringVarP(&co.Auth.Password, "git-token", "t", "", "Your git provider api token [GIT_TOKEN]")
+		cmd.PersistentFlags().StringVar(&co.Repo, "repo", "", "Repository URL [GIT_REPO]")
+
+		util.Die(cmd.MarkPersistentFlagRequired("git-token"))
+		util.Die(cmd.MarkPersistentFlagRequired("repo"))
+
+		util.Die(viper.BindEnv("git-token", "GIT_TOKEN"))
+		util.Die(viper.BindEnv("repo", "GIT_REPO"))
+	} else {
+		if !strings.HasSuffix(prefix, "-") {
+			prefix += "-"
+		}
+
+		envPrefix := strings.ReplaceAll(strings.ToUpper(prefix), "-", "_")
+		cmd.PersistentFlags().StringVar(&co.Auth.Password, prefix+"git-token", "", fmt.Sprintf("Your git provider api token [%sGIT_TOKEN]", envPrefix))
+		cmd.PersistentFlags().StringVar(&co.Repo, prefix+"repo", "", fmt.Sprintf("Repository URL [%sGIT_REPO]", envPrefix))
+
+		util.Die(viper.BindEnv(prefix+"git-token", envPrefix+"GIT_TOKEN"))
+		util.Die(viper.BindEnv(prefix+"repo", envPrefix+"GIT_REPO"))
 	}
 
-	if err := viper.BindEnv("installation-path", "GIT_INSTALLATION_PATH"); err != nil {
-		return nil, err
-	}
-
-	if err := cmd.MarkPersistentFlagRequired("repo"); err != nil {
-		return nil, err
-	}
-
-	if err := cmd.MarkPersistentFlagRequired("git-token"); err != nil {
-		return nil, err
-	}
-
-	return co, nil
+	return co
 }
 
-func (o *CloneOptions) Clone(ctx context.Context, filesystem fs.FS) (Repository, fs.FS, error) {
+func (o *CloneOptions) Parse() {
+	var (
+		host    string
+		orgRepo string
+	)
+
+	host, orgRepo, o.path, o.revision, _, _, _ = util.ParseGitUrl(o.Repo)
+	o.url = host + orgRepo
+}
+
+func (o *CloneOptions) Clone(ctx context.Context) (Repository, fs.FS, error) {
 	if o == nil {
 		return nil, nil, ErrNilOpts
 	}
 
-	o.fs = filesystem
+	if o.url == "" {
+		return nil, nil, ErrNoParse
+	}
+
 	r, err := clone(ctx, o)
 	if err != nil {
 		if err == transport.ErrEmptyRemoteRepository {
@@ -121,7 +138,7 @@ func (o *CloneOptions) Clone(ctx context.Context, filesystem fs.FS) (Repository,
 		return nil, nil, err
 	}
 
-	bootstrapFS, err := filesystem.Chroot(o.RepoRoot)
+	bootstrapFS, err := o.FS.Chroot(o.path)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -129,10 +146,23 @@ func (o *CloneOptions) Clone(ctx context.Context, filesystem fs.FS) (Repository,
 	return r, fs.Create(bootstrapFS), nil
 }
 
+func (o *CloneOptions) URL() string {
+	return o.url
+}
+
+func (o *CloneOptions) Revision() string {
+	return o.revision
+}
+
+func (o *CloneOptions) Path() string {
+	return o.path
+}
+
 func (r *repo) Persist(ctx context.Context, opts *PushOptions) error {
 	if opts == nil {
 		return ErrNilOpts
 	}
+
 	addPattern := "."
 
 	if opts.AddGlobPattern != "" {
@@ -164,22 +194,22 @@ var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 	}
 
 	cloneOpts := &gg.CloneOptions{
-		URL:      opts.URL,
+		URL:      opts.url,
 		Auth:     getAuth(opts.Auth),
 		Depth:    1,
 		Progress: os.Stderr,
 		Tags:     gg.NoTags,
 	}
 
-	if opts.Revision != "" {
-		cloneOpts.ReferenceName = plumbing.NewBranchReferenceName(opts.Revision)
+	if opts.revision != "" {
+		cloneOpts.ReferenceName = plumbing.NewBranchReferenceName(opts.revision)
 	}
 
 	log.G(ctx).WithFields(log.Fields{
-		"url": opts.URL,
-		"rev": opts.Revision,
+		"url": opts.url,
+		"rev": opts.revision,
 	}).Debug("cloning git repo")
-	r, err := ggClone(ctx, memory.NewStorage(), opts.fs, cloneOpts)
+	r, err := ggClone(ctx, memory.NewStorage(), opts.FS, cloneOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -188,17 +218,17 @@ var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 }
 
 var initRepo = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
-	ggr, err := ggInitRepo(memory.NewStorage(), opts.fs)
+	ggr, err := ggInitRepo(memory.NewStorage(), opts.FS)
 	if err != nil {
 		return nil, err
 	}
 
 	r := &repo{Repository: ggr, auth: opts.Auth}
-	if err = r.addRemote("origin", opts.URL); err != nil {
+	if err = r.addRemote("origin", opts.url); err != nil {
 		return nil, err
 	}
 
-	return r, r.initBranch(ctx, opts.Revision)
+	return r, r.initBranch(ctx, opts.revision)
 }
 
 func (r *repo) addRemote(name, url string) error {

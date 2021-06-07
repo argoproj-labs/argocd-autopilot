@@ -6,27 +6,17 @@ import (
 	"fmt"
 	"os"
 
-	appset "github.com/argoproj-labs/applicationset/api/v1alpha1"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/fs"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/git"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/log"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
+
+	appset "github.com/argoproj-labs/applicationset/api/v1alpha1"
 	appsetv1alpha1 "github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/ghodss/yaml"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/go-git/go-billy/v5/memfs"
-	"github.com/spf13/cobra"
-)
-
-type (
-	BaseOptions struct {
-		CloneOptions *git.CloneOptions
-		FS           fs.FS
-		ProjectName  string
-	}
 )
 
 // used for mocking
@@ -45,29 +35,25 @@ var (
 	//go:embed assets/apps_readme.md
 	appsReadme []byte
 
-	clone = func(ctx context.Context, cloneOpts *git.CloneOptions, filesystem fs.FS) (git.Repository, fs.FS, error) {
-		return cloneOpts.Clone(ctx, filesystem)
+	clone = func(ctx context.Context, cloneOpts *git.CloneOptions) (git.Repository, fs.FS, error) {
+		return cloneOpts.Clone(ctx)
 	}
 
-	prepareRepo = func(ctx context.Context, o *BaseOptions) (git.Repository, fs.FS, error) {
-		var (
-			r   git.Repository
-			err error
-		)
+	prepareRepo = func(ctx context.Context, cloneOpts *git.CloneOptions, projectName string) (git.Repository, fs.FS, error) {
 		log.G().WithFields(log.Fields{
-			"repoURL":  o.CloneOptions.URL,
-			"revision": o.CloneOptions.Revision,
+			"repoURL":  cloneOpts.URL,
+			"revision": cloneOpts.Revision,
 		}).Debug("starting with options: ")
 
 		// clone repo
-		log.G().Infof("cloning git repository: %s", o.CloneOptions.URL)
-		r, repofs, err := clone(ctx, o.CloneOptions, o.FS)
+		log.G().Infof("cloning git repository: %s", cloneOpts.URL)
+		r, repofs, err := clone(ctx, cloneOpts)
 		if err != nil {
 			return nil, nil, fmt.Errorf("Failed cloning the repository: %w", err)
 		}
 
 		root := repofs.Root()
-		log.G().Infof("using revision: \"%s\", installation path: \"%s\"", o.CloneOptions.Revision, root)
+		log.G().Infof("using revision: \"%s\", installation path: \"%s\"", cloneOpts.Revision, root)
 		if !repofs.ExistsOrDie(store.Default.BootsrtrapDir) {
 			cmd := "repo bootstrap"
 			if root != "/" {
@@ -77,10 +63,10 @@ var (
 			return nil, nil, fmt.Errorf("Bootstrap directory not found, please execute `%s` command", cmd)
 		}
 
-		if o.ProjectName != "" {
-			projExists := repofs.ExistsOrDie(repofs.Join(store.Default.ProjectsDir, o.ProjectName+".yaml"))
+		if projectName != "" {
+			projExists := repofs.ExistsOrDie(repofs.Join(store.Default.ProjectsDir, projectName+".yaml"))
 			if !projExists {
-				return nil, nil, fmt.Errorf(util.Doc(fmt.Sprintf("project '%[1]s' not found, please execute `<BIN> project create %[1]s`", o.ProjectName)))
+				return nil, nil, fmt.Errorf(util.Doc(fmt.Sprintf("project '%[1]s' not found, please execute `<BIN> project create %[1]s`", projectName)))
 			}
 		}
 
@@ -89,20 +75,6 @@ var (
 		return r, repofs, nil
 	}
 )
-
-func addFlags(cmd *cobra.Command) (*BaseOptions, error) {
-	cloneOptions, err := git.AddFlags(cmd)
-	if err != nil {
-		return nil, err
-	}
-
-	o := &BaseOptions{
-		CloneOptions: cloneOptions,
-		FS:           fs.Create(memfs.New()),
-	}
-
-	return o, nil
-}
 
 type createAppOptions struct {
 	name        string
