@@ -24,10 +24,6 @@ argocd-autopilot project create [PROJECT] [flags]
 
     argocd-autopilot project create <PROJECT_NAME>
 
-# Create a new project in a specific path inside the GitOps repo
-
-    argocd-autopilot project create <PROJECT_NAME> --installation-path path/to/installation_root
-
 ```
 
 ### Options

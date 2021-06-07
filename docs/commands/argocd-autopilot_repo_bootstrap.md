@@ -27,7 +27,7 @@ argocd-autopilot repo bootstrap [flags]
     # Install argo-cd on the current kubernetes context in the argocd namespace
     # and persists the bootstrap manifests to a specific folder in the gitops repository
 
-    argocd-autopilot repo bootstrap --repo https://github.com/example/repo --installation-path path/to/installation_root
+    argocd-autopilot repo bootstrap --repo https://github.com/example/repo/path/to/installation_root
 
 ```
 
