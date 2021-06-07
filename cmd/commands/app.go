@@ -17,15 +17,16 @@ import (
 
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/go-git/go-billy/v5/memfs"
+	"github.com/go-git/go-billy/v5/osfs"
 	billyUtils "github.com/go-git/go-billy/v5/util"
 	"github.com/spf13/cobra"
 )
 
 type (
 	AppCreateOptions struct {
-		CloneOpts    *git.CloneOptions
-		ProjectName  string
-		AppOpts      *application.CreateOptions
+		CloneOpts   *git.CloneOptions
+		ProjectName string
+		AppOpts     *application.CreateOptions
 	}
 
 	AppDeleteOptions struct {
@@ -67,8 +68,8 @@ func NewAppCommand() *cobra.Command {
 
 func NewAppCreateCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 	var (
-		appOpts       *application.CreateOptions
-		projectName   string
+		appOpts     *application.CreateOptions
+		projectName string
 	)
 
 	cmd := &cobra.Command{
@@ -99,9 +100,9 @@ func NewAppCreateCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 
 			appOpts.AppName = args[0]
 			return RunAppCreate(cmd.Context(), &AppCreateOptions{
-				CloneOpts:    cloneOpts,
-				ProjectName:  projectName,
-				AppOpts:      appOpts,
+				CloneOpts:   cloneOpts,
+				ProjectName: projectName,
+				AppOpts:     appOpts,
 			})
 		},
 	}
@@ -162,22 +163,31 @@ func setAppOptsDefaults(ctx context.Context, repofs fs.FS, opts *AppCreateOption
 		opts.AppOpts.DestNamespace = "default"
 	}
 
-	if opts.AppOpts.AppType == "" {
-		log.G().Infof("Cloning app from %s to infer App Type", opts.AppOpts.AppSpecifier)
+	if opts.AppOpts.AppType != "" {
+		return nil
+	}
+
+	var fsys fs.FS
+	if _, err := os.Stat(opts.AppOpts.AppSpecifier); err == nil {
+		// local directory
+		fsys = fs.Create(osfs.New(opts.AppOpts.AppSpecifier))
+	} else {
+		host, orgRepo, p, _, _, _, _ := util.ParseGitUrl(opts.AppOpts.AppSpecifier)
+		url := host + orgRepo
+		log.G().Infof("cloning repo: '%s', to infer app type from path '%s'", url, p)
 		cloneOpts := &git.CloneOptions{
 			Repo: opts.AppOpts.AppSpecifier,
 			Auth: opts.CloneOpts.Auth,
 			FS:   memfs.New(),
 		}
-		cloneOpts.Parse()
-		_, fs, err := clone(ctx, cloneOpts)
+		_, fsys, err = clone(ctx, cloneOpts)
 		if err != nil {
 			return err
 		}
-
-		opts.AppOpts.AppType = application.InferAppType(fs)
-		log.G().Infof("Inferred AppType: %s", opts.AppOpts.AppType)
 	}
+
+	opts.AppOpts.AppType = application.InferAppType(fsys)
+	log.G().Infof("inferred application type: %s", opts.AppOpts.AppType)
 
 	return nil
 }
