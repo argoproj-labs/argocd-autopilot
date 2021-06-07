@@ -41,19 +41,19 @@ var (
 
 	prepareRepo = func(ctx context.Context, cloneOpts *git.CloneOptions, projectName string) (git.Repository, fs.FS, error) {
 		log.G().WithFields(log.Fields{
-			"repoURL":  cloneOpts.URL,
-			"revision": cloneOpts.Revision,
+			"repoURL":  cloneOpts.URL(),
+			"revision": cloneOpts.Revision(),
 		}).Debug("starting with options: ")
 
 		// clone repo
-		log.G().Infof("cloning git repository: %s", cloneOpts.URL)
+		log.G().Infof("cloning git repository: %s", cloneOpts.URL())
 		r, repofs, err := clone(ctx, cloneOpts)
 		if err != nil {
 			return nil, nil, fmt.Errorf("Failed cloning the repository: %w", err)
 		}
 
 		root := repofs.Root()
-		log.G().Infof("using revision: \"%s\", installation path: \"%s\"", cloneOpts.Revision, root)
+		log.G().Infof("using revision: \"%s\", installation path: \"%s\"", cloneOpts.Revision(), root)
 		if !repofs.ExistsOrDie(store.Default.BootsrtrapDir) {
 			cmd := "repo bootstrap"
 			if root != "/" {
