@@ -178,7 +178,7 @@ steps:
   bump_brew_formula:
     stage: Release
     title: bump brew formula version
-    image: linuxbrew/linuxbrew:latest
+    image: linuxbrew/brew:latest
     environment:
       - HOMEBREW_GITHUB_API_TOKEN=${{GITHUB_TOKEN}}
     commands:
