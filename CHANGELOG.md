@@ -1,5 +1,21 @@
 # Changelog:
 
+# v0.2.0
+
+### Breaking Changes:
+* Combined `--repo`, `--installation-path` and `--revision` into a single url, set by `--repo` with the following syntax:  
+```
+argocd-autopilot <command> --repo https://github.com/owner/name/path/to/installation_path?ref=branch
+```
+The `REPO_URL` environment variable also uses the new syntax
+
+### Bug fixes:
+* failed to build bootstrap manifests [#82](https://github.com/argoproj-labs/argocd-autopilot/issues/82)
+* Adding two applications with the same ns causes sync ping-pong [#23](https://github.com/argoproj-labs/argocd-autopilot/issues/23)
+
+### Additional changes:
+* The `RunRepoCreate` func now returns `(*git.CloneOptions, error)`
+
 # v0.1.10
 
 ### Bug fixes:
