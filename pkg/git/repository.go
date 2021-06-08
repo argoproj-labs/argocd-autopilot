@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -39,6 +40,7 @@ type (
 		Repo     string
 		Auth     Auth
 		FS       billy.Filesystem
+		Progress io.Writer
 		url      string
 		revision string
 		path     string
@@ -126,6 +128,10 @@ func (o *CloneOptions) Clone(ctx context.Context) (Repository, fs.FS, error) {
 		return nil, nil, ErrNoParse
 	}
 
+	if o.Progress == nil {
+		o.Progress = os.Stderr
+	}
+
 	r, err := clone(ctx, o)
 	if err != nil {
 		if err == transport.ErrEmptyRemoteRepository {
@@ -197,7 +203,7 @@ var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 		URL:      opts.url,
 		Auth:     getAuth(opts.Auth),
 		Depth:    1,
-		Progress: os.Stderr,
+		Progress: opts.Progress,
 		Tags:     gg.NoTags,
 	}
 

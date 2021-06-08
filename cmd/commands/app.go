@@ -49,9 +49,6 @@ func NewAppCommand() *cobra.Command {
 		Use:     "application",
 		Aliases: []string{"app"},
 		Short:   "Manage applications",
-		PersistentPreRun: func(_ *cobra.Command, _ []string) {
-			cloneOpts.Parse()
-		},
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.HelpFunc()(cmd, args)
 			exit(1)
@@ -93,6 +90,7 @@ func NewAppCreateCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 
 	<BIN> app create <new_app_name> --app github.com/some_org/some_repo/manifests?ref=v1.2.3 --project project_name
 `),
+		PreRun: func(cmd *cobra.Command, args []string) { cloneOpts.Parse() },
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				log.G().Fatal("must enter application name")
@@ -180,6 +178,7 @@ func setAppOptsDefaults(ctx context.Context, repofs fs.FS, opts *AppCreateOption
 			Auth: opts.CloneOpts.Auth,
 			FS:   memfs.New(),
 		}
+		cloneOpts.Parse()
 		_, fsys, err = clone(ctx, cloneOpts)
 		if err != nil {
 			return err
@@ -230,6 +229,7 @@ func NewAppListCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 
 	<BIN> app list <project_name>
 `),
+		PreRun: func(cmd *cobra.Command, args []string) { cloneOpts.Parse() },
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				log.G().Fatal("must enter a project name")
@@ -313,6 +313,7 @@ func NewAppDeleteCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 
 	<BIN> app delete <app_name> --project <project_name>
 `),
+		PreRun: func(cmd *cobra.Command, args []string) { cloneOpts.Parse() },
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				log.G().Fatal("must enter application name")
