@@ -454,20 +454,24 @@ func checkBaseCollision(repofs fs.FS, orgBasePath string, newBase *kusttypes.Kus
 }
 
 // fixResourcesPaths adjusts all relative paths in the kustomization file to the specified
-// `kustomizationPath`.
-func fixResourcesPaths(k *kusttypes.Kustomization, kustomizationPath string) error {
+// newKustDir.
+func fixResourcesPaths(k *kusttypes.Kustomization, newKustDir string) error {
 	for i, path := range k.Resources {
-		// if path is a local file
+		// if path is a remote resource ignore it
 		if _, err := os.Stat(path); err != nil && os.IsNotExist(err) {
 			continue
 		}
 
-		ap, err := filepath.Abs(path)
+		absRes, err := filepath.Abs(path)
 		if err != nil {
 			return err
 		}
 
-		k.Resources[i], err = filepath.Rel(kustomizationPath, ap)
+		k.Resources[i], err = filepath.Rel(newKustDir, absRes)
+		log.G().WithFields(log.Fields{
+			"from": absRes,
+			"to":   k.Resources[i],
+		}).Debug("adjusting kustomization paths to local filesystem")
 		if err != nil {
 			return err
 		}
@@ -477,14 +481,18 @@ func fixResourcesPaths(k *kusttypes.Kustomization, kustomizationPath string) err
 }
 
 var generateManifests = func(k *kusttypes.Kustomization) ([]byte, error) {
-	td, err := ioutil.TempDir("", "auto-pilot")
+	td, err := ioutil.TempDir(".", "auto-pilot")
 	if err != nil {
 		return nil, err
 	}
 	defer os.RemoveAll(td)
 
-	kustomizationPath := filepath.Join(td, "kustomization.yaml")
-	if err = fixResourcesPaths(k, kustomizationPath); err != nil {
+	absTd, err := filepath.Abs(td)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = fixResourcesPaths(k, absTd); err != nil {
 		return nil, err
 	}
 
@@ -493,6 +501,7 @@ var generateManifests = func(k *kusttypes.Kustomization) ([]byte, error) {
 		return nil, err
 	}
 
+	kustomizationPath := filepath.Join(td, "kustomization.yaml")
 	if err = ioutil.WriteFile(kustomizationPath, kyaml, 0400); err != nil {
 		return nil, err
 	}

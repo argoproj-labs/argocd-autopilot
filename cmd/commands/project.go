@@ -65,9 +65,6 @@ func NewProjectCommand() *cobra.Command {
 		Use:     "project",
 		Aliases: []string{"proj"},
 		Short:   "Manage projects",
-		PersistentPreRun: func(_ *cobra.Command, _ []string) {
-			cloneOpts.Parse()
-		},
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.HelpFunc()(cmd, args)
 			exit(1)
@@ -107,6 +104,7 @@ func NewProjectCreateCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 
 	<BIN> project create <PROJECT_NAME>
 `),
+		PreRun: func(cmd *cobra.Command, args []string) { cloneOpts.Parse() },
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				log.G().Fatal("must enter project name")
@@ -341,6 +339,7 @@ func NewProjectListCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 
 	<BIN> project list
 `),
+		PreRun: func(cmd *cobra.Command, args []string) { cloneOpts.Parse() },
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return RunProjectList(cmd.Context(), &ProjectListOptions{
 				CloneOpts: cloneOpts,
@@ -408,6 +407,7 @@ func NewProjectDeleteCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 	
 	<BIN> project delete <project_name>
 `),
+		PreRun: func(cmd *cobra.Command, args []string) { cloneOpts.Parse() },
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				log.G().Fatal("must enter project name")

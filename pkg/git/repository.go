@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -38,7 +39,8 @@ type (
 		// URL clone url
 		Repo     string
 		Auth     Auth
-		FS       billy.Filesystem
+		FS       fs.FS
+		Progress io.Writer
 		url      string
 		revision string
 		path     string
@@ -77,9 +79,9 @@ var (
 	}
 )
 
-func AddFlags(cmd *cobra.Command, fs billy.Filesystem, prefix string) *CloneOptions {
+func AddFlags(cmd *cobra.Command, bfs billy.Filesystem, prefix string) *CloneOptions {
 	co := &CloneOptions{
-		FS: fs,
+		FS: fs.Create(bfs),
 	}
 
 	if prefix == "" {
@@ -193,11 +195,15 @@ var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 		return nil, ErrNilOpts
 	}
 
+	if opts.Progress == nil {
+		opts.Progress = os.Stderr
+	}
+
 	cloneOpts := &gg.CloneOptions{
 		URL:      opts.url,
 		Auth:     getAuth(opts.Auth),
 		Depth:    1,
-		Progress: os.Stderr,
+		Progress: opts.Progress,
 		Tags:     gg.NoTags,
 	}
 

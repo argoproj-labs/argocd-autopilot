@@ -165,9 +165,8 @@ func NewRepoBootstrapCommand() *cobra.Command {
 
 	<BIN> repo bootstrap --repo https://github.com/example/repo/path/to/installation_root
 `),
-		PersistentPreRun: func(_ *cobra.Command, _ []string) {
-			cloneOpts.Parse()
-		}, RunE: func(cmd *cobra.Command, args []string) error {
+		PreRun: func(cmd *cobra.Command, args []string) { cloneOpts.Parse() },
+		RunE: func(cmd *cobra.Command, args []string) error {
 			return RunRepoBootstrap(cmd.Context(), &RepoBootstrapOptions{
 				AppSpecifier:     appSpecifier,
 				InstallationMode: installationMode,
@@ -260,7 +259,7 @@ func RunRepoCreate(ctx context.Context, opts *RepoCreateOptions) (*git.CloneOpti
 
 	co := &git.CloneOptions{
 		Repo: repoUrl,
-		FS:   memfs.New(),
+		FS:   fs.Create(memfs.New()),
 		Auth: git.Auth{
 			Password: opts.Token,
 		},
@@ -306,7 +305,7 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 		return nil
 	}
 
-	log.G().Infof("cloning repo: %s", opts.CloneOptions.URL)
+	log.G().Infof("cloning repo: %s", opts.CloneOptions.URL())
 
 	// clone GitOps repo
 	r, repofs, err := clone(ctx, opts.CloneOptions)
