@@ -15,7 +15,7 @@ Argo CD Autopilot saves operators time by:
 - Providing a clear structure for how applications are to be added and updated, all from git.
 - Creating a simple pattern for making updates to applications and promoting those changes across environments.
 - Enabling better disaster recovery by being able to bootstrap new clusters with all the applications previously installed.
-- Handles secrets for Argo CD to prevent them from spilling into plaintext git.
+- Handles secrets for Argo CD to prevent them from spilling into plaintext git. (Soon to come)
 
 The Argo-CD Autopilot is a tool which offers an opinionated way of installing Argo-CD and managing GitOps repositories.
 
