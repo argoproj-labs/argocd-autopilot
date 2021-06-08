@@ -39,7 +39,7 @@ type (
 		// URL clone url
 		Repo     string
 		Auth     Auth
-		FS       billy.Filesystem
+		FS       fs.FS
 		Progress io.Writer
 		url      string
 		revision string
@@ -79,9 +79,9 @@ var (
 	}
 )
 
-func AddFlags(cmd *cobra.Command, fs billy.Filesystem, prefix string) *CloneOptions {
+func AddFlags(cmd *cobra.Command, bfs billy.Filesystem, prefix string) *CloneOptions {
 	co := &CloneOptions{
-		FS: fs,
+		FS: fs.Create(bfs),
 	}
 
 	if prefix == "" {

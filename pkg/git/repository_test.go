@@ -432,7 +432,7 @@ func TestClone(t *testing.T) {
 
 			if tt.opts != nil {
 				tt.opts.Parse()
-				tt.opts.FS = memfs.New()
+				tt.opts.FS = fs.Create(memfs.New())
 			}
 
 			gotRepo, gotFS, err := tt.opts.Clone(context.Background())

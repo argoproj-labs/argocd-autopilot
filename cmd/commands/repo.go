@@ -259,7 +259,7 @@ func RunRepoCreate(ctx context.Context, opts *RepoCreateOptions) (*git.CloneOpti
 
 	co := &git.CloneOptions{
 		Repo: repoUrl,
-		FS:   memfs.New(),
+		FS:   fs.Create(memfs.New()),
 		Auth: git.Auth{
 			Password: opts.Token,
 		},

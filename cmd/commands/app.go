@@ -176,7 +176,7 @@ func setAppOptsDefaults(ctx context.Context, repofs fs.FS, opts *AppCreateOption
 		cloneOpts := &git.CloneOptions{
 			Repo: opts.AppOpts.AppSpecifier,
 			Auth: opts.CloneOpts.Auth,
-			FS:   memfs.New(),
+			FS:   fs.Create(memfs.New()),
 		}
 		cloneOpts.Parse()
 		_, fsys, err = clone(ctx, cloneOpts)
