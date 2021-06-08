@@ -128,10 +128,6 @@ func (o *CloneOptions) Clone(ctx context.Context) (Repository, fs.FS, error) {
 		return nil, nil, ErrNoParse
 	}
 
-	if o.Progress == nil {
-		o.Progress = os.Stderr
-	}
-
 	r, err := clone(ctx, o)
 	if err != nil {
 		if err == transport.ErrEmptyRemoteRepository {
@@ -197,6 +193,10 @@ func (r *repo) Persist(ctx context.Context, opts *PushOptions) error {
 var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 	if opts == nil {
 		return nil, ErrNilOpts
+	}
+
+	if opts.Progress == nil {
+		opts.Progress = os.Stderr
 	}
 
 	cloneOpts := &gg.CloneOptions{
