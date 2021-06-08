@@ -1,16 +1,12 @@
-### Breaking Changes:
-* Combined `--repo`, `--installation-path` and `--revision` into a single url, set by `--repo` with the following syntax:  
-```
-argocd-autopilot <command> --repo https://github.com/owner/name/path/to/installation_path?ref=branch
-```
-The `REPO_URL` environment variable also uses the new syntax
-
 ### Bug fixes:
-* failed to build bootstrap manifests [#82](https://github.com/argoproj-labs/argocd-autopilot/issues/82)
-* Adding two applications with the same ns causes sync ping-pong [#23](https://github.com/argoproj-labs/argocd-autopilot/issues/23)
+* app create does not work with local path (tries to infer application type by cloning) [#87](https://github.com/argoproj-labs/argocd-autopilot/issues/87)
+* Clone logs not displaying correct values
+* Debug logs not showing
 
 ### Additional changes:
-* The `RunRepoCreate` func now returns `(*git.CloneOptions, error)` dependency on `packr` for compiling source with additional assets required by argo-cd dependency.
+* Updated k8s dependencies from v0.20.4 to v0.21.1
+* Added `--progress` flag to redirect the git operations
+* `CloneOptions.FS` is now `fs.FS` instead of `billy.Filesystem`
 
 ### Contributors:
 - Roi Kramer ([@roi-codefresh](https://github.com/roi-codefresh))
