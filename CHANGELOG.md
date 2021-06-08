@@ -1,5 +1,17 @@
 # Changelog:
 
+# v0.2.1
+
+### Bug fixes:
+* app create does not work with local path (tries to infer application type by cloning) [#87](https://github.com/argoproj-labs/argocd-autopilot/issues/87)
+* Clone logs not displaying correct values
+* Debug logs not showing
+
+### Additional changes:
+* Updated k8s dependencies from v0.20.4 to v0.21.1
+* Added `--progress` flag to redirect the git operations
+* `CloneOptions.FS` is now `fs.FS` instead of `billy.Filesystem`
+
 # v0.2.0
 
 ### Breaking Changes:
