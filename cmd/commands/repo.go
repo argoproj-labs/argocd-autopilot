@@ -659,9 +659,8 @@ func createBootstrapKustomization(namespace, repoURL, appSpecifier string) (*kus
 	if len(errs) > 0 {
 		return nil, fmt.Errorf("kustomization errors: %s", strings.Join(errs, "\n"))
 	}
-	k.FixKustomizationPreMarshalling()
 
-	return k, nil
+	return k, k.FixKustomizationPreMarshalling()
 }
 
 func createCreds(repoUrl string) ([]byte, error) {
