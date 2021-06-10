@@ -664,9 +664,10 @@ func createBootstrapKustomization(namespace, repoURL, appSpecifier string) (*kus
 }
 
 func createCreds(repoUrl string) ([]byte, error) {
-	creds := []argocdsettings.Repository{
+	host, _, _, _, _ := git.ParseGitUrl(repoUrl)
+	creds := []argocdsettings.RepositoryCredentials{
 		{
-			URL: repoUrl,
+			URL: host,
 			UsernameSecret: &v1.SecretKeySelector{
 				LocalObjectReference: v1.LocalObjectReference{
 					Name: "autopilot-secret",

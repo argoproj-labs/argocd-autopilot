@@ -1,6 +1,7 @@
 package fs
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -31,8 +32,14 @@ type FS interface {
 	// ReadYamls reads the file data as yaml into o
 	ReadYamls(filename string, o ...interface{}) error
 
-	// WriteYamls write the data as yaml into the file
+	// WriteYamls writes the data as yaml into the file
 	WriteYamls(filename string, o ...interface{}) error
+
+	// ReadJson reads the file data as json into o
+	ReadJson(filename string, o interface{}) error
+
+	// WriteJson writes the data as json into the file
+	WriteJson(filename string, o interface{}) error
 }
 
 type fsimpl struct {
@@ -124,5 +131,23 @@ func (fs *fsimpl) WriteYamls(filename string, o ...interface{}) error {
 	}
 
 	data := util.JoinManifests(yamls...)
+	return billyUtils.WriteFile(fs, filename, data, 0666)
+}
+
+func (fs *fsimpl) ReadJson(filename string, o interface{}) error {
+	data, err := fs.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+
+	return json.Unmarshal(data, o)
+}
+
+func (fs *fsimpl) WriteJson(filename string, o interface{}) error {
+	data, err := json.Marshal(o)
+	if err != nil {
+		return err
+	}
+
 	return billyUtils.WriteFile(fs, filename, data, 0666)
 }

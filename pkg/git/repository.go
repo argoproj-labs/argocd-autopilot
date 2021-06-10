@@ -122,7 +122,7 @@ func (o *CloneOptions) Parse() {
 		suffix  string
 	)
 
-	host, orgRepo, o.path, o.revision, suffix = parseGitUrl(o.Repo)
+	host, orgRepo, o.path, o.revision, suffix = ParseGitUrl(o.Repo)
 	o.url = host + orgRepo + suffix
 }
 
@@ -288,10 +288,16 @@ func getAuth(auth Auth) transport.AuthMethod {
 	}
 }
 
-// From strings like git@github.com:someOrg/someRepo.git or
-// https://github.com/someOrg/someRepo?ref=someHash, extract
-// the parts.
-func parseGitUrl(n string) (host, orgRepo, path, ref, gitSuff string) {
+// ParseGitUrl returns the different parts of the repo url
+// example: "https://github.com/owner/name/repo/path?ref=branch"
+// host: "https://github.com"
+// orgRepo: "owner/name"
+// path: "path"
+// ref: "refs/heads/branch"
+// gitSuff: ".git"
+// For tags use "?tag=<tag_name>"
+// For specific git commit sha use "?sha=<comit_sha>"
+func ParseGitUrl(n string) (host, orgRepo, path, ref, gitSuff string) {
 	if strings.Contains(n, gitDelimiter) {
 		index := strings.Index(n, gitDelimiter)
 		// Adding _git/ to host
