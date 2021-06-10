@@ -1,4 +1,5 @@
 site_name: Argo-CD Autopilot
+site_url: https://argocd-autopilot.readthedocs.io
 repo_url: https://github.com/argoproj-labs/argocd-autopilot
 strict: true
 theme:
