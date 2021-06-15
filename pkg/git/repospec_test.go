@@ -4,7 +4,7 @@
 // Copyright 2019 The Kubernetes Authors.
 // SPDX-License-Identifier: Apache-2.0
 
-package util
+package git
 
 import (
 	"fmt"
@@ -57,16 +57,19 @@ func TestNewRepoSpecFromUrl(t *testing.T) {
 			for _, pathName := range pathNames {
 				for _, hrefArg := range hrefArgs {
 					uri := makeUrl(hostRaw, orgRepo, pathName, hrefArg)
-					host, org, path, ref, _ := ParseGitUrl(uri)
+					host, org, path, ref, _ := parseGitUrl(uri)
 					if host != hostSpec {
 						bad = append(bad, []string{"host", uri, host, hostSpec})
 					}
+
 					if org != orgRepo {
 						bad = append(bad, []string{"orgRepo", uri, orgRepo, orgRepo})
 					}
+
 					if path != pathName {
 						bad = append(bad, []string{"path", uri, path, pathName})
 					}
+
 					if hrefArg != "" && ref != "refs/heads/"+hrefArg {
 						bad = append(bad, []string{"ref", uri, ref, hrefArg})
 					}
@@ -74,6 +77,7 @@ func TestNewRepoSpecFromUrl(t *testing.T) {
 			}
 		}
 	}
+
 	if len(bad) > 0 {
 		for _, tuple := range bad {
 			fmt.Printf("\n"+
@@ -139,7 +143,7 @@ func TestNewRepoSpecFromUrl_CloneSpecs(t *testing.T) {
 		},
 	}
 	for _, testcase := range testcases {
-		host, orgRepo, path, ref, suffix := ParseGitUrl(testcase.input)
+		host, orgRepo, path, ref, suffix := parseGitUrl(testcase.input)
 		cloneSpec := host + orgRepo + suffix
 		if cloneSpec != testcase.cloneSpec {
 			t.Errorf("CloneSpec expected to be %v, but got %v on %s", testcase.cloneSpec, cloneSpec, testcase.input)
