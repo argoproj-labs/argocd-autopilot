@@ -266,6 +266,20 @@ func (_m *FS) ReadFile(filename string) ([]byte, error) {
 	return r0, r1
 }
 
+// ReadJson provides a mock function with given fields: filename, o
+func (_m *FS) ReadJson(filename string, o interface{}) error {
+	ret := _m.Called(filename, o)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, interface{}) error); ok {
+		r0 = rf(filename, o)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // ReadYamls provides a mock function with given fields: filename, o
 func (_m *FS) ReadYamls(filename string, o ...interface{}) error {
 	var _ca []interface{}
@@ -404,6 +418,20 @@ func (_m *FS) TempFile(dir string, prefix string) (billy.File, error) {
 	}
 
 	return r0, r1
+}
+
+// WriteJson provides a mock function with given fields: filename, o
+func (_m *FS) WriteJson(filename string, o interface{}) error {
+	ret := _m.Called(filename, o)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, interface{}) error); ok {
+		r0 = rf(filename, o)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 // WriteYamls provides a mock function with given fields: filename, o

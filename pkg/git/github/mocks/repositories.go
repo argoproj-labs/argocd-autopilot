@@ -5,7 +5,7 @@ package mocks
 import (
 	context "context"
 
-	github "github.com/google/go-github/v34/github"
+	github "github.com/google/go-github/v35/github"
 
 	http "net/http"
 
@@ -565,6 +565,38 @@ func (_m *Repositories) CreateStatus(_a0 context.Context, _a1 string, _a2 string
 	return r0, r1, r2
 }
 
+// CreateUpdateEnvironment provides a mock function with given fields: _a0, _a1, _a2, _a3, _a4
+func (_m *Repositories) CreateUpdateEnvironment(_a0 context.Context, _a1 string, _a2 string, _a3 string, _a4 *github.CreateUpdateEnvironment) (*github.Environment, *github.Response, error) {
+	ret := _m.Called(_a0, _a1, _a2, _a3, _a4)
+
+	var r0 *github.Environment
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, *github.CreateUpdateEnvironment) *github.Environment); ok {
+		r0 = rf(_a0, _a1, _a2, _a3, _a4)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*github.Environment)
+		}
+	}
+
+	var r1 *github.Response
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, *github.CreateUpdateEnvironment) *github.Response); ok {
+		r1 = rf(_a0, _a1, _a2, _a3, _a4)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(*github.Response)
+		}
+	}
+
+	var r2 error
+	if rf, ok := ret.Get(2).(func(context.Context, string, string, string, *github.CreateUpdateEnvironment) error); ok {
+		r2 = rf(_a0, _a1, _a2, _a3, _a4)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
+}
+
 // Delete provides a mock function with given fields: _a0, _a1, _a2
 func (_m *Repositories) Delete(_a0 context.Context, _a1 string, _a2 string) (*github.Response, error) {
 	ret := _m.Called(_a0, _a1, _a2)
@@ -626,6 +658,29 @@ func (_m *Repositories) DeleteDeployment(_a0 context.Context, _a1 string, _a2 st
 
 	var r1 error
 	if rf, ok := ret.Get(1).(func(context.Context, string, string, int64) error); ok {
+		r1 = rf(_a0, _a1, _a2, _a3)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// DeleteEnvironment provides a mock function with given fields: _a0, _a1, _a2, _a3
+func (_m *Repositories) DeleteEnvironment(_a0 context.Context, _a1 string, _a2 string, _a3 string) (*github.Response, error) {
+	ret := _m.Called(_a0, _a1, _a2, _a3)
+
+	var r0 *github.Response
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) *github.Response); ok {
+		r0 = rf(_a0, _a1, _a2, _a3)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*github.Response)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string) error); ok {
 		r1 = rf(_a0, _a1, _a2, _a3)
 	} else {
 		r1 = ret.Error(1)
@@ -1763,6 +1818,38 @@ func (_m *Repositories) GetDeploymentStatus(_a0 context.Context, _a1 string, _a2
 	return r0, r1, r2
 }
 
+// GetEnvironment provides a mock function with given fields: _a0, _a1, _a2, _a3
+func (_m *Repositories) GetEnvironment(_a0 context.Context, _a1 string, _a2 string, _a3 string) (*github.Environment, *github.Response, error) {
+	ret := _m.Called(_a0, _a1, _a2, _a3)
+
+	var r0 *github.Environment
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) *github.Environment); ok {
+		r0 = rf(_a0, _a1, _a2, _a3)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*github.Environment)
+		}
+	}
+
+	var r1 *github.Response
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string) *github.Response); ok {
+		r1 = rf(_a0, _a1, _a2, _a3)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(*github.Response)
+		}
+	}
+
+	var r2 error
+	if rf, ok := ret.Get(2).(func(context.Context, string, string, string) error); ok {
+		r2 = rf(_a0, _a1, _a2, _a3)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
+}
+
 // GetHook provides a mock function with given fields: _a0, _a1, _a2, _a3
 func (_m *Repositories) GetHook(_a0 context.Context, _a1 string, _a2 string, _a3 int64) (*github.Hook, *github.Response, error) {
 	ret := _m.Called(_a0, _a1, _a2, _a3)
@@ -2872,6 +2959,38 @@ func (_m *Repositories) ListDeployments(_a0 context.Context, _a1 string, _a2 str
 	var r2 error
 	if rf, ok := ret.Get(2).(func(context.Context, string, string, *github.DeploymentsListOptions) error); ok {
 		r2 = rf(_a0, _a1, _a2, _a3)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
+}
+
+// ListEnvironments provides a mock function with given fields: _a0, _a1, _a2
+func (_m *Repositories) ListEnvironments(_a0 context.Context, _a1 string, _a2 string) (*github.EnvResponse, *github.Response, error) {
+	ret := _m.Called(_a0, _a1, _a2)
+
+	var r0 *github.EnvResponse
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *github.EnvResponse); ok {
+		r0 = rf(_a0, _a1, _a2)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*github.EnvResponse)
+		}
+	}
+
+	var r1 *github.Response
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) *github.Response); ok {
+		r1 = rf(_a0, _a1, _a2)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(*github.Response)
+		}
+	}
+
+	var r2 error
+	if rf, ok := ret.Get(2).(func(context.Context, string, string) error); ok {
+		r2 = rf(_a0, _a1, _a2)
 	} else {
 		r2 = ret.Error(2)
 	}

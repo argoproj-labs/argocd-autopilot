@@ -7,7 +7,7 @@ import (
 
 	g "github.com/argoproj-labs/argocd-autopilot/pkg/git/github"
 
-	gh "github.com/google/go-github/v34/github"
+	gh "github.com/google/go-github/v35/github"
 )
 
 //go:generate mockery --dir github --all --output github/mocks --case snake
@@ -56,7 +56,7 @@ func (g *github) CreateRepository(ctx context.Context, opts *CreateRepoOptions) 
 		if res.StatusCode == 401 {
 			return "", ErrAuthenticationFailed(err)
 		}
-	
+
 		return "", err
 	}
 

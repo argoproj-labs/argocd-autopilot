@@ -24,9 +24,10 @@ import (
 
 type (
 	AppCreateOptions struct {
-		CloneOpts   *git.CloneOptions
-		ProjectName string
-		AppOpts     *application.CreateOptions
+		CloneOpts     *git.CloneOptions
+		AppsCloneOpts *git.CloneOptions
+		ProjectName   string
+		AppOpts       *application.CreateOptions
 	}
 
 	AppDeleteOptions struct {
@@ -65,8 +66,9 @@ func NewAppCommand() *cobra.Command {
 
 func NewAppCreateCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 	var (
-		appOpts     *application.CreateOptions
-		projectName string
+		appsCloneOpts *git.CloneOptions
+		appOpts       *application.CreateOptions
+		projectName   string
 	)
 
 	cmd := &cobra.Command{
@@ -86,11 +88,26 @@ func NewAppCreateCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 # using the --type flag (kustomize|dir) is optional. If it is ommitted, <BIN> will clone
 # the --app repository, and infer the type automatically.
 
-# Create a new application from kustomization in a remote repository
+# Create a new application from kustomization in a remote repository (will reference the HEAD revision)
 
-	<BIN> app create <new_app_name> --app github.com/some_org/some_repo/manifests?ref=v1.2.3 --project project_name
+	<BIN> app create <new_app_name> --app github.com/some_org/some_repo/manifests --project project_name
+
+# Reference a specific git commit hash:
+
+  <BIN> app create <new_app_name> --app github.com/some_org/some_repo/manifests?sha=<commit_hash> --project project_name
+
+# Reference a specific git tag:
+
+  <BIN> app create <new_app_name> --app github.com/some_org/some_repo/manifests?tag=<tag_name> --project project_name
+
+# Reference a specific git branch:
+
+  <BIN> app create <new_app_name> --app github.com/some_org/some_repo/manifests?ref=<branch_name> --project project_name
 `),
-		PreRun: func(cmd *cobra.Command, args []string) { cloneOpts.Parse() },
+		PreRun: func(_ *cobra.Command, _ []string) {
+			cloneOpts.Parse()
+			appsCloneOpts.Parse()
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				log.G().Fatal("must enter application name")
@@ -98,14 +115,16 @@ func NewAppCreateCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 
 			appOpts.AppName = args[0]
 			return RunAppCreate(cmd.Context(), &AppCreateOptions{
-				CloneOpts:   cloneOpts,
-				ProjectName: projectName,
-				AppOpts:     appOpts,
+				CloneOpts:     cloneOpts,
+				AppsCloneOpts: appsCloneOpts,
+				ProjectName:   projectName,
+				AppOpts:       appOpts,
 			})
 		},
 	}
 
 	cmd.Flags().StringVarP(&projectName, "project", "p", "", "Project name")
+	appsCloneOpts = git.AddFlags(cmd, memfs.New(), "apps")
 	appOpts = application.AddFlags(cmd)
 
 	die(cmd.MarkFlagRequired("app"))
@@ -120,21 +139,47 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 		return err
 	}
 
+	var (
+		appsRepo git.Repository
+		appsfs   fs.FS
+	)
+
+	if opts.AppsCloneOpts.Repo != "" {
+		if opts.AppsCloneOpts.Auth.Password == "" {
+			opts.AppsCloneOpts.Auth.Password = opts.CloneOpts.Auth.Password
+		}
+
+		appsRepo, appsfs, err = clone(ctx, opts.AppsCloneOpts)
+		if err != nil {
+			return err
+		}
+	} else {
+		opts.AppsCloneOpts = opts.CloneOpts
+		appsRepo, appsfs = r, repofs
+	}
+
 	if err = setAppOptsDefaults(ctx, repofs, opts); err != nil {
 		return err
 	}
 
-	app, err := opts.AppOpts.Parse(opts.ProjectName, opts.CloneOpts.URL(), opts.CloneOpts.Revision(), opts.CloneOpts.Path())
+	app, err := parseApp(opts.AppOpts, opts.ProjectName, opts.CloneOpts.URL(), opts.CloneOpts.Revision(), opts.CloneOpts.Path())
 	if err != nil {
 		return fmt.Errorf("failed to parse application from flags: %v", err)
 	}
 
-	if err = app.CreateFiles(repofs, opts.ProjectName); err != nil {
+	if err = app.CreateFiles(repofs, appsfs, opts.ProjectName); err != nil {
 		if errors.Is(err, application.ErrAppAlreadyInstalledOnProject) {
 			return fmt.Errorf("application '%s' already exists in project '%s': %w", app.Name(), opts.ProjectName, err)
 		}
 
 		return err
+	}
+
+	if opts.AppsCloneOpts != opts.CloneOpts {
+		log.G().Info("committing changes to apps repo...")
+		if err = appsRepo.Persist(ctx, &git.PushOptions{CommitMsg: getCommitMsg(opts, appsfs)}); err != nil {
+			return fmt.Errorf("failed to push to apps repo: %w", err)
+		}
 	}
 
 	log.G().Info("committing changes to gitops repo...")
@@ -147,7 +192,7 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 	return nil
 }
 
-func setAppOptsDefaults(ctx context.Context, repofs fs.FS, opts *AppCreateOptions) error {
+var setAppOptsDefaults = func(ctx context.Context, repofs fs.FS, opts *AppCreateOptions) error {
 	var err error
 
 	if opts.AppOpts.DestServer == store.Default.DestServer || opts.AppOpts.DestServer == "" {
@@ -189,6 +234,10 @@ func setAppOptsDefaults(ctx context.Context, repofs fs.FS, opts *AppCreateOption
 	return nil
 }
 
+var parseApp = func(appOpts *application.CreateOptions, projectName, repoURL, targetRevision, repoRoot string) (application.Application, error) {
+	return appOpts.Parse(projectName, repoURL, targetRevision, repoRoot)
+}
+
 func getProjectDestServer(repofs fs.FS, projectName string) (string, error) {
 	path := repofs.Join(store.Default.ProjectsDir, projectName+".yaml")
 	p := &argocdv1alpha1.AppProject{}
@@ -227,7 +276,7 @@ func NewAppListCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 
 	<BIN> app list <project_name>
 `),
-		PreRun: func(cmd *cobra.Command, args []string) { cloneOpts.Parse() },
+		PreRun: func(_ *cobra.Command, _ []string) { cloneOpts.Parse() },
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				log.G().Fatal("must enter a project name")
@@ -311,7 +360,7 @@ func NewAppDeleteCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 
 	<BIN> app delete <app_name> --project <project_name>
 `),
-		PreRun: func(cmd *cobra.Command, args []string) { cloneOpts.Parse() },
+		PreRun: func(_ *cobra.Command, _ []string) { cloneOpts.Parse() },
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				log.G().Fatal("must enter application name")

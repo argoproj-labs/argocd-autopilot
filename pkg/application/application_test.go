@@ -2,7 +2,7 @@ package application
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 	"io/ioutil"
 	"path/filepath"
 	"reflect"
@@ -220,7 +220,7 @@ func Test_writeFile(t *testing.T) {
 			},
 			beforeFn: func(_ fs.FS) fs.FS {
 				mfs := &fsmocks.FS{}
-				mfs.On("CheckExistsOrWrite", mock.Anything, mock.Anything).Return(false, fmt.Errorf("error"))
+				mfs.On("CheckExistsOrWrite", mock.Anything, mock.Anything).Return(false, errors.New("error"))
 				mfs.On("Root").Return("/")
 				mfs.On("Join", mock.Anything, mock.Anything).Return("/foo/bar")
 				return mfs
@@ -251,11 +251,11 @@ func Test_writeFile(t *testing.T) {
 
 func Test_kustCreateFiles(t *testing.T) {
 	tests := map[string]struct {
-		beforeFn func() (app *kustApp, repofs fs.FS, projectName string)
-		assertFn func(t *testing.T, repofs fs.FS, err error)
+		beforeFn func() (app *kustApp, repofs fs.FS, appsfs fs.FS, projectName string)
+		assertFn func(t *testing.T, repofs fs.FS, appsfs fs.FS, err error)
 	}{
 		"Should create all files for a simple application": {
-			beforeFn: func() (*kustApp, fs.FS, string) {
+			beforeFn: func() (*kustApp, fs.FS, fs.FS, string) {
 				app := &kustApp{
 					baseApp: baseApp{
 						opts: &CreateOptions{
@@ -265,9 +265,9 @@ func Test_kustCreateFiles(t *testing.T) {
 					},
 				}
 				repofs := fs.Create(memfs.New())
-				return app, repofs, "project"
+				return app, repofs, repofs, "project"
 			},
-			assertFn: func(t *testing.T, repofs fs.FS, err error) {
+			assertFn: func(t *testing.T, repofs fs.FS, _ fs.FS, err error) {
 				assert.NoError(t, err)
 
 				assert.True(t, repofs.ExistsOrDie(repofs.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project", "config.json")), "overlay config should exist")
@@ -277,8 +277,37 @@ func Test_kustCreateFiles(t *testing.T) {
 				assert.False(t, repofs.ExistsOrDie(repofs.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project", "namespace.yaml")), "overlay namespace should not exist")
 			},
 		},
+		"Should create all files in two separate filesystems": {
+			beforeFn: func() (*kustApp, fs.FS, fs.FS, string) {
+				app := &kustApp{
+					baseApp: baseApp{
+						opts: &CreateOptions{
+							AppName:    "app",
+							DestServer: store.Default.DestServer,
+						},
+					},
+				}
+				repofs := fs.Create(memfs.New())
+				appsfs := fs.Create(memfs.New())
+				return app, repofs, appsfs, "project"
+			},
+			assertFn: func(t *testing.T, repofs fs.FS, appsfs fs.FS, err error) {
+				assert.NoError(t, err)
+
+				// in repofs - only config.json
+				assert.True(t, repofs.ExistsOrDie(repofs.Join(store.Default.AppsDir, "app", "project", "config.json")), "app config should exist in repofs")
+				assert.False(t, repofs.ExistsOrDie(repofs.Join(store.Default.AppsDir, "app", store.Default.BaseDir)), "base directory should not exist in repofs")
+				assert.False(t, repofs.ExistsOrDie(repofs.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir)), "overlay directory should not exist in repofs")
+
+				// in appsfs - only base and overlay kustomization
+				assert.True(t, appsfs.ExistsOrDie(appsfs.Join(store.Default.AppsDir, "app", store.Default.BaseDir, "kustomization.yaml")), "base kustomization should exist in appsfs")
+				assert.False(t, appsfs.ExistsOrDie(appsfs.Join(store.Default.AppsDir, "app", store.Default.BaseDir, "install.yaml")), "install file should not exist in appsfs")
+				assert.True(t, appsfs.ExistsOrDie(appsfs.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project", "kustomization.yaml")), "overlay kustomization should exist in appsfs")
+				assert.False(t, appsfs.ExistsOrDie(appsfs.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project", "namespace.yaml")), "overlay namespace should not exist in appsfs")
+			},
+		},
 		"Should create install.yaml when manifests exist": {
-			beforeFn: func() (*kustApp, fs.FS, string) {
+			beforeFn: func() (*kustApp, fs.FS, fs.FS, string) {
 				app := &kustApp{
 					baseApp: baseApp{
 						opts: &CreateOptions{
@@ -289,9 +318,9 @@ func Test_kustCreateFiles(t *testing.T) {
 					manifests: []byte("some manifests"),
 				}
 				repofs := fs.Create(memfs.New())
-				return app, repofs, "project"
+				return app, repofs, repofs, "project"
 			},
-			assertFn: func(t *testing.T, repofs fs.FS, err error) {
+			assertFn: func(t *testing.T, repofs fs.FS, _ fs.FS, err error) {
 				assert.NoError(t, err)
 				installFile := repofs.Join(store.Default.AppsDir, "app", store.Default.BaseDir, "install.yaml")
 				assert.True(t, repofs.ExistsOrDie(installFile), "install file should exist")
@@ -300,7 +329,7 @@ func Test_kustCreateFiles(t *testing.T) {
 			},
 		},
 		"Should create namespace.yaml on the correct cluster resources directory when needed": {
-			beforeFn: func() (*kustApp, fs.FS, string) {
+			beforeFn: func() (*kustApp, fs.FS, fs.FS, string) {
 				app := &kustApp{
 					baseApp: baseApp{
 						opts: &CreateOptions{
@@ -311,9 +340,9 @@ func Test_kustCreateFiles(t *testing.T) {
 					namespace: kube.GenerateNamespace("foo"),
 				}
 				repofs := fs.Create(memfs.New())
-				return app, repofs, "project"
+				return app, repofs, repofs, "project"
 			},
-			assertFn: func(t *testing.T, repofs fs.FS, err error) {
+			assertFn: func(t *testing.T, repofs fs.FS, _ fs.FS, err error) {
 				assert.NoError(t, err)
 				path := repofs.Join(store.Default.BootsrtrapDir, store.Default.ClusterResourcesDir, store.Default.ClusterContextName, "foo-ns.yaml")
 				ns, err := repofs.ReadFile(path)
@@ -324,7 +353,7 @@ func Test_kustCreateFiles(t *testing.T) {
 			},
 		},
 		"Should fail if trying to install an application with destServer that is not configured yet": {
-			beforeFn: func() (*kustApp, fs.FS, string) {
+			beforeFn: func() (*kustApp, fs.FS, fs.FS, string) {
 				app := &kustApp{
 					baseApp: baseApp{
 						opts: &CreateOptions{
@@ -334,14 +363,14 @@ func Test_kustCreateFiles(t *testing.T) {
 					},
 				}
 				repofs := fs.Create(memfs.New())
-				return app, repofs, "project"
+				return app, repofs, repofs, "project"
 			},
-			assertFn: func(t *testing.T, _ fs.FS, err error) {
+			assertFn: func(t *testing.T, _ fs.FS, _ fs.FS, err error) {
 				assert.Error(t, err, "cluster 'foo' is not configured yet, you need to create a project that uses this cluster first")
 			},
 		},
 		"Should fail when base kustomization is different from kustRes": {
-			beforeFn: func() (*kustApp, fs.FS, string) {
+			beforeFn: func() (*kustApp, fs.FS, fs.FS, string) {
 				app := &kustApp{
 					baseApp: baseApp{
 						opts: &CreateOptions{
@@ -357,7 +386,6 @@ func Test_kustCreateFiles(t *testing.T) {
 						Resources: []string{"github.com/owner/repo?ref=v1.2.3"},
 					},
 				}
-				repofs := fs.Create(memfs.New())
 				origBase := &kusttypes.Kustomization{
 					TypeMeta: kusttypes.TypeMeta{
 						APIVersion: kusttypes.KustomizationVersion,
@@ -365,15 +393,30 @@ func Test_kustCreateFiles(t *testing.T) {
 					},
 					Resources: []string{"github.com/owner/different_repo?ref=v1.2.3"},
 				}
+				repofs := fs.Create(memfs.New())
 				_ = repofs.WriteYamls(repofs.Join(store.Default.AppsDir, "app", store.Default.BaseDir, "kustomization.yaml"), origBase)
-				return app, repofs, "project"
+				return app, repofs, repofs, "project"
 			},
-			assertFn: func(t *testing.T, _ fs.FS, err error) {
+			assertFn: func(t *testing.T, _ fs.FS, _ fs.FS, err error) {
 				assert.ErrorIs(t, err, ErrAppCollisionWithExistingBase)
 			},
 		},
 		"Should fail when overlay already exists": {
-			beforeFn: func() (*kustApp, fs.FS, string) {
+			beforeFn: func() (*kustApp, fs.FS, fs.FS, string) {
+				origBase := &kusttypes.Kustomization{
+					TypeMeta: kusttypes.TypeMeta{
+						APIVersion: kusttypes.KustomizationVersion,
+						Kind:       kusttypes.KustomizationKind,
+					},
+					Resources: []string{"github.com/owner/different_repo?ref=v1.2.3"},
+				}
+				overlay := &kusttypes.Kustomization{
+					TypeMeta: kusttypes.TypeMeta{
+						APIVersion: kusttypes.KustomizationVersion,
+						Kind:       kusttypes.KustomizationKind,
+					},
+					Resources: []string{"../../base"},
+				}
 				app := &kustApp{
 					baseApp: baseApp{
 						opts: &CreateOptions{
@@ -381,29 +424,64 @@ func Test_kustCreateFiles(t *testing.T) {
 							DestServer: store.Default.DestServer,
 						},
 					},
+					base: origBase,
 				}
 				repofs := fs.Create(memfs.New())
-				origBase := &kusttypes.Kustomization{
-					TypeMeta: kusttypes.TypeMeta{
-						APIVersion: kusttypes.KustomizationVersion,
-						Kind:       kusttypes.KustomizationKind,
-					},
-					Resources: []string{"github.com/owner/different_repo?ref=v1.2.3"},
-				}
-				_ = repofs.WriteYamls(repofs.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project", "kustomization.yaml"), origBase)
-				return app, repofs, "project"
+				_ = repofs.WriteYamls(repofs.Join(store.Default.AppsDir, "app", store.Default.BaseDir, "kustomization.yaml"), origBase)
+				_ = repofs.WriteYamls(repofs.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project", "kustomization.yaml"), overlay)
+				return app, repofs, repofs, "project"
 			},
-			assertFn: func(t *testing.T, _ fs.FS, err error) {
+			assertFn: func(t *testing.T, _ fs.FS, _ fs.FS, err error) {
 				assert.ErrorIs(t, err, ErrAppAlreadyInstalledOnProject)
+			},
+		},
+		"Should fail when failing to find original appRepo": {
+			beforeFn: func() (*kustApp, fs.FS, fs.FS, string) {
+				app := &kustApp{
+					baseApp: baseApp{
+						opts: &CreateOptions{
+							AppName: "app",
+						},
+					},
+				}
+				repofs := fs.Create(memfs.New())
+				appsfs := fs.Create(memfs.New())
+				_ = repofs.MkdirAll(repofs.Join(store.Default.AppsDir, "app"), 0666)
+				return app, repofs, appsfs, "project"
+			},
+			assertFn: func(t *testing.T, _ fs.FS, _ fs.FS, err error) {
+				assert.EqualError(t, err, "Failed getting app repo: Application 'app' has no overlays")
+			},
+		},
+		"Should fail when app exists on another repo": {
+			beforeFn: func() (*kustApp, fs.FS, fs.FS, string) {
+				app := &kustApp{
+					baseApp: baseApp{
+						opts: &CreateOptions{
+							AppName: "app",
+						},
+					},
+				}
+				config := &Config{
+					AppName:    "app",
+					SrcRepoURL: "https://github.com/owner/other_name.git",
+				}
+				repofs := fs.Create(memfs.New())
+				appsfs := fs.Create(memfs.New())
+				_ = repofs.WriteJson(repofs.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project", "config.json"), config)
+				return app, repofs, appsfs, "project"
+			},
+			assertFn: func(t *testing.T, _ fs.FS, _ fs.FS, err error) {
+				assert.EqualError(t, err, "an application with the same name already exists in 'https://github.com/owner/other_name.git', consider choosing a different name")
 			},
 		},
 	}
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
-			app, repofs, projectName := tt.beforeFn()
+			app, repofs, appsfs, projectName := tt.beforeFn()
 			bootstrapMockFS(t, repofs)
-			err := app.CreateFiles(repofs, projectName)
-			tt.assertFn(t, repofs, err)
+			err := app.CreateFiles(repofs, appsfs, projectName)
+			tt.assertFn(t, repofs, appsfs, err)
 		})
 	}
 }
@@ -691,7 +769,7 @@ func Test_dirApp_CreateFiles(t *testing.T) {
 		t.Run(tname, func(t *testing.T) {
 			repofs := fs.Create(memfs.New())
 			bootstrapMockFS(t, repofs)
-			tt.assertFn(t, repofs, tt.app.CreateFiles(repofs, tt.projectName))
+			tt.assertFn(t, repofs, tt.app.CreateFiles(repofs, repofs, tt.projectName))
 		})
 	}
 }

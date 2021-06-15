@@ -57,7 +57,7 @@ func TestNewRepoSpecFromUrl(t *testing.T) {
 			for _, pathName := range pathNames {
 				for _, hrefArg := range hrefArgs {
 					uri := makeUrl(hostRaw, orgRepo, pathName, hrefArg)
-					host, org, path, ref, _ := parseGitUrl(uri)
+					host, org, path, ref, _ := ParseGitUrl(uri)
 					if host != hostSpec {
 						bad = append(bad, []string{"host", uri, host, hostSpec})
 					}
@@ -143,7 +143,7 @@ func TestNewRepoSpecFromUrl_CloneSpecs(t *testing.T) {
 		},
 	}
 	for _, testcase := range testcases {
-		host, orgRepo, path, ref, suffix := parseGitUrl(testcase.input)
+		host, orgRepo, path, ref, suffix := ParseGitUrl(testcase.input)
 		cloneSpec := host + orgRepo + suffix
 		if cloneSpec != testcase.cloneSpec {
 			t.Errorf("CloneSpec expected to be %v, but got %v on %s", testcase.cloneSpec, cloneSpec, testcase.input)

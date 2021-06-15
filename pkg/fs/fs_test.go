@@ -1,6 +1,7 @@
 package fs
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"reflect"
@@ -17,6 +18,12 @@ import (
 	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+type (
+	SampleJson struct {
+		Name string `json:"name"`
+	}
 )
 
 func TestCreate(t *testing.T) {
@@ -486,6 +493,97 @@ func Test_fsimpl_WriteYamls(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			fs := Create(memfs.New())
 			if err := fs.WriteYamls("filename", tt.o...); err != nil {
+				if tt.wantErr != "" {
+					assert.EqualError(t, err, tt.wantErr)
+				} else {
+					t.Errorf("WriteYamls() error = %v", err)
+				}
+
+				return
+			}
+
+			if tt.assertFn != nil {
+				tt.assertFn(t, fs)
+			}
+		})
+	}
+}
+
+func Test_fsimpl_ReadJson(t *testing.T) {
+	tests := map[string]struct {
+		o        interface{}
+		wantErr  string
+		beforeFn func() FS
+		assertFn func(*testing.T, interface{})
+	}{
+		"Should read a simple json file": {
+			o: &SampleJson{},
+			beforeFn: func() FS {
+				j, _ := json.Marshal(&SampleJson{
+					Name: "name",
+				})
+				memfs := memfs.New()
+				_ = billyUtils.WriteFile(memfs, "filename", j, 0666)
+				return Create(memfs)
+			},
+			assertFn: func(t *testing.T, o interface{}) {
+				j := o.(*SampleJson)
+				assert.Equal(t, "name", j.Name)
+			},
+		},
+		"Should fail if file does not exist": {
+			o:       &SampleJson{},
+			wantErr: os.ErrNotExist.Error(),
+			beforeFn: func() FS {
+				memfs := memfs.New()
+				return Create(memfs)
+			},
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			fs := tt.beforeFn()
+			if err := fs.ReadJson("filename", tt.o); err != nil {
+				if tt.wantErr != "" {
+					assert.EqualError(t, err, tt.wantErr)
+				} else {
+					t.Errorf("ReadYamls() error = %v", err)
+				}
+
+				return
+			}
+
+			if tt.assertFn != nil {
+				tt.assertFn(t, tt.o)
+			}
+		})
+	}
+}
+
+func Test_fsimpl_WriteJson(t *testing.T) {
+	tests := map[string]struct {
+		o        interface{}
+		wantErr  string
+		assertFn func(*testing.T, FS)
+	}{
+		"Should write a simple file": {
+			o: &SampleJson{
+				Name: "name",
+			},
+			assertFn: func(t *testing.T, fs FS) {
+				data, err := fs.ReadFile("filename")
+				assert.NoError(t, err)
+				j := &SampleJson{}
+				err = yaml.Unmarshal(data, j)
+				assert.NoError(t, err)
+				assert.Equal(t, "name", j.Name)
+			},
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			fs := Create(memfs.New())
+			if err := fs.WriteJson("filename", tt.o); err != nil {
 				if tt.wantErr != "" {
 					assert.EqualError(t, err, tt.wantErr)
 				} else {

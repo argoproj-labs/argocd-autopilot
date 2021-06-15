@@ -23,9 +23,21 @@ argocd-autopilot application create [APP_NAME] [flags]
 # using the --type flag (kustomize|dir) is optional. If it is ommitted, argocd-autopilot will clone
 # the --app repository, and infer the type automatically.
 
-# Create a new application from kustomization in a remote repository
+# Create a new application from kustomization in a remote repository (will reference the HEAD revision)
 
-    argocd-autopilot app create <new_app_name> --app github.com/some_org/some_repo/manifests?ref=v1.2.3 --project project_name
+    argocd-autopilot app create <new_app_name> --app github.com/some_org/some_repo/manifests --project project_name
+
+# Reference a specific git commit hash:
+
+  argocd-autopilot app create <new_app_name> --app github.com/some_org/some_repo/manifests?sha=<commit_hash> --project project_name
+
+# Reference a specific git tag:
+
+  argocd-autopilot app create <new_app_name> --app github.com/some_org/some_repo/manifests?tag=<tag_name> --project project_name
+
+# Reference a specific git branch:
+
+  argocd-autopilot app create <new_app_name> --app github.com/some_org/some_repo/manifests?ref=<branch_name> --project project_name
 
 ```
 
@@ -33,6 +45,8 @@ argocd-autopilot application create [APP_NAME] [flags]
 
 ```
       --app string                 The application specifier (e.g. github.com/argoproj/argo-workflows/manifests/cluster-install/?ref=v3.0.3)
+      --apps-git-token string      Your git provider api token [APPS_GIT_TOKEN]
+      --apps-repo string           Repository URL [APPS_GIT_REPO]
       --dest-namespace string      K8s target namespace (overrides the namespace specified in the kustomization.yaml)
       --dest-server string         K8s cluster URL (e.g. https://kubernetes.default.svc) (default "https://kubernetes.default.svc")
   -h, --help                       help for create

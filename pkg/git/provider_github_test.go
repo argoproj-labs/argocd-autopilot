@@ -8,7 +8,7 @@ import (
 
 	"github.com/argoproj-labs/argocd-autopilot/pkg/git/github/mocks"
 
-	gh "github.com/google/go-github/v34/github"
+	gh "github.com/google/go-github/v35/github"
 	"github.com/stretchr/testify/assert"
 )
 

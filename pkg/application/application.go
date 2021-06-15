@@ -51,7 +51,7 @@ type (
 	Application interface {
 		Name() string
 
-		CreateFiles(repofs fs.FS, projectName string) error
+		CreateFiles(repofs fs.FS, appsfs fs.FS, projectName string) error
 	}
 
 	Config struct {
@@ -288,48 +288,55 @@ func newKustApp(o *CreateOptions, projectName, repoURL, targetRevision, repoRoot
 	return app, nil
 }
 
-func (app *kustApp) CreateFiles(repofs fs.FS, projectName string) error {
-	return kustCreateFiles(app, repofs, projectName)
+func (app *kustApp) CreateFiles(repofs fs.FS, appsfs fs.FS, projectName string) error {
+	return kustCreateFiles(app, repofs, appsfs, projectName)
 }
 
-func kustCreateFiles(app *kustApp, repofs fs.FS, projectName string) error {
+func kustCreateFiles(app *kustApp, repofs fs.FS, appsfs fs.FS, projectName string) error {
 	var err error
 
 	// create Base
-	appPath := repofs.Join(store.Default.AppsDir, app.Name())
-	basePath := repofs.Join(appPath, "base")
-	baseKustomizationPath := repofs.Join(basePath, "kustomization.yaml")
+	appPath := appsfs.Join(store.Default.AppsDir, app.Name())
+	basePath := appsfs.Join(appPath, "base")
+	baseKustomizationPath := appsfs.Join(basePath, "kustomization.yaml")
 
-	// check if base is in the same filesystem
-	if repofs.ExistsOrDie(baseKustomizationPath) {
+	// check if app is in the same filesystem
+	if appsfs.ExistsOrDie(appPath) {
 		// check if the bases are the same
-		log.G().Debug("application base with the same name exists, checking for collisions")
-		if collision, err := checkBaseCollision(repofs, baseKustomizationPath, app.base); err != nil {
+		log.G().Debug("application with the same name exists, checking for collisions")
+		if collision, err := checkBaseCollision(appsfs, baseKustomizationPath, app.base); err != nil {
 			return err
 		} else if collision {
 			return ErrAppCollisionWithExistingBase
 		}
+	} else if appsfs != repofs && repofs.ExistsOrDie(appPath) {
+		appRepo, err := getAppRepo(repofs, app.Name())
+		if err != nil {
+			return fmt.Errorf("Failed getting app repo: %v", err)
+		}
+
+		return fmt.Errorf("an application with the same name already exists in '%s', consider choosing a different name", appRepo)
 	}
 
-	if err = repofs.WriteYamls(baseKustomizationPath, app.base); err != nil {
+	if err = appsfs.WriteYamls(baseKustomizationPath, app.base); err != nil {
 		return err
 	}
 
 	// create Overlay
-	overlayPath := repofs.Join(appPath, "overlays", projectName)
-	overlayKustomizationPath := repofs.Join(overlayPath, "kustomization.yaml")
-	if repofs.ExistsOrDie(overlayKustomizationPath) {
+	overlayPath := appsfs.Join(appPath, "overlays", projectName)
+	overlayKustomizationPath := appsfs.Join(overlayPath, "kustomization.yaml")
+	if appsfs.ExistsOrDie(overlayKustomizationPath) {
 		return ErrAppAlreadyInstalledOnProject
 	}
 
-	if err = repofs.WriteYamls(overlayKustomizationPath, app.overlay); err != nil {
+	if err = appsfs.WriteYamls(overlayKustomizationPath, app.overlay); err != nil {
 		return err
 	}
 
 	// create manifests - only used in flat installation mode
 	if app.manifests != nil {
-		manifestsPath := repofs.Join(basePath, "install.yaml")
-		if _, err = writeFile(repofs, manifestsPath, "manifests", app.manifests); err != nil {
+		manifestsPath := appsfs.Join(basePath, "install.yaml")
+		if _, err = writeFile(appsfs, manifestsPath, "manifests", app.manifests); err != nil {
 			return err
 		}
 	}
@@ -346,6 +353,10 @@ func kustCreateFiles(app *kustApp, repofs fs.FS, projectName string) error {
 	}
 
 	configPath := repofs.Join(overlayPath, "config.json")
+	if repofs != appsfs {
+		configPath = repofs.Join(appPath, projectName, "config.json")
+	}
+
 	config, err := json.Marshal(app.config)
 	if err != nil {
 		return fmt.Errorf("failed to marshal app config.json: %w", err)
@@ -405,7 +416,7 @@ func newDirApp(opts *CreateOptions) *dirApp {
 	return app
 }
 
-func (app *dirApp) CreateFiles(repofs fs.FS, projectName string) error {
+func (app *dirApp) CreateFiles(repofs fs.FS, appsfs fs.FS, projectName string) error {
 	basePath := repofs.Join(store.Default.AppsDir, app.opts.AppName, projectName)
 	configPath := repofs.Join(basePath, "config.json")
 	config, err := json.Marshal(app.config)
@@ -522,4 +533,18 @@ var generateManifests = func(k *kusttypes.Kustomization) ([]byte, error) {
 	}
 
 	return res.AsYaml()
+}
+
+var getAppRepo = func(repofs fs.FS, appName string) (string, error) {
+	overlays, err := billyUtils.Glob(repofs, repofs.Join(store.Default.AppsDir, appName, store.Default.OverlaysDir, "**", "config.json"))
+	if err != nil {
+		return "", err
+	}
+
+	if len(overlays) == 0 {
+		return "", fmt.Errorf("Application '%s' has no overlays", appName)
+	}
+
+	c := &Config{}
+	return c.SrcRepoURL, repofs.ReadJson(overlays[0], c)
 }
