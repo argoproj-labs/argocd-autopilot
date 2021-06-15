@@ -113,10 +113,11 @@ func (o *CloneOptions) Parse() {
 	var (
 		host    string
 		orgRepo string
+		suffix  string
 	)
 
-	host, orgRepo, o.path, o.revision, _, _, _ = util.ParseGitUrl(o.Repo)
-	o.url = host + orgRepo
+	host, orgRepo, o.path, o.revision, suffix = util.ParseGitUrl(o.Repo)
+	o.url = host + orgRepo + suffix
 }
 
 func (o *CloneOptions) Clone(ctx context.Context) (Repository, fs.FS, error) {
@@ -153,7 +154,7 @@ func (o *CloneOptions) URL() string {
 }
 
 func (o *CloneOptions) Revision() string {
-	return o.revision
+	return plumbing.ReferenceName(o.revision).Short()
 }
 
 func (o *CloneOptions) Path() string {
@@ -208,7 +209,7 @@ var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 	}
 
 	if opts.revision != "" {
-		cloneOpts.ReferenceName = plumbing.NewBranchReferenceName(opts.revision)
+		cloneOpts.ReferenceName = plumbing.ReferenceName(opts.revision)
 	}
 
 	log.G(ctx).WithFields(log.Fields{

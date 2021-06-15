@@ -8,7 +8,6 @@ package util
 
 import (
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -21,42 +20,43 @@ const (
 // From strings like git@github.com:someOrg/someRepo.git or
 // https://github.com/someOrg/someRepo?ref=someHash, extract
 // the parts.
-func ParseGitUrl(n string) (
-	host string, orgRepo string, path string, gitRef string, gitSubmodules bool, gitSuff string, gitTimeout time.Duration) {
-
+func ParseGitUrl(n string) (host, orgRepo, path, ref, gitSuff string) {
 	if strings.Contains(n, gitDelimiter) {
 		index := strings.Index(n, gitDelimiter)
 		// Adding _git/ to host
 		host = normalizeGitHostSpec(n[:index+len(gitDelimiter)])
 		orgRepo = strings.Split(strings.Split(n[index+len(gitDelimiter):], "/")[0], "?")[0]
-		path, gitRef, gitTimeout, gitSubmodules = peelQuery(n[index+len(gitDelimiter)+len(orgRepo):])
+		path, ref = peelQuery(n[index+len(gitDelimiter)+len(orgRepo):])
 		return
 	}
+
 	host, n = parseHostSpec(n)
 	gitSuff = gitSuffix
 	if strings.Contains(n, gitSuffix) {
 		index := strings.Index(n, gitSuffix)
 		orgRepo = n[0:index]
 		n = n[index+len(gitSuffix):]
-		path, gitRef, gitTimeout, gitSubmodules = peelQuery(n)
+		path, ref = peelQuery(n)
 		return
 	}
 
 	i := strings.Index(n, "/")
 	if i < 1 {
-		path, gitRef, gitTimeout, gitSubmodules = peelQuery(n)
+		path, ref = peelQuery(n)
 		return
 	}
+
 	j := strings.Index(n[i+1:], "/")
 	if j >= 0 {
 		j += i + 1
 		orgRepo = n[:j]
-		path, gitRef, gitTimeout, gitSubmodules = peelQuery(n[j+1:])
+		path, ref = peelQuery(n[j+1:])
 		return
 	}
+
 	path = ""
-	orgRepo, gitRef, gitTimeout, gitSubmodules = peelQuery(n)
-	return host, orgRepo, path, gitRef, gitSubmodules, gitSuff, gitTimeout
+	orgRepo, ref = peelQuery(n)
+	return
 }
 
 // Clone git submodules by default.
@@ -65,45 +65,25 @@ const defaultSubmodules = true
 // Arbitrary, but non-infinite, timeout for running commands.
 const defaultTimeout = 27 * time.Second
 
-func peelQuery(arg string) (string, string, time.Duration, bool) {
-	// Parse the given arg into a URL. In the event of a parse failure, return
-	// our defaults.
+func peelQuery(arg string) (path, ref string) {
 	parsed, err := url.Parse(arg)
 	if err != nil {
-		return arg, "", defaultTimeout, defaultSubmodules
+		return path, ""
 	}
+
 	values := parsed.Query()
-
-	// ref is the desired git ref to target. Can be specified by in a git URL
-	// with ?ref=<string> or ?version=<string>, although ref takes precedence.
-	ref := values.Get("version")
-	if queryValue := values.Get("ref"); queryValue != "" {
-		ref = queryValue
+	branch := values.Get("ref")
+	tag := values.Get("tag")
+	sha := values.Get("sha")
+	if sha != "" {
+		ref = sha
+	} else if tag != "" {
+		ref = "refs/tags/" + tag
+	} else if branch != "" {
+		ref = "refs/heads/" + branch
 	}
 
-	// depth is the desired git exec timeout. Can be specified by in a git URL
-	// with ?timeout=<duration>.
-	duration := defaultTimeout
-	if queryValue := values.Get("timeout"); queryValue != "" {
-		// Attempt to first parse as a number of integer seconds (like "61"),
-		// and then attempt to parse as a suffixed duration (like "61s").
-		if intValue, err := strconv.Atoi(queryValue); err == nil && intValue > 0 {
-			duration = time.Duration(intValue) * time.Second
-		} else if durationValue, err := time.ParseDuration(queryValue); err == nil && durationValue > 0 {
-			duration = durationValue
-		}
-	}
-
-	// submodules indicates if git submodule cloning is desired. Can be
-	// specified by in a git URL with ?submodules=<bool>.
-	submodules := defaultSubmodules
-	if queryValue := values.Get("submodules"); queryValue != "" {
-		if boolValue, err := strconv.ParseBool(queryValue); err == nil {
-			submodules = boolValue
-		}
-	}
-
-	return parsed.Path, ref, duration, submodules
+	return parsed.Path, ref
 }
 
 func parseHostSpec(n string) (string, string) {

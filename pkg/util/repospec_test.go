@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"testing"
-	"time"
 )
 
 const refQuery = "?ref="
@@ -58,7 +57,7 @@ func TestNewRepoSpecFromUrl(t *testing.T) {
 			for _, pathName := range pathNames {
 				for _, hrefArg := range hrefArgs {
 					uri := makeUrl(hostRaw, orgRepo, pathName, hrefArg)
-					host, org, path, ref, _, _, _ := ParseGitUrl(uri)
+					host, org, path, ref, _ := ParseGitUrl(uri)
 					if host != hostSpec {
 						bad = append(bad, []string{"host", uri, host, hostSpec})
 					}
@@ -68,7 +67,7 @@ func TestNewRepoSpecFromUrl(t *testing.T) {
 					if path != pathName {
 						bad = append(bad, []string{"path", uri, path, pathName})
 					}
-					if ref != hrefArg {
+					if hrefArg != "" && ref != "refs/heads/"+hrefArg {
 						bad = append(bad, []string{"ref", uri, ref, hrefArg})
 					}
 				}
@@ -93,6 +92,8 @@ func TestNewRepoSpecFromUrl_CloneSpecs(t *testing.T) {
 		cloneSpec string
 		absPath   string
 		ref       string
+		tag       string
+		sha       string
 	}{
 		{
 			input:     "http://github.com/someorg/somerepo/somedir",
@@ -107,22 +108,28 @@ func TestNewRepoSpecFromUrl_CloneSpecs(t *testing.T) {
 			ref:       "",
 		},
 		{
-			input:     "git@gitlab2.sqtools.ru:10022/infra/kubernetes/thanos-base.git?ref=v0.1.0",
+			input:     "git@gitlab2.sqtools.ru:10022/infra/kubernetes/thanos-base.git?ref=branch",
 			cloneSpec: "git@gitlab2.sqtools.ru:10022/infra/kubernetes/thanos-base.git",
 			absPath:   "",
-			ref:       "v0.1.0",
+			ref:       "refs/heads/branch",
+		},
+		{
+			input:     "git@gitlab2.sqtools.ru:10022/infra/kubernetes/thanos-base.git?tag=v0.1.0",
+			cloneSpec: "git@gitlab2.sqtools.ru:10022/infra/kubernetes/thanos-base.git",
+			absPath:   "",
+			ref:       "refs/tags/v0.1.0",
+		},
+		{
+			input:     "git@gitlab2.sqtools.ru:10022/infra/kubernetes/thanos-base.git?sha=some_sha",
+			cloneSpec: "git@gitlab2.sqtools.ru:10022/infra/kubernetes/thanos-base.git",
+			absPath:   "",
+			ref:       "some_sha",
 		},
 		{
 			input:     "https://itfs.mycompany.com/collection/project/_git/somerepos",
 			cloneSpec: "https://itfs.mycompany.com/collection/project/_git/somerepos",
 			absPath:   "",
 			ref:       "",
-		},
-		{
-			input:     "https://itfs.mycompany.com/collection/project/_git/somerepos?version=v1.0.0",
-			cloneSpec: "https://itfs.mycompany.com/collection/project/_git/somerepos",
-			absPath:   "",
-			ref:       "v1.0.0",
 		},
 		{
 			input:     "git::https://itfs.mycompany.com/collection/project/_git/somerepos",
@@ -132,19 +139,18 @@ func TestNewRepoSpecFromUrl_CloneSpecs(t *testing.T) {
 		},
 	}
 	for _, testcase := range testcases {
-		host, orgRepo, path, ref, _, suffix, _ := ParseGitUrl(testcase.input)
+		host, orgRepo, path, ref, suffix := ParseGitUrl(testcase.input)
 		cloneSpec := host + orgRepo + suffix
 		if cloneSpec != testcase.cloneSpec {
-			t.Errorf("CloneSpec expected to be %v, but got %v on %s",
-				testcase.cloneSpec, cloneSpec, testcase.input)
+			t.Errorf("CloneSpec expected to be %v, but got %v on %s", testcase.cloneSpec, cloneSpec, testcase.input)
 		}
+
 		if path != testcase.absPath {
-			t.Errorf("AbsPath expected to be %v, but got %v on %s",
-				testcase.absPath, path, testcase.input)
+			t.Errorf("AbsPath expected to be %v, but got %v on %s", testcase.absPath, path, testcase.input)
 		}
+
 		if ref != testcase.ref {
-			t.Errorf("ref expected to be %v, but got %v on %s",
-				testcase.ref, ref, testcase.input)
+			t.Errorf("ref expected to be %v, but got %v on %s", testcase.ref, ref, testcase.input)
 		}
 	}
 }
@@ -153,131 +159,52 @@ func TestPeelQuery(t *testing.T) {
 	testcases := []struct {
 		input string
 
-		path       string
-		ref        string
-		submodules bool
-		timeout    time.Duration
+		path string
+		ref  string
 	}{
 		{
 			// All empty.
-			input:      "somerepos",
-			path:       "somerepos",
-			ref:        "",
-			submodules: defaultSubmodules,
-			timeout:    defaultTimeout,
+			input: "somerepos",
+			path:  "somerepos",
 		},
 		{
-			input:      "somerepos?ref=v1.0.0",
-			path:       "somerepos",
-			ref:        "v1.0.0",
-			submodules: defaultSubmodules,
-			timeout:    defaultTimeout,
+			input: "somerepos?ref=branch",
+			path:  "somerepos",
+			ref:   "refs/heads/branch",
 		},
 		{
-			input:      "somerepos?version=master",
-			path:       "somerepos",
-			ref:        "master",
-			submodules: defaultSubmodules,
-			timeout:    defaultTimeout,
+			input: "somerepos?tag=v1.0.0",
+			path:  "somerepos",
+			ref:   "refs/tags/v1.0.0",
 		},
 		{
-			// A ref value takes precedence over a version value.
-			input:      "somerepos?version=master&ref=v1.0.0",
-			path:       "somerepos",
-			ref:        "v1.0.0",
-			submodules: defaultSubmodules,
-			timeout:    defaultTimeout,
+			input: "somerepos?sha=some_sha",
+			path:  "somerepos",
+			ref:   "some_sha",
 		},
 		{
-			// Empty submodules value uses default.
-			input:      "somerepos?version=master&submodules=",
-			path:       "somerepos",
-			ref:        "master",
-			submodules: defaultSubmodules,
-			timeout:    defaultTimeout,
+			input: "somerepos?ref=branch&tag=v1.0.0",
+			path:  "somerepos",
+			ref:   "refs/tags/v1.0.0",
 		},
 		{
-			// Malformed submodules value uses default.
-			input:      "somerepos?version=master&submodules=maybe",
-			path:       "somerepos",
-			ref:        "master",
-			submodules: defaultSubmodules,
-			timeout:    defaultTimeout,
+			input: "somerepos?ref=branch&sha=some_sha",
+			path:  "somerepos",
+			ref:   "some_sha",
 		},
 		{
-			input:      "somerepos?version=master&submodules=true",
-			path:       "somerepos",
-			ref:        "master",
-			submodules: true,
-			timeout:    defaultTimeout,
-		},
-		{
-			input:      "somerepos?version=master&submodules=false",
-			path:       "somerepos",
-			ref:        "master",
-			submodules: false,
-			timeout:    defaultTimeout,
-		},
-		{
-			// Empty timeout value uses default.
-			input:      "somerepos?version=master&timeout=",
-			path:       "somerepos",
-			ref:        "master",
-			submodules: defaultSubmodules,
-			timeout:    defaultTimeout,
-		},
-		{
-			// Malformed timeout value uses default.
-			input:      "somerepos?version=master&timeout=jiffy",
-			path:       "somerepos",
-			ref:        "master",
-			submodules: defaultSubmodules,
-			timeout:    defaultTimeout,
-		},
-		{
-			// Zero timeout value uses default.
-			input:      "somerepos?version=master&timeout=0",
-			path:       "somerepos",
-			ref:        "master",
-			submodules: defaultSubmodules,
-			timeout:    defaultTimeout,
-		},
-		{
-			input:      "somerepos?version=master&timeout=0s",
-			path:       "somerepos",
-			ref:        "master",
-			submodules: defaultSubmodules,
-			timeout:    defaultTimeout,
-		},
-		{
-			input:      "somerepos?version=master&timeout=61",
-			path:       "somerepos",
-			ref:        "master",
-			submodules: defaultSubmodules,
-			timeout:    61 * time.Second,
-		},
-		{
-			input:      "somerepos?version=master&timeout=1m1s",
-			path:       "somerepos",
-			ref:        "master",
-			submodules: defaultSubmodules,
-			timeout:    61 * time.Second,
-		},
-		{
-			input:      "somerepos?version=master&submodules=false&timeout=1m1s",
-			path:       "somerepos",
-			ref:        "master",
-			submodules: false,
-			timeout:    61 * time.Second,
+			input: "somerepos?sha=some_sha&tag=v1.0.0",
+			path:  "somerepos",
+			ref:   "some_sha",
 		},
 	}
 
 	for _, testcase := range testcases {
-		path, ref, timeout, submodules := peelQuery(testcase.input)
-		if path != testcase.path || ref != testcase.ref || timeout != testcase.timeout || submodules != testcase.submodules {
-			t.Errorf("peelQuery: expected (%s, %s, %v, %v) got (%s, %s, %v, %v) on %s",
-				testcase.path, testcase.ref, testcase.timeout, testcase.submodules,
-				path, ref, timeout, submodules,
+		path, ref := peelQuery(testcase.input)
+		if path != testcase.path || ref != testcase.ref {
+			t.Errorf("peelQuery: expected (%s, %s) got (%s, %s) on %s",
+				testcase.path, testcase.ref,
+				path, ref,
 				testcase.input)
 		}
 	}

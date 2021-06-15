@@ -56,7 +56,7 @@ func TestRunRepoCreate(t *testing.T) {
 					Repo: "https://github.com/owner/name/path?ref=revision",
 				}
 				expected.Parse()
-				assert.Equal(t, "https://github.com/owner/name", cloneOpts.URL())
+				assert.Equal(t, "https://github.com/owner/name.git", cloneOpts.URL())
 				assert.Equal(t, "revision", cloneOpts.Revision())
 				assert.Equal(t, "path", cloneOpts.Path())
 				mp.AssertCalled(t, "CreateRepository", mock.Anything, mock.Anything)
@@ -247,7 +247,7 @@ func Test_buildBootstrapManifests(t *testing.T) {
 
 				argocdApp := &argocdv1alpha1.Application{}
 				assert.NoError(t, yaml.Unmarshal(b.argocdApp, argocdApp))
-				assert.Equal(t, "https://github.com/foo/bar", argocdApp.Spec.Source.RepoURL)
+				assert.Equal(t, "https://github.com/foo/bar.git", argocdApp.Spec.Source.RepoURL)
 				assert.Equal(t, filepath.Join("installation1", store.Default.BootsrtrapDir, store.Default.ArgoCDName), argocdApp.Spec.Source.Path)
 				assert.Equal(t, "main", argocdApp.Spec.Source.TargetRevision)
 				assert.Equal(t, 0, len(argocdApp.ObjectMeta.Finalizers))
@@ -256,7 +256,7 @@ func Test_buildBootstrapManifests(t *testing.T) {
 
 				bootstrapApp := &argocdv1alpha1.Application{}
 				assert.NoError(t, yaml.Unmarshal(b.bootstrapApp, bootstrapApp))
-				assert.Equal(t, "https://github.com/foo/bar", bootstrapApp.Spec.Source.RepoURL)
+				assert.Equal(t, "https://github.com/foo/bar.git", bootstrapApp.Spec.Source.RepoURL)
 				assert.Equal(t, filepath.Join("installation1", store.Default.BootsrtrapDir), bootstrapApp.Spec.Source.Path)
 				assert.Equal(t, "main", bootstrapApp.Spec.Source.TargetRevision)
 				assert.NotEqual(t, 0, len(bootstrapApp.ObjectMeta.Finalizers))
@@ -265,7 +265,7 @@ func Test_buildBootstrapManifests(t *testing.T) {
 
 				rootApp := &argocdv1alpha1.Application{}
 				assert.NoError(t, yaml.Unmarshal(b.rootApp, rootApp))
-				assert.Equal(t, "https://github.com/foo/bar", rootApp.Spec.Source.RepoURL)
+				assert.Equal(t, "https://github.com/foo/bar.git", rootApp.Spec.Source.RepoURL)
 				assert.Equal(t, filepath.Join("installation1", store.Default.ProjectsDir), rootApp.Spec.Source.Path)
 				assert.Equal(t, "main", rootApp.Spec.Source.TargetRevision)
 				assert.NotEqual(t, 0, len(rootApp.ObjectMeta.Finalizers))
@@ -296,7 +296,6 @@ func Test_buildBootstrapManifests(t *testing.T) {
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
 			tt.args.cloneOpts.Parse()
-
 			b, ret := buildBootstrapManifests(
 				tt.args.namespace,
 				tt.args.appSpecifier,
