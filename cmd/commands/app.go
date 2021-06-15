@@ -170,9 +170,7 @@ func setAppOptsDefaults(ctx context.Context, repofs fs.FS, opts *AppCreateOption
 		// local directory
 		fsys = fs.Create(osfs.New(opts.AppOpts.AppSpecifier))
 	} else {
-		host, orgRepo, p, _, _, _, _ := util.ParseGitUrl(opts.AppOpts.AppSpecifier)
-		url := host + orgRepo
-		log.G().Infof("cloning repo: '%s', to infer app type from path '%s'", url, p)
+		log.G().Infof("trying to infer application type from '%s'", opts.AppOpts.AppSpecifier)
 		cloneOpts := &git.CloneOptions{
 			Repo: opts.AppOpts.AppSpecifier,
 			Auth: opts.CloneOpts.Auth,
