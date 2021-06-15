@@ -88,9 +88,21 @@ func NewAppCreateCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 # using the --type flag (kustomize|dir) is optional. If it is ommitted, <BIN> will clone
 # the --app repository, and infer the type automatically.
 
-# Create a new application from kustomization in a remote repository
+# Create a new application from kustomization in a remote repository (will reference the HEAD revision)
 
-	<BIN> app create <new_app_name> --app github.com/some_org/some_repo/manifests?ref=v1.2.3 --project project_name
+	<BIN> app create <new_app_name> --app github.com/some_org/some_repo/manifests --project project_name
+
+# Reference a specific git commit hash:
+
+  <BIN> app create <new_app_name> --app github.com/some_org/some_repo/manifests?sha=<commit_hash> --project project_name
+
+# Reference a specific git tag:
+
+  <BIN> app create <new_app_name> --app github.com/some_org/some_repo/manifests?tag=<tag_name> --project project_name
+
+# Reference a specific git branch:
+
+  <BIN> app create <new_app_name> --app github.com/some_org/some_repo/manifests?ref=<branch_name> --project project_name
 `),
 		PreRun: func(_ *cobra.Command, _ []string) {
 			cloneOpts.Parse()
