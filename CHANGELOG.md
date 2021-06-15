@@ -1,5 +1,18 @@
 # Changelog:
 
+# v0.2.2
+
+### Bug fixes:
+* App type infer fails when --app value references a tag [#97](https://github.com/argoproj-labs/argocd-autopilot/issues/97)
+* Deleting the bootstrap app hangs while deleting the entire hierarchy [#99](https://github.com/argoproj-labs/argocd-autopilot/issues/99)
+
+### Breaking Changes:
+* when sending `--app` flag value, use either `?sha=<sha_value>`, `?tag=<tag_name>` or `?ref=<branch_name>` to specificy sha|tag|branch to clone from [#98](https://github.com/argoproj-labs/argocd-autopilot/pull/98)
+
+### Additional changes:
+* update docs about secrets not yet supported [#93](https://github.com/argoproj-labs/argocd-autopilot/pull/93)
+* Support using 2 repos for Kustomize apps [#97](https://github.com/argoproj-labs/argocd-autopilot/issues/97)
+
 # v0.2.1
 
 ### Bug fixes:

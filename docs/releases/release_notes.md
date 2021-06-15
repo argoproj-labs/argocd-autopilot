@@ -1,12 +1,13 @@
 ### Bug fixes:
-* app create does not work with local path (tries to infer application type by cloning) [#87](https://github.com/argoproj-labs/argocd-autopilot/issues/87)
-* Clone logs not displaying correct values
-* Debug logs not showing
+* App type infer fails when --app value references a tag (#97)[https://github.com/argoproj-labs/argocd-autopilot/issues/97]
+* Deleting the bootstrap app hangs while deleting the entire hierarchy (#99)[https://github.com/argoproj-labs/argocd-autopilot/issues/99]
+
+### Breaking Changes:
+* when sending `--app` flag value, use either `?sha=<sha_value>`, `?tag=<tag_name>` or `?ref=<branch_name>` to specificy sha|tag|branch to clone from (#98)[https://github.com/argoproj-labs/argocd-autopilot/pull/98]
 
 ### Additional changes:
-* Updated k8s dependencies from v0.20.4 to v0.21.1
-* Added `--progress` flag to redirect the git operations
-* `CloneOptions.FS` is now `fs.FS` instead of `billy.Filesystem`
+* update docs about secrets not yet supported [#93](https://github.com/argoproj-labs/argocd-autopilot/pull/93)
+* Support using 2 repos for Kustomize apps [#97](https://github.com/argoproj-labs/argocd-autopilot/issues/97)
 
 ### Contributors:
 - Roi Kramer ([@roi-codefresh](https://github.com/roi-codefresh))
