@@ -518,16 +518,16 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 	}
 
 	manifests.clusterResAppSet, err = createAppSet(&createAppSetOptions{
-		name:         store.Default.ClusterResourcesDir,
-		namespace:    namespace,
-		repoURL:      cloneOpts.URL(),
-		revision:     cloneOpts.Revision(),
-		appName:      store.Default.ClusterResourcesDir + "-{{name}}",
-		appNamespace: namespace,
-		destServer:   "{{server}}",
-		noFinalizer:  true,
-		prune:        false,
-		srcPath:      filepath.Join(cloneOpts.Path(), store.Default.BootsrtrapDir, store.Default.ClusterResourcesDir, "{{name}}"),
+		name:                        store.Default.ClusterResourcesDir,
+		namespace:                   namespace,
+		repoURL:                     cloneOpts.URL(),
+		revision:                    cloneOpts.Revision(),
+		appName:                     store.Default.ClusterResourcesDir + "-{{name}}",
+		appNamespace:                namespace,
+		destServer:                  "{{server}}",
+		prune:                       false,
+		preserveResourcesOnDeletion: true,
+		srcPath:                     filepath.Join(cloneOpts.Path(), store.Default.BootsrtrapDir, store.Default.ClusterResourcesDir, "{{name}}"),
 		generators: []appset.ApplicationSetGenerator{
 			{
 				Git: &appset.GitGenerator{

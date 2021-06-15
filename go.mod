@@ -26,6 +26,7 @@ require (
 )
 
 replace (
+	github.com/argoproj-labs/applicationset => github.com/argoproj-labs/applicationset v0.0.0-20210614145856-2c62537a8e5a
 	k8s.io/api => k8s.io/api v0.21.1
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.21.1
 	k8s.io/apimachinery => k8s.io/apimachinery v0.21.1
