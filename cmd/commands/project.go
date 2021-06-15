@@ -231,6 +231,7 @@ func generateProjectManifests(o *GenerateProjectOptions) (projectYAML, appSetYAM
 			Name:      o.Name,
 			Namespace: o.Namespace,
 			Annotations: map[string]string{
+				"argocd.argoproj.io/sync-wave":     "-2",
 				"argocd.argoproj.io/sync-options":  "PruneLast=true",
 				store.Default.DestServerAnnotation: o.DefaultDestServer,
 			},
@@ -264,17 +265,18 @@ func generateProjectManifests(o *GenerateProjectOptions) (projectYAML, appSetYAM
 	}
 
 	appSetYAML, err = createAppSet(&createAppSetOptions{
-		name:          o.Name,
-		namespace:     o.Namespace,
-		appName:       fmt.Sprintf("%s-{{ userGivenName }}", o.Name),
-		appNamespace:  o.Namespace,
-		appProject:    o.Name,
-		repoURL:       "{{ srcRepoURL }}",
-		srcPath:       "{{ srcPath }}",
-		revision:      "{{ srcTargetRevision }}",
-		destServer:    "{{ destServer }}",
-		destNamespace: "{{ destNamespace }}",
-		prune:         true,
+		name:                        o.Name,
+		namespace:                   o.Namespace,
+		appName:                     fmt.Sprintf("%s-{{ userGivenName }}", o.Name),
+		appNamespace:                o.Namespace,
+		appProject:                  o.Name,
+		repoURL:                     "{{ srcRepoURL }}",
+		srcPath:                     "{{ srcPath }}",
+		revision:                    "{{ srcTargetRevision }}",
+		destServer:                  "{{ destServer }}",
+		destNamespace:               "{{ destNamespace }}",
+		prune:                       true,
+		preserveResourcesOnDeletion: false,
 		appLabels: map[string]string{
 			"app.kubernetes.io/managed-by": store.Default.ManagedBy,
 			"app.kubernetes.io/name":       "{{ appName }}",

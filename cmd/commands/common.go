@@ -120,8 +120,9 @@ func createApp(opts *createAppOptions) ([]byte, error) {
 			},
 			SyncPolicy: &argocdv1alpha1.SyncPolicy{
 				Automated: &argocdv1alpha1.SyncPolicyAutomated{
-					SelfHeal: true,
-					Prune:    true,
+					SelfHeal:   true,
+					Prune:      true,
+					AllowEmpty: true,
 				},
 				SyncOptions: []string{
 					"allowEmpty=true",
@@ -146,20 +147,20 @@ func createApp(opts *createAppOptions) ([]byte, error) {
 }
 
 type createAppSetOptions struct {
-	name          string
-	namespace     string
-	appName       string
-	appNamespace  string
-	appProject    string
-	repoURL       string
-	revision      string
-	srcPath       string
-	destServer    string
-	destNamespace string
-	noFinalizer   bool
-	prune         bool
-	appLabels     map[string]string
-	generators    []appset.ApplicationSetGenerator
+	name                        string
+	namespace                   string
+	appName                     string
+	appNamespace                string
+	appProject                  string
+	repoURL                     string
+	revision                    string
+	srcPath                     string
+	destServer                  string
+	destNamespace               string
+	prune                       bool
+	preserveResourcesOnDeletion bool
+	appLabels                   map[string]string
+	generators                  []appset.ApplicationSetGenerator
 }
 
 func createAppSet(o *createAppSetOptions) ([]byte, error) {
@@ -175,6 +176,9 @@ func createAppSet(o *createAppSetOptions) ([]byte, error) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      o.name,
 			Namespace: o.namespace,
+			Annotations: map[string]string{
+				"argocd.argoproj.io/sync-wave": "0",
+			},
 		},
 		Spec: appset.ApplicationSetSpec{
 			Generators: o.generators,
@@ -196,11 +200,15 @@ func createAppSet(o *createAppSetOptions) ([]byte, error) {
 					},
 					SyncPolicy: &appsetv1alpha1.SyncPolicy{
 						Automated: &appsetv1alpha1.SyncPolicyAutomated{
-							SelfHeal: true,
-							Prune:    o.prune,
+							SelfHeal:   true,
+							Prune:      o.prune,
+							AllowEmpty: true,
 						},
 					},
 				},
+			},
+			SyncPolicy: &appset.ApplicationSetSyncPolicy{
+				PreserveResourcesOnDeletion: o.preserveResourcesOnDeletion,
 			},
 		},
 	}
@@ -215,10 +223,6 @@ func createAppSet(o *createAppSetOptions) ([]byte, error) {
 
 	if o.appProject != "" {
 		appSet.Spec.Template.Spec.Project = o.appProject
-	}
-
-	if o.noFinalizer {
-		appSet.ObjectMeta.Finalizers = []string{}
 	}
 
 	return yaml.Marshal(appSet)
