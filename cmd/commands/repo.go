@@ -207,7 +207,7 @@ func AddRepoCreateFlags(cmd *cobra.Command, prefix string) *RepoCreateOptions {
 
 		envPrefix := strings.ReplaceAll(strings.ToUpper(prefix), "-", "_")
 
-		cmd.Flags().StringVar(&opts.Owner, prefix+"owner", "", "The name of the owner or organiaion")
+		cmd.Flags().StringVar(&opts.Owner, prefix+"owner", "", "The name of the owner or organization")
 		cmd.Flags().StringVar(&opts.Repo, prefix+"name", "", "The name of the repository")
 		cmd.Flags().StringVar(&opts.Token, prefix+"git-token", "", fmt.Sprintf("Your git provider api token [%sGIT_TOKEN]", envPrefix))
 		cmd.Flags().StringVar(&opts.Provider, prefix+"provider", "github", fmt.Sprintf("The git provider, one of: %v", strings.Join(git.Providers(), "|")))
@@ -216,7 +216,7 @@ func AddRepoCreateFlags(cmd *cobra.Command, prefix string) *RepoCreateOptions {
 
 		die(viper.BindEnv(prefix+"git-token", envPrefix+"GIT_TOKEN"))
 	} else {
-		cmd.Flags().StringVarP(&opts.Owner, "owner", "o", "", "The name of the owner or organiaion")
+		cmd.Flags().StringVarP(&opts.Owner, "owner", "o", "", "The name of the owner or organization")
 		cmd.Flags().StringVarP(&opts.Repo, "name", "n", "", "The name of the repository")
 		cmd.Flags().StringVarP(&opts.Token, "git-token", "t", "", "Your git provider api token [GIT_TOKEN]")
 		cmd.Flags().StringVarP(&opts.Provider, "provider", "p", "github", fmt.Sprintf("The git provider, one of: %v", strings.Join(git.Providers(), "|")))

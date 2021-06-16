@@ -36,7 +36,7 @@ argocd-autopilot repo create [flags]
   -h, --help               help for create
       --host string        The git provider address (for on-premise git providers)
   -n, --name string        The name of the repository
-  -o, --owner string       The name of the owner or organiaion
+  -o, --owner string       The name of the owner or organization
   -p, --provider string    The git provider, one of: github (default "github")
       --public             If true, will create the repository as public (default is false)
 ```
