@@ -182,7 +182,7 @@ steps:
     environment:
       - HOMEBREW_GITHUB_API_TOKEN=${{GITHUB_TOKEN}}
     commands:
-      - brew bump-formula-pr --strict --no-browse --tag ${{CF_BRANCH_TAG_NORMALIZED}} --revision ${{CF_REVISION}} --fork-org codefresh-io
+      - brew bump-formula-pr --strict --no-browse --tag ${{CF_BRANCH_TAG_NORMALIZED}} --revision ${{CF_REVISION}} --fork-org codefresh-io ${{CF_REPO_NAME}}
     when:
       steps:
       - name: create_release
