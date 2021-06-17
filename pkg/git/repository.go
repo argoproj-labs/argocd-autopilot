@@ -207,20 +207,21 @@ var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 		Tags:     gg.NoTags,
 	}
 
-	if opts.revision != "" {
-		cloneOpts.ReferenceName = plumbing.NewBranchReferenceName(opts.revision)
-	}
-
-	log.G(ctx).WithFields(log.Fields{
-		"url": opts.url,
-		"rev": opts.revision,
-	}).Debug("cloning git repo")
+	log.G(ctx).WithFields(log.Fields{"url": opts.url}).Debug("cloning git repo")
 	r, err := ggClone(ctx, memory.NewStorage(), opts.FS, cloneOpts)
 	if err != nil {
 		return nil, err
 	}
 
-	return &repo{Repository: r, auth: opts.Auth}, nil
+	repo := &repo{Repository: r, auth: opts.Auth}
+
+	if opts.revision != "" {
+		if err := repo.checkoutRef(opts.revision); err != nil {
+			return nil, err
+		}
+	}
+
+	return repo, nil
 }
 
 var initRepo = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
@@ -235,6 +236,35 @@ var initRepo = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 	}
 
 	return r, r.initBranch(ctx, opts.revision)
+}
+
+func (r *repo) checkoutRef(ref string) error {
+	wt, err := worktree(r)
+	if err != nil {
+		return err
+	}
+
+	checkoutOpts := &gg.CheckoutOptions{}
+	if plumbing.IsHash(ref) {
+		checkoutOpts.Hash = plumbing.NewHash(ref)
+	} else {
+		tagref, err := r.Tag(ref)
+		switch err {
+		case nil:
+			checkoutOpts.Branch = tagref.Name()
+		case plumbing.ErrObjectNotFound:
+			branch, err := r.Branch(ref)
+			if err != nil {
+				return err
+			}
+
+			checkoutOpts.Branch = branch.Merge
+		default:
+			return err
+		}
+	}
+
+	return wt.Checkout(checkoutOpts)
 }
 
 func (r *repo) addRemote(name, url string) error {
