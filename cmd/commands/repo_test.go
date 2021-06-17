@@ -296,6 +296,7 @@ func Test_buildBootstrapManifests(t *testing.T) {
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
 			tt.args.cloneOpts.Parse()
+
 			b, ret := buildBootstrapManifests(
 				tt.args.namespace,
 				tt.args.appSpecifier,

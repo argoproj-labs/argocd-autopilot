@@ -22,8 +22,11 @@ markdown_extensions:
     permalink: true
 nav:
   - Introduction: index.md
-  - Getting Started: Getting-Started.md
   - Installation: Installation-Guide.md
+  - User Guide:
+    - Getting Started: Getting-Started.md
+    - Application Specifier: App-Specifier.md
+    - Command Reference: commands/argocd-autopilot.md
   - Development: Development.md
   - Roadmap: Roadmap.md
   - Blogs: Blogs.md

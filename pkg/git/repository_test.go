@@ -2,6 +2,7 @@ package git
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"reflect"
@@ -233,16 +234,17 @@ func Test_clone(t *testing.T) {
 		opts         *CloneOptions
 		retErr       error
 		wantErr      bool
-		assertFn     func(*testing.T, *repo)
 		expectedOpts *gg.CloneOptions
+		checkoutRef  func(t *testing.T, r *repo, ref string) error
+		assertFn     func(t *testing.T, r *repo)
 	}{
-		"NilOpts": {
+		"Should fail when there are no CloneOptions": {
 			wantErr: true,
 			assertFn: func(t *testing.T, r *repo) {
 				assert.Nil(t, r)
 			},
 		},
-		"No Auth": {
+		"Should clone without Auth data": {
 			opts: &CloneOptions{
 				Repo: "https://github.com/owner/name",
 			},
@@ -251,15 +253,14 @@ func Test_clone(t *testing.T) {
 				Auth:     nil,
 				Depth:    1,
 				Progress: os.Stderr,
-				Tags:     gg.NoTags,
 			},
 			assertFn: func(t *testing.T, r *repo) {
 				assert.NotNil(t, r)
 			},
 		},
-		"With Auth": {
+		"Should clone with Auth data": {
 			opts: &CloneOptions{
-				Repo: "https://github.com/owner/name",
+				Repo: "https://github.com/owner/name.git",
 				Auth: Auth{
 					Username: "asd",
 					Password: "123",
@@ -273,13 +274,12 @@ func Test_clone(t *testing.T) {
 				},
 				Depth:    1,
 				Progress: os.Stderr,
-				Tags:     gg.NoTags,
 			},
 			assertFn: func(t *testing.T, r *repo) {
 				assert.NotNil(t, r)
 			},
 		},
-		"Error": {
+		"Should fail if go-git.Clone fails": {
 			opts: &CloneOptions{
 				Repo: "https://github.com/owner/name",
 			},
@@ -287,7 +287,6 @@ func Test_clone(t *testing.T) {
 				URL:      "https://github.com/owner/name.git",
 				Depth:    1,
 				Progress: os.Stderr,
-				Tags:     gg.NoTags,
 			},
 			retErr:  fmt.Errorf("error"),
 			wantErr: true,
@@ -295,25 +294,48 @@ func Test_clone(t *testing.T) {
 				assert.Nil(t, r)
 			},
 		},
-		"With Revision": {
+		"Should checkout revision after clone": {
 			opts: &CloneOptions{
 				Repo: "https://github.com/owner/name?ref=test",
 			},
 			expectedOpts: &gg.CloneOptions{
-				URL:           "https://github.com/owner/name.git",
-				Depth:         1,
-				Progress:      os.Stderr,
-				Tags:          gg.NoTags,
-				ReferenceName: plumbing.NewBranchReferenceName("test"),
+				URL:      "https://github.com/owner/name.git",
+				Depth:    1,
+				Progress: os.Stderr,
+			},
+			checkoutRef: func(t *testing.T, _ *repo, ref string) error {
+				assert.Equal(t, "test", ref)
+				return nil
 			},
 			assertFn: func(t *testing.T, r *repo) {
 				assert.NotNil(t, r)
 			},
 		},
+		"Should fail if checkout fails": {
+			opts: &CloneOptions{
+				Repo: "https://github.com/owner/name?ref=test",
+			},
+			expectedOpts: &gg.CloneOptions{
+				URL:      "https://github.com/owner/name.git",
+				Depth:    1,
+				Progress: os.Stderr,
+			},
+			wantErr: true,
+			checkoutRef: func(t *testing.T, _ *repo, ref string) error {
+				assert.Equal(t, "test", ref)
+				return errors.New("some error")
+			},
+			assertFn: func(t *testing.T, r *repo) {
+				assert.Nil(t, r)
+			},
+		},
 	}
 
-	orgClone := ggClone
-	defer func() { ggClone = orgClone }()
+	origCheckoutRef, origClone := checkoutRef, ggClone
+	defer func() {
+		checkoutRef = origCheckoutRef
+		ggClone = origClone
+	}()
 
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
@@ -332,6 +354,12 @@ func Test_clone(t *testing.T) {
 
 			if tt.opts != nil {
 				tt.opts.Parse()
+			}
+
+			if tt.checkoutRef != nil {
+				checkoutRef = func(r *repo, ref string) error {
+					return tt.checkoutRef(t, r, ref)
+				}
 			}
 
 			got, err := clone(context.Background(), tt.opts)
@@ -516,6 +544,127 @@ func Test_repo_Persist(t *testing.T) {
 			}
 
 			tt.assertFn(t, mockRepo, mockWt)
+		})
+	}
+}
+
+func Test_repo_checkoutRef(t *testing.T) {
+	tests := map[string]struct {
+		ref      string
+		hash     string
+		wantErr  string
+		beforeFn func() *mocks.Repository
+	}{
+		"Should checkout a specific hash": {
+			ref:  "3992c4",
+			hash: "3992c4",
+			beforeFn: func() *mocks.Repository {
+				r := &mocks.Repository{}
+				hash := plumbing.NewHash("3992c4")
+				r.On("ResolveRevision", plumbing.Revision("3992c4")).Return(&hash, nil)
+				return r
+			},
+		},
+		"Should checkout a tag": {
+			ref:  "v1.0.0",
+			hash: "3992c4",
+			beforeFn: func() *mocks.Repository {
+				r := &mocks.Repository{}
+				hash := plumbing.NewHash("3992c4")
+				r.On("ResolveRevision", plumbing.Revision("v1.0.0")).Return(&hash, nil)
+				return r
+			},
+		},
+		"Should checkout a branch": {
+			ref:  "CR-1234",
+			hash: "3992c4",
+			beforeFn: func() *mocks.Repository {
+				r := &mocks.Repository{}
+				r.On("ResolveRevision", plumbing.Revision("CR-1234")).Return(nil, plumbing.ErrReferenceNotFound)
+				r.On("Remotes").Return([]*gg.Remote{
+					gg.NewRemote(nil, &config.RemoteConfig{
+						Name: "origin",
+					}),
+				}, nil)
+				hash := plumbing.NewHash("3992c4")
+				r.On("ResolveRevision", plumbing.Revision("origin/CR-1234")).Return(&hash, nil)
+				return r
+			},
+		},
+		"Should fail if ResolveRevision fails": {
+			ref:     "CR-1234",
+			hash:    "3992c4",
+			wantErr: "some error",
+			beforeFn: func() *mocks.Repository {
+				r := &mocks.Repository{}
+				r.On("ResolveRevision", plumbing.Revision("CR-1234")).Return(nil, errors.New("some error"))
+				return r
+			},
+		},
+		"Should fail if Remotes fails": {
+			ref:     "CR-1234",
+			hash:    "3992c4",
+			wantErr: "some error",
+			beforeFn: func() *mocks.Repository {
+				r := &mocks.Repository{}
+				r.On("ResolveRevision", plumbing.Revision("CR-1234")).Return(nil, plumbing.ErrReferenceNotFound)
+				r.On("Remotes").Return(nil, errors.New("some error"))
+				return r
+			},
+		},
+		"Should fail if repo has no remotes": {
+			ref:     "CR-1234",
+			hash:    "3992c4",
+			wantErr: ErrNoRemotes.Error(),
+			beforeFn: func() *mocks.Repository {
+				r := &mocks.Repository{}
+				r.On("ResolveRevision", plumbing.Revision("CR-1234")).Return(nil, plumbing.ErrReferenceNotFound)
+				r.On("Remotes").Return([]*gg.Remote{}, nil)
+				return r
+			},
+		},
+		"Should fail if branch not found": {
+			ref:     "CR-1234",
+			hash:    "3992c4",
+			wantErr: plumbing.ErrReferenceNotFound.Error(),
+			beforeFn: func() *mocks.Repository {
+				r := &mocks.Repository{}
+				r.On("ResolveRevision", plumbing.Revision("CR-1234")).Return(nil, plumbing.ErrReferenceNotFound)
+				r.On("Remotes").Return([]*gg.Remote{
+					gg.NewRemote(nil, &config.RemoteConfig{
+						Name: "origin",
+					}),
+				}, nil)
+				r.On("ResolveRevision", plumbing.Revision("origin/CR-1234")).Return(nil, plumbing.ErrReferenceNotFound)
+				return r
+			},
+		},
+	}
+	origWorktree := worktree
+	defer func() { worktree = origWorktree }()
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			mockwt := &mocks.Worktree{}
+			worktree = func(r gogit.Repository) (gogit.Worktree, error) {
+				return mockwt, nil
+			}
+			mockwt.On("Checkout", &gg.CheckoutOptions{
+				Hash: plumbing.NewHash(tt.hash),
+			}).Return(nil)
+			mockrepo := tt.beforeFn()
+			r := &repo{Repository: mockrepo}
+			if err := r.checkoutRef(tt.ref); err != nil {
+				if tt.wantErr != "" {
+					assert.EqualError(t, err, tt.wantErr)
+				} else {
+					t.Errorf("repo.checkoutRef() error = %v, wantErr %v", err, tt.wantErr)
+				}
+
+				return
+			}
+
+			mockrepo.AssertExpectations(t)
+			mockwt.AssertExpectations(t)
 		})
 	}
 }

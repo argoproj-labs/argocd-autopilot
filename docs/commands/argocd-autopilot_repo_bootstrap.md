@@ -34,7 +34,7 @@ argocd-autopilot repo bootstrap [flags]
 ### Options
 
 ```
-      --app string                     The application specifier (e.g. argocd@v1.0.2)
+      --app string                     The application specifier (e.g. github.com/argoproj-labs/argocd-autopilot/manifests?ref=v0.2.5), overrides the default installation argo-cd manifests
       --as string                      Username to impersonate for the operation
       --as-group stringArray           Group to impersonate for the operation, this flag can be repeated to specify multiple groups.
       --cache-dir string               Default cache directory (default "/home/user/.kube/cache")

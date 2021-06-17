@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/url"
 	"os"
 	"strings"
 
@@ -58,20 +57,20 @@ type (
 	}
 )
 
-const (
-	gitSuffix    = ".git"
-	gitDelimiter = "_git/"
-)
-
 // Errors
 var (
 	ErrNilOpts      = errors.New("options cannot be nil")
 	ErrNoParse      = errors.New("must call Parse before using CloneOptions")
 	ErrRepoNotFound = errors.New("git repository not found")
+	ErrNoRemotes    = errors.New("no remotes in repository")
 )
 
 // go-git functions (we mock those in tests)
 var (
+	checkoutRef = func(r *repo, ref string) error {
+		return r.checkoutRef(ref)
+	}
+
 	ggClone = func(ctx context.Context, s storage.Storer, worktree billy.Filesystem, o *gg.CloneOptions) (gogit.Repository, error) {
 		return gg.CloneContext(ctx, s, worktree, o)
 	}
@@ -122,7 +121,7 @@ func (o *CloneOptions) Parse() {
 		suffix  string
 	)
 
-	host, orgRepo, o.path, o.revision, suffix = ParseGitUrl(o.Repo)
+	host, orgRepo, o.path, o.revision, _, suffix, _ = util.ParseGitUrl(o.Repo)
 	o.url = host + orgRepo + suffix
 }
 
@@ -160,7 +159,7 @@ func (o *CloneOptions) URL() string {
 }
 
 func (o *CloneOptions) Revision() string {
-	return plumbing.ReferenceName(o.revision).Short()
+	return o.revision
 }
 
 func (o *CloneOptions) Path() string {
@@ -211,23 +210,23 @@ var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 		Auth:     getAuth(opts.Auth),
 		Depth:    1,
 		Progress: opts.Progress,
-		Tags:     gg.NoTags,
 	}
 
-	if opts.revision != "" {
-		cloneOpts.ReferenceName = plumbing.ReferenceName(opts.revision)
-	}
-
-	log.G(ctx).WithFields(log.Fields{
-		"url": opts.url,
-		"rev": opts.revision,
-	}).Debug("cloning git repo")
+	log.G(ctx).WithField("url", opts.url).Debug("cloning git repo")
 	r, err := ggClone(ctx, memory.NewStorage(), opts.FS, cloneOpts)
 	if err != nil {
 		return nil, err
 	}
 
-	return &repo{Repository: r, auth: opts.Auth}, nil
+	repo := &repo{Repository: r, auth: opts.Auth}
+
+	if opts.revision != "" {
+		if err := checkoutRef(repo, opts.revision); err != nil {
+			return nil, err
+		}
+	}
+
+	return repo, nil
 }
 
 var initRepo = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
@@ -242,6 +241,44 @@ var initRepo = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 	}
 
 	return r, r.initBranch(ctx, opts.revision)
+}
+
+func (r *repo) checkoutRef(ref string) error {
+	hash, err := r.ResolveRevision(plumbing.Revision(ref))
+	if err != nil {
+		if err != plumbing.ErrReferenceNotFound {
+			return err
+		}
+
+		log.G().WithField("ref", ref).Debug("failed resolving ref, trying to resolve from remote branch")
+		remotes, err := r.Remotes()
+		if err != nil {
+			return err
+		}
+
+		if len(remotes) == 0 {
+			return ErrNoRemotes
+		}
+
+		remoteref := fmt.Sprintf("%s/%s", remotes[0].Config().Name, ref)
+		hash, err = r.ResolveRevision(plumbing.Revision(remoteref))
+		if err != nil {
+			return err
+		}
+	}
+
+	wt, err := worktree(r)
+	if err != nil {
+		return err
+	}
+
+	log.G().WithFields(log.Fields{
+		"ref":  ref,
+		"hash": hash.String(),
+	}).Debug("checking out commit")
+	return wt.Checkout(&gg.CheckoutOptions{
+		Hash: *hash,
+	})
 }
 
 func (r *repo) addRemote(name, url string) error {
@@ -286,139 +323,4 @@ func getAuth(auth Auth) transport.AuthMethod {
 		Username: username,
 		Password: auth.Password,
 	}
-}
-
-// ParseGitUrl returns the different parts of the repo url
-// example: "https://github.com/owner/name/repo/path?ref=branch"
-// host: "https://github.com"
-// orgRepo: "owner/name"
-// path: "path"
-// ref: "refs/heads/branch"
-// gitSuff: ".git"
-// For tags use "?tag=<tag_name>"
-// For specific git commit sha use "?sha=<comit_sha>"
-func ParseGitUrl(n string) (host, orgRepo, path, ref, gitSuff string) {
-	if strings.Contains(n, gitDelimiter) {
-		index := strings.Index(n, gitDelimiter)
-		// Adding _git/ to host
-		host = normalizeGitHostSpec(n[:index+len(gitDelimiter)])
-		orgRepo = strings.Split(strings.Split(n[index+len(gitDelimiter):], "/")[0], "?")[0]
-		path, ref = peelQuery(n[index+len(gitDelimiter)+len(orgRepo):])
-		return
-	}
-
-	host, n = parseHostSpec(n)
-	gitSuff = gitSuffix
-	if strings.Contains(n, gitSuffix) {
-		index := strings.Index(n, gitSuffix)
-		orgRepo = n[0:index]
-		n = n[index+len(gitSuffix):]
-		path, ref = peelQuery(n)
-		return
-	}
-
-	i := strings.Index(n, "/")
-	if i < 1 {
-		path, ref = peelQuery(n)
-		return
-	}
-
-	j := strings.Index(n[i+1:], "/")
-	if j >= 0 {
-		j += i + 1
-		orgRepo = n[:j]
-		path, ref = peelQuery(n[j+1:])
-		return
-	}
-
-	path = ""
-	orgRepo, ref = peelQuery(n)
-	return
-}
-
-func peelQuery(arg string) (path, ref string) {
-	parsed, err := url.Parse(arg)
-	if err != nil {
-		return path, ""
-	}
-
-	path = parsed.Path
-	values := parsed.Query()
-	branch := values.Get("ref")
-	tag := values.Get("tag")
-	sha := values.Get("sha")
-	if sha != "" {
-		ref = sha
-		return
-	}
-
-	if tag != "" {
-		ref = "refs/tags/" + tag
-		return
-	}
-
-	if branch != "" {
-		ref = "refs/heads/" + branch
-		return
-	}
-
-	return
-}
-
-func parseHostSpec(n string) (string, string) {
-	var host string
-	// Start accumulating the host part.
-	for _, p := range [...]string{
-		// Order matters here.
-		"git::", "gh:", "ssh://", "https://", "http://",
-		"git@", "github.com:", "github.com/"} {
-		if len(p) < len(n) && strings.ToLower(n[:len(p)]) == p {
-			n = n[len(p):]
-			host += p
-		}
-	}
-	if host == "git@" {
-		i := strings.Index(n, "/")
-		if i > -1 {
-			host += n[:i+1]
-			n = n[i+1:]
-		} else {
-			i = strings.Index(n, ":")
-			if i > -1 {
-				host += n[:i+1]
-				n = n[i+1:]
-			}
-		}
-		return host, n
-	}
-
-	// If host is a http(s) or ssh URL, grab the domain part.
-	for _, p := range [...]string{
-		"ssh://", "https://", "http://"} {
-		if strings.HasSuffix(host, p) {
-			i := strings.Index(n, "/")
-			if i > -1 {
-				host = host + n[0:i+1]
-				n = n[i+1:]
-			}
-			break
-		}
-	}
-
-	return normalizeGitHostSpec(host), n
-}
-
-func normalizeGitHostSpec(host string) string {
-	s := strings.ToLower(host)
-	if strings.Contains(s, "github.com") {
-		if strings.Contains(s, "git@") || strings.Contains(s, "ssh:") {
-			host = "git@github.com:"
-		} else {
-			host = "https://github.com/"
-		}
-	}
-	if strings.HasPrefix(s, "git::") {
-		host = strings.TrimPrefix(s, "git::")
-	}
-	return host
 }

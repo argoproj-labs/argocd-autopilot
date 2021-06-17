@@ -182,7 +182,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&appSpecifier, "app", "", "The application specifier (e.g. argocd@v1.0.2)")
+	cmd.Flags().StringVar(&appSpecifier, "app", "", "The application specifier (e.g. github.com/argoproj-labs/argocd-autopilot/manifests?ref=v0.2.5), overrides the default installation argo-cd manifests")
 	cmd.Flags().BoolVar(&namespaced, "namespaced", false, "If true, install a namespaced version of argo-cd (no need for cluster-role)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "If true, print manifests instead of applying them to the cluster (nothing will be commited to git)")
 	cmd.Flags().BoolVar(&hidePassword, "hide-password", false, "If true, will not print initial argo cd password")
@@ -264,7 +264,6 @@ func RunRepoCreate(ctx context.Context, opts *RepoCreateOptions) (*git.CloneOpti
 			Password: opts.Token,
 		},
 	}
-
 	co.Parse()
 	return co, nil
 }
@@ -664,7 +663,7 @@ func createBootstrapKustomization(namespace, repoURL, appSpecifier string) (*kus
 }
 
 func createCreds(repoUrl string) ([]byte, error) {
-	host, _, _, _, _ := git.ParseGitUrl(repoUrl)
+	host, _, _, _, _, _, _ := util.ParseGitUrl(repoUrl)
 	creds := []argocdsettings.RepositoryCredentials{
 		{
 			URL: host,

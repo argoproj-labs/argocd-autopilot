@@ -5,8 +5,8 @@ CLI_NAME?=argocd-autopilot
 IMAGE_REPOSITORY?=quay.io
 IMAGE_NAMESPACE?=argoprojlabs
 
-INSTALLATION_MANIFESTS_URL="github.com/argoproj-labs/argocd-autopilot/manifests?tag=$(VERSION)"
-INSTALLATION_MANIFESTS_NAMESPACED_URL="github.com/argoproj-labs/argocd-autopilot/manifests/namespace-install?tag=$(VERSION)"
+INSTALLATION_MANIFESTS_URL="github.com/argoproj-labs/argocd-autopilot/manifests?ref=$(VERSION)"
+INSTALLATION_MANIFESTS_NAMESPACED_URL="github.com/argoproj-labs/argocd-autopilot/manifests/namespace-install?ref=$(VERSION)"
 
 DEV_INSTALLATION_MANIFESTS_URL="manifests/"
 DEV_INSTALLATION_MANIFESTS_NAMESPACED_URL="manifests/namespace-install"
