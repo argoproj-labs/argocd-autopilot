@@ -400,8 +400,8 @@ func newDirApp(opts *CreateOptions) *dirApp {
 		baseApp: baseApp{opts},
 	}
 
-	host, orgRepo, path, gitRef, _, _, _ := util.ParseGitUrl(opts.AppSpecifier)
-	url := host + orgRepo
+	host, orgRepo, path, gitRef, _, suffix, _ := util.ParseGitUrl(opts.AppSpecifier)
+	url := host + orgRepo + suffix
 	app.config = &Config{
 		AppName:           opts.AppName,
 		UserGivenName:     opts.AppName,

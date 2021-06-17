@@ -62,10 +62,15 @@ var (
 	ErrNilOpts      = errors.New("options cannot be nil")
 	ErrNoParse      = errors.New("must call Parse before using CloneOptions")
 	ErrRepoNotFound = errors.New("git repository not found")
+	ErrNoRemotes    = errors.New("no remotes in repository")
 )
 
 // go-git functions (we mock those in tests)
 var (
+	checkoutRef = func(r *repo, ref string) error {
+		return r.checkoutRef(ref)
+	}
+
 	ggClone = func(ctx context.Context, s storage.Storer, worktree billy.Filesystem, o *gg.CloneOptions) (gogit.Repository, error) {
 		return gg.CloneContext(ctx, s, worktree, o)
 	}
@@ -113,10 +118,11 @@ func (o *CloneOptions) Parse() {
 	var (
 		host    string
 		orgRepo string
+		suffix  string
 	)
 
-	host, orgRepo, o.path, o.revision, _, _, _ = util.ParseGitUrl(o.Repo)
-	o.url = host + orgRepo
+	host, orgRepo, o.path, o.revision, _, suffix, _ = util.ParseGitUrl(o.Repo)
+	o.url = host + orgRepo + suffix
 }
 
 func (o *CloneOptions) Clone(ctx context.Context) (Repository, fs.FS, error) {
@@ -204,7 +210,6 @@ var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 		Auth:     getAuth(opts.Auth),
 		Depth:    1,
 		Progress: opts.Progress,
-		Tags:     gg.NoTags,
 	}
 
 	log.G(ctx).WithFields(log.Fields{"url": opts.url}).Debug("cloning git repo")
@@ -216,7 +221,7 @@ var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 	repo := &repo{Repository: r, auth: opts.Auth}
 
 	if opts.revision != "" {
-		if err := repo.checkoutRef(opts.revision); err != nil {
+		if err := checkoutRef(repo, opts.revision); err != nil {
 			return nil, err
 		}
 	}
@@ -239,32 +244,36 @@ var initRepo = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 }
 
 func (r *repo) checkoutRef(ref string) error {
+	hash, err := r.ResolveRevision(plumbing.Revision(ref))
+	if err != nil {
+		if err != plumbing.ErrReferenceNotFound {
+			return err
+		}
+
+		remotes, err := r.Remotes()
+		if err != nil {
+			return err
+		}
+
+		if len(remotes) == 0 {
+			return ErrNoRemotes
+		}
+
+		remoteref := fmt.Sprintf("%s/%s", remotes[0].Config().Name, ref)
+		hash, err = r.ResolveRevision(plumbing.Revision(remoteref))
+		if err != nil {
+			return err
+		}
+	}
+
 	wt, err := worktree(r)
 	if err != nil {
 		return err
 	}
 
-	checkoutOpts := &gg.CheckoutOptions{}
-	if plumbing.IsHash(ref) {
-		checkoutOpts.Hash = plumbing.NewHash(ref)
-	} else {
-		tagref, err := r.Tag(ref)
-		switch err {
-		case nil:
-			checkoutOpts.Branch = tagref.Name()
-		case plumbing.ErrObjectNotFound:
-			branch, err := r.Branch(ref)
-			if err != nil {
-				return err
-			}
-
-			checkoutOpts.Branch = branch.Merge
-		default:
-			return err
-		}
-	}
-
-	return wt.Checkout(checkoutOpts)
+	return wt.Checkout(&gg.CheckoutOptions{
+		Hash: *hash,
+	})
 }
 
 func (r *repo) addRemote(name, url string) error {
