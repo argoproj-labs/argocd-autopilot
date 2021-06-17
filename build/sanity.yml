@@ -1,0 +1,82 @@
+version: "1.0"
+
+mode: parallel
+stages:
+  - "clone"
+  - "build"
+  - "test"
+
+steps:
+  main_clone:
+    stage: clone
+    title: "Cloning repository"
+    type: git-clone
+    git: cf_github
+    repo: ${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}
+    revision: ${{CF_BRANCH}}
+
+  prep: &deps
+    stage: "build"
+    title: "prepare env vars"
+    image: quay.io/codefresh/golang-ci-helper:latest
+    commands:
+    - cf_export GO111MODULE=on
+    - cf_export GOCACHE=/codefresh/volume/gocache # change gopath to codefresh shared volume
+    - cf_export GOPATH=/codefresh/volume/gopath
+    - cf_export PATH=$PATH:/codefresh/volume/gopath/bin
+    when:
+      steps:
+      - name: main_clone
+        on:
+        - success
+    
+  build:
+    <<: *deps
+    title: "build cli"
+    commands:
+    - make clean
+    - make local DEV_MODE=false
+    - cp /usr/local/bin/argocd-autopilot /codefresh/volume/gopath/bin/argocd-autopilot
+    - argocd-autopilot version
+    when:
+      steps:
+      - name: prep
+        on:
+        - success
+  
+  prep_cluster:
+    stage: test
+    title: "prepare cluster"
+    image: "codefresh/kube-helm"
+    commands:
+    - kubectl config use-context ${{KUBE_CONTEXT}}
+    - kubectl delete ns ${{KUBE_NAMESPACE}} --timeout=${{KUBECTL_TIMEOUT}} || true
+    when:
+      steps:
+      - name: build
+        on:
+        - success
+        
+  run_bootstrap:
+    stage: test
+    title: "run repo bootstrap"
+    image: "codefresh/kube-helm"
+    commands:
+      - argocd-autopilot repo bootstrap --dry-run
+    when:
+      steps:
+      - name: prep_cluster
+        on:
+        - success
+          
+  cleanup:
+      stage: test
+      title: "clean cluster"
+      image: "codefresh/kube-helm"
+      commands:
+      - kubectl delete ns ${{KUBE_NAMESPACE}} --timeout=${{KUBECTL_TIMEOUT}} || true
+      when:
+        steps:
+        - name: run_bootstrap
+          on:
+          - success

@@ -1,15 +1,14 @@
-### Bug fixes:
-* App type infer fails when --app value references a tag (#97)[https://github.com/argoproj-labs/argocd-autopilot/issues/97]
-* Deleting the bootstrap app hangs while deleting the entire hierarchy (#99)[https://github.com/argoproj-labs/argocd-autopilot/issues/99]
+### Bug Fixes:
+* getting "failed to build bootstrap manifests" since v0.2.5 [#106](https://github.com/argoproj-labs/argocd-autopilot/issues/106)
 
 ### Breaking Changes:
-* when sending `--app` flag value, use either `?sha=<sha_value>`, `?tag=<tag_name>` or `?ref=<branch_name>` to specificy sha|tag|branch to clone from (#98)[https://github.com/argoproj-labs/argocd-autopilot/pull/98]
+* ~when sending `--app` flag value, use either `?sha=<sha_value>`, `?tag=<tag_name>` or `?ref=<branch_name>` to specificy sha|tag|branch to clone from ~ [#98](https://github.com/argoproj-labs/argocd-autopilot/pull/98)~ - REVERTED in [#107](https://github.com/argoproj-labs/argocd-autopilot/pull/107)
 
-### Additional changes:
-* update docs about secrets not yet supported [#93](https://github.com/argoproj-labs/argocd-autopilot/pull/93)
-* Support using 2 repos for Kustomize apps [#97](https://github.com/argoproj-labs/argocd-autopilot/issues/97)
+### Additional Changes:
+* fixed help text typos [#105](https://github.com/argoproj-labs/argocd-autopilot/pull/105)
 
 ### Contributors:
+- Moshe Avni ([@mosheavni](https://github.com/mosheavni))
 - Roi Kramer ([@roi-codefresh](https://github.com/roi-codefresh))
 - Noam Gal ([@noam-codefresh](https://github.com/noam-codefresh))
 
