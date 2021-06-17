@@ -9,7 +9,7 @@
 * ~when sending `--app` flag value, use either `?sha=<sha_value>`, `?tag=<tag_name>` or `?ref=<branch_name>` to specificy sha|tag|branch to clone from ~ [#98](https://github.com/argoproj-labs/argocd-autopilot/pull/98)~ - REVERTED in [#107](https://github.com/argoproj-labs/argocd-autopilot/pull/107)
 
 ### Additional Changes:
-* fixed help text typos (#105)[https://github.com/argoproj-labs/argocd-autopilot/pull/105]
+* fixed help text typos [#105](https://github.com/argoproj-labs/argocd-autopilot/pull/105)
 
 # v0.2.2
 
