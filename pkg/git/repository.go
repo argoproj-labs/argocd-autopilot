@@ -212,7 +212,7 @@ var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 		Progress: opts.Progress,
 	}
 
-	log.G(ctx).WithFields(log.Fields{"url": opts.url}).Debug("cloning git repo")
+	log.G(ctx).WithField("url", opts.url).Debug("cloning git repo")
 	r, err := ggClone(ctx, memory.NewStorage(), opts.FS, cloneOpts)
 	if err != nil {
 		return nil, err
@@ -250,6 +250,7 @@ func (r *repo) checkoutRef(ref string) error {
 			return err
 		}
 
+		log.G().WithField("ref", ref).Debug("failed resolving ref, trying to resolve from remote branch")
 		remotes, err := r.Remotes()
 		if err != nil {
 			return err
@@ -271,6 +272,10 @@ func (r *repo) checkoutRef(ref string) error {
 		return err
 	}
 
+	log.G().WithFields(log.Fields{
+		"ref":  ref,
+		"hash": hash.String(),
+	}).Debug("checking out commit")
 	return wt.Checkout(&gg.CheckoutOptions{
 		Hash: *hash,
 	})
