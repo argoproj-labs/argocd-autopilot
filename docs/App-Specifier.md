@@ -4,7 +4,7 @@ The application specifier is a string denoting the entrypoint to the application
 flag in the `app create` and `repo bootstrap` commands.
 
 ## Structure
-Lets look at the following example of adding argo workflows v3.0.7 to project `prod`:
+Lets look at the following example of adding argo workflows v3.0.7 to project `prod` to better understand the structure of the application specifier:
 ```bash
 argocd-autopilot app create workflows --app "github.com/argoproj/argo-workflows/manifests/cluster-install?ref=v3.0.7" --project prod
 ```
