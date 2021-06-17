@@ -247,7 +247,7 @@ func Test_clone(t *testing.T) {
 				Repo: "https://github.com/owner/name",
 			},
 			expectedOpts: &gg.CloneOptions{
-				URL:      "https://github.com/owner/name.git",
+				URL:      "https://github.com/owner/name",
 				Auth:     nil,
 				Depth:    1,
 				Progress: os.Stderr,
@@ -266,7 +266,7 @@ func Test_clone(t *testing.T) {
 				},
 			},
 			expectedOpts: &gg.CloneOptions{
-				URL: "https://github.com/owner/name.git",
+				URL: "https://github.com/owner/name",
 				Auth: &http.BasicAuth{
 					Username: "asd",
 					Password: "123",
@@ -284,7 +284,7 @@ func Test_clone(t *testing.T) {
 				Repo: "https://github.com/owner/name",
 			},
 			expectedOpts: &gg.CloneOptions{
-				URL:      "https://github.com/owner/name.git",
+				URL:      "https://github.com/owner/name",
 				Depth:    1,
 				Progress: os.Stderr,
 				Tags:     gg.NoTags,
@@ -300,7 +300,7 @@ func Test_clone(t *testing.T) {
 				Repo: "https://github.com/owner/name?ref=test",
 			},
 			expectedOpts: &gg.CloneOptions{
-				URL:           "https://github.com/owner/name.git",
+				URL:           "https://github.com/owner/name",
 				Depth:         1,
 				Progress:      os.Stderr,
 				Tags:          gg.NoTags,

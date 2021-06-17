@@ -10,10 +10,10 @@ import (
 	"reflect"
 
 	"github.com/argoproj-labs/argocd-autopilot/pkg/fs"
-	"github.com/argoproj-labs/argocd-autopilot/pkg/git"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/kube"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/log"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 
 	"github.com/ghodss/yaml"
 	billyUtils "github.com/go-git/go-billy/v5/util"
@@ -399,18 +399,17 @@ func newDirApp(opts *CreateOptions) *dirApp {
 	app := &dirApp{
 		baseApp: baseApp{opts},
 	}
-	cloneOpts := &git.CloneOptions{
-		Repo: opts.AppSpecifier,
-	}
-	cloneOpts.Parse()
+
+	host, orgRepo, path, gitRef, _, _, _ := util.ParseGitUrl(opts.AppSpecifier)
+	url := host + orgRepo
 	app.config = &Config{
 		AppName:           opts.AppName,
 		UserGivenName:     opts.AppName,
 		DestNamespace:     opts.DestNamespace,
 		DestServer:        opts.DestServer,
-		SrcRepoURL:        cloneOpts.URL(),
-		SrcPath:           cloneOpts.Path(),
-		SrcTargetRevision: cloneOpts.Revision(),
+		SrcRepoURL:        url,
+		SrcPath:           path,
+		SrcTargetRevision: gitRef,
 	}
 
 	return app

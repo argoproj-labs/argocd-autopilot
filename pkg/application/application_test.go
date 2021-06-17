@@ -683,7 +683,7 @@ func Test_newDirApp(t *testing.T) {
 					UserGivenName:     "fooapp",
 					DestNamespace:     "fizz",
 					DestServer:        "buzz",
-					SrcRepoURL:        "https://github.com/foo/bar.git",
+					SrcRepoURL:        "https://github.com/foo/bar",
 					SrcTargetRevision: "v0.1.2",
 					SrcPath:           "somepath/in/repo",
 				},
