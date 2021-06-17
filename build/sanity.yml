@@ -47,7 +47,7 @@ steps:
   prep_cluster:
     stage: test
     title: "prepare cluster"
-    image: "bitnami/kubectl:1.20"
+    image: "codefresh/kube-helm"
     commands:
       - kubectl config use-context ${{KUBE_CONTEXT}}
       - kubectl delete ns ${{KUBE_NAMESPACE}} --timeout=${{KUBECTL_TIMEOUT}} || true
@@ -60,7 +60,7 @@ steps:
   run_bootstrap:
     stage: test
     title: "run repo bootstrap"
-    image: "bitnami/kubectl:1.20"
+    image: "codefresh/kube-helm"
     commands:
       - argocd-autopilot repo bootstrap --dry-run
     when:
@@ -72,7 +72,7 @@ steps:
   cleanup:
       stage: test
       title: "clean cluster"
-      image: "bitnami/kubectl:1.20"
+      image: "codefresh/kube-helm"
       commands:
       - kubectl delete ns ${{KUBE_NAMESPACE}} --timeout=${{KUBECTL_TIMEOUT}} || true
       when:
