@@ -49,8 +49,8 @@ steps:
     title: "prepare cluster"
     image: "codefresh/kube-helm"
     commands:
-      - kubectl config use-context ${{KUBE_CONTEXT}}
-      - kubectl delete ns ${{KUBE_NAMESPACE}} --timeout=${{KUBECTL_TIMEOUT}} || true
+    - kubectl config use-context ${{KUBE_CONTEXT}}
+    - kubectl delete ns ${{KUBE_NAMESPACE}} --timeout=${{KUBECTL_TIMEOUT}} || true
     when:
       steps:
       - name: build
