@@ -23,6 +23,7 @@ steps:
     - cf_export GO111MODULE=on
     - cf_export GOCACHE=/codefresh/volume/gocache # change gopath to codefresh shared volume
     - cf_export GOPATH=/codefresh/volume/gopath
+    - mkdir -p /codefresh/volume/gopath/bin || true
     - cf_export PATH=$PATH:/codefresh/volume/gopath/bin
     when:
       steps:
