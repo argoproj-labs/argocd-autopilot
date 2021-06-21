@@ -205,6 +205,15 @@ func createAppSet(o *createAppSetOptions) ([]byte, error) {
 							AllowEmpty: true,
 						},
 					},
+					IgnoreDifferences: []appsetv1alpha1.ResourceIgnoreDifferences{
+						{
+							Group: "argoproj.io",
+							Kind:  "Application",
+							JSONPointers: []string{
+								"/status",
+							},
+						},
+					},
 				},
 			},
 			SyncPolicy: &appset.ApplicationSetSyncPolicy{
