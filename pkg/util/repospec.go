@@ -39,6 +39,10 @@ func ParseGitUrl(n string) (
 		orgRepo = n[0:index]
 		n = n[index+len(gitSuffix):]
 		path, gitRef, gitTimeout, gitSubmodules = peelQuery(n)
+		if len(path) > 0 && path[0] == '/' {
+			path = path[1:] // remove leading '/'
+		}
+
 		return
 	}
 

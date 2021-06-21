@@ -17,6 +17,8 @@ const refQuery = "?ref="
 
 var orgRepos = []string{"someOrg/someRepo", "kubernetes/website"}
 
+var suffixes = []string{"", ".git"}
+
 var pathNames = []string{"README.md", "foo/krusty.txt", ""}
 
 var hrefArgs = []string{"someBranch", "master", "v0.1.0", ""}
@@ -38,7 +40,8 @@ var hostNamesRawAndNormalized = [][]string{
 	{"git@gitlab2.sqtools.ru:10022/", "git@gitlab2.sqtools.ru:10022/"},
 }
 
-func makeUrl(hostFmt, orgRepo, path, href string) string {
+func makeUrl(hostFmt, orgRepo, suffix, path, href string) string {
+	orgRepo += suffix
 	if len(path) > 0 {
 		orgRepo = filepath.Join(orgRepo, path)
 	}
@@ -55,21 +58,26 @@ func TestNewRepoSpecFromUrl(t *testing.T) {
 		hostRaw := tuple[0]
 		hostSpec := tuple[1]
 		for _, orgRepo := range orgRepos {
-			for _, pathName := range pathNames {
-				for _, hrefArg := range hrefArgs {
-					uri := makeUrl(hostRaw, orgRepo, pathName, hrefArg)
-					host, org, path, ref, _, _, _ := ParseGitUrl(uri)
-					if host != hostSpec {
-						bad = append(bad, []string{"host", uri, host, hostSpec})
-					}
-					if org != orgRepo {
-						bad = append(bad, []string{"orgRepo", uri, orgRepo, orgRepo})
-					}
-					if path != pathName {
-						bad = append(bad, []string{"path", uri, path, pathName})
-					}
-					if ref != hrefArg {
-						bad = append(bad, []string{"ref", uri, ref, hrefArg})
+			for _, suffix := range suffixes {
+				for _, pathName := range pathNames {
+					for _, hrefArg := range hrefArgs {
+						uri := makeUrl(hostRaw, orgRepo, suffix, pathName, hrefArg)
+						host, org, path, ref, _, _, _ := ParseGitUrl(uri)
+						if host != hostSpec {
+							bad = append(bad, []string{"host", uri, host, hostSpec})
+						}
+
+						if org != orgRepo {
+							bad = append(bad, []string{"orgRepo", uri, org, orgRepo})
+						}
+
+						if path != pathName {
+							bad = append(bad, []string{"path", uri, path, pathName})
+						}
+
+						if ref != hrefArg {
+							bad = append(bad, []string{"ref", uri, ref, hrefArg})
+						}
 					}
 				}
 			}
