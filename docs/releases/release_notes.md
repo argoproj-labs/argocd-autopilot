@@ -1,14 +1,11 @@
 ### Bug Fixes:
-* getting "failed to build bootstrap manifests" since v0.2.5 [#106](https://github.com/argoproj-labs/argocd-autopilot/issues/106)
-
-### Breaking Changes:
-* ~when sending `--app` flag value, use either `?sha=<sha_value>`, `?tag=<tag_name>` or `?ref=<branch_name>` to specificy sha|tag|branch to clone from ~ [#98](https://github.com/argoproj-labs/argocd-autopilot/pull/98)~ - REVERTED in [#107](https://github.com/argoproj-labs/argocd-autopilot/pull/107)
+* url_parse_fix [#106](https://github.com/argoproj-labs/argocd-autopilot/issues/106)
 
 ### Additional Changes:
-* fixed help text typos [#105](https://github.com/argoproj-labs/argocd-autopilot/pull/105)
+* Fix typo [#109](https://github.com/argoproj-labs/argocd-autopilot/pull/109)
 
 ### Contributors:
-- Moshe Avni ([@mosheavni](https://github.com/mosheavni))
+- [@ndrpnt](https://github.com/ndrpnt)
 - Roi Kramer ([@roi-codefresh](https://github.com/roi-codefresh))
 - Noam Gal ([@noam-codefresh](https://github.com/noam-codefresh))
 

@@ -1,5 +1,13 @@
 # Changelog:
 
+# v0.2.7
+
+### Bug Fixes:
+* url_parse_fix [#106](https://github.com/argoproj-labs/argocd-autopilot/issues/106)
+
+### Additional Changes:
+* Fix typo [#109](https://github.com/argoproj-labs/argocd-autopilot/pull/109)
+
 # v0.2.6
 
 ### Bug Fixes:
