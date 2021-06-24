@@ -203,10 +203,10 @@ func TestRunAppCreate(t *testing.T) {
 			},
 		},
 	}
-	origPrepareRepo, origClone, origSetAppOptsDefault, origAppParse := prepareRepo, getRepo, setAppOptsDefaults, parseApp
+	origPrepareRepo, origGetRepo, origSetAppOptsDefault, origAppParse := prepareRepo, getRepo, setAppOptsDefaults, parseApp
 	defer func() {
 		prepareRepo = origPrepareRepo
-		getRepo = origClone
+		getRepo = origGetRepo
 		setAppOptsDefaults = origSetAppOptsDefault
 		parseApp = origAppParse
 	}()
@@ -783,8 +783,8 @@ func Test_setAppOptsDefaults(t *testing.T) {
 			},
 		},
 	}
-	origClone := getRepo
-	defer func() { getRepo = origClone }()
+	origGetRepo := getRepo
+	defer func() { getRepo = origGetRepo }()
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			var repofs fs.FS

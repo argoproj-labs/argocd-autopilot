@@ -11,7 +11,6 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/fs"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/git/gogit"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/git/gogit/mocks"
-
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
 	gg "github.com/go-git/go-git/v5"
@@ -20,6 +19,8 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/storage"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -665,6 +666,95 @@ func Test_repo_checkoutRef(t *testing.T) {
 
 			mockrepo.AssertExpectations(t)
 			mockwt.AssertExpectations(t)
+		})
+	}
+}
+
+func TestAddFlags(t *testing.T) {
+	type flag struct {
+		name      string
+		shorthand string
+		value     string
+		usage     string
+		required  bool
+	}
+	tests := map[string]struct {
+		prefix      string
+		wantedFlags []flag
+	}{
+		"Should create flags without a prefix": {
+			wantedFlags: []flag{
+				{
+					name:      "git-token",
+					shorthand: "t",
+					usage:     "Your git provider api token [GIT_TOKEN]",
+					required:  true,
+				},
+				{
+					name:  "provider",
+					usage: "The git provider, one of: github|github.com",
+				},
+				{
+					name:     "repo",
+					usage:    "Repository URL [GIT_REPO]",
+					required: true,
+				},
+			},
+		},
+		"Should create flags with a prefix": {
+			prefix: "prefix-",
+			wantedFlags: []flag{
+				{
+					name:  "prefix-git-token",
+					usage: "Your git provider api token [PREFIX_GIT_TOKEN]",
+				},
+				{
+					name:  "prefix-provider",
+					usage: "The git provider, one of: github|github.com",
+				},
+				{
+					name:  "prefix-repo",
+					usage: "Repository URL [PREFIX_GIT_REPO]",
+				},
+			},
+		},
+		"Should automatically add a dash to prefix": {
+			prefix: "prefix",
+			wantedFlags: []flag{
+				{
+					name:  "prefix-git-token",
+					usage: "Your git provider api token [PREFIX_GIT_TOKEN]",
+				},
+				{
+					name:  "prefix-provider",
+					usage: "The git provider, one of: github|github.com",
+				},
+				{
+					name:  "prefix-repo",
+					usage: "Repository URL [PREFIX_GIT_REPO]",
+				},
+			},
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			viper.Reset()
+			cmd := &cobra.Command{}
+			_ = AddFlags(cmd, nil, tt.prefix)
+			fs := cmd.PersistentFlags()
+			for _, expected := range tt.wantedFlags {
+				actual := fs.Lookup(expected.name)
+				assert.NotNil(t, actual, "missing "+expected.name+" flag")
+				assert.Equal(t, expected.shorthand, actual.Shorthand, "wrong shorthand for "+expected.name)
+				assert.Equal(t, expected.value, actual.DefValue, "wrong default value for "+expected.name)
+				assert.Equal(t, expected.usage, actual.Usage, "wrong usage for "+expected.name)
+				if expected.required {
+					assert.NotEmpty(t, actual.Annotations[cobra.BashCompOneRequiredFlag], expected.name+" was supposed to be required")
+					assert.Equal(t, "true", actual.Annotations[cobra.BashCompOneRequiredFlag][0], expected.name+" was supposed to be required")
+				} else {
+					assert.Nil(t, actual.Annotations[cobra.BashCompOneRequiredFlag], expected.name+" was not supposed to be required")
+				}
+			}
 		})
 	}
 }
