@@ -35,8 +35,8 @@ var (
 	//go:embed assets/apps_readme.md
 	appsReadme []byte
 
-	clone = func(ctx context.Context, cloneOpts *git.CloneOptions) (git.Repository, fs.FS, error) {
-		return cloneOpts.Clone(ctx)
+	getRepo = func(ctx context.Context, cloneOpts *git.CloneOptions) (git.Repository, fs.FS, error) {
+		return cloneOpts.GetRepo(ctx)
 	}
 
 	prepareRepo = func(ctx context.Context, cloneOpts *git.CloneOptions, projectName string) (git.Repository, fs.FS, error) {
@@ -47,7 +47,7 @@ var (
 
 		// clone repo
 		log.G().Infof("cloning git repository: %s", cloneOpts.URL())
-		r, repofs, err := clone(ctx, cloneOpts)
+		r, repofs, err := getRepo(ctx, cloneOpts)
 		if err != nil {
 			return nil, nil, fmt.Errorf("Failed cloning the repository: %w", err)
 		}
@@ -55,12 +55,7 @@ var (
 		root := repofs.Root()
 		log.G().Infof("using revision: \"%s\", installation path: \"%s\"", cloneOpts.Revision(), root)
 		if !repofs.ExistsOrDie(store.Default.BootsrtrapDir) {
-			cmd := "repo bootstrap"
-			if root != "/" {
-				cmd += " --installation-path " + root
-			}
-
-			return nil, nil, fmt.Errorf("Bootstrap directory not found, please execute `%s` command", cmd)
+			return nil, nil, fmt.Errorf("Bootstrap directory not found, please execute `repo bootstrap` command")
 		}
 
 		if projectName != "" {

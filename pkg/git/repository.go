@@ -37,15 +37,15 @@ type (
 	}
 
 	CloneOptions struct {
-		Provider string
-		// URL clone url
-		Repo     string
-		Auth     Auth
-		FS       fs.FS
-		Progress io.Writer
-		url      string
-		revision string
-		path     string
+		AutoCreate bool
+		Provider   string
+		Repo       string
+		Auth       Auth
+		FS         fs.FS
+		Progress   io.Writer
+		url        string
+		revision   string
+		path       string
 	}
 
 	PushOptions struct {
@@ -93,6 +93,7 @@ func AddFlags(cmd *cobra.Command, bfs billy.Filesystem, prefix string) *CloneOpt
 
 	if prefix == "" {
 		cmd.PersistentFlags().StringVarP(&co.Auth.Password, "git-token", "t", "", "Your git provider api token [GIT_TOKEN]")
+		cmd.PersistentFlags().StringVar(&co.Provider, "provider", "", fmt.Sprintf("The git provider, one of: %v", strings.Join(Providers(), "|")))
 		cmd.PersistentFlags().StringVar(&co.Repo, "repo", "", "Repository URL [GIT_REPO]")
 
 		util.Die(cmd.MarkPersistentFlagRequired("git-token"))
@@ -107,6 +108,7 @@ func AddFlags(cmd *cobra.Command, bfs billy.Filesystem, prefix string) *CloneOpt
 
 		envPrefix := strings.ReplaceAll(strings.ToUpper(prefix), "-", "_")
 		cmd.PersistentFlags().StringVar(&co.Auth.Password, prefix+"git-token", "", fmt.Sprintf("Your git provider api token [%sGIT_TOKEN]", envPrefix))
+		cmd.PersistentFlags().StringVar(&co.Provider, prefix+"provider", "", fmt.Sprintf("The git provider, one of: %v", strings.Join(Providers(), "|")))
 		cmd.PersistentFlags().StringVar(&co.Repo, prefix+"repo", "", fmt.Sprintf("Repository URL [%sGIT_REPO]", envPrefix))
 
 		util.Die(viper.BindEnv(prefix+"git-token", envPrefix+"GIT_TOKEN"))
@@ -127,7 +129,7 @@ func (o *CloneOptions) Parse() {
 	o.url = host + orgRepo + suffix
 }
 
-func (o *CloneOptions) Clone(ctx context.Context) (Repository, fs.FS, error) {
+func (o *CloneOptions) GetRepo(ctx context.Context) (Repository, fs.FS, error) {
 	if o == nil {
 		return nil, nil, ErrNilOpts
 	}
@@ -138,24 +140,28 @@ func (o *CloneOptions) Clone(ctx context.Context) (Repository, fs.FS, error) {
 
 	r, err := clone(ctx, o)
 	if err != nil {
-		if err != transport.ErrRepositoryNotFound && err != transport.ErrEmptyRemoteRepository {
-			return nil, nil, err
-		}
+		switch err {
+		case transport.ErrRepositoryNotFound:
+			if !o.AutoCreate {
+				return nil, nil, err
+			}
 
-		if err == transport.ErrRepositoryNotFound {
+			log.G(ctx).Debug("no repository, creating a new one")
 			_, err = createRepo(ctx, o)
 			if err != nil {
 				return nil, nil, err
 			}
+
+			fallthrough // a new repo will always start as empty - we need to init it locally
+		case transport.ErrEmptyRemoteRepository:
+			log.G(ctx).Debug("empty repository, initializing a new one with specified remote")
+			r, err = initRepo(ctx, o)
+			if err != nil {
+				return nil, nil, err
+			}
+		default:
+			return nil, nil, err
 		}
-
-		// just created repo OR err == transport.ErrEmptyRemoteRepository
-		log.G(ctx).Debug("empty repository, initializing new one with specified remote")
-		r, err = initRepo(ctx, o)
-	}
-
-	if err != nil {
-		return nil, nil, err
 	}
 
 	bootstrapFS, err := o.FS.Chroot(o.path)
@@ -259,17 +265,19 @@ var createRepo = func(ctx context.Context, opts *CloneOptions) (string, error) {
 		Host: host,
 	})
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("Failed to create the repository: %w\nYou can try to manually create it before trying again.", err)
 	}
 
 	s := strings.Split(orgRepo, "/")
-	if len(s) != 2 {
+	if len(s) < 2 {
 		return "", fmt.Errorf("Failed parsing organization and repo from '%s'", orgRepo)
 	}
 
+	owner := strings.Join(s[:len(s)-1], "/")
+	name := s[len(s)-1]
 	return p.CreateRepository(ctx, &CreateRepoOptions{
-		Owner:   s[0],
-		Name:    s[1],
+		Owner:   owner,
+		Name:    name,
 		Private: true,
 	})
 }

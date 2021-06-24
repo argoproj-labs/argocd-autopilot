@@ -24,7 +24,6 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kusttypes "sigs.k8s.io/kustomize/api/types"
@@ -38,21 +37,11 @@ const (
 // used for mocking
 var (
 	argocdLogin        = argocd.Login
-	getGitProvider     = git.NewProvider
 	currentKubeContext = kube.CurrentContext
 	runKustomizeBuild  = application.GenerateManifests
 )
 
 type (
-	RepoCreateOptions struct {
-		Provider string
-		Owner    string
-		Repo     string
-		Token    string
-		Public   bool
-		Host     string
-	}
-
 	RepoBootstrapOptions struct {
 		AppSpecifier     string
 		InstallationMode string
@@ -62,9 +51,8 @@ type (
 		DryRun           bool
 		HidePassword     bool
 		Timeout          time.Duration
-		// FS               fs.FS
-		KubeFactory  kube.Factory
-		CloneOptions *git.CloneOptions
+		KubeFactory      kube.Factory
+		CloneOptions     *git.CloneOptions
 	}
 
 	bootstrapManifests struct {
@@ -90,43 +78,7 @@ func NewRepoCommand() *cobra.Command {
 		},
 	}
 
-	cmd.AddCommand(NewRepoCreateCommand())
 	cmd.AddCommand(NewRepoBootstrapCommand())
-
-	return cmd
-}
-
-func NewRepoCreateCommand() *cobra.Command {
-	var opts *RepoCreateOptions
-
-	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a new gitops repository",
-		Example: util.Doc(`
-# To run this command you need to create a personal access token for your git provider
-# and provide it using:
-
-    export GIT_TOKEN=<token>
-
-# or with the flag:
-
-    --git-token <token>
-
-# Create a new gitops repository on github
-
-    <BIN> repo create --owner foo --name bar --git-token abc123
-
-# Create a public gitops repository on github
-
-    <BIN> repo create --owner foo --name bar --git-token abc123 --public
-`),
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			_, err := RunRepoCreate(cmd.Context(), opts)
-			return err
-		},
-	}
-
-	opts = AddRepoCreateFlags(cmd, "")
 
 	return cmd
 }
@@ -197,77 +149,6 @@ func NewRepoBootstrapCommand() *cobra.Command {
 	return cmd
 }
 
-func AddRepoCreateFlags(cmd *cobra.Command, prefix string) *RepoCreateOptions {
-	opts := &RepoCreateOptions{}
-
-	if prefix != "" {
-		if !strings.HasSuffix(prefix, "-") {
-			prefix += "-"
-		}
-
-		envPrefix := strings.ReplaceAll(strings.ToUpper(prefix), "-", "_")
-
-		cmd.Flags().StringVar(&opts.Owner, prefix+"owner", "", "The name of the owner or organization")
-		cmd.Flags().StringVar(&opts.Repo, prefix+"name", "", "The name of the repository")
-		cmd.Flags().StringVar(&opts.Token, prefix+"git-token", "", fmt.Sprintf("Your git provider api token [%sGIT_TOKEN]", envPrefix))
-		cmd.Flags().StringVar(&opts.Provider, prefix+"provider", "github", fmt.Sprintf("The git provider, one of: %v", strings.Join(git.Providers(), "|")))
-		cmd.Flags().StringVar(&opts.Host, prefix+"host", "", "The git provider address (for on-premise git providers)")
-		cmd.Flags().BoolVar(&opts.Public, prefix+"public", false, "If true, will create the repository as public (default is false)")
-
-		die(viper.BindEnv(prefix+"git-token", envPrefix+"GIT_TOKEN"))
-	} else {
-		cmd.Flags().StringVarP(&opts.Owner, "owner", "o", "", "The name of the owner or organization")
-		cmd.Flags().StringVarP(&opts.Repo, "name", "n", "", "The name of the repository")
-		cmd.Flags().StringVarP(&opts.Token, "git-token", "t", "", "Your git provider api token [GIT_TOKEN]")
-		cmd.Flags().StringVarP(&opts.Provider, "provider", "p", "github", fmt.Sprintf("The git provider, one of: %v", strings.Join(git.Providers(), "|")))
-		cmd.Flags().StringVar(&opts.Host, "host", "", "The git provider address (for on-premise git providers)")
-		cmd.Flags().BoolVar(&opts.Public, "public", false, "If true, will create the repository as public (default is false)")
-
-		die(viper.BindEnv("git-token", "GIT_TOKEN"))
-		die(cmd.MarkFlagRequired("owner"))
-		die(cmd.MarkFlagRequired("name"))
-		die(cmd.MarkFlagRequired("git-token"))
-	}
-
-	return opts
-}
-
-func RunRepoCreate(ctx context.Context, opts *RepoCreateOptions) (*git.CloneOptions, error) {
-	p, err := getGitProvider(&git.ProviderOptions{
-		Type: opts.Provider,
-		Auth: &git.Auth{
-			Username: "git",
-			Password: opts.Token,
-		},
-		Host: opts.Host,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	log.G().Infof("creating repo: %s/%s", opts.Owner, opts.Repo)
-	repoUrl, err := p.CreateRepository(ctx, &git.CreateRepoOptions{
-		Owner:   opts.Owner,
-		Name:    opts.Repo,
-		Private: !opts.Public,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	log.G().Infof("repo created at: %s", repoUrl)
-
-	co := &git.CloneOptions{
-		Repo: repoUrl,
-		FS:   fs.Create(memfs.New()),
-		Auth: git.Auth{
-			Password: opts.Token,
-		},
-	}
-	co.Parse()
-	return co, nil
-}
-
 func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 	var err error
 
@@ -308,7 +189,7 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 	log.G().Infof("cloning repo: %s", opts.CloneOptions.URL())
 
 	// clone GitOps repo
-	r, repofs, err := clone(ctx, opts.CloneOptions)
+	r, repofs, err := getRepo(ctx, opts.CloneOptions)
 	if err != nil {
 		return err
 	}
@@ -382,6 +263,8 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 
 func setBootstrapOptsDefaults(opts RepoBootstrapOptions) (*RepoBootstrapOptions, error) {
 	var err error
+
+	opts.CloneOptions.AutoCreate = true
 
 	switch opts.InstallationMode {
 	case installationModeFlat, installationModeNormal:

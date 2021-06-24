@@ -203,10 +203,10 @@ func TestRunAppCreate(t *testing.T) {
 			},
 		},
 	}
-	origPrepareRepo, origClone, origSetAppOptsDefault, origAppParse := prepareRepo, clone, setAppOptsDefaults, parseApp
+	origPrepareRepo, origClone, origSetAppOptsDefault, origAppParse := prepareRepo, getRepo, setAppOptsDefaults, parseApp
 	defer func() {
 		prepareRepo = origPrepareRepo
-		clone = origClone
+		getRepo = origClone
 		setAppOptsDefaults = origSetAppOptsDefault
 		parseApp = origAppParse
 	}()
@@ -226,7 +226,7 @@ func TestRunAppCreate(t *testing.T) {
 				gitopsRepo, repofs, err = tt.prepareRepo()
 				return gitopsRepo, repofs, err
 			}
-			clone = func(_ context.Context, cloneOpts *git.CloneOptions) (git.Repository, fs.FS, error) {
+			getRepo = func(_ context.Context, cloneOpts *git.CloneOptions) (git.Repository, fs.FS, error) {
 				var (
 					repofs fs.FS
 					err    error
@@ -739,7 +739,7 @@ func Test_setAppOptsDefaults(t *testing.T) {
 				},
 			},
 			beforeFn: func() fs.FS {
-				clone = func(_ context.Context, _ *git.CloneOptions) (git.Repository, fs.FS, error) {
+				getRepo = func(_ context.Context, _ *git.CloneOptions) (git.Repository, fs.FS, error) {
 					return nil, fs.Create(memfs.New()), nil
 				}
 
@@ -775,7 +775,7 @@ func Test_setAppOptsDefaults(t *testing.T) {
 			},
 			wantErr: "some error",
 			beforeFn: func() fs.FS {
-				clone = func(_ context.Context, _ *git.CloneOptions) (git.Repository, fs.FS, error) {
+				getRepo = func(_ context.Context, _ *git.CloneOptions) (git.Repository, fs.FS, error) {
 					return nil, nil, fmt.Errorf("some error")
 				}
 
@@ -783,8 +783,8 @@ func Test_setAppOptsDefaults(t *testing.T) {
 			},
 		},
 	}
-	origClone := clone
-	defer func() { clone = origClone }()
+	origClone := getRepo
+	defer func() { getRepo = origClone }()
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			var repofs fs.FS

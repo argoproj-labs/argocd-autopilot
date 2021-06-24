@@ -373,7 +373,7 @@ func Test_clone(t *testing.T) {
 	}
 }
 
-func TestClone(t *testing.T) {
+func TestGetRepo(t *testing.T) {
 	tests := map[string]struct {
 		opts             *CloneOptions
 		wantErr          bool
@@ -463,7 +463,7 @@ func TestClone(t *testing.T) {
 				tt.opts.FS = fs.Create(memfs.New())
 			}
 
-			gotRepo, gotFS, err := tt.opts.Clone(context.Background())
+			gotRepo, gotFS, err := tt.opts.GetRepo(context.Background())
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Clone() error = %v, wantErr %v", err, tt.wantErr)
 				return

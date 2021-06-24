@@ -149,7 +149,7 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 			opts.AppsCloneOpts.Auth.Password = opts.CloneOpts.Auth.Password
 		}
 
-		appsRepo, appsfs, err = clone(ctx, opts.AppsCloneOpts)
+		appsRepo, appsfs, err = getRepo(ctx, opts.AppsCloneOpts)
 		if err != nil {
 			return err
 		}
@@ -164,7 +164,7 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 
 	app, err := parseApp(opts.AppOpts, opts.ProjectName, opts.CloneOpts.URL(), opts.CloneOpts.Revision(), opts.CloneOpts.Path())
 	if err != nil {
-		return fmt.Errorf("failed to parse application from flags: %v", err)
+		return fmt.Errorf("failed to parse application from flags: %w", err)
 	}
 
 	if err = app.CreateFiles(repofs, appsfs, opts.ProjectName); err != nil {
@@ -224,7 +224,7 @@ var setAppOptsDefaults = func(ctx context.Context, repofs fs.FS, opts *AppCreate
 			FS:   fs.Create(memfs.New()),
 		}
 		cloneOpts.Parse()
-		_, fsys, err = clone(ctx, cloneOpts)
+		_, fsys, err = getRepo(ctx, cloneOpts)
 		if err != nil {
 			return err
 		}
