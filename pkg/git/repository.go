@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"strings"
 
@@ -36,6 +37,7 @@ type (
 	}
 
 	CloneOptions struct {
+		Provider string
 		// URL clone url
 		Repo     string
 		Auth     Auth
@@ -136,10 +138,20 @@ func (o *CloneOptions) Clone(ctx context.Context) (Repository, fs.FS, error) {
 
 	r, err := clone(ctx, o)
 	if err != nil {
-		if err == transport.ErrEmptyRemoteRepository {
-			log.G(ctx).Debug("empty repository, initializing new one with specified remote")
-			r, err = initRepo(ctx, o)
+		if err != transport.ErrRepositoryNotFound && err != transport.ErrEmptyRemoteRepository {
+			return nil, nil, err
 		}
+
+		if err == transport.ErrRepositoryNotFound {
+			_, err = createRepo(ctx, o)
+			if err != nil {
+				return nil, nil, err
+			}
+		}
+
+		// just created repo OR err == transport.ErrEmptyRemoteRepository
+		log.G(ctx).Debug("empty repository, initializing new one with specified remote")
+		r, err = initRepo(ctx, o)
 	}
 
 	if err != nil {
@@ -227,6 +239,39 @@ var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 	}
 
 	return repo, nil
+}
+
+var createRepo = func(ctx context.Context, opts *CloneOptions) (string, error) {
+	host, orgRepo, _, _, _, _, _ := util.ParseGitUrl(opts.Repo)
+	providerType := opts.Provider
+	if providerType == "" {
+		u, err := url.Parse(host)
+		if err != nil {
+			return "", err
+		}
+
+		providerType = u.Hostname()
+	}
+
+	p, err := NewProvider(&ProviderOptions{
+		Type: providerType,
+		Auth: &opts.Auth,
+		Host: host,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	s := strings.Split(orgRepo, "/")
+	if len(s) != 2 {
+		return "", fmt.Errorf("Failed parsing organization and repo from '%s'", orgRepo)
+	}
+
+	return p.CreateRepository(ctx, &CreateRepoOptions{
+		Owner:   s[0],
+		Name:    s[1],
+		Private: true,
+	})
 }
 
 var initRepo = func(ctx context.Context, opts *CloneOptions) (*repo, error) {

@@ -49,7 +49,8 @@ var (
 )
 
 var supportedProviders = map[string]func(*ProviderOptions) (Provider, error){
-	"github": newGithub,
+	"github":     newGithub,
+	"github.com": newGithub,
 }
 
 // New creates a new git provider
