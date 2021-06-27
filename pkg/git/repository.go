@@ -259,7 +259,7 @@ var createRepo = func(ctx context.Context, opts *CloneOptions) (string, error) {
 		providerType = u.Hostname()
 	}
 
-	p, err := NewProvider(&ProviderOptions{
+	p, err := newProvider(&ProviderOptions{
 		Type: providerType,
 		Auth: &opts.Auth,
 		Host: host,

@@ -11,6 +11,7 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/fs"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/git/gogit"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/git/gogit/mocks"
+
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
 	gg "github.com/go-git/go-git/v5"
@@ -376,101 +377,143 @@ func Test_clone(t *testing.T) {
 
 func TestGetRepo(t *testing.T) {
 	tests := map[string]struct {
-		opts             *CloneOptions
-		wantErr          bool
-		cloneErr         error
-		initErr          error
-		expectInitCalled bool
-		assertFn         func(*testing.T, Repository, fs.FS)
+		run          bool
+		opts         *CloneOptions
+		wantErr      string
+		cloneFn      func(context.Context, *CloneOptions) (*repo, error)
+		createRepoFn func(context.Context, *CloneOptions) (string, error)
+		initRepoFn   func(context.Context, *CloneOptions) (*repo, error)
+		assertFn     func(*testing.T, Repository, fs.FS, error)
 	}{
-		"No error": {
+		"Should get a repo": {
 			opts: &CloneOptions{
 				Repo: "https://github.com/owner/name",
+				FS:   fs.Create(memfs.New()),
 			},
-			assertFn: func(t *testing.T, r Repository, _ fs.FS) {
+			cloneFn: func(_ context.Context, opts *CloneOptions) (*repo, error) {
+				return &repo{}, nil
+			},
+			assertFn: func(t *testing.T, r Repository, f fs.FS, e error) {
 				assert.NotNil(t, r)
+				assert.NotNil(t, f)
+				assert.Nil(t, e)
 			},
-			expectInitCalled: false,
 		},
-		"NilOpts": {
-			opts: nil,
-			assertFn: func(t *testing.T, r Repository, repofs fs.FS) {
+		"Should fail when no CloneOptions": {
+			opts:    nil,
+			wantErr: ErrNilOpts.Error(),
+			assertFn: func(t *testing.T, r Repository, f fs.FS, e error) {
 				assert.Nil(t, r)
-				assert.Nil(t, repofs)
+				assert.Nil(t, f)
+				assert.Error(t, ErrNilOpts, e)
 			},
-			wantErr: true,
 		},
-		"EmptyRepo": {
+		"Should fail when clone fails": {
 			opts: &CloneOptions{
 				Repo: "https://github.com/owner/name",
 			},
-			assertFn: func(t *testing.T, r Repository, repofs fs.FS) {
+			cloneFn: func(_ context.Context, opts *CloneOptions) (*repo, error) {
+				return nil, errors.New("some error")
+			},
+			assertFn: func(t *testing.T, r Repository, f fs.FS, e error) {
+				assert.Nil(t, r)
+				assert.Nil(t, f)
+				assert.EqualError(t, e, "some error")
+			},
+		},
+		"Should fail when repo not found": {
+			opts: &CloneOptions{
+				Repo: "https://github.com/owner/name",
+			},
+			cloneFn: func(_ context.Context, opts *CloneOptions) (*repo, error) {
+				return nil, transport.ErrRepositoryNotFound
+			},
+			assertFn: func(t *testing.T, r Repository, f fs.FS, e error) {
+				assert.Nil(t, r)
+				assert.Nil(t, f)
+				assert.Error(t, transport.ErrRepositoryNotFound, e)
+			},
+		},
+		"Should fail when AutoCreate is true and create fails": {
+			run: true,
+			opts: &CloneOptions{
+				Repo:       "https://github.com/owner/name",
+				AutoCreate: true,
+			},
+			wantErr: "some error",
+			cloneFn: func(_ context.Context, opts *CloneOptions) (*repo, error) {
+				return nil, transport.ErrRepositoryNotFound
+			},
+			createRepoFn: func(c context.Context, co *CloneOptions) (string, error) {
+				return "", errors.New("some error")
+			},
+			assertFn: func(t *testing.T, r Repository, f fs.FS, e error) {
+				assert.Nil(t, r)
+				assert.Nil(t, f)
+				assert.EqualError(t, e, "some error")
+			},
+		},
+		"Should fail when repo is empty and init fails": {
+			opts: &CloneOptions{
+				Repo: "https://github.com/owner/name",
+			},
+			wantErr: "some error",
+			cloneFn: func(_ context.Context, opts *CloneOptions) (*repo, error) {
+				return nil, transport.ErrEmptyRemoteRepository
+			},
+			initRepoFn: func(c context.Context, co *CloneOptions) (*repo, error) {
+				return nil, errors.New("some error")
+			},
+			assertFn: func(t *testing.T, r Repository, f fs.FS, e error) {
+				assert.Nil(t, r)
+				assert.Nil(t, f)
+				assert.EqualError(t, e, "some error")
+			},
+		},
+		"Should create and init repo when AutoCreate is true": {
+			run: true,
+			opts: &CloneOptions{
+				Repo:       "https://github.com/owner/name",
+				AutoCreate: true,
+				FS:         fs.Create(memfs.New()),
+			},
+			wantErr: "some error",
+			cloneFn: func(_ context.Context, opts *CloneOptions) (*repo, error) {
+				return nil, transport.ErrRepositoryNotFound
+			},
+			createRepoFn: func(c context.Context, co *CloneOptions) (string, error) {
+				return "", nil
+			},
+			initRepoFn: func(c context.Context, co *CloneOptions) (*repo, error) {
+				return &repo{}, nil
+			},
+			assertFn: func(t *testing.T, r Repository, f fs.FS, e error) {
 				assert.NotNil(t, r)
-				assert.NotNil(t, repofs)
+				assert.NotNil(t, f)
+				assert.Nil(t, e)
 			},
-			cloneErr:         transport.ErrEmptyRemoteRepository,
-			wantErr:          false,
-			expectInitCalled: true,
-		},
-		"AnotherErr": {
-			opts: &CloneOptions{
-				Repo: "https://github.com/owner/name",
-			},
-			assertFn: func(t *testing.T, r Repository, repofs fs.FS) {
-				assert.Nil(t, r)
-				assert.Nil(t, repofs)
-			},
-			cloneErr:         fmt.Errorf("error"),
-			wantErr:          true,
-			expectInitCalled: false,
-		},
-		"Use chroot": {
-			opts: &CloneOptions{
-				Repo: "https://github.com/owner/name/some/folder",
-			},
-			assertFn: func(t *testing.T, _ Repository, repofs fs.FS) {
-				assert.Equal(t, "/some/folder", repofs.Root())
-			},
-			expectInitCalled: false,
 		},
 	}
-
-	orgClone := clone
-	orgInit := initRepo
-	defer func() { clone = orgClone }()
-	defer func() { initRepo = orgInit }()
-
+	origClone, origCreateRepo, origInitRepo := clone, createRepo, initRepo
+	defer func() {
+		clone = origClone
+		createRepo = origCreateRepo
+		initRepo = origInitRepo
+	}()
 	for tname, tt := range tests {
+		if !tt.run {
+			// continue
+		}
 		t.Run(tname, func(t *testing.T) {
-			r := &repo{}
-			clone = func(_ context.Context, _ *CloneOptions) (*repo, error) {
-				if tt.cloneErr != nil {
-					return nil, tt.cloneErr
-				}
-				return r, nil
-			}
-			initRepo = func(_ context.Context, _ *CloneOptions) (*repo, error) {
-				if !tt.expectInitCalled {
-					t.Errorf("expectInitCalled = false, but it was called")
-				}
-				if tt.initErr != nil {
-					return nil, tt.initErr
-				}
-				return r, nil
-			}
-
+			clone = tt.cloneFn
+			createRepo = tt.createRepoFn
+			initRepo = tt.initRepoFn
 			if tt.opts != nil {
 				tt.opts.Parse()
-				tt.opts.FS = fs.Create(memfs.New())
 			}
 
-			gotRepo, gotFS, err := tt.opts.GetRepo(context.Background())
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Clone() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-
-			tt.assertFn(t, gotRepo, gotFS)
+			r, fs, err := tt.opts.GetRepo(context.Background())
+			tt.assertFn(t, r, fs, err)
 		})
 	}
 }
@@ -754,6 +797,114 @@ func TestAddFlags(t *testing.T) {
 				} else {
 					assert.Nil(t, actual.Annotations[cobra.BashCompOneRequiredFlag], expected.name+" was not supposed to be required")
 				}
+			}
+		})
+	}
+}
+
+type mockProvider struct {
+	createRepository func(opts *CreateRepoOptions) (string, error)
+}
+
+func (p *mockProvider) CreateRepository(_ context.Context, opts *CreateRepoOptions) (string, error) {
+	return p.createRepository(opts)
+}
+
+func Test_createRepo(t *testing.T) {
+	tests := map[string]struct {
+		opts        *CloneOptions
+		want        string
+		wantErr     string
+		newProvider func(*testing.T, *ProviderOptions) (Provider, error)
+	}{
+		"Should create new repository": {
+			opts: &CloneOptions{
+				Repo:     "https://github.com/owner/name.git",
+				Provider: "github",
+				Auth: Auth{
+					Username: "username",
+					Password: "password",
+				},
+			},
+			want: "https://github.com/owner/name.git",
+			newProvider: func(t *testing.T, opts *ProviderOptions) (Provider, error) {
+				assert.Equal(t, "username", opts.Auth.Username)
+				assert.Equal(t, "password", opts.Auth.Password)
+				assert.Equal(t, "https://github.com/", opts.Host)
+				assert.Equal(t, "github", opts.Type)
+				return &mockProvider{func(opts *CreateRepoOptions) (string, error) {
+					assert.Equal(t, "owner", opts.Owner)
+					assert.Equal(t, "name", opts.Name)
+					assert.Equal(t, true, opts.Private)
+					return "https://github.com/owner/name.git", nil
+				}}, nil
+			},
+		},
+		"Should infer correct provider type from repo url": {
+			opts: &CloneOptions{
+				Repo: "https://github.com/owner/name.git",
+			},
+			want: "https://github.com/owner/name.git",
+			newProvider: func(t *testing.T, opts *ProviderOptions) (Provider, error) {
+				assert.Equal(t, "github.com", opts.Type)
+				return &mockProvider{func(opts *CreateRepoOptions) (string, error) {
+					return "https://github.com/owner/name.git", nil
+				}}, nil
+			},
+		},
+		"Should fail if provider type is unknown": {
+			opts: &CloneOptions{
+				Repo: "https://unkown.com/owner/name",
+			},
+			wantErr: "Failed to create the repository: git provider 'unkown.com' not supported\nYou can try to manually create it before trying again.",
+		},
+		"Should fail if url doesn't contain orgRepo parts": {
+			opts: &CloneOptions{
+				Repo: "https://github.com/owner.git",
+			},
+			wantErr: "Failed parsing organization and repo from 'owner'",
+		},
+		"Should succesfully parse owner and name for gitlab url": {
+			opts: &CloneOptions{
+				Repo: "https://gitlab.com/foo22/bar/fizz.git",
+			},
+			want: "https://gitlab.com/foo22/bar/fizz.git",
+			newProvider: func(t *testing.T, opts *ProviderOptions) (Provider, error) {
+				assert.Equal(t, "https://gitlab.com/", opts.Host)
+				assert.Equal(t, "gitlab.com", opts.Type)
+				return &mockProvider{func(opts *CreateRepoOptions) (string, error) {
+					assert.Equal(t, "foo22/bar", opts.Owner)
+					assert.Equal(t, "fizz", opts.Name)
+					return "https://gitlab.com/foo22/bar/fizz.git", nil
+				}}, nil
+			},
+		},
+	}
+	origNewProvider := newProvider
+	defer func() { newProvider = origNewProvider }()
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			if tt.newProvider != nil {
+				newProvider = func(opts *ProviderOptions) (Provider, error) {
+					return tt.newProvider(t, opts)
+				}
+			} else {
+				newProvider = origNewProvider
+			}
+
+			got, err := createRepo(context.Background(), tt.opts)
+			if err != nil {
+				if tt.wantErr != "" {
+					assert.EqualError(t, err, tt.wantErr)
+				} else {
+					t.Errorf("createRepo() error = %v, wantErr %v", err, tt.wantErr)
+				}
+
+				return
+			}
+
+			if got != tt.want {
+				t.Errorf("createRepo() = %v, want %v", got, tt.want)
 			}
 		})
 	}

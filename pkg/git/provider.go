@@ -55,7 +55,7 @@ var supportedProviders = map[string]func(*ProviderOptions) (Provider, error){
 }
 
 // New creates a new git provider
-func NewProvider(opts *ProviderOptions) (Provider, error) {
+var newProvider = func(opts *ProviderOptions) (Provider, error) {
 	cons, exists := supportedProviders[opts.Type]
 	if !exists {
 		return nil, ErrProviderNotSupported(opts.Type)
