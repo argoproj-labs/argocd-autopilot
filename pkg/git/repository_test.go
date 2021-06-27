@@ -377,7 +377,6 @@ func Test_clone(t *testing.T) {
 
 func TestGetRepo(t *testing.T) {
 	tests := map[string]struct {
-		run          bool
 		opts         *CloneOptions
 		wantErr      string
 		cloneFn      func(context.Context, *CloneOptions) (*repo, error)
@@ -435,7 +434,6 @@ func TestGetRepo(t *testing.T) {
 			},
 		},
 		"Should fail when AutoCreate is true and create fails": {
-			run: true,
 			opts: &CloneOptions{
 				Repo:       "https://github.com/owner/name",
 				AutoCreate: true,
@@ -471,7 +469,6 @@ func TestGetRepo(t *testing.T) {
 			},
 		},
 		"Should create and init repo when AutoCreate is true": {
-			run: true,
 			opts: &CloneOptions{
 				Repo:       "https://github.com/owner/name",
 				AutoCreate: true,
@@ -501,9 +498,6 @@ func TestGetRepo(t *testing.T) {
 		initRepo = origInitRepo
 	}()
 	for tname, tt := range tests {
-		if !tt.run {
-			// continue
-		}
 		t.Run(tname, func(t *testing.T) {
 			clone = tt.cloneFn
 			createRepo = tt.createRepoFn
@@ -735,7 +729,7 @@ func TestAddFlags(t *testing.T) {
 				},
 				{
 					name:  "provider",
-					usage: "The git provider, one of: github|github.com",
+					usage: "The git provider, one of: github",
 				},
 				{
 					name:     "repo",
@@ -753,7 +747,7 @@ func TestAddFlags(t *testing.T) {
 				},
 				{
 					name:  "prefix-provider",
-					usage: "The git provider, one of: github|github.com",
+					usage: "The git provider, one of: github",
 				},
 				{
 					name:  "prefix-repo",
@@ -770,7 +764,7 @@ func TestAddFlags(t *testing.T) {
 				},
 				{
 					name:  "prefix-provider",
-					usage: "The git provider, one of: github|github.com",
+					usage: "The git provider, one of: github",
 				},
 				{
 					name:  "prefix-repo",
@@ -846,7 +840,7 @@ func Test_createRepo(t *testing.T) {
 			},
 			want: "https://github.com/owner/name.git",
 			newProvider: func(t *testing.T, opts *ProviderOptions) (Provider, error) {
-				assert.Equal(t, "github.com", opts.Type)
+				assert.Equal(t, "github", opts.Type)
 				return &mockProvider{func(opts *CreateRepoOptions) (string, error) {
 					return "https://github.com/owner/name.git", nil
 				}}, nil
@@ -856,7 +850,7 @@ func Test_createRepo(t *testing.T) {
 			opts: &CloneOptions{
 				Repo: "https://unkown.com/owner/name",
 			},
-			wantErr: "Failed to create the repository: git provider 'unkown.com' not supported\nYou can try to manually create it before trying again.",
+			wantErr: "Failed to create the repository: git provider 'unkown' not supported\nYou can try to manually create it before trying again.",
 		},
 		"Should fail if url doesn't contain orgRepo parts": {
 			opts: &CloneOptions{
@@ -871,7 +865,7 @@ func Test_createRepo(t *testing.T) {
 			want: "https://gitlab.com/foo22/bar/fizz.git",
 			newProvider: func(t *testing.T, opts *ProviderOptions) (Provider, error) {
 				assert.Equal(t, "https://gitlab.com/", opts.Host)
-				assert.Equal(t, "gitlab.com", opts.Type)
+				assert.Equal(t, "gitlab", opts.Type)
 				return &mockProvider{func(opts *CreateRepoOptions) (string, error) {
 					assert.Equal(t, "foo22/bar", opts.Owner)
 					assert.Equal(t, "fizz", opts.Name)

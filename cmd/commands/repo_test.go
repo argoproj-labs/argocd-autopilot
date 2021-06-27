@@ -26,7 +26,6 @@ import (
 
 func Test_setBootstrapOptsDefaults(t *testing.T) {
 	tests := map[string]struct {
-		run      bool
 		opts     *RepoBootstrapOptions
 		preFn    func()
 		assertFn func(t *testing.T, opts *RepoBootstrapOptions, ret error)
@@ -41,7 +40,6 @@ func Test_setBootstrapOptsDefaults(t *testing.T) {
 			},
 		},
 		"Basic": {
-			run: true,
 			opts: &RepoBootstrapOptions{
 				CloneOptions: &git.CloneOptions{},
 			},
@@ -94,9 +92,6 @@ func Test_setBootstrapOptsDefaults(t *testing.T) {
 
 	orgCurrentKubeContext := currentKubeContext
 	for tname, tt := range tests {
-		if !tt.run {
-			// continue
-		}
 		t.Run(tname, func(t *testing.T) {
 			if tt.preFn != nil {
 				tt.preFn()

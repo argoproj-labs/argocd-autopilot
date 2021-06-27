@@ -52,7 +52,7 @@ argocd-autopilot repo bootstrap [flags]
       --kubeconfig string              Path to the kubeconfig file to use for CLI requests.
   -n, --namespace string               If present, the namespace scope for this CLI request
       --namespaced                     If true, install a namespaced version of argo-cd (no need for cluster-role)
-      --provider string                The git provider, one of: github.com|github
+      --provider string                The git provider, one of: github
       --repo string                    Repository URL [GIT_REPO]
       --request-timeout string         The length of time to wait before giving up on a single server request. Non-zero values should contain a corresponding time unit (e.g. 1s, 2m, 3h). A value of zero means don't timeout requests. (default "0")
   -s, --server string                  The address and port of the Kubernetes API server

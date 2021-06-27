@@ -46,7 +46,7 @@ argocd-autopilot application create [APP_NAME] [flags]
 ```
       --app string                 The application specifier (e.g. github.com/argoproj/argo-workflows/manifests/cluster-install/?ref=v3.0.3)
       --apps-git-token string      Your git provider api token [APPS_GIT_TOKEN]
-      --apps-provider string       The git provider, one of: github|github.com
+      --apps-provider string       The git provider, one of: github
       --apps-repo string           Repository URL [APPS_GIT_REPO]
       --dest-namespace string      K8s target namespace (overrides the namespace specified in the kustomization.yaml)
       --dest-server string         K8s cluster URL (e.g. https://kubernetes.default.svc) (default "https://kubernetes.default.svc")
@@ -60,7 +60,7 @@ argocd-autopilot application create [APP_NAME] [flags]
 
 ```
   -t, --git-token string   Your git provider api token [GIT_TOKEN]
-      --provider string    The git provider, one of: github|github.com
+      --provider string    The git provider, one of: github
       --repo string        Repository URL [GIT_REPO]
 ```
 
