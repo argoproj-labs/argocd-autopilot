@@ -157,7 +157,7 @@ func (o *CloneOptions) GetRepo(ctx context.Context) (Repository, fs.FS, error) {
 			log.G(ctx).Infof("repository '%s' was not found, trying to create it...", o.Repo)
 			_, err = createRepo(ctx, o)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, fmt.Errorf("failed to create repository: %w", err)
 			}
 
 			fallthrough // a new repo will always start as empty - we need to init it locally
@@ -165,7 +165,7 @@ func (o *CloneOptions) GetRepo(ctx context.Context) (Repository, fs.FS, error) {
 			log.G(ctx).Info("empty repository, initializing a new one with specified remote")
 			r, err = initRepo(ctx, o)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, fmt.Errorf("failed to initialize repository: %w", err)
 			}
 		default:
 			return nil, nil, err
