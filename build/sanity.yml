@@ -21,8 +21,8 @@ steps:
     image: quay.io/codefresh/golang-ci-helper:latest
     commands:
     - cf_export GO111MODULE=on
-    - cf_export NAMESPACE=${{KUBE_NAMESPACE}}-$(date "+%m-%S")
-    - cf_export GIT_REPO=${{AUTOPILOT_REPO}}-$(date "+%m-%S")
+    - cf_export NAMESPACE=${{KUBE_NAMESPACE}}-$(date "+%M-%S")
+    - cf_export GIT_REPO=${{AUTOPILOT_REPO}}-$(date "+%M-%S")
     - cf_export GOCACHE=/codefresh/volume/gocache # change gopath to codefresh shared volume
     - cf_export GOPATH=/codefresh/volume/gopath
     - cf_export PATH=$PATH:/codefresh/volume/gopath/bin
