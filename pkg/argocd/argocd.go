@@ -2,7 +2,6 @@ package argocd
 
 import (
 	"context"
-	"sync"
 
 	"github.com/argoproj-labs/argocd-autopilot/pkg/kube"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/log"
@@ -55,8 +54,6 @@ func AddClusterAddFlags(cmd *cobra.Command) (AddClusterCmd, error) {
 	return &addClusterImpl{root, args}, nil
 }
 
-var o = sync.Once{}
-
 func CheckAppSynced(ctx context.Context, f kube.Factory, ns, name string) (bool, error) {
 	rc, err := f.ToRESTConfig()
 	if err != nil {
@@ -78,9 +75,7 @@ func CheckAppSynced(ctx context.Context, f kube.Factory, ns, name string) (bool,
 		return false, nil
 	}
 
-	o.Do(func() {
-		log.G().Info("Application found, waiting for Sync Status")
-	})
+	log.G().Debugf("Application found, Sync Status = %s", app.Status.Sync.Status)
 	return app.Status.Sync.Status == v1alpha1.SyncStatusCodeSynced, nil
 }
 

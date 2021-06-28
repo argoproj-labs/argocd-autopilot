@@ -61,8 +61,7 @@ func NewAppCommand() *cobra.Command {
 		},
 	}
 	cloneOpts = git.AddFlags(cmd, &git.AddFlagsOptions{
-		FS:       memfs.New(),
-		Required: true,
+		FS: memfs.New(),
 	})
 
 	cmd.AddCommand(NewAppCreateCommand(cloneOpts))
@@ -77,7 +76,7 @@ func NewAppCreateCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 		appsCloneOpts *git.CloneOptions
 		appOpts       *application.CreateOptions
 		projectName   string
-		timeout       string
+		timeout       time.Duration
 		f             kube.Factory
 	)
 
@@ -137,10 +136,11 @@ func NewAppCreateCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&projectName, "project", "p", "", "Project name")
-	cmd.Flags().StringVar(&timeout, "timeout", "0", "Wait timeout")
+	cmd.Flags().DurationVar(&timeout, "timeout", 0, "Wait timeout")
 	appsCloneOpts = git.AddFlags(cmd, &git.AddFlagsOptions{
-		FS:     memfs.New(),
-		Prefix: "apps",
+		FS:       memfs.New(),
+		Prefix:   "apps",
+		Optional: true,
 	})
 	appOpts = application.AddFlags(cmd)
 	f = kube.AddFlags(cmd.Flags())
@@ -152,15 +152,15 @@ func NewAppCreateCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 }
 
 func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
-	r, repofs, err := prepareRepo(ctx, opts.CloneOpts, opts.ProjectName)
-	if err != nil {
-		return err
-	}
-
 	var (
 		appsRepo git.Repository
 		appsfs   fs.FS
 	)
+
+	r, repofs, err := prepareRepo(ctx, opts.CloneOpts, opts.ProjectName)
+	if err != nil {
+		return err
+	}
 
 	if opts.AppsCloneOpts.Repo != "" {
 		if opts.AppsCloneOpts.Auth.Password == "" {

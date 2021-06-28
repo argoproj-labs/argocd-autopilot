@@ -141,7 +141,6 @@ func (f *factory) KubernetesClientSet() (kubernetes.Interface, error) {
 
 func (f *factory) ToRESTConfig() (*restclient.Config, error) {
 	return f.f.ToRESTConfig()
-	// return f.f.RESTClient()
 }
 
 func (f *factory) Apply(ctx context.Context, namespace string, manifests []byte) error {

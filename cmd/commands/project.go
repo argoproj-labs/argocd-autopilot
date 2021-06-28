@@ -72,7 +72,6 @@ func NewProjectCommand() *cobra.Command {
 	}
 	cloneOpts = git.AddFlags(cmd, &git.AddFlagsOptions{
 		FS: memfs.New(),
-		Required: true,
 	})
 
 	cmd.AddCommand(NewProjectCreateCommand(cloneOpts))

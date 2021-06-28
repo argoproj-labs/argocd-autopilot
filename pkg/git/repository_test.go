@@ -720,7 +720,9 @@ func TestAddFlags(t *testing.T) {
 		wantedFlags []flag
 	}{
 		"Should create flags without a prefix": {
-			opts: &AddFlagsOptions{},
+			opts: &AddFlagsOptions{
+				Optional: true,
+			},
 			wantedFlags: []flag{
 				{
 					name:      "git-token",
@@ -728,15 +730,13 @@ func TestAddFlags(t *testing.T) {
 					usage:     "Your git provider api token [GIT_TOKEN]",
 				},
 				{
-					name:     "repo",
-					usage:    "Repository URL [GIT_REPO]",
+					name:  "repo",
+					usage: "Repository URL [GIT_REPO]",
 				},
 			},
 		},
 		"Should create flags with required": {
-			opts: &AddFlagsOptions{
-				Required: true,
-			},
+			opts: &AddFlagsOptions{},
 			wantedFlags: []flag{
 				{
 					name:      "git-token",

@@ -144,7 +144,6 @@ func NewRepoBootstrapCommand() *cobra.Command {
 	cloneOpts = git.AddFlags(cmd, &git.AddFlagsOptions{
 		FS:               memfs.New(),
 		CreateIfNotExist: true,
-		Required:         true,
 	})
 
 	// add kubernetes flags
