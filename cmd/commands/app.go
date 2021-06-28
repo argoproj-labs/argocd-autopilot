@@ -55,7 +55,10 @@ func NewAppCommand() *cobra.Command {
 			exit(1)
 		},
 	}
-	cloneOpts = git.AddFlags(cmd, memfs.New(), "")
+	cloneOpts = git.AddFlags(cmd, &git.AddFlagsOptions{
+		FS: memfs.New(),
+		Required: true,
+	})
 
 	cmd.AddCommand(NewAppCreateCommand(cloneOpts))
 	cmd.AddCommand(NewAppListCommand(cloneOpts))
@@ -124,7 +127,10 @@ func NewAppCreateCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&projectName, "project", "p", "", "Project name")
-	appsCloneOpts = git.AddFlags(cmd, memfs.New(), "apps")
+	appsCloneOpts = git.AddFlags(cmd, &git.AddFlagsOptions{
+		FS:     memfs.New(),
+		Prefix: "apps",
+	})
 	appOpts = application.AddFlags(cmd)
 
 	die(cmd.MarkFlagRequired("app"))

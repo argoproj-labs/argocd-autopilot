@@ -36,16 +36,23 @@ type (
 		Persist(ctx context.Context, opts *PushOptions) error
 	}
 
+	AddFlagsOptions struct {
+		FS               billy.Filesystem
+		Prefix           string
+		CreateIfNotExist bool
+		Required         bool
+	}
+
 	CloneOptions struct {
-		AutoCreate bool
-		Provider   string
-		Repo       string
-		Auth       Auth
-		FS         fs.FS
-		Progress   io.Writer
-		url        string
-		revision   string
-		path       string
+		Provider         string
+		Repo             string
+		Auth             Auth
+		FS               fs.FS
+		Progress         io.Writer
+		url              string
+		revision         string
+		path             string
+		createIfNotExist bool
 	}
 
 	PushOptions struct {
@@ -86,33 +93,34 @@ var (
 	}
 )
 
-func AddFlags(cmd *cobra.Command, bfs billy.Filesystem, prefix string) *CloneOptions {
+func AddFlags(cmd *cobra.Command, opts *AddFlagsOptions) *CloneOptions {
 	co := &CloneOptions{
-		FS: fs.Create(bfs),
+		FS:               fs.Create(opts.FS),
+		createIfNotExist: opts.CreateIfNotExist,
 	}
 
-	if prefix == "" {
-		cmd.PersistentFlags().StringVarP(&co.Auth.Password, "git-token", "t", "", "Your git provider api token [GIT_TOKEN]")
-		cmd.PersistentFlags().StringVar(&co.Provider, "provider", "", fmt.Sprintf("The git provider, one of: %v", strings.Join(Providers(), "|")))
-		cmd.PersistentFlags().StringVar(&co.Repo, "repo", "", "Repository URL [GIT_REPO]")
+	if opts.Prefix != "" && !strings.HasSuffix(opts.Prefix, "-") {
+		opts.Prefix += "-"
+	}
 
+	envPrefix := strings.ReplaceAll(strings.ToUpper(opts.Prefix), "-", "_")
+	cmd.PersistentFlags().StringVar(&co.Auth.Password, opts.Prefix+"git-token", "", fmt.Sprintf("Your git provider api token [%sGIT_TOKEN]", envPrefix))
+	cmd.PersistentFlags().StringVar(&co.Repo, opts.Prefix+"repo", "", fmt.Sprintf("Repository URL [%sGIT_REPO]", envPrefix))
+
+	util.Die(viper.BindEnv(opts.Prefix+"git-token", envPrefix+"GIT_TOKEN"))
+	util.Die(viper.BindEnv(opts.Prefix+"repo", envPrefix+"GIT_REPO"))
+
+	if opts.Prefix == "" {
+		cmd.Flag("git-token").Shorthand = "t"
+	}
+
+	if opts.CreateIfNotExist {
+		cmd.PersistentFlags().StringVar(&co.Provider, opts.Prefix+"provider", "", fmt.Sprintf("The git provider, one of: %v", strings.Join(Providers(), "|")))
+	}
+
+	if opts.Required {
 		util.Die(cmd.MarkPersistentFlagRequired("git-token"))
 		util.Die(cmd.MarkPersistentFlagRequired("repo"))
-
-		util.Die(viper.BindEnv("git-token", "GIT_TOKEN"))
-		util.Die(viper.BindEnv("repo", "GIT_REPO"))
-	} else {
-		if !strings.HasSuffix(prefix, "-") {
-			prefix += "-"
-		}
-
-		envPrefix := strings.ReplaceAll(strings.ToUpper(prefix), "-", "_")
-		cmd.PersistentFlags().StringVar(&co.Auth.Password, prefix+"git-token", "", fmt.Sprintf("Your git provider api token [%sGIT_TOKEN]", envPrefix))
-		cmd.PersistentFlags().StringVar(&co.Provider, prefix+"provider", "", fmt.Sprintf("The git provider, one of: %v", strings.Join(Providers(), "|")))
-		cmd.PersistentFlags().StringVar(&co.Repo, prefix+"repo", "", fmt.Sprintf("Repository URL [%sGIT_REPO]", envPrefix))
-
-		util.Die(viper.BindEnv(prefix+"git-token", envPrefix+"GIT_TOKEN"))
-		util.Die(viper.BindEnv(prefix+"repo", envPrefix+"GIT_REPO"))
 	}
 
 	return co
@@ -142,11 +150,11 @@ func (o *CloneOptions) GetRepo(ctx context.Context) (Repository, fs.FS, error) {
 	if err != nil {
 		switch err {
 		case transport.ErrRepositoryNotFound:
-			if !o.AutoCreate {
+			if !o.createIfNotExist {
 				return nil, nil, err
 			}
 
-			log.G(ctx).Debug("no repository, creating a new one")
+			log.G(ctx).Infof("repository '%s' was not found, trying to create it...", o.Repo)
 			_, err = createRepo(ctx, o)
 			if err != nil {
 				return nil, nil, err
@@ -154,7 +162,7 @@ func (o *CloneOptions) GetRepo(ctx context.Context) (Repository, fs.FS, error) {
 
 			fallthrough // a new repo will always start as empty - we need to init it locally
 		case transport.ErrEmptyRemoteRepository:
-			log.G(ctx).Debug("empty repository, initializing a new one with specified remote")
+			log.G(ctx).Info("empty repository, initializing a new one with specified remote")
 			r, err = initRepo(ctx, o)
 			if err != nil {
 				return nil, nil, err
@@ -257,6 +265,7 @@ var createRepo = func(ctx context.Context, opts *CloneOptions) (string, error) {
 		}
 
 		providerType = strings.TrimSuffix(u.Hostname(), ".com")
+		log.G(ctx).Warnf("--provider not specified, assuming provider from url: %s", providerType)
 	}
 
 	p, err := newProvider(&ProviderOptions{
@@ -265,7 +274,7 @@ var createRepo = func(ctx context.Context, opts *CloneOptions) (string, error) {
 		Host: host,
 	})
 	if err != nil {
-		return "", fmt.Errorf("Failed to create the repository: %w\nYou can try to manually create it before trying again.", err)
+		return "", fmt.Errorf("failed to create the repository, you can try to manually create it before trying again: %w", err)
 	}
 
 	s := strings.Split(orgRepo, "/")

@@ -435,8 +435,8 @@ func TestGetRepo(t *testing.T) {
 		},
 		"Should fail when AutoCreate is true and create fails": {
 			opts: &CloneOptions{
-				Repo:       "https://github.com/owner/name",
-				AutoCreate: true,
+				Repo:             "https://github.com/owner/name",
+				createIfNotExist: true,
 			},
 			wantErr: "some error",
 			cloneFn: func(_ context.Context, opts *CloneOptions) (*repo, error) {
@@ -470,9 +470,9 @@ func TestGetRepo(t *testing.T) {
 		},
 		"Should create and init repo when AutoCreate is true": {
 			opts: &CloneOptions{
-				Repo:       "https://github.com/owner/name",
-				AutoCreate: true,
-				FS:         fs.Create(memfs.New()),
+				Repo:             "https://github.com/owner/name",
+				createIfNotExist: true,
+				FS:               fs.Create(memfs.New()),
 			},
 			wantErr: "some error",
 			cloneFn: func(_ context.Context, opts *CloneOptions) (*repo, error) {
@@ -716,20 +716,33 @@ func TestAddFlags(t *testing.T) {
 		required  bool
 	}
 	tests := map[string]struct {
-		prefix      string
+		opts        *AddFlagsOptions
 		wantedFlags []flag
 	}{
 		"Should create flags without a prefix": {
+			opts: &AddFlagsOptions{},
+			wantedFlags: []flag{
+				{
+					name:      "git-token",
+					shorthand: "t",
+					usage:     "Your git provider api token [GIT_TOKEN]",
+				},
+				{
+					name:     "repo",
+					usage:    "Repository URL [GIT_REPO]",
+				},
+			},
+		},
+		"Should create flags with required": {
+			opts: &AddFlagsOptions{
+				Required: true,
+			},
 			wantedFlags: []flag{
 				{
 					name:      "git-token",
 					shorthand: "t",
 					usage:     "Your git provider api token [GIT_TOKEN]",
 					required:  true,
-				},
-				{
-					name:  "provider",
-					usage: "The git provider, one of: github",
 				},
 				{
 					name:     "repo",
@@ -739,15 +752,13 @@ func TestAddFlags(t *testing.T) {
 			},
 		},
 		"Should create flags with a prefix": {
-			prefix: "prefix-",
+			opts: &AddFlagsOptions{
+				Prefix: "prefix-",
+			},
 			wantedFlags: []flag{
 				{
 					name:  "prefix-git-token",
 					usage: "Your git provider api token [PREFIX_GIT_TOKEN]",
-				},
-				{
-					name:  "prefix-provider",
-					usage: "The git provider, one of: github",
 				},
 				{
 					name:  "prefix-repo",
@@ -756,19 +767,28 @@ func TestAddFlags(t *testing.T) {
 			},
 		},
 		"Should automatically add a dash to prefix": {
-			prefix: "prefix",
+			opts: &AddFlagsOptions{
+				Prefix: "prefix",
+			},
 			wantedFlags: []flag{
 				{
 					name:  "prefix-git-token",
 					usage: "Your git provider api token [PREFIX_GIT_TOKEN]",
 				},
 				{
-					name:  "prefix-provider",
-					usage: "The git provider, one of: github",
-				},
-				{
 					name:  "prefix-repo",
 					usage: "Repository URL [PREFIX_GIT_REPO]",
+				},
+			},
+		},
+		"Should add provider flag when needed": {
+			opts: &AddFlagsOptions{
+				CreateIfNotExist: true,
+			},
+			wantedFlags: []flag{
+				{
+					name:  "provider",
+					usage: "The git provider, one of: github",
 				},
 			},
 		},
@@ -777,7 +797,8 @@ func TestAddFlags(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			viper.Reset()
 			cmd := &cobra.Command{}
-			_ = AddFlags(cmd, nil, tt.prefix)
+			tt.opts.FS = memfs.New()
+			_ = AddFlags(cmd, tt.opts)
 			fs := cmd.PersistentFlags()
 			for _, expected := range tt.wantedFlags {
 				actual := fs.Lookup(expected.name)
@@ -850,7 +871,7 @@ func Test_createRepo(t *testing.T) {
 			opts: &CloneOptions{
 				Repo: "https://unkown.com/owner/name",
 			},
-			wantErr: "Failed to create the repository: git provider 'unkown' not supported\nYou can try to manually create it before trying again.",
+			wantErr: "failed to create the repository, you can try to manually create it before trying again: git provider 'unkown' not supported",
 		},
 		"Should fail if url doesn't contain orgRepo parts": {
 			opts: &CloneOptions{
@@ -858,32 +879,32 @@ func Test_createRepo(t *testing.T) {
 			},
 			wantErr: "Failed parsing organization and repo from 'owner'",
 		},
-		"Should succesfully parse owner and name for gitlab url": {
+		"Should succesfully parse owner and name for long orgRepos": {
 			opts: &CloneOptions{
-				Repo: "https://gitlab.com/foo22/bar/fizz.git",
+				Repo: "https://github.com/foo22/bar/fizz.git",
 			},
-			want: "https://gitlab.com/foo22/bar/fizz.git",
+			want: "https://github.com/foo22/bar/fizz.git",
 			newProvider: func(t *testing.T, opts *ProviderOptions) (Provider, error) {
-				assert.Equal(t, "https://gitlab.com/", opts.Host)
-				assert.Equal(t, "gitlab", opts.Type)
+				assert.Equal(t, "https://github.com/", opts.Host)
+				assert.Equal(t, "github", opts.Type)
 				return &mockProvider{func(opts *CreateRepoOptions) (string, error) {
 					assert.Equal(t, "foo22/bar", opts.Owner)
 					assert.Equal(t, "fizz", opts.Name)
-					return "https://gitlab.com/foo22/bar/fizz.git", nil
+					return "https://github.com/foo22/bar/fizz.git", nil
 				}}, nil
 			},
 		},
 	}
-	origNewProvider := newProvider
-	defer func() { newProvider = origNewProvider }()
+	origNewProvider := supportedProviders["github"]
+	defer func() { supportedProviders["github"] = origNewProvider }()
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			if tt.newProvider != nil {
-				newProvider = func(opts *ProviderOptions) (Provider, error) {
+				supportedProviders["github"] = func(opts *ProviderOptions) (Provider, error) {
 					return tt.newProvider(t, opts)
 				}
 			} else {
-				newProvider = origNewProvider
+				supportedProviders["github"] = origNewProvider
 			}
 
 			got, err := createRepo(context.Background(), tt.opts)

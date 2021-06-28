@@ -141,7 +141,11 @@ func NewRepoBootstrapCommand() *cobra.Command {
 	cmd.Flags().StringVar(&installationMode, "installation-mode", "normal", "One of: normal|flat. "+
 		"If flat, will commit the bootstrap manifests, otherwise will commit the bootstrap kustomization.yaml")
 
-	cloneOpts = git.AddFlags(cmd, memfs.New(), "")
+	cloneOpts = git.AddFlags(cmd, &git.AddFlagsOptions{
+		FS: memfs.New(),
+		CreateIfNotExist: true,
+		Required: true,
+	})
 
 	// add kubernetes flags
 	f = kube.AddFlags(cmd.Flags())
@@ -263,8 +267,6 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 
 func setBootstrapOptsDefaults(opts RepoBootstrapOptions) (*RepoBootstrapOptions, error) {
 	var err error
-
-	opts.CloneOptions.AutoCreate = true
 
 	switch opts.InstallationMode {
 	case installationModeFlat, installationModeNormal:
