@@ -24,86 +24,6 @@ import (
 	kusttypes "sigs.k8s.io/kustomize/api/types"
 )
 
-func TestRunRepoCreate(t *testing.T) {
-	tests := map[string]struct {
-		opts     *RepoCreateOptions
-		preFn    func(*gitmocks.Provider)
-		assertFn func(t *testing.T, mp *gitmocks.Provider, opts *RepoCreateOptions, cloneOpts *git.CloneOptions, err error)
-	}{
-		"Invalid provider": {
-			opts: &RepoCreateOptions{
-				Provider: "foobar",
-			},
-			assertFn: func(t *testing.T, _ *gitmocks.Provider, _ *RepoCreateOptions, cloneOpts *git.CloneOptions, err error) {
-				assert.Nil(t, cloneOpts)
-				assert.ErrorIs(t, err, git.ErrProviderNotSupported)
-			},
-		},
-		"Should call CreateRepository": {
-			opts: &RepoCreateOptions{
-				Provider: "github",
-				Owner:    "foo",
-				Repo:     "bar",
-				Token:    "test",
-				Public:   false,
-				Host:     "",
-			},
-			preFn: func(mp *gitmocks.Provider) {
-				mp.On("CreateRepository", mock.Anything, mock.Anything).Return("https://github.com/owner/name/path?ref=revision", nil)
-			},
-			assertFn: func(t *testing.T, mp *gitmocks.Provider, opts *RepoCreateOptions, cloneOpts *git.CloneOptions, _ error) {
-				expected := &git.CloneOptions{
-					Repo: "https://github.com/owner/name/path?ref=revision",
-				}
-				expected.Parse()
-				assert.Equal(t, "https://github.com/owner/name.git", cloneOpts.URL())
-				assert.Equal(t, "revision", cloneOpts.Revision())
-				assert.Equal(t, "path", cloneOpts.Path())
-				mp.AssertCalled(t, "CreateRepository", mock.Anything, mock.Anything)
-				o := mp.Calls[0].Arguments[1].(*git.CreateRepoOptions)
-				assert.NotNil(t, o)
-				assert.Equal(t, opts.Public, !o.Private)
-			},
-		},
-		"Should fail to CreateRepository": {
-			opts: &RepoCreateOptions{
-				Provider: "github",
-				Owner:    "foo",
-				Repo:     "bar",
-				Token:    "test",
-				Public:   false,
-				Host:     "",
-			},
-			preFn: func(mp *gitmocks.Provider) {
-				mp.On("CreateRepository", mock.Anything, mock.Anything).Return("", fmt.Errorf("error"))
-			},
-			assertFn: func(t *testing.T, mp *gitmocks.Provider, _ *RepoCreateOptions, cloneOpts *git.CloneOptions, err error) {
-				assert.Nil(t, cloneOpts)
-				mp.AssertCalled(t, "CreateRepository", mock.Anything, mock.Anything)
-				assert.EqualError(t, err, "error")
-			},
-		},
-	}
-
-	orgGetProvider := getGitProvider
-	for tname, tt := range tests {
-		t.Run(tname, func(t *testing.T) {
-			mp := &gitmocks.Provider{}
-
-			if tt.preFn != nil {
-				tt.preFn(mp)
-				getGitProvider = func(opts *git.ProviderOptions) (git.Provider, error) {
-					return mp, nil
-				}
-				defer func() { getGitProvider = orgGetProvider }()
-			}
-
-			gotCloneOpts, gotErr := RunRepoCreate(context.Background(), tt.opts)
-			tt.assertFn(t, mp, tt.opts, gotCloneOpts, gotErr)
-		})
-	}
-}
-
 func Test_setBootstrapOptsDefaults(t *testing.T) {
 	tests := map[string]struct {
 		opts     *RepoBootstrapOptions
@@ -112,6 +32,7 @@ func Test_setBootstrapOptsDefaults(t *testing.T) {
 	}{
 		"Bad installation mode": {
 			opts: &RepoBootstrapOptions{
+				CloneOptions:     &git.CloneOptions{},
 				InstallationMode: "foo",
 			},
 			assertFn: func(t *testing.T, _ *RepoBootstrapOptions, ret error) {
@@ -119,7 +40,9 @@ func Test_setBootstrapOptsDefaults(t *testing.T) {
 			},
 		},
 		"Basic": {
-			opts: &RepoBootstrapOptions{},
+			opts: &RepoBootstrapOptions{
+				CloneOptions: &git.CloneOptions{},
+			},
 			preFn: func() {
 				currentKubeContext = func() (string, error) {
 					return "fooctx", nil
@@ -135,6 +58,7 @@ func Test_setBootstrapOptsDefaults(t *testing.T) {
 		},
 		"With App specifier": {
 			opts: &RepoBootstrapOptions{
+				CloneOptions: &git.CloneOptions{},
 				AppSpecifier: "https://github.com/foo/bar",
 				KubeContext:  "fooctx",
 			},
@@ -149,6 +73,7 @@ func Test_setBootstrapOptsDefaults(t *testing.T) {
 		},
 		"Namespaced": {
 			opts: &RepoBootstrapOptions{
+				CloneOptions:     &git.CloneOptions{},
 				InstallationMode: installationModeFlat,
 				KubeContext:      "fooctx",
 				Namespaced:       true,
@@ -418,9 +343,7 @@ func TestRunRepoBootstrap(t *testing.T) {
 				f.On("Apply", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 				f.On("Wait", mock.Anything, mock.Anything).Return(nil)
 				f.On("KubernetesClientSetOrDie").Return(mockCS)
-
 				r.On("Persist", mock.Anything, mock.Anything).Return(nil)
-
 			},
 			assertFn: func(t *testing.T, r *gitmocks.Repository, repofs fs.FS, f *kubemocks.Factory, ret error) {
 				assert.NoError(t, ret)
@@ -462,7 +385,7 @@ func TestRunRepoBootstrap(t *testing.T) {
 	}
 
 	orgExit := exit
-	orgClone := clone
+	orgClone := getRepo
 	orgRunKustomizeBuild := runKustomizeBuild
 	orgArgoLogin := argocdLogin
 
@@ -480,7 +403,7 @@ func TestRunRepoBootstrap(t *testing.T) {
 			tt.opts.KubeFactory = mockFactory
 
 			exit = func(_ int) { exitCalled = true }
-			clone = func(ctx context.Context, cloneOpts *git.CloneOptions) (git.Repository, fs.FS, error) {
+			getRepo = func(ctx context.Context, cloneOpts *git.CloneOptions) (git.Repository, fs.FS, error) {
 				return mockRepo, repofs, nil
 			}
 			runKustomizeBuild = func(k *kusttypes.Kustomization) ([]byte, error) { return []byte("test"), nil }
@@ -488,7 +411,7 @@ func TestRunRepoBootstrap(t *testing.T) {
 
 			defer func() {
 				exit = orgExit
-				clone = orgClone
+				getRepo = orgClone
 				runKustomizeBuild = orgRunKustomizeBuild
 				argocdLogin = orgArgoLogin
 			}()

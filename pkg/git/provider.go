@@ -2,7 +2,6 @@ package git
 
 import (
 	"context"
-	"errors"
 	"fmt"
 )
 
@@ -42,7 +41,9 @@ type (
 
 // Errors
 var (
-	ErrProviderNotSupported = errors.New("git provider not supported")
+	ErrProviderNotSupported = func(providerType string) error {
+		return fmt.Errorf("git provider '%s' not supported", providerType)
+	}
 	ErrAuthenticationFailed = func(err error) error {
 		return fmt.Errorf("authentication failed, make sure credentials are correct: %w", err)
 	}
@@ -53,10 +54,10 @@ var supportedProviders = map[string]func(*ProviderOptions) (Provider, error){
 }
 
 // New creates a new git provider
-func NewProvider(opts *ProviderOptions) (Provider, error) {
+func newProvider(opts *ProviderOptions) (Provider, error) {
 	cons, exists := supportedProviders[opts.Type]
 	if !exists {
-		return nil, ErrProviderNotSupported
+		return nil, ErrProviderNotSupported(opts.Type)
 	}
 
 	return cons(opts)

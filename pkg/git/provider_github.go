@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	g "github.com/argoproj-labs/argocd-autopilot/pkg/git/github"
 
@@ -19,12 +20,11 @@ type github struct {
 
 func newGithub(opts *ProviderOptions) (Provider, error) {
 	var (
-		c   *gh.Client
+		c *gh.Client
 		err error
 	)
 
 	hc := &http.Client{}
-
 	if opts.Auth != nil {
 		hc.Transport = &gh.BasicAuthTransport{
 			Username: opts.Auth.Username,
@@ -32,7 +32,7 @@ func newGithub(opts *ProviderOptions) (Provider, error) {
 		}
 	}
 
-	if opts.Host != "" {
+	if opts.Host != "" && !strings.Contains(opts.Host, "github.com") {
 		c, err = gh.NewEnterpriseClient(opts.Host, opts.Host, hc)
 		if err != nil {
 			return nil, err

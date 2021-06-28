@@ -42,7 +42,6 @@ func Test_newKustApp(t *testing.T) {
 	}
 
 	tests := map[string]struct {
-		run               bool
 		opts              *CreateOptions
 		srcRepoURL        string
 		srcTargetRevision string
@@ -102,7 +101,6 @@ func Test_newKustApp(t *testing.T) {
 			},
 		},
 		"Flat installation mode with namespace": {
-			run: true,
 			opts: &CreateOptions{
 				AppSpecifier:     "app",
 				AppName:          "name",

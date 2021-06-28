@@ -70,30 +70,30 @@ docker run \
 
 ## Getting Started
 ```bash
-# Most of the commands need your git token, you can provide with --git-token to each command
-# or export it beforehand:
+# All of the commands need your git token with the --git-token flag,
+# or the GIT_TOKEN env variable:
 
     export GIT_TOKEN=<YOUR_TOKEN>
 
-# 1. Create a new git repository
-
-    argocd-autopilot repo create --owner <owner> --name <name>
-
-# At this point you can specify the gitops repo in each command with --repo
-# or you can export it as well:
+# The commands will also need your repo clone URL with the --repo flag,
+# or the GIT_REPO env variable:
 
     export GIT_REPO=<REPO_URL>
 
-# 2. Run the bootstrap installation on your current kubernetes context.
+# 1. Run the bootstrap installation on your current kubernetes context.
 # This will install argo-cd as well as the application-set controller.
 
     argocd-autopilot repo bootstrap
 
-# 3. Create your first project
+# Please note that this will automatically attempt to create a private repository,
+# if the clone URL references a non-existing one. If the repository already exists,
+# the command will just clone it.
+
+# 2. Create your first project
 
     argocd-autopilot project create my-project
 
-# 4. Install your first application on your project
+# 3. Install your first application on your project
 
     argocd-autopilot app create demoapp --app github.com/argoproj-labs/argocd-autopilot/examples/demo-app/ -p my-project
 ```

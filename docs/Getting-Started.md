@@ -15,14 +15,9 @@ Make sure to have a [valid token](https://docs.github.com/en/github/authenticati
 export GIT_TOKEN=ghp_PcZ...IP0
 ```
 
-If you have already created your GitOps Repository, you can skip the following step
-### Create a new GitOps Repository
-```
-argocd-autopilot repo create --owner <owner> --name <name>
-```
-
 ### Export Clone URL
 You can use any clone URL to a valid git repo, provided that the token you supplied earlier will allow cloning from, and pushing to it.
+If the repository does not exist, bootstrapping it will also create it as a private repository.
 ```
 export GIT_REPO=https://github.com/owner/name
 ```
@@ -38,6 +33,9 @@ If you want to use a specific branch for your GitOps repository operations, you 
 ```
 export GIT_REPO=https://github.com/owner/name?ref=gitops_branch
 ```
+
+#### Using a Specific git Provider
+You can add the `--provider` flag to the `repo bootstrap` command, to enforce using a specific provider when creating a new repository. If the value is not supplied, the code will attempt to infer it from the clone URL. 
 
 All the following commands will use the variables you supplied in order to manage your GitOps repository.
 
