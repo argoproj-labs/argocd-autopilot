@@ -65,11 +65,11 @@ argocd-autopilot application create [APP_NAME] [flags]
   -p, --project string                 Project name
       --request-timeout string         The length of time to wait before giving up on a single server request. Non-zero values should contain a corresponding time unit (e.g. 1s, 2m, 3h). A value of zero means don't timeout requests. (default "0")
   -s, --server string                  The address and port of the Kubernetes API server
-      --timeout duration               Wait timeout
       --tls-server-name string         Server name to use for server certificate validation. If it is not provided, the hostname used to contact the server is used
       --token string                   Bearer token for authentication to the API server
       --type string                    The application type (kustomize|dir)
       --user string                    The name of the kubeconfig user to use
+      --wait-timeout duration          If not '0s', will connect try to connect to the cluster and wait until the application is in Synced status for the specified timeout period.
 ```
 
 ### Options inherited from parent commands

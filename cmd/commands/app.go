@@ -112,6 +112,10 @@ func NewAppCreateCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 # Reference a specific git branch:
 
   <BIN> app create <new_app_name> --app github.com/some_org/some_repo/manifests?ref=<branch_name> --project project_name
+
+# Wait until the application is Synced in the cluster:
+
+  <BIN> app create <new_app_name> --app github.com/some_org/some_repo/manifests --project project_name --wait-timeout 2m --context my_context 
 `),
 		PreRun: func(_ *cobra.Command, _ []string) {
 			cloneOpts.Parse()
@@ -129,14 +133,14 @@ func NewAppCreateCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 				AppsCloneOpts: appsCloneOpts,
 				ProjectName:   projectName,
 				AppOpts:       appOpts,
-				Timeout:       util.MustParseDuration(cmd.Flag("timeout").Value.String()),
+				Timeout:       timeout,
 				KubeFactory:   f,
 			})
 		},
 	}
 
 	cmd.Flags().StringVarP(&projectName, "project", "p", "", "Project name")
-	cmd.Flags().DurationVar(&timeout, "timeout", 0, "Wait timeout")
+	cmd.Flags().DurationVar(&timeout, "wait-timeout", time.Duration(0), "If not '0s', will try to connect to the cluster and wait until the application is in 'Synced' status for the specified timeout period")
 	appsCloneOpts = git.AddFlags(cmd, &git.AddFlagsOptions{
 		FS:       memfs.New(),
 		Prefix:   "apps",
@@ -208,14 +212,19 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 	if opts.Timeout > 0 {
 		namespace, err := getInstallationNamespace(opts.CloneOpts.FS)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to get application namespace: %w", err)
 		}
 
 		log.G(ctx).WithField("timeout", opts.Timeout).Infof("Waiting for '%s' to finish syncing", opts.AppOpts.AppName)
 		fullName := fmt.Sprintf("%s-%s", opts.ProjectName, opts.AppOpts.AppName)
+		// wait for argocd to be ready before applying argocd-apps
+		stop := util.WithSpinner(ctx, fmt.Sprintf("waiting for '%s' to be ready", fullName))
 		if err = waitAppSynced(ctx, opts.KubeFactory, opts.Timeout, fullName, namespace); err != nil {
-			return err
+			stop()
+			return fmt.Errorf("failed waiting for application to sync: %w", err)
 		}
+
+		stop()
 	}
 
 	log.G(ctx).Infof("installed application: %s", opts.AppOpts.AppName)
