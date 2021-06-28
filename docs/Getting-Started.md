@@ -66,7 +66,7 @@ Execute the port forward command, and browse to http://localhost:8080. Log in us
 Execute the following commands to create a `testing` project, and add a example application to it:
 ```
 argocd-autopilot project create testing
-argocd-autopilot app create hello-world --app github.com/argoproj-labs/argocd-autopilot/examples/demo-app/ -p testing
+argocd-autopilot app create hello-world --app github.com/argoproj-labs/argocd-autopilot/examples/demo-app/ -p testing --wait-timeout 2m
 ```
 <sub>* notice the trailing slash in the URL</sub>
 

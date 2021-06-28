@@ -231,3 +231,13 @@ func createAppSet(o *createAppSetOptions) ([]byte, error) {
 
 	return yaml.Marshal(appSet)
 }
+
+var getInstallationNamespace = func(repofs fs.FS) (string, error) {
+	path := repofs.Join(store.Default.BootsrtrapDir, store.Default.ArgoCDName+".yaml")
+	a := &argocdv1alpha1.Application{}
+	if err := repofs.ReadYamls(path, a); err != nil {
+		return "", fmt.Errorf("failed to unmarshal namespace: %w", err)
+	}
+
+	return a.Spec.Destination.Namespace, nil
+}

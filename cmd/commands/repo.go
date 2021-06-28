@@ -142,9 +142,8 @@ func NewRepoBootstrapCommand() *cobra.Command {
 		"If flat, will commit the bootstrap manifests, otherwise will commit the bootstrap kustomization.yaml")
 
 	cloneOpts = git.AddFlags(cmd, &git.AddFlagsOptions{
-		FS: memfs.New(),
+		FS:               memfs.New(),
 		CreateIfNotExist: true,
-		Required: true,
 	})
 
 	// add kubernetes flags
@@ -221,8 +220,10 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 	stop := util.WithSpinner(ctx, "waiting for argo-cd to be ready")
 
 	if err = waitClusterReady(ctx, opts.KubeFactory, opts.Timeout, opts.Namespace); err != nil {
+		stop()
 		return err
 	}
+
 	stop()
 
 	// push results to repo

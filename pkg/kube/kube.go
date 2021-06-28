@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/kubernetes"
+	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/kubectl/pkg/cmd/apply"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
@@ -48,6 +49,9 @@ type Factory interface {
 
 	// KubernetesClientSetOrDie calls KubernetesClientSet() and panics if it returns an error
 	KubernetesClientSetOrDie() kubernetes.Interface
+
+	// ToRESTConfig returns a rest Config object or error
+	ToRESTConfig() (*restclient.Config, error)
 
 	// Apply applies the provided manifests on the specified namespace
 	Apply(ctx context.Context, namespace string, manifests []byte) error
@@ -133,6 +137,10 @@ func (f *factory) KubernetesClientSetOrDie() kubernetes.Interface {
 
 func (f *factory) KubernetesClientSet() (kubernetes.Interface, error) {
 	return f.f.KubernetesClientSet()
+}
+
+func (f *factory) ToRESTConfig() (*restclient.Config, error) {
+	return f.f.ToRESTConfig()
 }
 
 func (f *factory) Apply(ctx context.Context, namespace string, manifests []byte) error {

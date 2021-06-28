@@ -726,22 +726,6 @@ func TestAddFlags(t *testing.T) {
 					name:      "git-token",
 					shorthand: "t",
 					usage:     "Your git provider api token [GIT_TOKEN]",
-				},
-				{
-					name:     "repo",
-					usage:    "Repository URL [GIT_REPO]",
-				},
-			},
-		},
-		"Should create flags with required": {
-			opts: &AddFlagsOptions{
-				Required: true,
-			},
-			wantedFlags: []flag{
-				{
-					name:      "git-token",
-					shorthand: "t",
-					usage:     "Your git provider api token [GIT_TOKEN]",
 					required:  true,
 				},
 				{
@@ -751,18 +735,36 @@ func TestAddFlags(t *testing.T) {
 				},
 			},
 		},
+		"Should create flags with optional": {
+			opts: &AddFlagsOptions{
+				Optional: true,
+			},
+			wantedFlags: []flag{
+				{
+					name:      "git-token",
+					shorthand: "t",
+					usage:     "Your git provider api token [GIT_TOKEN]",
+				},
+				{
+					name:  "repo",
+					usage: "Repository URL [GIT_REPO]",
+				},
+			},
+		},
 		"Should create flags with a prefix": {
 			opts: &AddFlagsOptions{
 				Prefix: "prefix-",
 			},
 			wantedFlags: []flag{
 				{
-					name:  "prefix-git-token",
-					usage: "Your git provider api token [PREFIX_GIT_TOKEN]",
+					name:     "prefix-git-token",
+					usage:    "Your git provider api token [PREFIX_GIT_TOKEN]",
+					required: true,
 				},
 				{
-					name:  "prefix-repo",
-					usage: "Repository URL [PREFIX_GIT_REPO]",
+					name:     "prefix-repo",
+					usage:    "Repository URL [PREFIX_GIT_REPO]",
+					required: true,
 				},
 			},
 		},
@@ -772,12 +774,14 @@ func TestAddFlags(t *testing.T) {
 			},
 			wantedFlags: []flag{
 				{
-					name:  "prefix-git-token",
-					usage: "Your git provider api token [PREFIX_GIT_TOKEN]",
+					name:     "prefix-git-token",
+					usage:    "Your git provider api token [PREFIX_GIT_TOKEN]",
+					required: true,
 				},
 				{
-					name:  "prefix-repo",
-					usage: "Repository URL [PREFIX_GIT_REPO]",
+					name:     "prefix-repo",
+					usage:    "Repository URL [PREFIX_GIT_REPO]",
+					required: true,
 				},
 			},
 		},

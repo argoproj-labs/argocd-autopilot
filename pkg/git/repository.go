@@ -40,7 +40,7 @@ type (
 		FS               billy.Filesystem
 		Prefix           string
 		CreateIfNotExist bool
-		Required         bool
+		Optional         bool
 	}
 
 	CloneOptions struct {
@@ -118,9 +118,9 @@ func AddFlags(cmd *cobra.Command, opts *AddFlagsOptions) *CloneOptions {
 		cmd.PersistentFlags().StringVar(&co.Provider, opts.Prefix+"provider", "", fmt.Sprintf("The git provider, one of: %v", strings.Join(Providers(), "|")))
 	}
 
-	if opts.Required {
-		util.Die(cmd.MarkPersistentFlagRequired("git-token"))
-		util.Die(cmd.MarkPersistentFlagRequired("repo"))
+	if !opts.Optional {
+		util.Die(cmd.MarkPersistentFlagRequired(opts.Prefix + "git-token"))
+		util.Die(cmd.MarkPersistentFlagRequired(opts.Prefix + "repo"))
 	}
 
 	return co

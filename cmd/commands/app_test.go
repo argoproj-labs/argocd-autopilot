@@ -2,10 +2,12 @@ package commands
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/argoproj-labs/argocd-autopilot/pkg/application"
 	appmocks "github.com/argoproj-labs/argocd-autopilot/pkg/application/mocks"
@@ -13,6 +15,7 @@ import (
 	fsmocks "github.com/argoproj-labs/argocd-autopilot/pkg/fs/mocks"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/git"
 	gitmocks "github.com/argoproj-labs/argocd-autopilot/pkg/git/mocks"
+	kubemocks "github.com/argoproj-labs/argocd-autopilot/pkg/kube/mocks"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
 
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
@@ -25,13 +28,17 @@ import (
 
 func TestRunAppCreate(t *testing.T) {
 	tests := map[string]struct {
-		appsRepo              string
-		wantErr               string
-		prepareRepo           func() (git.Repository, fs.FS, error)
-		clone                 func(t *testing.T, cloneOpts *git.CloneOptions) (git.Repository, fs.FS, error)
-		setAppOptsDefaultsErr error
-		parseApp              func() (application.Application, error)
-		assertFn              func(t *testing.T, gitopsRepo git.Repository, appsRepo git.Repository)
+		appsRepo                 string
+		timeout                  time.Duration
+		wantErr                  string
+		setAppOptsDefaultsErr    error
+		parseAppErr              error
+		createFilesErr           error
+		beforeFn                 func(f *kubemocks.Factory)
+		prepareRepo              func() (git.Repository, fs.FS, error)
+		getRepo                  func(*testing.T, *git.CloneOptions) (git.Repository, fs.FS, error)
+		getInstallationNamespace func(repofs fs.FS) (string, error)
+		assertFn                 func(*testing.T, git.Repository, git.Repository)
 	}{
 		"Should fail when clone fails": {
 			wantErr: "some error",
@@ -45,7 +52,7 @@ func TestRunAppCreate(t *testing.T) {
 			prepareRepo: func() (git.Repository, fs.FS, error) {
 				return nil, nil, nil
 			},
-			clone: func(t *testing.T, cloneOpts *git.CloneOptions) (git.Repository, fs.FS, error) {
+			getRepo: func(_ *testing.T, _ *git.CloneOptions) (git.Repository, fs.FS, error) {
 				return nil, nil, fmt.Errorf("some error")
 			},
 		},
@@ -55,11 +62,11 @@ func TestRunAppCreate(t *testing.T) {
 			prepareRepo: func() (git.Repository, fs.FS, error) {
 				return nil, nil, nil
 			},
-			clone: func(t *testing.T, cloneOpts *git.CloneOptions) (git.Repository, fs.FS, error) {
-				assert.Equal(t, "https://github.com/owner/other_name.git", cloneOpts.URL())
-				assert.Equal(t, "branch", cloneOpts.Revision())
-				assert.Equal(t, "path", cloneOpts.Path())
-				assert.Equal(t, "password", cloneOpts.Auth.Password)
+			getRepo: func(t *testing.T, opts *git.CloneOptions) (git.Repository, fs.FS, error) {
+				assert.Equal(t, "https://github.com/owner/other_name.git", opts.URL())
+				assert.Equal(t, "branch", opts.Revision())
+				assert.Equal(t, "path", opts.Path())
+				assert.Equal(t, "password", opts.Auth.Password)
 				return nil, nil, fmt.Errorf("some error")
 			},
 		},
@@ -75,38 +82,26 @@ func TestRunAppCreate(t *testing.T) {
 			prepareRepo: func() (git.Repository, fs.FS, error) {
 				return nil, nil, nil
 			},
-			parseApp: func() (application.Application, error) {
-				return nil, fmt.Errorf("some error")
-			},
+			parseAppErr: errors.New("some error"),
 		},
 		"Should fail if app already exist in project": {
-			wantErr: fmt.Errorf("application 'app' already exists in project 'project': %w", application.ErrAppAlreadyInstalledOnProject).Error(),
+			wantErr:        fmt.Errorf("application 'app' already exists in project 'project': %w", application.ErrAppAlreadyInstalledOnProject).Error(),
+			createFilesErr: application.ErrAppAlreadyInstalledOnProject,
 			prepareRepo: func() (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
 				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project"), 0666)
 				mockRepo := &gitmocks.Repository{}
 				return mockRepo, fs.Create(memfs), nil
-			},
-			parseApp: func() (application.Application, error) {
-				app := &appmocks.Application{}
-				app.On("Name").Return("app")
-				app.On("CreateFiles", mock.Anything, mock.Anything, "project").Return(application.ErrAppAlreadyInstalledOnProject)
-				return app, nil
 			},
 		},
 		"Should fail if file creation fails": {
-			wantErr: "some error",
+			wantErr:        "some error",
+			createFilesErr: errors.New("some error"),
 			prepareRepo: func() (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
 				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project"), 0666)
 				mockRepo := &gitmocks.Repository{}
 				return mockRepo, fs.Create(memfs), nil
-			},
-			parseApp: func() (application.Application, error) {
-				app := &appmocks.Application{}
-				app.On("Name").Return("app")
-				app.On("CreateFiles", mock.Anything, mock.Anything, "project").Return(fmt.Errorf("some error"))
-				return app, nil
 			},
 		},
 		"Should fail if commiting to appsRepo fails": {
@@ -118,18 +113,12 @@ func TestRunAppCreate(t *testing.T) {
 				mockRepo := &gitmocks.Repository{}
 				return mockRepo, fs.Create(memfs), nil
 			},
-			clone: func(_ *testing.T, _ *git.CloneOptions) (git.Repository, fs.FS, error) {
+			getRepo: func(_ *testing.T, _ *git.CloneOptions) (git.Repository, fs.FS, error) {
 				mockRepo := &gitmocks.Repository{}
 				mockRepo.On("Persist", mock.Anything, &git.PushOptions{
 					CommitMsg: "installed app 'app' on project 'project' installation-path: '/'",
 				}).Return(fmt.Errorf("some error"))
 				return mockRepo, fs.Create(memfs.New()), nil
-			},
-			parseApp: func() (application.Application, error) {
-				app := &appmocks.Application{}
-				app.On("Name").Return("app")
-				app.On("CreateFiles", mock.Anything, mock.Anything, "project").Return(nil)
-				return app, nil
 			},
 		},
 		"Should fail if commiting to gitops repo fails": {
@@ -143,11 +132,40 @@ func TestRunAppCreate(t *testing.T) {
 				}).Return(fmt.Errorf("some error"))
 				return mockRepo, fs.Create(memfs), nil
 			},
-			parseApp: func() (application.Application, error) {
-				app := &appmocks.Application{}
-				app.On("Name").Return("app")
-				app.On("CreateFiles", mock.Anything, mock.Anything, "project").Return(nil)
-				return app, nil
+		},
+		"Should fail if getInstallationNamespace fails": {
+			timeout: 1,
+			wantErr: "failed to get application namespace: some error",
+			prepareRepo: func() (git.Repository, fs.FS, error) {
+				memfs := memfs.New()
+				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project"), 0666)
+				mockRepo := &gitmocks.Repository{}
+				mockRepo.On("Persist", mock.Anything, &git.PushOptions{
+					CommitMsg: "installed app 'app' on project 'project' installation-path: '/'",
+				}).Return(nil)
+				return mockRepo, fs.Create(memfs), nil
+			},
+			getInstallationNamespace: func(repofs fs.FS) (string, error) {
+				return "", errors.New("some error")
+			},
+		},
+		"Should fail if waiting fails": {
+			timeout: 1,
+			wantErr: "failed waiting for application to sync: some error",
+			beforeFn: func(f *kubemocks.Factory) {
+				f.On("Wait", mock.Anything, mock.Anything).Return(errors.New("some error"))
+			},
+			prepareRepo: func() (git.Repository, fs.FS, error) {
+				memfs := memfs.New()
+				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project"), 0666)
+				mockRepo := &gitmocks.Repository{}
+				mockRepo.On("Persist", mock.Anything, &git.PushOptions{
+					CommitMsg: "installed app 'app' on project 'project' installation-path: '/'",
+				}).Return(nil)
+				return mockRepo, fs.Create(memfs), nil
+			},
+			getInstallationNamespace: func(repofs fs.FS) (string, error) {
+				return "namespace", nil
 			},
 		},
 		"Should Persist to both repos, if required": {
@@ -162,18 +180,12 @@ func TestRunAppCreate(t *testing.T) {
 				}).Return(nil)
 				return mockRepo, fs.Create(memfs), nil
 			},
-			clone: func(_ *testing.T, _ *git.CloneOptions) (git.Repository, fs.FS, error) {
+			getRepo: func(_ *testing.T, _ *git.CloneOptions) (git.Repository, fs.FS, error) {
 				mockRepo := &gitmocks.Repository{}
 				mockRepo.On("Persist", mock.Anything, &git.PushOptions{
 					CommitMsg: "installed app 'app' on project 'project' installation-path: '/'",
 				}).Return(nil)
 				return mockRepo, fs.Create(memfs.New()), nil
-			},
-			parseApp: func() (application.Application, error) {
-				app := &appmocks.Application{}
-				app.On("Name").Return("app")
-				app.On("CreateFiles", mock.Anything, mock.Anything, "project").Return(nil)
-				return app, nil
 			},
 			assertFn: func(t *testing.T, gitopsRepo git.Repository, appsRepo git.Repository) {
 				gitopsRepo.(*gitmocks.Repository).AssertExpectations(t)
@@ -191,11 +203,27 @@ func TestRunAppCreate(t *testing.T) {
 				}).Return(nil)
 				return mockRepo, fs.Create(memfs), nil
 			},
-			parseApp: func() (application.Application, error) {
-				app := &appmocks.Application{}
-				app.On("Name").Return("app")
-				app.On("CreateFiles", mock.Anything, mock.Anything, "project").Return(nil)
-				return app, nil
+			assertFn: func(t *testing.T, gitopsRepo git.Repository, appsRepo git.Repository) {
+				assert.Nil(t, appsRepo)
+				gitopsRepo.(*gitmocks.Repository).AssertExpectations(t)
+			},
+		},
+		"Should wait succesfully and complete": {
+			timeout: 1,
+			beforeFn: func(f *kubemocks.Factory) {
+				f.On("Wait", mock.Anything, mock.Anything).Return(nil)
+			},
+			prepareRepo: func() (git.Repository, fs.FS, error) {
+				memfs := memfs.New()
+				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project"), 0666)
+				mockRepo := &gitmocks.Repository{}
+				mockRepo.On("Persist", mock.Anything, &git.PushOptions{
+					CommitMsg: "installed app 'app' on project 'project' installation-path: '/'",
+				}).Return(nil)
+				return mockRepo, fs.Create(memfs), nil
+			},
+			getInstallationNamespace: func(repofs fs.FS) (string, error) {
+				return "namespace", nil
 			},
 			assertFn: func(t *testing.T, gitopsRepo git.Repository, appsRepo git.Repository) {
 				assert.Nil(t, appsRepo)
@@ -203,14 +231,14 @@ func TestRunAppCreate(t *testing.T) {
 			},
 		},
 	}
-	origPrepareRepo, origGetRepo, origSetAppOptsDefault, origAppParse := prepareRepo, getRepo, setAppOptsDefaults, parseApp
+	origPrepareRepo, origGetRepo, origSetAppOptsDefault, origAppParse, origGetInstallationNamespace := prepareRepo, getRepo, setAppOptsDefaults, parseApp, getInstallationNamespace
 	defer func() {
 		prepareRepo = origPrepareRepo
 		getRepo = origGetRepo
 		setAppOptsDefaults = origSetAppOptsDefault
 		parseApp = origAppParse
+		getInstallationNamespace = origGetInstallationNamespace
 	}()
-
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			var (
@@ -218,6 +246,10 @@ func TestRunAppCreate(t *testing.T) {
 				appsRepo   git.Repository
 			)
 
+			f := &kubemocks.Factory{}
+			if tt.beforeFn != nil {
+				tt.beforeFn(f)
+			}
 			prepareRepo = func(_ context.Context, _ *git.CloneOptions, _ string) (git.Repository, fs.FS, error) {
 				var (
 					repofs fs.FS
@@ -231,16 +263,25 @@ func TestRunAppCreate(t *testing.T) {
 					repofs fs.FS
 					err    error
 				)
-				appsRepo, repofs, err = tt.clone(t, cloneOpts)
+				appsRepo, repofs, err = tt.getRepo(t, cloneOpts)
 				return appsRepo, repofs, err
 			}
 			setAppOptsDefaults = func(_ context.Context, _ fs.FS, _ *AppCreateOptions) error {
 				return tt.setAppOptsDefaultsErr
 			}
 			parseApp = func(_ *application.CreateOptions, _, _, _, _ string) (application.Application, error) {
-				return tt.parseApp()
+				if tt.parseAppErr != nil {
+					return nil, tt.parseAppErr
+				}
+
+				app := &appmocks.Application{}
+				app.On("Name").Return("app")
+				app.On("CreateFiles", mock.Anything, mock.Anything, "project").Return(tt.createFilesErr)
+				return app, nil
 			}
+			getInstallationNamespace = tt.getInstallationNamespace
 			opts := &AppCreateOptions{
+				Timeout: tt.timeout,
 				CloneOpts: &git.CloneOptions{
 					Repo: "https://github.com/owner/name",
 					Auth: git.Auth{
@@ -256,6 +297,7 @@ func TestRunAppCreate(t *testing.T) {
 					AppType:      application.AppTypeDirectory,
 					AppSpecifier: "https://github.com/owner/name/manifests",
 				},
+				KubeFactory: f,
 			}
 
 			opts.CloneOpts.Parse()
