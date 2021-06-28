@@ -1,11 +1,10 @@
-### Bug Fixes:
-* url_parse_fix [#106](https://github.com/argoproj-labs/argocd-autopilot/issues/106)
+### Breaking Changes:
+* Removed `repo create` command. From now on, the `repo bootstrap` command will automatically create the repository if it currently does not exist. A new `--provider` flag was added to this command, in order to specificy the git cloud provider to use when creating the repository. Autopilot currently only supports github. Without the flag value, autopilot will try to infer the provider from the repo URL. [116](https://github.com/argoproj-labs/argocd-autopilot/pull/116)
 
-### Additional Changes:
-* Fix typo [#109](https://github.com/argoproj-labs/argocd-autopilot/pull/109)
+### New Features:
+* The `app create` now supports waiting for the Application to be fully Synced to the k8s cluster. The standard kubeclient flags were added in order to specificy which context is expected to recieve the new Application, and a `--timeout` flag can set the duration to wait before returning an error. The default value of 0 will not perform any wait, nor require access to the cluster at all. [117](https://github.com/argoproj-labs/argocd-autopilot/pull/117)
 
 ### Contributors:
-- [@ndrpnt](https://github.com/ndrpnt)
 - Roi Kramer ([@roi-codefresh](https://github.com/roi-codefresh))
 - Noam Gal ([@noam-codefresh](https://github.com/noam-codefresh))
 
@@ -24,11 +23,8 @@ argocd-autopilot version
 
 ### Linux and WSL (using curl):
 ```bash
-# get the latest version or change to a specific version
-VERSION=$(curl --silent "https://api.github.com/repos/argoproj-labs/argocd-autopilot/releases/latest" | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
-
 # download and extract the binary
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/$VERSION/argocd-autopilot-linux-amd64.tar.gz | tar zx
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.2.8/argocd-autopilot-linux-amd64.tar.gz | tar zx
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
@@ -39,11 +35,8 @@ argocd-autopilot version
 
 ### Mac (using curl):
 ```bash
-# get the latest version or change to a specific version
-VERSION=$(curl --silent "https://api.github.com/repos/argoproj-labs/argocd-autopilot/releases/latest" | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
-
 # download and extract the binary
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/$VERSION/argocd-autopilot-darwin-amd64.tar.gz | tar zx
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.2.8/argocd-autopilot-darwin-amd64.tar.gz | tar zx
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
