@@ -54,7 +54,7 @@ steps:
     commands:
     - kubectl config use-context ${{KUBE_CONTEXT}}
     - kubectl delete ns $NAMESPACE --timeout=${{KUBECTL_TIMEOUT}} || true
-    - curl -H "Authorization:Bearer $GITHUB_TOKEN" -X DELETE "https://api.github.com/repos/${{GIT_REPO}}" || true
+    - curl -H "Authorization:Bearer $GIT_TOKEN" -X DELETE "https://api.github.com/repos/${{GIT_REPO}}" || true
     when:
       steps:
       - name: build
@@ -82,7 +82,7 @@ steps:
     commands:
       - kubectl delete application autopilot-bootstrap -n $NAMESPACE
       - kubectl delete ns $NAMESPACE --request-timeout ${{KUBECTL_TIMEOUT}}
-      - curl -H "Authorization:Bearer $GITHUB_TOKEN" -X DELETE "https://api.github.com/repos/${{GIT_REPO}}" || true
+      - curl -H "Authorization:Bearer $GIT_TOKEN" -X DELETE "https://api.github.com/repos/${{GIT_REPO}}" || true
     when:
       steps:
       - name: run_bootstrap
