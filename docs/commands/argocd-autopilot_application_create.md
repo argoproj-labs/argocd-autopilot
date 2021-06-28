@@ -39,6 +39,10 @@ argocd-autopilot application create [APP_NAME] [flags]
 
   argocd-autopilot app create <new_app_name> --app github.com/some_org/some_repo/manifests?ref=<branch_name> --project project_name
 
+# Wait until the application is Synced in the cluster:
+
+  argocd-autopilot app create <new_app_name> --app github.com/some_org/some_repo/manifests --project project_name --wait-timeout 2m --context my_context 
+
 ```
 
 ### Options
@@ -69,7 +73,7 @@ argocd-autopilot application create [APP_NAME] [flags]
       --token string                   Bearer token for authentication to the API server
       --type string                    The application type (kustomize|dir)
       --user string                    The name of the kubeconfig user to use
-      --wait-timeout duration          If not '0s', will connect try to connect to the cluster and wait until the application is in Synced status for the specified timeout period.
+      --wait-timeout duration          If not '0s', will try to connect to the cluster and wait until the application is in 'Synced' status for the specified timeout period
 ```
 
 ### Options inherited from parent commands
