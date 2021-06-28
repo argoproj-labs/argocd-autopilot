@@ -7,10 +7,13 @@ import (
 	"fmt"
 	"os"
 	"text/tabwriter"
+	"time"
 
 	"github.com/argoproj-labs/argocd-autopilot/pkg/application"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/argocd"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/fs"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/git"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/kube"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/log"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
@@ -28,6 +31,8 @@ type (
 		AppsCloneOpts *git.CloneOptions
 		ProjectName   string
 		AppOpts       *application.CreateOptions
+		KubeFactory   kube.Factory
+		Timeout       time.Duration
 	}
 
 	AppDeleteOptions struct {
@@ -56,7 +61,7 @@ func NewAppCommand() *cobra.Command {
 		},
 	}
 	cloneOpts = git.AddFlags(cmd, &git.AddFlagsOptions{
-		FS: memfs.New(),
+		FS:       memfs.New(),
 		Required: true,
 	})
 
@@ -72,6 +77,8 @@ func NewAppCreateCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 		appsCloneOpts *git.CloneOptions
 		appOpts       *application.CreateOptions
 		projectName   string
+		timeout       string
+		f             kube.Factory
 	)
 
 	cmd := &cobra.Command{
@@ -112,26 +119,31 @@ func NewAppCreateCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 			appsCloneOpts.Parse()
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			if len(args) < 1 {
-				log.G().Fatal("must enter application name")
+				log.G(ctx).Fatal("must enter application name")
 			}
 
 			appOpts.AppName = args[0]
-			return RunAppCreate(cmd.Context(), &AppCreateOptions{
+			return RunAppCreate(ctx, &AppCreateOptions{
 				CloneOpts:     cloneOpts,
 				AppsCloneOpts: appsCloneOpts,
 				ProjectName:   projectName,
 				AppOpts:       appOpts,
+				Timeout:       util.MustParseDuration(cmd.Flag("timeout").Value.String()),
+				KubeFactory:   f,
 			})
 		},
 	}
 
 	cmd.Flags().StringVarP(&projectName, "project", "p", "", "Project name")
+	cmd.Flags().StringVar(&timeout, "timeout", "0", "Wait timeout")
 	appsCloneOpts = git.AddFlags(cmd, &git.AddFlagsOptions{
 		FS:     memfs.New(),
 		Prefix: "apps",
 	})
 	appOpts = application.AddFlags(cmd)
+	f = kube.AddFlags(cmd.Flags())
 
 	die(cmd.MarkFlagRequired("app"))
 	die(cmd.MarkFlagRequired("project"))
@@ -182,19 +194,31 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 	}
 
 	if opts.AppsCloneOpts != opts.CloneOpts {
-		log.G().Info("committing changes to apps repo...")
+		log.G(ctx).Info("committing changes to apps repo...")
 		if err = appsRepo.Persist(ctx, &git.PushOptions{CommitMsg: getCommitMsg(opts, appsfs)}); err != nil {
 			return fmt.Errorf("failed to push to apps repo: %w", err)
 		}
 	}
 
-	log.G().Info("committing changes to gitops repo...")
+	log.G(ctx).Info("committing changes to gitops repo...")
 	if err = r.Persist(ctx, &git.PushOptions{CommitMsg: getCommitMsg(opts, repofs)}); err != nil {
 		return fmt.Errorf("failed to push to gitops repo: %w", err)
 	}
 
-	log.G().Infof("installed application: %s", opts.AppOpts.AppName)
+	if opts.Timeout > 0 {
+		namespace, err := getInstallationNamespace(opts.CloneOpts.FS)
+		if err != nil {
+			return err
+		}
 
+		log.G(ctx).WithField("timeout", opts.Timeout).Infof("Waiting for '%s' to finish syncing", opts.AppOpts.AppName)
+		fullName := fmt.Sprintf("%s-%s", opts.ProjectName, opts.AppOpts.AppName)
+		if err = waitAppSynced(ctx, opts.KubeFactory, opts.Timeout, fullName, namespace); err != nil {
+			return err
+		}
+	}
+
+	log.G(ctx).Infof("installed application: %s", opts.AppOpts.AppName)
 	return nil
 }
 
@@ -223,7 +247,7 @@ var setAppOptsDefaults = func(ctx context.Context, repofs fs.FS, opts *AppCreate
 	} else {
 		host, orgRepo, p, _, _, suffix, _ := util.ParseGitUrl(opts.AppOpts.AppSpecifier)
 		url := host + orgRepo + suffix
-		log.G().Infof("cloning repo: '%s', to infer app type from path '%s'", url, p)
+		log.G(ctx).Infof("cloning repo: '%s', to infer app type from path '%s'", url, p)
 		cloneOpts := &git.CloneOptions{
 			Repo: opts.AppOpts.AppSpecifier,
 			Auth: opts.CloneOpts.Auth,
@@ -237,7 +261,7 @@ var setAppOptsDefaults = func(ctx context.Context, repofs fs.FS, opts *AppCreate
 	}
 
 	opts.AppOpts.AppType = application.InferAppType(fsys)
-	log.G().Infof("inferred application type: %s", opts.AppOpts.AppType)
+	log.G(ctx).Infof("inferred application type: %s", opts.AppOpts.AppType)
 
 	return nil
 }
@@ -265,6 +289,20 @@ func getCommitMsg(opts *AppCreateOptions, repofs fs.FS) string {
 	return commitMsg
 }
 
+func waitAppSynced(ctx context.Context, f kube.Factory, timeout time.Duration, appName, namespace string) error {
+	return f.Wait(ctx, &kube.WaitOptions{
+		Interval: store.Default.WaitInterval,
+		Timeout:  timeout,
+		Resources: []kube.Resource{
+			{
+				Name:      appName,
+				Namespace: namespace,
+				WaitFunc:  argocd.CheckAppSynced,
+			},
+		},
+	})
+}
+
 func NewAppListCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list [PROJECT_NAME]",
@@ -286,11 +324,12 @@ func NewAppListCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 `),
 		PreRun: func(_ *cobra.Command, _ []string) { cloneOpts.Parse() },
 		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			if len(args) < 1 {
-				log.G().Fatal("must enter a project name")
+				log.G(ctx).Fatal("must enter a project name")
 			}
 
-			return RunAppList(cmd.Context(), &AppListOptions{
+			return RunAppList(ctx, &AppListOptions{
 				CloneOpts:   cloneOpts,
 				ProjectName: args[0],
 			})
@@ -309,7 +348,7 @@ func RunAppList(ctx context.Context, opts *AppListOptions) error {
 	// get all apps beneath apps/*/overlays/<project>
 	matches, err := billyUtils.Glob(repofs, repofs.Join(store.Default.AppsDir, "*", store.Default.OverlaysDir, opts.ProjectName))
 	if err != nil {
-		log.G().Fatalf("failed to run glob on %s", opts.ProjectName)
+		log.G(ctx).Fatalf("failed to run glob on %s", opts.ProjectName)
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
@@ -370,15 +409,16 @@ func NewAppDeleteCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 `),
 		PreRun: func(_ *cobra.Command, _ []string) { cloneOpts.Parse() },
 		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			if len(args) < 1 {
-				log.G().Fatal("must enter application name")
+				log.G(ctx).Fatal("must enter application name")
 			}
 
 			if projectName == "" && !global {
-				log.G().Fatal("must enter project name OR use '--global' flag")
+				log.G(ctx).Fatal("must enter project name OR use '--global' flag")
 			}
 
-			return RunAppDelete(cmd.Context(), &AppDeleteOptions{
+			return RunAppDelete(ctx, &AppDeleteOptions{
 				CloneOpts:   cloneOpts,
 				ProjectName: projectName,
 				AppName:     args[0],
@@ -440,7 +480,7 @@ func RunAppDelete(ctx context.Context, opts *AppDeleteOptions) error {
 		return fmt.Errorf("failed to delete directory '%s': %w", dirToRemove, err)
 	}
 
-	log.G().Info("committing changes to gitops repo...")
+	log.G(ctx).Info("committing changes to gitops repo...")
 	if err = r.Persist(ctx, &git.PushOptions{CommitMsg: commitMsg}); err != nil {
 		return fmt.Errorf("failed to push to repo: %w", err)
 	}

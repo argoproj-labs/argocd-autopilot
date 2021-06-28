@@ -142,9 +142,9 @@ func NewRepoBootstrapCommand() *cobra.Command {
 		"If flat, will commit the bootstrap manifests, otherwise will commit the bootstrap kustomization.yaml")
 
 	cloneOpts = git.AddFlags(cmd, &git.AddFlagsOptions{
-		FS: memfs.New(),
+		FS:               memfs.New(),
 		CreateIfNotExist: true,
-		Required: true,
+		Required:         true,
 	})
 
 	// add kubernetes flags

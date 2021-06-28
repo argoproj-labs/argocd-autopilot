@@ -2,14 +2,21 @@ package argocd
 
 import (
 	"context"
+	"sync"
 
+	"github.com/argoproj-labs/argocd-autopilot/pkg/kube"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/log"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 
 	// used to solve this issue: https://github.com/argoproj/argo-cd/issues/2907
 	_ "github.com/argoproj-labs/argocd-autopilot/util/assets"
 
 	"github.com/argoproj/argo-cd/v2/cmd/argocd/commands"
+	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
+	argocdcd "github.com/argoproj/argo-cd/v2/pkg/client/clientset/versioned"
 	"github.com/spf13/cobra"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type (
@@ -18,17 +25,17 @@ type (
 		Execute(ctx context.Context, clusterName string) error
 	}
 
+	addClusterImpl struct {
+		cmd  *cobra.Command
+		args []string
+	}
+
 	LoginOptions struct {
 		Namespace string
 		Username  string
 		Password  string
 	}
 )
-
-type addClusterImpl struct {
-	cmd  *cobra.Command
-	args []string
-}
 
 func AddClusterAddFlags(cmd *cobra.Command) (AddClusterCmd, error) {
 	root := commands.NewCommand()
@@ -46,6 +53,35 @@ func AddClusterAddFlags(cmd *cobra.Command) (AddClusterCmd, error) {
 	cmd.Flags().AddFlagSet(fs)
 
 	return &addClusterImpl{root, args}, nil
+}
+
+var o = sync.Once{}
+
+func CheckAppSynced(ctx context.Context, f kube.Factory, ns, name string) (bool, error) {
+	rc, err := f.ToRESTConfig()
+	if err != nil {
+		return false, err
+	}
+
+	c, err := argocdcd.NewForConfig(rc)
+	if err != nil {
+		return false, err
+	}
+
+	app, err := c.ArgoprojV1alpha1().Applications(ns).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		se, ok := err.(*errors.StatusError)
+		if !ok || se.ErrStatus.Reason != metav1.StatusReasonNotFound {
+			return false, err
+		}
+
+		return false, nil
+	}
+
+	o.Do(func() {
+		log.G().Info("Application found, waiting for Sync Status")
+	})
+	return app.Status.Sync.Status == v1alpha1.SyncStatusCodeSynced, nil
 }
 
 func (a *addClusterImpl) Execute(ctx context.Context, clusterName string) error {
