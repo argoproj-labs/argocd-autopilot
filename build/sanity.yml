@@ -27,6 +27,8 @@ steps:
     - cf_export GOPATH=/codefresh/volume/gopath
     - cf_export PATH=$PATH:/codefresh/volume/gopath/bin
     - mkdir -p /codefresh/volume/gopath/bin || true
+    - git config --global user.email "cfci.bot@codefresh.io"
+    - git config --global user.name "cf-ci-bot"
     when:
       steps:
       - name: main_clone
