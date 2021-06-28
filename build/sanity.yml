@@ -97,7 +97,7 @@ steps:
     title: "cleanup"
     image: "codefresh/kube-helm"
     commands:
-      - kubectl delete application autopilot-bootstrap -n $NAMESPACE || true
+      - kubectl delete application autopilot-bootstrap -n $NAMESPACE --request-timeout ${{KUBECTL_TIMEOUT}} || true
       - kubectl delete ns $NAMESPACE --request-timeout ${{KUBECTL_TIMEOUT}} || true
       - curl -H "Authorization:Bearer $GIT_TOKEN" -X DELETE "https://api.github.com/repos/${{GIT_REPO}}" || true
     when:
