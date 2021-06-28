@@ -135,7 +135,7 @@ func TestRunAppCreate(t *testing.T) {
 		},
 		"Should fail if getInstallationNamespace fails": {
 			timeout: 1,
-			wantErr: "some error",
+			wantErr: "failed to get application namespace: some error",
 			prepareRepo: func() (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
 				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project"), 0666)
@@ -151,7 +151,7 @@ func TestRunAppCreate(t *testing.T) {
 		},
 		"Should fail if waiting fails": {
 			timeout: 1,
-			wantErr: "some error",
+			wantErr: "failed waiting for application to sync: some error",
 			beforeFn: func(f *kubemocks.Factory) {
 				f.On("Wait", mock.Anything, mock.Anything).Return(errors.New("some error"))
 			},
