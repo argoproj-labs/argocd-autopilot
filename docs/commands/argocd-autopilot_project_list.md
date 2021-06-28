@@ -36,7 +36,6 @@ argocd-autopilot project list  [flags]
 
 ```
   -t, --git-token string   Your git provider api token [GIT_TOKEN]
-      --provider string    The git provider, one of: github
       --repo string        Repository URL [GIT_REPO]
 ```
 
