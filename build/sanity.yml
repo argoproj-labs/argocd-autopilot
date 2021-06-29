@@ -38,7 +38,7 @@ steps:
     title: "build cli"
     commands:
     - make clean
-    - make local DEV_MODE=false
+    - make local
     - cp /usr/local/bin/argocd-autopilot /codefresh/volume/gopath/bin/argocd-autopilot
     - argocd-autopilot version
     when:
