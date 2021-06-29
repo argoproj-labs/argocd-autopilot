@@ -433,7 +433,7 @@ func TestGetRepo(t *testing.T) {
 				assert.Error(t, transport.ErrRepositoryNotFound, e)
 			},
 		},
-		"Should fail when AutoCreate is true and create fails": {
+		"Should fail when createIfNotExist is true and create fails": {
 			opts: &CloneOptions{
 				Repo:             "https://github.com/owner/name",
 				createIfNotExist: true,
@@ -448,7 +448,7 @@ func TestGetRepo(t *testing.T) {
 			assertFn: func(t *testing.T, r Repository, f fs.FS, e error) {
 				assert.Nil(t, r)
 				assert.Nil(t, f)
-				assert.EqualError(t, e, "some error")
+				assert.EqualError(t, e, "failed to create repository: some error")
 			},
 		},
 		"Should fail when repo is empty and init fails": {
@@ -465,10 +465,10 @@ func TestGetRepo(t *testing.T) {
 			assertFn: func(t *testing.T, r Repository, f fs.FS, e error) {
 				assert.Nil(t, r)
 				assert.Nil(t, f)
-				assert.EqualError(t, e, "some error")
+				assert.EqualError(t, e, "failed to initialize repository: some error")
 			},
 		},
-		"Should create and init repo when AutoCreate is true": {
+		"Should create and init repo when createIfNotExist is true": {
 			opts: &CloneOptions{
 				Repo:             "https://github.com/owner/name",
 				createIfNotExist: true,
