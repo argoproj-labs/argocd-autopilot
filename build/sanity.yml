@@ -69,7 +69,7 @@ steps:
       - git config --global user.email "cfci.bot@codefresh.io"
       - git config --global user.name "cf-ci-bot"
       - export GIT_REPO=https://github.com/${{GIT_REPO}}
-      - argocd-autopilot repo bootstrap --namespaced -n $NAMESPACE
+      - argocd-autopilot repo bootstrap -n $NAMESPACE
       - argocd-autopilot project create e2e
       - argocd-autopilot app create example --app github.com/argoproj-labs/argocd-autopilot/examples/demo-app -p e2e --wait-timeout 3m --dest-namespace $NAMESPACE
     when:
