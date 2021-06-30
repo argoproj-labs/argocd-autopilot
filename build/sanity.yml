@@ -21,10 +21,12 @@ steps:
     image: quay.io/codefresh/golang-ci-helper:latest
     commands:
     - cf_export GO111MODULE=on
+    - cf_export NAMESPACE=${{KUBE_NAMESPACE}}-$(date "+%M-%S")
+    - cf_export GIT_REPO=${{AUTOPILOT_REPO}}-$(date "+%M-%S")
     - cf_export GOCACHE=/codefresh/volume/gocache # change gopath to codefresh shared volume
     - cf_export GOPATH=/codefresh/volume/gopath
-    - mkdir -p /codefresh/volume/gopath/bin || true
     - cf_export PATH=$PATH:/codefresh/volume/gopath/bin
+    - mkdir -p /codefresh/volume/gopath/bin || true
     when:
       steps:
       - name: main_clone
@@ -36,7 +38,7 @@ steps:
     title: "build cli"
     commands:
     - make clean
-    - make local DEV_MODE=false
+    - make local
     - cp /usr/local/bin/argocd-autopilot /codefresh/volume/gopath/bin/argocd-autopilot
     - argocd-autopilot version
     when:
@@ -51,7 +53,8 @@ steps:
     image: "codefresh/kube-helm"
     commands:
     - kubectl config use-context ${{KUBE_CONTEXT}}
-    - kubectl delete ns ${{KUBE_NAMESPACE}} --timeout=${{KUBECTL_TIMEOUT}} || true
+    - kubectl delete ns $NAMESPACE --timeout=${{KUBECTL_TIMEOUT}} || true
+    - curl -H "Authorization:Bearer $GIT_TOKEN" -X DELETE "https://api.github.com/repos/${{GIT_REPO}}" || true
     when:
       steps:
       - name: build
@@ -63,21 +66,42 @@ steps:
     title: "run repo bootstrap"
     image: "codefresh/kube-helm"
     commands:
-      - argocd-autopilot repo bootstrap --dry-run
+      - git config --global user.email "cfci.bot@codefresh.io"
+      - git config --global user.name "cf-ci-bot"
+      - export GIT_REPO=https://github.com/${{GIT_REPO}}
+      - argocd-autopilot repo bootstrap -n $NAMESPACE
+      - argocd-autopilot project create e2e
+      - argocd-autopilot app create example --app github.com/argoproj-labs/argocd-autopilot/examples/demo-app -p e2e --wait-timeout 3m --dest-namespace $NAMESPACE
     when:
       steps:
       - name: prep_cluster
         on:
         - success
-          
+
+  delete_bootstrap:
+    stage: test
+    title: "delete bootstrap"
+    image: "codefresh/kube-helm"
+    commands:
+      - kubectl delete application autopilot-bootstrap -n $NAMESPACE
+      - kubectl delete ns $NAMESPACE --request-timeout ${{KUBECTL_TIMEOUT}}
+      - curl -H "Authorization:Bearer $GIT_TOKEN" -X DELETE "https://api.github.com/repos/${{GIT_REPO}}" || true
+    when:
+      steps:
+      - name: run_bootstrap
+        on:
+        - success
+  
   cleanup:
-      stage: test
-      title: "clean cluster"
-      image: "codefresh/kube-helm"
-      commands:
-      - kubectl delete ns ${{KUBE_NAMESPACE}} --timeout=${{KUBECTL_TIMEOUT}} || true
-      when:
-        steps:
-        - name: run_bootstrap
-          on:
-          - success
+    stage: test
+    title: "cleanup"
+    image: "codefresh/kube-helm"
+    commands:
+      - kubectl delete application autopilot-bootstrap -n $NAMESPACE --request-timeout ${{KUBECTL_TIMEOUT}} || true
+      - kubectl delete ns $NAMESPACE --request-timeout ${{KUBECTL_TIMEOUT}} || true
+      - curl -H "Authorization:Bearer $GIT_TOKEN" -X DELETE "https://api.github.com/repos/${{GIT_REPO}}" || true
+    when:
+      steps:
+      - name: run_bootstrap
+        on:
+        - failure
