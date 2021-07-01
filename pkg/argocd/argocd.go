@@ -2,7 +2,6 @@ package argocd
 
 import (
 	"context"
-	"time"
 
 	"github.com/argoproj-labs/argocd-autopilot/pkg/kube"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/log"
@@ -35,14 +34,6 @@ type (
 		Namespace string
 		Username  string
 		Password  string
-	}
-
-	AppWaitOptions struct {
-		Namespace string
-		Name      string
-		Interval  time.Duration
-		Timeout   time.Duration
-		Revision  string
 	}
 )
 
