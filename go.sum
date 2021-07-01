@@ -116,8 +116,9 @@ github.com/argoproj/argo-cd/v2 v2.0.3 h1:9KK9u5wegvBhUQIrK+dfsGiJglPNlzFGoUFM/5i
 github.com/argoproj/argo-cd/v2 v2.0.3/go.mod h1:eg4iTfTUICd6o6ZpbPElWGcHSHWOsgXIQM13+HzhIYE=
 github.com/argoproj/gitops-engine v0.2.1/go.mod h1:OxXp8YaT73rw9gEBnGBWg55af80nkV/uIjWCbJu1Nw0=
 github.com/argoproj/gitops-engine v0.2.2/go.mod h1:OxXp8YaT73rw9gEBnGBWg55af80nkV/uIjWCbJu1Nw0=
-github.com/argoproj/gitops-engine v0.3.2 h1:m5bjOk/bWwMsFBGFpurdK31/hC5UuLMQn0hAd51TlEk=
 github.com/argoproj/gitops-engine v0.3.2/go.mod h1:IBHhAkqlC+3r/wBWUitWSidQhPzlLoSTWp2htq3dyQk=
+github.com/argoproj/gitops-engine v0.3.3 h1:zRNwKRj3h+EBpciy/+Eyo4vW2GTG3UG4HXAdWn0mQRI=
+github.com/argoproj/gitops-engine v0.3.3/go.mod h1:IBHhAkqlC+3r/wBWUitWSidQhPzlLoSTWp2htq3dyQk=
 github.com/argoproj/pkg v0.2.0 h1:ETgC600kr8WcAi3MEVY5sA1H7H/u1/IysYOobwsZ8No=
 github.com/argoproj/pkg v0.2.0/go.mod h1:F4TZgInLUEjzsWFB/BTJBsewoEy0ucnKSq6vmQiD/yc=
 github.com/armon/circbuf v0.0.0-20150827004946-bbbad097214e/go.mod h1:3U/XgcO3hCbHZ8TKRvWD2dDTCfh9M9ya+I9JpbB7O8o=

@@ -5,9 +5,12 @@ import (
 	_ "embed"
 	"fmt"
 	"os"
+	"time"
 
+	"github.com/argoproj-labs/argocd-autopilot/pkg/argocd"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/fs"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/git"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/kube"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/log"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
@@ -139,6 +142,20 @@ func createApp(opts *createAppOptions) ([]byte, error) {
 	}
 
 	return yaml.Marshal(app)
+}
+
+func waitAppSynced(ctx context.Context, f kube.Factory, timeout time.Duration, appName, namespace, revision string) error {
+	return f.Wait(ctx, &kube.WaitOptions{
+		Interval: store.Default.WaitInterval,
+		Timeout:  timeout,
+		Resources: []kube.Resource{
+			{
+				Name:      appName,
+				Namespace: namespace,
+				WaitFunc:  argocd.GetAppSyncFn(revision),
+			},
+		},
+	})
 }
 
 type createAppSetOptions struct {

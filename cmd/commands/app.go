@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/argoproj-labs/argocd-autopilot/pkg/application"
-	"github.com/argoproj-labs/argocd-autopilot/pkg/argocd"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/fs"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/git"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/kube"
@@ -199,13 +198,14 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 
 	if opts.AppsCloneOpts != opts.CloneOpts {
 		log.G(ctx).Info("committing changes to apps repo...")
-		if err = appsRepo.Persist(ctx, &git.PushOptions{CommitMsg: getCommitMsg(opts, appsfs)}); err != nil {
+		if _, err = appsRepo.Persist(ctx, &git.PushOptions{CommitMsg: getCommitMsg(opts, appsfs)}); err != nil {
 			return fmt.Errorf("failed to push to apps repo: %w", err)
 		}
 	}
 
 	log.G(ctx).Info("committing changes to gitops repo...")
-	if err = r.Persist(ctx, &git.PushOptions{CommitMsg: getCommitMsg(opts, repofs)}); err != nil {
+	revision, err := r.Persist(ctx, &git.PushOptions{CommitMsg: getCommitMsg(opts, repofs)})
+	if err != nil {
 		return fmt.Errorf("failed to push to gitops repo: %w", err)
 	}
 
@@ -219,7 +219,7 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 		fullName := fmt.Sprintf("%s-%s", opts.ProjectName, opts.AppOpts.AppName)
 		// wait for argocd to be ready before applying argocd-apps
 		stop := util.WithSpinner(ctx, fmt.Sprintf("waiting for '%s' to be ready", fullName))
-		if err = waitAppSynced(ctx, opts.KubeFactory, opts.Timeout, fullName, namespace); err != nil {
+		if err = waitAppSynced(ctx, opts.KubeFactory, opts.Timeout, fullName, namespace, revision); err != nil {
 			stop()
 			return fmt.Errorf("failed waiting for application to sync: %w", err)
 		}
@@ -296,20 +296,6 @@ func getCommitMsg(opts *AppCreateOptions, repofs fs.FS) string {
 	}
 
 	return commitMsg
-}
-
-func waitAppSynced(ctx context.Context, f kube.Factory, timeout time.Duration, appName, namespace string) error {
-	return f.Wait(ctx, &kube.WaitOptions{
-		Interval: store.Default.WaitInterval,
-		Timeout:  timeout,
-		Resources: []kube.Resource{
-			{
-				Name:      appName,
-				Namespace: namespace,
-				WaitFunc:  argocd.CheckAppSynced,
-			},
-		},
-	})
 }
 
 func NewAppListCommand(cloneOpts *git.CloneOptions) *cobra.Command {
@@ -490,7 +476,7 @@ func RunAppDelete(ctx context.Context, opts *AppDeleteOptions) error {
 	}
 
 	log.G(ctx).Info("committing changes to gitops repo...")
-	if err = r.Persist(ctx, &git.PushOptions{CommitMsg: commitMsg}); err != nil {
+	if _, err = r.Persist(ctx, &git.PushOptions{CommitMsg: commitMsg}); err != nil {
 		return fmt.Errorf("failed to push to repo: %w", err)
 	}
 

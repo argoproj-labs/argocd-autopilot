@@ -33,7 +33,7 @@ type (
 	// Repository represents a git repository
 	Repository interface {
 		// Persist runs add, commit and push to the repository default remote
-		Persist(ctx context.Context, opts *PushOptions) error
+		Persist(ctx context.Context, opts *PushOptions) (string, error)
 	}
 
 	AddFlagsOptions struct {
@@ -192,9 +192,9 @@ func (o *CloneOptions) Path() string {
 	return o.path
 }
 
-func (r *repo) Persist(ctx context.Context, opts *PushOptions) error {
+func (r *repo) Persist(ctx context.Context, opts *PushOptions) (string, error) {
 	if opts == nil {
-		return ErrNilOpts
+		return "", ErrNilOpts
 	}
 
 	addPattern := "."
@@ -205,18 +205,19 @@ func (r *repo) Persist(ctx context.Context, opts *PushOptions) error {
 
 	w, err := worktree(r)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	if err := w.AddGlob(addPattern); err != nil {
-		return err
+		return "", err
 	}
 
-	if _, err = w.Commit(opts.CommitMsg, &gg.CommitOptions{All: true}); err != nil {
-		return err
+	h, err := w.Commit(opts.CommitMsg, &gg.CommitOptions{All: true})
+	if err != nil {
+		return "", err
 	}
 
-	return r.PushContext(ctx, &gg.PushOptions{
+	return h.String(), r.PushContext(ctx, &gg.PushOptions{
 		Auth:     getAuth(r.auth),
 		Progress: os.Stderr,
 	})

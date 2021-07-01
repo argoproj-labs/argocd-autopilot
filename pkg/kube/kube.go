@@ -43,49 +43,53 @@ func WaitDeploymentReady(ctx context.Context, f Factory, ns, name string) (bool,
 	return d.Status.ReadyReplicas >= *d.Spec.Replicas, nil
 }
 
-type Factory interface {
-	// KubernetesClientSet returns a new kubernetes clientset or error
-	KubernetesClientSet() (kubernetes.Interface, error)
+type (
+	Factory interface {
+		// KubernetesClientSet returns a new kubernetes clientset or error
+		KubernetesClientSet() (kubernetes.Interface, error)
 
-	// KubernetesClientSetOrDie calls KubernetesClientSet() and panics if it returns an error
-	KubernetesClientSetOrDie() kubernetes.Interface
+		// KubernetesClientSetOrDie calls KubernetesClientSet() and panics if it returns an error
+		KubernetesClientSetOrDie() kubernetes.Interface
 
-	// ToRESTConfig returns a rest Config object or error
-	ToRESTConfig() (*restclient.Config, error)
+		// ToRESTConfig returns a rest Config object or error
+		ToRESTConfig() (*restclient.Config, error)
 
-	// Apply applies the provided manifests on the specified namespace
-	Apply(ctx context.Context, namespace string, manifests []byte) error
+		// Apply applies the provided manifests on the specified namespace
+		Apply(ctx context.Context, namespace string, manifests []byte) error
 
-	// Wait waits for all of the provided `Resources` to be ready by calling
-	// the `WaitFunc` of each resource until all of them returns `true`
-	Wait(context.Context, *WaitOptions) error
-}
+		// Wait waits for all of the provided `Resources` to be ready by calling
+		// the `WaitFunc` of each resource until all of them returns `true`
+		Wait(context.Context, *WaitOptions) error
+	}
 
-type Resource struct {
-	Name      string
-	Namespace string
-
-	// WaitFunc will be called to check if the resources is ready. Should return (true, nil)
-	// if the resources is ready, (false, nil) if the resource is not ready yet, or (false, err)
-	// if some error occured (in that case the `Wait` will fail with that error).
 	WaitFunc func(ctx context.Context, f Factory, ns, name string) (bool, error)
-}
 
-type WaitOptions struct {
-	// Inverval the duration between each iteration of calling all of the resources' `WaitFunc`s.
-	Interval time.Duration
+	Resource struct {
+		Name      string
+		Namespace string
 
-	// Timeout the max time to wait for all of the resources to be ready. If not all of the
-	// resourecs are ready at time this will cause `Wait` to return an error.
-	Timeout time.Duration
+		// WaitFunc will be called to check if the resources is ready. Should return (true, nil)
+		// if the resources is ready, (false, nil) if the resource is not ready yet, or (false, err)
+		// if some error occured (in that case the `Wait` will fail with that error).
+		WaitFunc WaitFunc
+	}
 
-	// Resources the list of resources to wait for.
-	Resources []Resource
-}
+	WaitOptions struct {
+		// Inverval the duration between each iteration of calling all of the resources' `WaitFunc`s.
+		Interval time.Duration
 
-type factory struct {
-	f cmdutil.Factory
-}
+		// Timeout the max time to wait for all of the resources to be ready. If not all of the
+		// resourecs are ready at time this will cause `Wait` to return an error.
+		Timeout time.Duration
+
+		// Resources the list of resources to wait for.
+		Resources []Resource
+	}
+
+	factory struct {
+		f cmdutil.Factory
+	}
+)
 
 func AddFlags(flags *pflag.FlagSet) Factory {
 	confFlags := genericclioptions.NewConfigFlags(true)

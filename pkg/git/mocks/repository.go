@@ -15,15 +15,22 @@ type Repository struct {
 }
 
 // Persist provides a mock function with given fields: ctx, opts
-func (_m *Repository) Persist(ctx context.Context, opts *git.PushOptions) error {
+func (_m *Repository) Persist(ctx context.Context, opts *git.PushOptions) (string, error) {
 	ret := _m.Called(ctx, opts)
 
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *git.PushOptions) error); ok {
+	var r0 string
+	if rf, ok := ret.Get(0).(func(context.Context, *git.PushOptions) string); ok {
 		r0 = rf(ctx, opts)
 	} else {
-		r0 = ret.Error(0)
+		r0 = ret.Get(0).(string)
 	}
 
-	return r0
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, *git.PushOptions) error); ok {
+		r1 = rf(ctx, opts)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
