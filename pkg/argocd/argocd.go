@@ -12,7 +12,7 @@ import (
 
 	"github.com/argoproj/argo-cd/v2/cmd/argocd/commands"
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
-	argocdcd "github.com/argoproj/argo-cd/v2/pkg/client/clientset/versioned"
+	argocdcs "github.com/argoproj/argo-cd/v2/pkg/client/clientset/versioned"
 	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -62,7 +62,7 @@ func GetAppSyncFn(revision string) kube.WaitFunc {
 			return false, err
 		}
 
-		c, err := argocdcd.NewForConfig(rc)
+		c, err := argocdcs.NewForConfig(rc)
 		if err != nil {
 			return false, err
 		}
@@ -84,7 +84,7 @@ func GetAppSyncFn(revision string) kube.WaitFunc {
 			atRevision = revision == app.Status.Sync.Revision
 		}
 
-		log.G().Debugf("Application found, Sync Status: %s, Health Status: %s, Revision: %s", app.Status.Sync.Status, app.Status.Health.Status, app.Status.Sync.Revision)
+		log.G(ctx).Debugf("Application found, Sync Status: %s, Health Status: %s, Revision: %s", app.Status.Sync.Status, app.Status.Health.Status, app.Status.Sync.Revision)
 		return synced && healthy && atRevision, nil
 	}
 }

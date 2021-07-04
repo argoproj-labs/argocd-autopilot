@@ -3,6 +3,7 @@ package kube
 import (
 	"context"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/argoproj-labs/argocd-autopilot/pkg/log"
@@ -18,6 +19,7 @@ import (
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/kubectl/pkg/cmd/apply"
+	del "k8s.io/kubectl/pkg/cmd/delete"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 )
 
@@ -56,6 +58,10 @@ type (
 
 		// Apply applies the provided manifests on the specified namespace
 		Apply(ctx context.Context, namespace string, manifests []byte) error
+
+		Delete(ctx context.Context, manifests []byte) error
+
+		Delete2(ctx context.Context, resourceTypes []string, labelSelector string) error
 
 		// Wait waits for all of the provided `Resources` to be ready by calling
 		// the `WaitFunc` of each resource until all of them returns `true`
@@ -160,7 +166,7 @@ func (f *factory) Apply(ctx context.Context, namespace string, manifests []byte)
 	defer func() { os.Stdin = stdin }()
 
 	cmd := &cobra.Command{
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			o.DeleteFlags.FileNameFlags.Filenames = &[]string{"-"}
 			o.Overwrite = true
 
@@ -199,6 +205,87 @@ func (f *factory) Apply(ctx context.Context, namespace string, manifests []byte)
 	cmdutil.AddServerSideApplyFlags(cmd)
 	cmdutil.AddValidateFlags(cmd)
 	cmdutil.AddFieldManagerFlagVar(cmd, &o.FieldManager, apply.FieldManagerClientSideApply)
+
+	cmd.SetArgs([]string{})
+
+	return cmd.ExecuteContext(ctx)
+}
+
+func (f *factory) Delete(ctx context.Context, manifests []byte) error {
+	reader, buf, err := os.Pipe()
+	if err != nil {
+		return err
+	}
+
+	o := &del.DeleteOptions{
+		CascadingStrategy: metav1.DeletePropagationForeground,
+		WaitForDeletion:   true,
+		Quiet:             true,
+	}
+
+	stdin := os.Stdin
+	os.Stdin = reader
+	defer func() { os.Stdin = stdin }()
+
+	cmd := &cobra.Command{
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			o.Filenames = []string{"-"}
+			if err := o.Complete(f.f, []string{}, cmd); err != nil {
+				return err
+			}
+
+			errc := make(chan error)
+			go func() {
+				if _, err = buf.Write(manifests); err != nil {
+					errc <- err
+				}
+				if err = buf.Close(); err != nil {
+					errc <- err
+				}
+				close(errc)
+			}()
+
+			if err = o.RunDelete(f.f); err != nil {
+				return err
+			}
+
+			return <-errc
+		},
+		SilenceErrors: true,
+		SilenceUsage:  true,
+	}
+
+	cmdutil.AddDryRunFlag(cmd)
+
+	cmd.SetArgs([]string{})
+
+	return cmd.ExecuteContext(ctx)
+}
+
+func (f *factory) Delete2(ctx context.Context, resourceTypes []string, labelSelector string) error {
+	o := &del.DeleteOptions{
+		IOStreams:           DefaultIOStreams(),
+		CascadingStrategy:   metav1.DeletePropagationForeground,
+		DeleteAllNamespaces: true,
+		LabelSelector:       labelSelector,
+		WaitForDeletion:     true,
+		Quiet:               true,
+	}
+
+	cmd := &cobra.Command{
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			args := strings.Join(resourceTypes, ",")
+			if err := o.Complete(f.f, []string{args}, cmd); err != nil {
+				return err
+			}
+
+			return o.RunDelete(f.f)
+		},
+		SilenceErrors: true,
+		SilenceUsage:  true,
+	}
+
+	cmdutil.AddDryRunFlag(cmd)
 
 	cmd.SetArgs([]string{})
 

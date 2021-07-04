@@ -108,11 +108,12 @@ func NewProjectCreateCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 `),
 		PreRun: func(_ *cobra.Command, _ []string) { cloneOpts.Parse() },
 		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			if len(args) < 1 {
-				log.G().Fatal("must enter project name")
+				log.G(ctx).Fatal("must enter project name")
 			}
 
-			return RunProjectCreate(cmd.Context(), &ProjectCreateOptions{
+			return RunProjectCreate(ctx, &ProjectCreateOptions{
 				CloneOpts:       cloneOpts,
 				ProjectName:     args[0],
 				DestKubeContext: kubeContext,
@@ -152,7 +153,7 @@ func RunProjectCreate(ctx context.Context, opts *ProjectCreateOptions) error {
 		return fmt.Errorf("project '%s' already exists", opts.ProjectName)
 	}
 
-	log.G().Debug("repository is ok")
+	log.G(ctx).Debug("repository is ok")
 
 	destServer := store.Default.DestServer
 	if opts.DestKubeContext != "" {
@@ -176,14 +177,14 @@ func RunProjectCreate(ctx context.Context, opts *ProjectCreateOptions) error {
 	}
 
 	if opts.DryRun {
-		log.G().Printf("%s", util.JoinManifests(projectYAML, appsetYAML))
+		log.G(ctx).Printf("%s", util.JoinManifests(projectYAML, appsetYAML))
 		return nil
 	}
 
 	bulkWrites := []fsutils.BulkWriteRequest{}
 
 	if opts.DestKubeContext != "" {
-		log.G().Infof("adding cluster: %s", opts.DestKubeContext)
+		log.G(ctx).Infof("adding cluster: %s", opts.DestKubeContext)
 		if err = opts.AddCmd.Execute(ctx, opts.DestKubeContext); err != nil {
 			return fmt.Errorf("failed to add new cluster credentials: %w", err)
 		}
@@ -213,12 +214,12 @@ func RunProjectCreate(ctx context.Context, opts *ProjectCreateOptions) error {
 		return err
 	}
 
-	log.G().Infof("pushing new project manifest to repo")
+	log.G(ctx).Infof("pushing new project manifest to repo")
 	if _, err = r.Persist(ctx, &git.PushOptions{CommitMsg: fmt.Sprintf("Added project '%s'", opts.ProjectName)}); err != nil {
 		return err
 	}
 
-	log.G().Infof("project created: '%s'", opts.ProjectName)
+	log.G(ctx).Infof("project created: '%s'", opts.ProjectName)
 
 	return nil
 }
@@ -280,8 +281,8 @@ func generateProjectManifests(o *GenerateProjectOptions) (projectYAML, appSetYAM
 		prune:                       true,
 		preserveResourcesOnDeletion: false,
 		appLabels: map[string]string{
-			"app.kubernetes.io/managed-by": store.Default.ManagedBy,
-			"app.kubernetes.io/name":       "{{ appName }}",
+			store.Default.LabelKeyAppManagedBy: store.Default.LabelValueManagedBy,
+			"app.kubernetes.io/name":           "{{ appName }}",
 		},
 		generators: []appset.ApplicationSetGenerator{
 			{
@@ -403,11 +404,12 @@ func NewProjectDeleteCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 `),
 		PreRun: func(_ *cobra.Command, _ []string) { cloneOpts.Parse() },
 		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			if len(args) < 1 {
-				log.G().Fatal("must enter project name")
+				log.G(ctx).Fatal("must enter project name")
 			}
 
-			return RunProjectDelete(cmd.Context(), &ProjectDeleteOptions{
+			return RunProjectDelete(ctx, &ProjectDeleteOptions{
 				CloneOpts:   cloneOpts,
 				ProjectName: args[0],
 			})
@@ -440,7 +442,7 @@ func RunProjectDelete(ctx context.Context, opts *ProjectDeleteOptions) error {
 		return fmt.Errorf("failed to delete project '%s': %w", opts.ProjectName, err)
 	}
 
-	log.G().Info("committing changes to gitops repo...")
+	log.G(ctx).Info("committing changes to gitops repo...")
 	if _, err = r.Persist(ctx, &git.PushOptions{CommitMsg: fmt.Sprintf("Deleted project '%s'", opts.ProjectName)}); err != nil {
 		return fmt.Errorf("failed to push to repo: %w", err)
 	}
