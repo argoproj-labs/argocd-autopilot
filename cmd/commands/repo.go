@@ -707,25 +707,28 @@ func setUninstallOptsDefaults(opts RepoUninstallOptions) (*RepoUninstallOptions,
 }
 
 func deleteGitOpsFiles(repofs fs.FS) error {
-	var err error
-	if err = billyUtils.RemoveAll(repofs, store.Default.AppsDir); err != nil {
-		return err
+	if err := billyUtils.RemoveAll(repofs, store.Default.AppsDir); err != nil {
+		return fmt.Errorf("failed deleting '%s' folder: %w", store.Default.AppsDir, err)
 	}
 
-	if err = billyUtils.RemoveAll(repofs, store.Default.BootsrtrapDir); err != nil {
-		return err
+	if err := billyUtils.RemoveAll(repofs, store.Default.BootsrtrapDir); err != nil {
+		return fmt.Errorf("failed deleting '%s' folder: %w", store.Default.BootsrtrapDir, err)
 	}
 
-	if err = billyUtils.RemoveAll(repofs, store.Default.ProjectsDir); err != nil {
-		return err
+	if err := billyUtils.RemoveAll(repofs, store.Default.ProjectsDir); err != nil {
+		return fmt.Errorf("failed deleting '%s' folder: %w", store.Default.ProjectsDir, err)
 	}
 
-	return billyUtils.WriteFile(repofs, repofs.Join(store.Default.BootsrtrapDir, store.Default.DummyName), []byte{}, 0666)
+	if err := billyUtils.WriteFile(repofs, repofs.Join(store.Default.BootsrtrapDir, store.Default.DummyName), []byte{}, 0666); err != nil {
+		return fmt.Errorf("failed creating '%s' file in '%s' folder: %w", store.Default.DummyName, store.Default.ProjectsDir, err)
+	}
+
+	return nil
 }
 
 func deleteClusterResources(ctx context.Context, f kube.Factory) error {
-	if err := f.Delete(ctx, []string{"applications"}, store.Default.LabelKeyAppManagedBy+"="+store.Default.LabelValueManagedBy); err != nil {
-		return fmt.Errorf("Failed deleting 'autopilot-bootstrap' Application: %w", err)
+	if err := f.Delete(ctx, []string{"applications", "secrets"}, store.Default.LabelKeyAppManagedBy+"="+store.Default.LabelValueManagedBy); err != nil {
+		return fmt.Errorf("failed deleting argocd-autopilot resources: %w", err)
 	}
 
 	if err := f.Delete(ctx, []string{
@@ -736,12 +739,8 @@ func deleteClusterResources(ctx context.Context, f kube.Factory) error {
 		"networkpolicies",
 		"rolebindings",
 		"roles",
-	}, argocdcommon.LabelKeyAppInstance+"=argo-cd"); err != nil {
+	}, argocdcommon.LabelKeyAppInstance+"="+store.Default.ArgoCDName); err != nil {
 		return fmt.Errorf("Failed deleting Argo-CD resources: %w", err)
-	}
-
-	if err := f.Delete(ctx, []string{"secrets"}, store.Default.LabelKeyAppManagedBy+"="+store.Default.LabelValueManagedBy); err != nil {
-		return fmt.Errorf("Failed deleting 'autopilot-secret' Secret: %w", err)
 	}
 
 	return nil
