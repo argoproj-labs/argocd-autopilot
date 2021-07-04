@@ -280,7 +280,7 @@ func TestRunRepoBootstrap(t *testing.T) {
 				f.On("Wait", mock.Anything, mock.Anything).Return(nil)
 				f.On("KubernetesClientSetOrDie").Return(mockCS)
 
-				r.On("Persist", mock.Anything, mock.Anything).Return(nil)
+				r.On("Persist", mock.Anything, mock.Anything).Return("revision", nil)
 
 			},
 			assertFn: func(t *testing.T, r *gitmocks.Repository, repofs fs.FS, f *kubemocks.Factory, ret error) {
@@ -343,7 +343,7 @@ func TestRunRepoBootstrap(t *testing.T) {
 				f.On("Apply", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 				f.On("Wait", mock.Anything, mock.Anything).Return(nil)
 				f.On("KubernetesClientSetOrDie").Return(mockCS)
-				r.On("Persist", mock.Anything, mock.Anything).Return(nil)
+				r.On("Persist", mock.Anything, mock.Anything).Return("revision", nil)
 			},
 			assertFn: func(t *testing.T, r *gitmocks.Repository, repofs fs.FS, f *kubemocks.Factory, ret error) {
 				assert.NoError(t, ret)

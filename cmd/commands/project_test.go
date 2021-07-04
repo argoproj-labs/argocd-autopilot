@@ -87,7 +87,9 @@ func TestRunProjectCreate(t *testing.T) {
 			prepareRepo: func() (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
 				mockedRepo := &gitmocks.Repository{}
-				mockedRepo.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{CommitMsg: "Added project 'project'"}).Return(fmt.Errorf("failed to persist"))
+				mockedRepo.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
+					CommitMsg: "Added project 'project'",
+				}).Return("", fmt.Errorf("failed to persist"))
 				return mockedRepo, fs.Create(memfs), nil
 			},
 			getInstallationNamespace: func(_ fs.FS) (string, error) {
@@ -100,7 +102,9 @@ func TestRunProjectCreate(t *testing.T) {
 			prepareRepo: func() (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
 				mockedRepo := &gitmocks.Repository{}
-				mockedRepo.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{CommitMsg: "Added project 'project'"}).Return(nil)
+				mockedRepo.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
+					CommitMsg: "Added project 'project'",
+				}).Return("revision", nil)
 				return mockedRepo, fs.Create(memfs), nil
 			},
 			getInstallationNamespace: func(_ fs.FS) (string, error) {
@@ -512,7 +516,7 @@ func TestRunProjectDelete(t *testing.T) {
 				mockRepo := &gitmocks.Repository{}
 				mockRepo.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
 					CommitMsg: "Deleted project 'project'",
-				}).Return(fmt.Errorf("some error"))
+				}).Return("revision", fmt.Errorf("some error"))
 				return mockRepo, fs.Create(memfs), nil
 			},
 		},
@@ -526,7 +530,7 @@ func TestRunProjectDelete(t *testing.T) {
 				mockRepo := &gitmocks.Repository{}
 				mockRepo.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
 					CommitMsg: "Deleted project 'project'",
-				}).Return(fmt.Errorf("some error"))
+				}).Return("", fmt.Errorf("some error"))
 				return mockRepo, fs.Create(memfs), nil
 			},
 		},
@@ -539,7 +543,7 @@ func TestRunProjectDelete(t *testing.T) {
 				mockRepo := &gitmocks.Repository{}
 				mockRepo.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
 					CommitMsg: "Deleted project 'project'",
-				}).Return(nil)
+				}).Return("revision", nil)
 				return mockRepo, fs.Create(memfs), nil
 			},
 			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
@@ -557,7 +561,7 @@ func TestRunProjectDelete(t *testing.T) {
 				mockRepo := &gitmocks.Repository{}
 				mockRepo.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
 					CommitMsg: "Deleted project 'project'",
-				}).Return(nil)
+				}).Return("revision", nil)
 				return mockRepo, fs.Create(memfs), nil
 			},
 			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
@@ -575,7 +579,7 @@ func TestRunProjectDelete(t *testing.T) {
 				mockRepo := &gitmocks.Repository{}
 				mockRepo.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
 					CommitMsg: "Deleted project 'project'",
-				}).Return(nil)
+				}).Return("revision", nil)
 				return mockRepo, fs.Create(memfs), nil
 			},
 			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
@@ -597,7 +601,7 @@ func TestRunProjectDelete(t *testing.T) {
 				mockRepo := &gitmocks.Repository{}
 				mockRepo.On("Persist", mock.AnythingOfType("*context.emptyCtx"), &git.PushOptions{
 					CommitMsg: "Deleted project 'project'",
-				}).Return(nil)
+				}).Return("revision", nil)
 				return mockRepo, fs.Create(memfs), nil
 			},
 			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
