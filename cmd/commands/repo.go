@@ -724,11 +724,11 @@ func deleteGitOpsFiles(repofs fs.FS) error {
 }
 
 func deleteClusterResources(ctx context.Context, f kube.Factory) error {
-	if err := f.Delete2(ctx, []string{"applications"}, store.Default.LabelKeyAppManagedBy+"="+store.Default.LabelValueManagedBy); err != nil {
+	if err := f.Delete(ctx, []string{"applications"}, store.Default.LabelKeyAppManagedBy+"="+store.Default.LabelValueManagedBy); err != nil {
 		return fmt.Errorf("Failed deleting 'autopilot-bootstrap' Application: %w", err)
 	}
 
-	if err := f.Delete2(ctx, []string{
+	if err := f.Delete(ctx, []string{
 		"all",
 		"configmaps",
 		"secrets",
@@ -740,7 +740,7 @@ func deleteClusterResources(ctx context.Context, f kube.Factory) error {
 		return fmt.Errorf("Failed deleting Argo-CD resources: %w", err)
 	}
 
-	if err := f.Delete2(ctx, []string{"secrets"}, store.Default.LabelKeyAppManagedBy+"="+store.Default.LabelValueManagedBy); err != nil {
+	if err := f.Delete(ctx, []string{"secrets"}, store.Default.LabelKeyAppManagedBy+"="+store.Default.LabelValueManagedBy); err != nil {
 		return fmt.Errorf("Failed deleting 'autopilot-secret' Secret: %w", err)
 	}
 

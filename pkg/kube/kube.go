@@ -59,9 +59,7 @@ type (
 		// Apply applies the provided manifests on the specified namespace
 		Apply(ctx context.Context, namespace string, manifests []byte) error
 
-		Delete(ctx context.Context, manifests []byte) error
-
-		Delete2(ctx context.Context, resourceTypes []string, labelSelector string) error
+		Delete(ctx context.Context, resourceTypes []string, labelSelector string) error
 
 		// Wait waits for all of the provided `Resources` to be ready by calling
 		// the `WaitFunc` of each resource until all of them returns `true`
@@ -211,58 +209,7 @@ func (f *factory) Apply(ctx context.Context, namespace string, manifests []byte)
 	return cmd.ExecuteContext(ctx)
 }
 
-func (f *factory) Delete(ctx context.Context, manifests []byte) error {
-	reader, buf, err := os.Pipe()
-	if err != nil {
-		return err
-	}
-
-	o := &del.DeleteOptions{
-		CascadingStrategy: metav1.DeletePropagationForeground,
-		WaitForDeletion:   true,
-		Quiet:             true,
-	}
-
-	stdin := os.Stdin
-	os.Stdin = reader
-	defer func() { os.Stdin = stdin }()
-
-	cmd := &cobra.Command{
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			o.Filenames = []string{"-"}
-			if err := o.Complete(f.f, []string{}, cmd); err != nil {
-				return err
-			}
-
-			errc := make(chan error)
-			go func() {
-				if _, err = buf.Write(manifests); err != nil {
-					errc <- err
-				}
-				if err = buf.Close(); err != nil {
-					errc <- err
-				}
-				close(errc)
-			}()
-
-			if err = o.RunDelete(f.f); err != nil {
-				return err
-			}
-
-			return <-errc
-		},
-		SilenceErrors: true,
-		SilenceUsage:  true,
-	}
-
-	cmdutil.AddDryRunFlag(cmd)
-
-	cmd.SetArgs([]string{})
-
-	return cmd.ExecuteContext(ctx)
-}
-
-func (f *factory) Delete2(ctx context.Context, resourceTypes []string, labelSelector string) error {
+func (f *factory) Delete(ctx context.Context, resourceTypes []string, labelSelector string) error {
 	o := &del.DeleteOptions{
 		IOStreams:           DefaultIOStreams(),
 		CascadingStrategy:   metav1.DeletePropagationForeground,

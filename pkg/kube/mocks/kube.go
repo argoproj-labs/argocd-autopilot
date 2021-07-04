@@ -32,6 +32,20 @@ func (_m *Factory) Apply(ctx context.Context, namespace string, manifests []byte
 	return r0
 }
 
+// Delete provides a mock function with given fields: ctx, resourceTypes, labelSelector
+func (_m *Factory) Delete(ctx context.Context, resourceTypes []string, labelSelector string) error {
+	ret := _m.Called(ctx, resourceTypes, labelSelector)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, []string, string) error); ok {
+		r0 = rf(ctx, resourceTypes, labelSelector)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // KubernetesClientSet provides a mock function with given fields:
 func (_m *Factory) KubernetesClientSet() (kubernetes.Interface, error) {
 	ret := _m.Called()
