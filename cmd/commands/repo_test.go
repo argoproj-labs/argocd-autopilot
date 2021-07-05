@@ -14,6 +14,7 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/kube"
 	kubemocks "github.com/argoproj-labs/argocd-autopilot/pkg/kube/mocks"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
+
 	argocdcommon "github.com/argoproj/argo-cd/v2/common"
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/ghodss/yaml"
@@ -240,8 +241,8 @@ func TestRunRepoBootstrap(t *testing.T) {
 	exitCalled := false
 	tests := map[string]struct {
 		opts     *RepoBootstrapOptions
-		preFn    func(r *gitmocks.Repository, repofs fs.FS, f *kubemocks.Factory)
-		assertFn func(t *testing.T, r *gitmocks.Repository, repofs fs.FS, f *kubemocks.Factory, ret error)
+		beforeFn func(*gitmocks.Repository, *kubemocks.Factory)
+		assertFn func(*testing.T, fs.FS, error)
 	}{
 		"DryRun": {
 			opts: &RepoBootstrapOptions{
@@ -254,7 +255,8 @@ func TestRunRepoBootstrap(t *testing.T) {
 					Auth: git.Auth{Password: "test"},
 				},
 			},
-			assertFn: func(t *testing.T, _ *gitmocks.Repository, _ fs.FS, _ *kubemocks.Factory, ret error) {
+			beforeFn: func(*gitmocks.Repository, *kubemocks.Factory) {},
+			assertFn: func(t *testing.T, _ fs.FS, ret error) {
 				assert.NoError(t, ret)
 				assert.True(t, exitCalled)
 			},
@@ -269,7 +271,7 @@ func TestRunRepoBootstrap(t *testing.T) {
 					Auth: git.Auth{Password: "test"},
 				},
 			},
-			preFn: func(r *gitmocks.Repository, _ fs.FS, f *kubemocks.Factory) {
+			beforeFn: func(r *gitmocks.Repository, f *kubemocks.Factory) {
 				mockCS := fake.NewSimpleClientset(&v1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "argocd-initial-admin-secret",
@@ -279,21 +281,14 @@ func TestRunRepoBootstrap(t *testing.T) {
 						"password": []byte("foo"),
 					},
 				})
+				r.On("Persist", mock.Anything, mock.Anything).Return("revision", nil)
 				f.On("Apply", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 				f.On("Wait", mock.Anything, mock.Anything).Return(nil)
 				f.On("KubernetesClientSetOrDie").Return(mockCS)
-
-				r.On("Persist", mock.Anything, mock.Anything).Return("revision", nil)
-
 			},
-			assertFn: func(t *testing.T, r *gitmocks.Repository, repofs fs.FS, f *kubemocks.Factory, ret error) {
+			assertFn: func(t *testing.T, repofs fs.FS, ret error) {
 				assert.NoError(t, ret)
 				assert.False(t, exitCalled)
-				r.AssertCalled(t, "Persist", mock.Anything, mock.Anything)
-				f.AssertCalled(t, "Apply", mock.Anything, "bar", mock.Anything)
-				f.AssertCalled(t, "Wait", mock.Anything, mock.Anything)
-				f.AssertCalled(t, "KubernetesClientSetOrDie")
-				f.AssertNumberOfCalls(t, "Apply", 2)
 
 				// bootstrap dir
 				assert.True(t, repofs.ExistsOrDie(repofs.Join(
@@ -333,7 +328,7 @@ func TestRunRepoBootstrap(t *testing.T) {
 					Auth: git.Auth{Password: "test"},
 				},
 			},
-			preFn: func(r *gitmocks.Repository, _ fs.FS, f *kubemocks.Factory) {
+			beforeFn: func(r *gitmocks.Repository, f *kubemocks.Factory) {
 				mockCS := fake.NewSimpleClientset(&v1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "argocd-initial-admin-secret",
@@ -343,19 +338,14 @@ func TestRunRepoBootstrap(t *testing.T) {
 						"password": []byte("foo"),
 					},
 				})
+				r.On("Persist", mock.Anything, &git.PushOptions{CommitMsg: "Autopilot Bootstrap"}).Return("revision", nil)
 				f.On("Apply", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 				f.On("Wait", mock.Anything, mock.Anything).Return(nil)
 				f.On("KubernetesClientSetOrDie").Return(mockCS)
-				r.On("Persist", mock.Anything, mock.Anything).Return("revision", nil)
 			},
-			assertFn: func(t *testing.T, r *gitmocks.Repository, repofs fs.FS, f *kubemocks.Factory, ret error) {
+			assertFn: func(t *testing.T, repofs fs.FS, ret error) {
 				assert.NoError(t, ret)
 				assert.False(t, exitCalled)
-				r.AssertCalled(t, "Persist", mock.Anything, mock.Anything)
-				f.AssertCalled(t, "Apply", mock.Anything, "bar", mock.Anything)
-				f.AssertCalled(t, "Wait", mock.Anything, mock.Anything)
-				f.AssertCalled(t, "KubernetesClientSetOrDie")
-				f.AssertNumberOfCalls(t, "Apply", 2)
 
 				// bootstrap dir
 				assert.True(t, repofs.ExistsOrDie(repofs.Join(
@@ -387,39 +377,34 @@ func TestRunRepoBootstrap(t *testing.T) {
 		},
 	}
 
-	orgExit := exit
-	orgClone := getRepo
-	orgRunKustomizeBuild := runKustomizeBuild
-	orgArgoLogin := argocdLogin
+	origExit, origGetRepo, origRunKustomizeBuild, origArgoLogin := exit, getRepo, runKustomizeBuild, argocdLogin
+	defer func() {
+		exit = origExit
+		getRepo = origGetRepo
+		runKustomizeBuild = origRunKustomizeBuild
+		argocdLogin = origArgoLogin
+	}()
+	exit = func(_ int) { exitCalled = true }
+	runKustomizeBuild = func(k *kusttypes.Kustomization) ([]byte, error) { return []byte("test"), nil }
+	argocdLogin = func(opts *argocd.LoginOptions) error { return nil }
 
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
-			exitCalled = false
-			mockRepo := &gitmocks.Repository{}
-			mockFactory := &kubemocks.Factory{}
+			r := &gitmocks.Repository{}
 			repofs := fs.Create(memfs.New())
+			f := &kubemocks.Factory{}
+			exitCalled = false
 
-			if tt.preFn != nil {
-				tt.preFn(mockRepo, repofs, mockFactory)
+			tt.beforeFn(r, f)
+			tt.opts.KubeFactory = f
+			getRepo = func(_ context.Context, _ *git.CloneOptions) (git.Repository, fs.FS, error) {
+				return r, repofs, nil
 			}
 
-			tt.opts.KubeFactory = mockFactory
-
-			exit = func(_ int) { exitCalled = true }
-			getRepo = func(ctx context.Context, cloneOpts *git.CloneOptions) (git.Repository, fs.FS, error) {
-				return mockRepo, repofs, nil
-			}
-			runKustomizeBuild = func(k *kusttypes.Kustomization) ([]byte, error) { return []byte("test"), nil }
-			argocdLogin = func(opts *argocd.LoginOptions) error { return nil }
-
-			defer func() {
-				exit = orgExit
-				getRepo = orgClone
-				runKustomizeBuild = orgRunKustomizeBuild
-				argocdLogin = orgArgoLogin
-			}()
-
-			tt.assertFn(t, mockRepo, repofs, mockFactory, RunRepoBootstrap(context.Background(), tt.opts))
+			err := RunRepoBootstrap(context.Background(), tt.opts)
+			tt.assertFn(t, repofs, err)
+			r.AssertExpectations(t)
+			f.AssertExpectations(t)
 		})
 	}
 }
@@ -552,12 +537,151 @@ func Test_deleteClusterResources(t *testing.T) {
 				f.(*kubemocks.Factory).AssertExpectations(t)
 			},
 		},
+		"Should fail if failed to delete argocd-autopilot resources": {
+			beforeFn: func() kube.Factory {
+				mf := &kubemocks.Factory{}
+				mf.On("Delete", mock.Anything, []string{"applications", "secrets"}, store.Default.LabelKeyAppManagedBy+"="+store.Default.LabelValueManagedBy).Return(errors.New("some error"))
+				return mf
+			},
+			assertFn: func(t *testing.T, f kube.Factory, err error) {
+				assert.EqualError(t, err, "failed deleting argocd-autopilot resources: some error")
+				f.(*kubemocks.Factory).AssertExpectations(t)
+			},
+		},
+		"Should fail if failed to delete Argo-CD resources": {
+			beforeFn: func() kube.Factory {
+				mf := &kubemocks.Factory{}
+				mf.On("Delete", mock.Anything, []string{"applications", "secrets"}, store.Default.LabelKeyAppManagedBy+"="+store.Default.LabelValueManagedBy).Return(nil)
+				mf.On("Delete", mock.Anything, []string{
+					"all",
+					"configmaps",
+					"secrets",
+					"serviceaccounts",
+					"networkpolicies",
+					"rolebindings",
+					"roles",
+				}, argocdcommon.LabelKeyAppInstance+"="+store.Default.ArgoCDName).Return(errors.New("some error"))
+				return mf
+			},
+			assertFn: func(t *testing.T, f kube.Factory, err error) {
+				assert.EqualError(t, err, "failed deleting Argo-CD resources: some error")
+				f.(*kubemocks.Factory).AssertExpectations(t)
+			},
+		},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			f := tt.beforeFn()
 			err := deleteClusterResources(context.Background(), f)
 			tt.assertFn(t, f, err)
+		})
+	}
+}
+
+func TestRunRepoUninstall(t *testing.T) {
+	tests := map[string]struct {
+		currentKubeContextErr error
+		getRepoErr            error
+		wantErr               string
+		beforeFn              func(*gitmocks.Repository, *kubemocks.Factory)
+	}{
+		"Should fail if getCurrentKubeContext fails": {
+			currentKubeContextErr: errors.New("some error"),
+			wantErr:               "some error",
+		},
+		"Should fail if getRepo fails": {
+			getRepoErr: errors.New("some error"),
+			wantErr:    "some error",
+		},
+		"Should fail if Persist fails": {
+			wantErr: "some error",
+			beforeFn: func(r *gitmocks.Repository, _ *kubemocks.Factory) {
+				r.On("Persist", mock.Anything, &git.PushOptions{CommitMsg: "Autopilot Uninstall"}).Return("", errors.New("some error"))
+			},
+		},
+		"Should fail if Wait fails": {
+			wantErr: "some error",
+			beforeFn: func(r *gitmocks.Repository, f *kubemocks.Factory) {
+				r.On("Persist", mock.Anything, &git.PushOptions{CommitMsg: "Autopilot Uninstall"}).Return("revision", nil)
+				f.On("Wait", mock.Anything, mock.Anything).Return(errors.New("some error"))
+			},
+		},
+		"Should fail if deleteClusterResources fails": {
+			wantErr: "failed deleting argocd-autopilot resources: some error",
+			beforeFn: func(r *gitmocks.Repository, f *kubemocks.Factory) {
+				r.On("Persist", mock.Anything, &git.PushOptions{CommitMsg: "Autopilot Uninstall"}).Return("revision", nil)
+				f.On("Wait", mock.Anything, mock.Anything).Return(nil)
+				f.On("Delete", mock.Anything, mock.Anything, mock.Anything).Return(errors.New("some error"))
+			},
+		},
+		"Should fail if 2nd Persist fails": {
+			wantErr: "some error",
+			beforeFn: func(r *gitmocks.Repository, f *kubemocks.Factory) {
+				r.On("Persist", mock.Anything, &git.PushOptions{CommitMsg: "Autopilot Uninstall"}).Return("revision", nil)
+				r.On("Persist", mock.Anything, &git.PushOptions{CommitMsg: "Autopilot Uninstall, deleted leftovers"}).Return("", errors.New("some error"))
+				f.On("Wait", mock.Anything, mock.Anything).Return(nil)
+				f.On("Delete", mock.Anything, mock.Anything, store.Default.LabelKeyAppManagedBy+"="+store.Default.LabelValueManagedBy).Return(nil)
+				f.On("Delete", mock.Anything, mock.Anything, argocdcommon.LabelKeyAppInstance+"="+store.Default.ArgoCDName).Return(nil)
+			},
+		},
+		"Should succeed if no errors": {
+			beforeFn: func(r *gitmocks.Repository, f *kubemocks.Factory) {
+				r.On("Persist", mock.Anything, &git.PushOptions{CommitMsg: "Autopilot Uninstall"}).Return("revision", nil)
+				r.On("Persist", mock.Anything, &git.PushOptions{CommitMsg: "Autopilot Uninstall, deleted leftovers"}).Return("", nil)
+				f.On("Wait", mock.Anything, mock.Anything).Return(nil)
+				f.On("Delete", mock.Anything, mock.Anything, store.Default.LabelKeyAppManagedBy+"="+store.Default.LabelValueManagedBy).Return(nil)
+				f.On("Delete", mock.Anything, mock.Anything, argocdcommon.LabelKeyAppInstance+"="+store.Default.ArgoCDName).Return(nil)
+			},
+		},
+	}
+
+	origGetRepo, origCurrentKubeContext := getRepo, currentKubeContext
+	defer func() { getRepo, currentKubeContext = origGetRepo, origCurrentKubeContext }()
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			r := &gitmocks.Repository{}
+			repofs := fs.Create(memfs.New())
+			f := &kubemocks.Factory{}
+
+			if tt.beforeFn != nil {
+				tt.beforeFn(r, f)
+			}
+
+			getRepo = func(_ context.Context, _ *git.CloneOptions) (git.Repository, fs.FS, error) {
+				if tt.getRepoErr != nil {
+					return nil, nil, tt.getRepoErr
+				}
+
+				return r, repofs, nil
+			}
+			currentKubeContext = func() (string, error) {
+				if tt.currentKubeContextErr != nil {
+					return "", tt.currentKubeContextErr
+				}
+
+				return "context", nil
+			}
+
+			opts := &RepoUninstallOptions{
+				CloneOptions: &git.CloneOptions{
+					Repo: "https://github.com/owner/name",
+				},
+				KubeFactory: f,
+			}
+			opts.CloneOptions.Parse()
+			err := RunRepoUninstall(context.Background(), opts)
+			if err != nil {
+				if tt.wantErr != "" {
+					assert.EqualError(t, err, tt.wantErr)
+				} else {
+					t.Errorf("RunRepoUninstall() error = %v", err)
+				}
+
+				return
+			}
+
+			r.AssertExpectations(t)
+			f.AssertExpectations(t)
 		})
 	}
 }

@@ -268,6 +268,7 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 	if err != nil {
 		return err
 	}
+
 	if !opts.HidePassword {
 		log.G(ctx).Printf("")
 		log.G(ctx).Infof("argocd initialized. password: %s", passwd)
@@ -740,7 +741,7 @@ func deleteClusterResources(ctx context.Context, f kube.Factory) error {
 		"rolebindings",
 		"roles",
 	}, argocdcommon.LabelKeyAppInstance+"="+store.Default.ArgoCDName); err != nil {
-		return fmt.Errorf("Failed deleting Argo-CD resources: %w", err)
+		return fmt.Errorf("failed deleting Argo-CD resources: %w", err)
 	}
 
 	return nil
