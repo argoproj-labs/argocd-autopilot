@@ -20,11 +20,14 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 
 	appset "github.com/argoproj-labs/applicationset/api/v1alpha1"
+	argocdcommon "github.com/argoproj/argo-cd/v2/common"
 	argocdsettings "github.com/argoproj/argo-cd/v2/util/settings"
 	"github.com/ghodss/yaml"
 	"github.com/go-git/go-billy/v5/memfs"
+	billyUtils "github.com/go-git/go-billy/v5/util"
 	"github.com/spf13/cobra"
 	v1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kusttypes "sigs.k8s.io/kustomize/api/types"
 )
@@ -55,6 +58,14 @@ type (
 		CloneOptions     *git.CloneOptions
 	}
 
+	RepoUninstallOptions struct {
+		Namespace    string
+		KubeContext  string
+		Timeout      time.Duration
+		CloneOptions *git.CloneOptions
+		KubeFactory  kube.Factory
+	}
+
 	bootstrapManifests struct {
 		bootstrapApp           []byte
 		rootApp                []byte
@@ -79,6 +90,7 @@ func NewRepoCommand() *cobra.Command {
 	}
 
 	cmd.AddCommand(NewRepoBootstrapCommand())
+	cmd.AddCommand(NewRepoUninstallCommand())
 
 	return cmd
 }
@@ -112,8 +124,8 @@ func NewRepoBootstrapCommand() *cobra.Command {
 
 	<BIN> repo bootstrap --repo https://github.com/example/repo
 
-	# Install argo-cd on the current kubernetes context in the argocd namespace
-	# and persists the bootstrap manifests to a specific folder in the gitops repository
+# Install argo-cd on the current kubernetes context in the argocd namespace
+# and persists the bootstrap manifests to a specific folder in the gitops repository
 
 	<BIN> repo bootstrap --repo https://github.com/example/repo/path/to/installation_root
 `),
@@ -159,7 +171,7 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 		return err
 	}
 
-	log.G().WithFields(log.Fields{
+	log.G(ctx).WithFields(log.Fields{
 		"repo-url":     opts.CloneOptions.URL(),
 		"revision":     opts.CloneOptions.Revision(),
 		"namespace":    opts.Namespace,
@@ -189,7 +201,7 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 		return nil
 	}
 
-	log.G().Infof("cloning repo: %s", opts.CloneOptions.URL())
+	log.G(ctx).Infof("cloning repo: %s", opts.CloneOptions.URL())
 
 	// clone GitOps repo
 	r, repofs, err := getRepo(ctx, opts.CloneOptions)
@@ -197,16 +209,16 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 		return err
 	}
 
-	log.G().Infof("using revision: \"%s\", installation path: \"%s\"", opts.CloneOptions.Revision(), opts.CloneOptions.Path())
+	log.G(ctx).Infof("using revision: \"%s\", installation path: \"%s\"", opts.CloneOptions.Revision(), opts.CloneOptions.Path())
 	if err = validateRepo(repofs); err != nil {
 		return err
 	}
 
-	log.G().Debug("repository is ok")
+	log.G(ctx).Debug("repository is ok")
 
 	// apply built manifest to k8s cluster
-	log.G().Infof("using context: \"%s\", namespace: \"%s\"", opts.KubeContext, opts.Namespace)
-	log.G().Infof("applying bootstrap manifests to cluster...")
+	log.G(ctx).Infof("using context: \"%s\", namespace: \"%s\"", opts.KubeContext, opts.Namespace)
+	log.G(ctx).Infof("applying bootstrap manifests to cluster...")
 	if err = opts.KubeFactory.Apply(ctx, opts.Namespace, util.JoinManifests(manifests.namespace, manifests.applyManifests, manifests.repoCreds)); err != nil {
 		return fmt.Errorf("failed to apply bootstrap manifests to cluster: %w", err)
 	}
@@ -227,18 +239,18 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 	stop()
 
 	// push results to repo
-	log.G().Infof("pushing bootstrap manifests to repo")
+	log.G(ctx).Infof("pushing bootstrap manifests to repo")
 	commitMsg := "Autopilot Bootstrap"
 	if opts.CloneOptions.Path() != "" {
 		commitMsg = "Autopilot Bootstrap at " + opts.CloneOptions.Path()
 	}
 
-	if err = r.Persist(ctx, &git.PushOptions{CommitMsg: commitMsg}); err != nil {
+	if _, err = r.Persist(ctx, &git.PushOptions{CommitMsg: commitMsg}); err != nil {
 		return err
 	}
 
 	// apply "Argo-CD" Application that references "bootstrap/argo-cd"
-	log.G().Infof("applying argo-cd bootstrap application")
+	log.G(ctx).Infof("applying argo-cd bootstrap application")
 	if err = opts.KubeFactory.Apply(ctx, opts.Namespace, manifests.bootstrapApp); err != nil {
 		return err
 	}
@@ -248,7 +260,7 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 		return err
 	}
 
-	log.G().Infof("running argocd login to initialize argocd config")
+	log.G(ctx).Infof("running argocd login to initialize argocd config")
 	err = argocdLogin(&argocd.LoginOptions{
 		Namespace: opts.Namespace,
 		Username:  "admin",
@@ -257,10 +269,119 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 	if err != nil {
 		return err
 	}
+
 	if !opts.HidePassword {
 		log.G(ctx).Printf("")
 		log.G(ctx).Infof("argocd initialized. password: %s", passwd)
 		log.G(ctx).Infof("run:\n\n    kubectl port-forward -n %s svc/argocd-server 8080:80\n\n", opts.Namespace)
+	}
+
+	return nil
+}
+
+func NewRepoUninstallCommand() *cobra.Command {
+	var (
+		cloneOpts *git.CloneOptions
+		f         kube.Factory
+	)
+
+	cmd := &cobra.Command{
+		Use:   "uninstall",
+		Short: "Uninstalls an installation",
+		Example: util.Doc(`
+# To run this command you need to create a personal access token for your git provider
+# and provide it using:
+
+    export GIT_TOKEN=<token>
+
+# or with the flag:
+
+    --git-token <token>
+
+# Uninstall argo-cd from the current kubernetes context in the argocd namespace
+# and delete all manifests rom the root of gitops repository
+
+	<BIN> repo uninstall --repo https://github.com/example/repo
+
+# Uninstall argo-cd from the current kubernetes context in the argocd namespace
+# and delete all manifests from a specific folder in the gitops repository
+
+	<BIN> repo uninstall --repo https://github.com/example/repo/path/to/installation_root
+`),
+		PreRun: func(_ *cobra.Command, _ []string) { cloneOpts.Parse() },
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return RunRepoUninstall(cmd.Context(), &RepoUninstallOptions{
+				Namespace:    cmd.Flag("namespace").Value.String(),
+				Timeout:      util.MustParseDuration(cmd.Flag("request-timeout").Value.String()),
+				KubeContext:  cmd.Flag("context").Value.String(),
+				CloneOptions: cloneOpts,
+				KubeFactory:  f,
+			})
+		},
+	}
+
+	cloneOpts = git.AddFlags(cmd, &git.AddFlagsOptions{
+		FS: memfs.New(),
+	})
+	f = kube.AddFlags(cmd.Flags())
+
+	return cmd
+}
+
+func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
+	var err error
+
+	if opts, err = setUninstallOptsDefaults(*opts); err != nil {
+		return err
+	}
+
+	log.G(ctx).WithFields(log.Fields{
+		"repo-url":     opts.CloneOptions.URL(),
+		"revision":     opts.CloneOptions.Revision(),
+		"namespace":    opts.Namespace,
+		"kube-context": opts.KubeContext,
+	}).Debug("starting with options: ")
+
+	log.G(ctx).Infof("cloning repo: %s", opts.CloneOptions.URL())
+	r, repofs, err := getRepo(ctx, opts.CloneOptions)
+	if err != nil {
+		return err
+	}
+
+	log.G(ctx).Debug("deleting files from repo")
+	if err = deleteGitOpsFiles(repofs); err != nil {
+		return err
+	}
+
+	log.G(ctx).Info("pushing changes to remote")
+	revision, err := r.Persist(ctx, &git.PushOptions{CommitMsg: "Autopilot Uninstall"})
+	if err != nil {
+		return err
+	}
+
+	stop := util.WithSpinner(ctx, fmt.Sprintf("waiting for '%s' to be finish syncing", store.Default.BootsrtrapAppName))
+	if err = waitAppSynced(ctx, opts.KubeFactory, opts.Timeout, store.Default.BootsrtrapAppName, opts.Namespace, revision, false); err != nil {
+		se, ok := err.(*kerrors.StatusError)
+		if !ok || se.ErrStatus.Reason != metav1.StatusReasonNotFound {
+			stop()
+			return err
+		}
+	}
+
+	stop()
+	log.G(ctx).Info("Deleting cluster resources")
+	if err = deleteClusterResources(ctx, opts.KubeFactory, opts.Timeout); err != nil {
+		return err
+	}
+
+	log.G(ctx).Debug("Deleting leftovers from repo")
+	if err = billyUtils.RemoveAll(repofs, store.Default.BootsrtrapDir); err != nil {
+		return err
+	}
+
+	log.G(ctx).Info("pushing final commit to remote")
+	if _, err := r.Persist(ctx, &git.PushOptions{CommitMsg: "Autopilot Uninstall, deleted leftovers"}); err != nil {
+		return err
 	}
 
 	return nil
@@ -333,6 +454,9 @@ func getRepoCredsSecret(token, namespace string) ([]byte, error) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      store.Default.RepoCredsSecretName,
 			Namespace: namespace,
+			Labels: map[string]string{
+				store.Default.LabelKeyAppManagedBy: store.Default.LabelValueManagedBy,
+			},
 		},
 		Data: map[string][]byte{
 			"git_username": []byte(store.Default.GitUsername),
@@ -555,13 +679,13 @@ func createCreds(repoUrl string) ([]byte, error) {
 			URL: host,
 			UsernameSecret: &v1.SecretKeySelector{
 				LocalObjectReference: v1.LocalObjectReference{
-					Name: "autopilot-secret",
+					Name: store.Default.RepoCredsSecretName,
 				},
 				Key: "git_username",
 			},
 			PasswordSecret: &v1.SecretKeySelector{
 				LocalObjectReference: v1.LocalObjectReference{
-					Name: "autopilot-secret",
+					Name: store.Default.RepoCredsSecretName,
 				},
 				Key: "git_token",
 			},
@@ -569,4 +693,68 @@ func createCreds(repoUrl string) ([]byte, error) {
 	}
 
 	return yaml.Marshal(creds)
+}
+
+func setUninstallOptsDefaults(opts RepoUninstallOptions) (*RepoUninstallOptions, error) {
+	var err error
+
+	if opts.Namespace == "" {
+		opts.Namespace = store.Default.ArgoCDNamespace
+	}
+
+	if opts.KubeContext == "" {
+		if opts.KubeContext, err = currentKubeContext(); err != nil {
+			return nil, err
+		}
+	}
+
+	return &opts, nil
+}
+
+func deleteGitOpsFiles(repofs fs.FS) error {
+	if err := billyUtils.RemoveAll(repofs, store.Default.AppsDir); err != nil {
+		return fmt.Errorf("failed deleting '%s' folder: %w", store.Default.AppsDir, err)
+	}
+
+	if err := billyUtils.RemoveAll(repofs, store.Default.BootsrtrapDir); err != nil {
+		return fmt.Errorf("failed deleting '%s' folder: %w", store.Default.BootsrtrapDir, err)
+	}
+
+	if err := billyUtils.RemoveAll(repofs, store.Default.ProjectsDir); err != nil {
+		return fmt.Errorf("failed deleting '%s' folder: %w", store.Default.ProjectsDir, err)
+	}
+
+	if err := billyUtils.WriteFile(repofs, repofs.Join(store.Default.BootsrtrapDir, store.Default.DummyName), []byte{}, 0666); err != nil {
+		return fmt.Errorf("failed creating '%s' file in '%s' folder: %w", store.Default.DummyName, store.Default.ProjectsDir, err)
+	}
+
+	return nil
+}
+
+func deleteClusterResources(ctx context.Context, f kube.Factory, timeout time.Duration) error {
+	if err := f.Delete(ctx, &kube.DeleteOptions{
+		LabelSelector: store.Default.LabelKeyAppManagedBy + "=" + store.Default.LabelValueManagedBy,
+		ResourceTypes: []string{"applications", "secrets"},
+		Timeout:       timeout,
+	}); err != nil {
+		return fmt.Errorf("failed deleting argocd-autopilot resources: %w", err)
+	}
+
+	if err := f.Delete(ctx, &kube.DeleteOptions{
+		LabelSelector: argocdcommon.LabelKeyAppInstance + "=" + store.Default.ArgoCDName,
+		ResourceTypes: []string{
+			"all",
+			"configmaps",
+			"secrets",
+			"serviceaccounts",
+			"networkpolicies",
+			"rolebindings",
+			"roles",
+		},
+		Timeout: timeout,
+	}); err != nil {
+		return fmt.Errorf("failed deleting Argo-CD resources: %w", err)
+	}
+
+	return nil
 }

@@ -34,42 +34,45 @@ type Store struct {
 }
 
 var Default = struct {
-	BootsrtrapDir        string
 	AppsDir              string
-	OverlaysDir          string
-	BaseDir              string
-	ClusterResourcesDir  string
 	ArgoCDName           string
 	ArgoCDNamespace      string
+	BaseDir              string
 	BootsrtrapAppName    string
+	BootsrtrapDir        string
+	ClusterContextName   string
+	ClusterResourcesDir  string
+	DestServer           string
 	DummyName            string
+	DestServerAnnotation string
+	GitUsername          string
+	LabelKeyAppManagedBy string
+	LabelValueManagedBy  string
+	OverlaysDir          string
 	ProjectsDir          string
-	ManagedBy            string
 	RootAppName          string
 	RepoCredsSecretName  string
-	GitUsername          string
 	WaitInterval         time.Duration
-	DestServer           string
-	DestServerAnnotation string
-	ClusterContextName   string
 }{
 	AppsDir:              "apps",
-	BootsrtrapDir:        "bootstrap",
-	OverlaysDir:          "overlays",
-	BaseDir:              "base",
-	ClusterResourcesDir:  "cluster-resources",
 	ArgoCDName:           "argo-cd",
 	ArgoCDNamespace:      "argocd",
+	BaseDir:              "base",
 	BootsrtrapAppName:    "autopilot-bootstrap",
-	ProjectsDir:          "projects",
-	ManagedBy:            "argo-autopilot",
-	RootAppName:          "root",
-	RepoCredsSecretName:  "autopilot-secret",
-	GitUsername:          "username",
-	WaitInterval:         time.Second * 3,
+	BootsrtrapDir:        "bootstrap",
+	ClusterContextName:   "in-cluster",
+	ClusterResourcesDir:  "cluster-resources",
 	DestServer:           "https://kubernetes.default.svc",
 	DestServerAnnotation: "argocd-autopilot.argoproj-labs.io/default-dest-server",
-	ClusterContextName:   "in-cluster",
+	DummyName:            "DUMMY",
+	GitUsername:          "username",
+	LabelKeyAppManagedBy: "app.kubernetes.io/managed-by",
+	LabelValueManagedBy:  "argocd-autopilot",
+	OverlaysDir:          "overlays",
+	ProjectsDir:          "projects",
+	RootAppName:          "root",
+	RepoCredsSecretName:  "autopilot-secret",
+	WaitInterval:         time.Second * 3,
 }
 
 // Get returns the global store

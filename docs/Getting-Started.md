@@ -77,3 +77,9 @@ After the application is created, and after Argo CD has finished its sync cycle,
 And the "hello-world" application will also be deployed to the cluster:
 
 ![Step 3](assets/getting_started_3.png)
+
+## Uninstall everything when done
+The following command will clear your entire GitOps Repository of related files, and your k8s cluster from any resources autopilot resources
+```
+argocd-autopilot repo uninstall
+```

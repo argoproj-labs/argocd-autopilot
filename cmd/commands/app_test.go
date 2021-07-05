@@ -117,7 +117,7 @@ func TestRunAppCreate(t *testing.T) {
 				mockRepo := &gitmocks.Repository{}
 				mockRepo.On("Persist", mock.Anything, &git.PushOptions{
 					CommitMsg: "installed app 'app' on project 'project' installation-path: '/'",
-				}).Return(fmt.Errorf("some error"))
+				}).Return("", fmt.Errorf("some error"))
 				return mockRepo, fs.Create(memfs.New()), nil
 			},
 		},
@@ -129,7 +129,7 @@ func TestRunAppCreate(t *testing.T) {
 				mockRepo := &gitmocks.Repository{}
 				mockRepo.On("Persist", mock.Anything, &git.PushOptions{
 					CommitMsg: "installed app 'app' on project 'project' installation-path: '/'",
-				}).Return(fmt.Errorf("some error"))
+				}).Return("", fmt.Errorf("some error"))
 				return mockRepo, fs.Create(memfs), nil
 			},
 		},
@@ -142,7 +142,7 @@ func TestRunAppCreate(t *testing.T) {
 				mockRepo := &gitmocks.Repository{}
 				mockRepo.On("Persist", mock.Anything, &git.PushOptions{
 					CommitMsg: "installed app 'app' on project 'project' installation-path: '/'",
-				}).Return(nil)
+				}).Return("revision", nil)
 				return mockRepo, fs.Create(memfs), nil
 			},
 			getInstallationNamespace: func(repofs fs.FS) (string, error) {
@@ -161,7 +161,7 @@ func TestRunAppCreate(t *testing.T) {
 				mockRepo := &gitmocks.Repository{}
 				mockRepo.On("Persist", mock.Anything, &git.PushOptions{
 					CommitMsg: "installed app 'app' on project 'project' installation-path: '/'",
-				}).Return(nil)
+				}).Return("revision", nil)
 				return mockRepo, fs.Create(memfs), nil
 			},
 			getInstallationNamespace: func(repofs fs.FS) (string, error) {
@@ -177,14 +177,14 @@ func TestRunAppCreate(t *testing.T) {
 				mockRepo := &gitmocks.Repository{}
 				mockRepo.On("Persist", mock.Anything, &git.PushOptions{
 					CommitMsg: "installed app 'app' on project 'project' installation-path: '/'",
-				}).Return(nil)
+				}).Return("revision", nil)
 				return mockRepo, fs.Create(memfs), nil
 			},
 			getRepo: func(_ *testing.T, _ *git.CloneOptions) (git.Repository, fs.FS, error) {
 				mockRepo := &gitmocks.Repository{}
 				mockRepo.On("Persist", mock.Anything, &git.PushOptions{
 					CommitMsg: "installed app 'app' on project 'project' installation-path: '/'",
-				}).Return(nil)
+				}).Return("revision", nil)
 				return mockRepo, fs.Create(memfs.New()), nil
 			},
 			assertFn: func(t *testing.T, gitopsRepo git.Repository, appsRepo git.Repository) {
@@ -200,7 +200,7 @@ func TestRunAppCreate(t *testing.T) {
 				mockRepo := &gitmocks.Repository{}
 				mockRepo.On("Persist", mock.Anything, &git.PushOptions{
 					CommitMsg: "installed app 'app' on project 'project' installation-path: '/'",
-				}).Return(nil)
+				}).Return("revision", nil)
 				return mockRepo, fs.Create(memfs), nil
 			},
 			assertFn: func(t *testing.T, gitopsRepo git.Repository, appsRepo git.Repository) {
@@ -219,7 +219,7 @@ func TestRunAppCreate(t *testing.T) {
 				mockRepo := &gitmocks.Repository{}
 				mockRepo.On("Persist", mock.Anything, &git.PushOptions{
 					CommitMsg: "installed app 'app' on project 'project' installation-path: '/'",
-				}).Return(nil)
+				}).Return("revision", nil)
 				return mockRepo, fs.Create(memfs), nil
 			},
 			getInstallationNamespace: func(repofs fs.FS) (string, error) {
@@ -462,7 +462,7 @@ func TestRunAppDelete(t *testing.T) {
 				mockRepo := &gitmocks.Repository{}
 				mockRepo.On("Persist", mock.Anything, &git.PushOptions{
 					CommitMsg: "Deleted app 'app'",
-				}).Return(nil)
+				}).Return("revision", nil)
 				return mockRepo, fs.Create(memfs), nil
 			},
 			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
@@ -506,7 +506,7 @@ func TestRunAppDelete(t *testing.T) {
 				mockRepo := &gitmocks.Repository{}
 				mockRepo.On("Persist", mock.Anything, &git.PushOptions{
 					CommitMsg: "Deleted app 'app' from project 'project'",
-				}).Return(nil)
+				}).Return("revision", nil)
 				return mockRepo, fs.Create(memfs), nil
 			},
 			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
@@ -524,7 +524,7 @@ func TestRunAppDelete(t *testing.T) {
 				mockRepo := &gitmocks.Repository{}
 				mockRepo.On("Persist", mock.Anything, &git.PushOptions{
 					CommitMsg: "Deleted app 'app'",
-				}).Return(nil)
+				}).Return("revision", nil)
 				return mockRepo, fs.Create(memfs), nil
 			},
 			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
@@ -542,7 +542,7 @@ func TestRunAppDelete(t *testing.T) {
 				mockRepo := &gitmocks.Repository{}
 				mockRepo.On("Persist", mock.Anything, &git.PushOptions{
 					CommitMsg: "Deleted app 'app' from project 'project'",
-				}).Return(nil)
+				}).Return("revision", nil)
 				return mockRepo, fs.Create(memfs), nil
 			},
 			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
@@ -560,7 +560,7 @@ func TestRunAppDelete(t *testing.T) {
 				mockRepo := &gitmocks.Repository{}
 				mockRepo.On("Persist", mock.Anything, &git.PushOptions{
 					CommitMsg: "Deleted app 'app'",
-				}).Return(nil)
+				}).Return("revision", nil)
 				return mockRepo, fs.Create(memfs), nil
 			},
 			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
@@ -578,7 +578,7 @@ func TestRunAppDelete(t *testing.T) {
 				mockRepo := &gitmocks.Repository{}
 				mockRepo.On("Persist", mock.Anything, &git.PushOptions{
 					CommitMsg: "Deleted app 'app'",
-				}).Return(fmt.Errorf("some error"))
+				}).Return("", fmt.Errorf("some error"))
 				return mockRepo, fs.Create(memfs), nil
 			},
 			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {

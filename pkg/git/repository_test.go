@@ -514,15 +514,18 @@ func TestGetRepo(t *testing.T) {
 
 func Test_repo_Persist(t *testing.T) {
 	tests := map[string]struct {
-		opts     *PushOptions
-		wantErr  bool
-		retErr   error
-		assertFn func(t *testing.T, r *mocks.Repository, w *mocks.Worktree)
+		opts        *PushOptions
+		retRevision string
+		retErr      error
+		assertFn    func(t *testing.T, r *mocks.Repository, w *mocks.Worktree, revision string, err error)
 	}{
 		"NilOpts": {
-			opts:    nil,
-			wantErr: true,
-			assertFn: func(t *testing.T, r *mocks.Repository, _ *mocks.Worktree) {
+			opts: nil,
+			assertFn: func(t *testing.T, r *mocks.Repository, wt *mocks.Worktree, revision string, err error) {
+				assert.ErrorIs(t, err, ErrNilOpts)
+				assert.Equal(t, "", revision)
+				wt.AssertNotCalled(t, "AddGlob")
+				wt.AssertNotCalled(t, "Commit")
 				r.AssertNotCalled(t, "PushContext")
 			},
 		},
@@ -531,13 +534,14 @@ func Test_repo_Persist(t *testing.T) {
 				AddGlobPattern: "",
 				CommitMsg:      "hello",
 			},
-			wantErr: false,
-			assertFn: func(t *testing.T, r *mocks.Repository, w *mocks.Worktree) {
-				r.AssertCalled(t, "PushContext", mock.Anything, mock.Anything)
-				assert.True(t, reflect.DeepEqual(r.Calls[0].Arguments[1], &gg.PushOptions{
+			retRevision: "0dee45f70b37aeb59e6d2efb29855f97df9bccb2",
+			assertFn: func(t *testing.T, r *mocks.Repository, w *mocks.Worktree, revision string, err error) {
+				assert.Equal(t, "0dee45f70b37aeb59e6d2efb29855f97df9bccb2", revision)
+				assert.Nil(t, err)
+				r.AssertCalled(t, "PushContext", mock.Anything, &gg.PushOptions{
 					Auth:     nil,
 					Progress: os.Stderr,
-				}))
+				})
 				w.AssertCalled(t, "AddGlob", ".")
 				w.AssertCalled(t, "Commit", "hello", mock.Anything)
 			},
@@ -547,13 +551,14 @@ func Test_repo_Persist(t *testing.T) {
 				AddGlobPattern: "test",
 				CommitMsg:      "hello",
 			},
-			wantErr: false,
-			assertFn: func(t *testing.T, r *mocks.Repository, w *mocks.Worktree) {
-				r.AssertCalled(t, "PushContext", mock.Anything, mock.Anything)
-				assert.True(t, reflect.DeepEqual(r.Calls[0].Arguments[1], &gg.PushOptions{
+			retRevision: "0dee45f70b37aeb59e6d2efb29855f97df9bccb2",
+			assertFn: func(t *testing.T, r *mocks.Repository, w *mocks.Worktree, revision string, err error) {
+				assert.Equal(t, "0dee45f70b37aeb59e6d2efb29855f97df9bccb2", revision)
+				assert.Nil(t, err)
+				r.AssertCalled(t, "PushContext", mock.Anything, &gg.PushOptions{
 					Auth:     nil,
 					Progress: os.Stderr,
-				}))
+				})
 				w.AssertCalled(t, "AddGlob", "test")
 				w.AssertCalled(t, "Commit", "hello", mock.Anything)
 			},
@@ -570,18 +575,15 @@ func Test_repo_Persist(t *testing.T) {
 
 			mockWt := &mocks.Worktree{}
 			mockWt.On("AddGlob", mock.Anything).Return(tt.retErr)
-			mockWt.On("Commit", mock.Anything, mock.Anything).Return(nil, tt.retErr)
+			mockWt.On("Commit", mock.Anything, mock.Anything).Return(plumbing.NewHash(tt.retRevision), tt.retErr)
 
 			r := &repo{Repository: mockRepo}
 			worktree = func(r gogit.Repository) (gogit.Worktree, error) {
 				return mockWt, tt.retErr
 			}
 
-			if err := r.Persist(context.Background(), tt.opts); (err != nil) != tt.wantErr {
-				t.Errorf("repo.Persist() error = %v, wantErr %v", err, tt.wantErr)
-			}
-
-			tt.assertFn(t, mockRepo, mockWt)
+			revision, err := r.Persist(context.Background(), tt.opts)
+			tt.assertFn(t, mockRepo, mockWt, revision, err)
 		})
 	}
 }

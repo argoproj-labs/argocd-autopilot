@@ -11,31 +11,32 @@ configMapGenerator:
     literals:
       - "timeout.reconciliation=20s"
 
-# currently in use since we are on 2.0.4
 patches:
-- target:
-    group: rbac.authorization.k8s.io
-    version: v1
-    kind: ClusterRoleBinding
-  patch: |-
-    - op: replace
-      path: /subjects/0/namespace
-      value: default
-- patch: |-
-    apiVersion: apps/v1
-    kind: StatefulSet
-    metadata:
-      name: argocd-application-controller
-    spec:
-      template:
-        spec:
-          containers:
-            - name: argocd-application-controller
-              command:
-                - argocd-application-controller
-                - --status-processors
-                - "20"
-                - --operation-processors
-                - "10"
-                - --app-resync
-                - "20"
+  # reset the crbs to `subject.namespace: default`, so that argo-cd will later change them to the actual ns
+  - target:
+      group: rbac.authorization.k8s.io
+      version: v1
+      kind: ClusterRoleBinding
+    patch: |-
+      - op: replace
+        path: /subjects/0/namespace
+        value: default
+  # currently in use since we are on 2.0.4
+  - patch: |-
+      apiVersion: apps/v1
+      kind: StatefulSet
+      metadata:
+        name: argocd-application-controller
+      spec:
+        template:
+          spec:
+            containers:
+              - name: argocd-application-controller
+                command:
+                  - argocd-application-controller
+                  - --status-processors
+                  - "20"
+                  - --operation-processors
+                  - "10"
+                  - --app-resync
+                  - "20"

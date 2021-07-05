@@ -5,9 +5,12 @@ import (
 	_ "embed"
 	"fmt"
 	"os"
+	"time"
 
+	"github.com/argoproj-labs/argocd-autopilot/pkg/argocd"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/fs"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/git"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/kube"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/log"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
@@ -40,20 +43,20 @@ var (
 	}
 
 	prepareRepo = func(ctx context.Context, cloneOpts *git.CloneOptions, projectName string) (git.Repository, fs.FS, error) {
-		log.G().WithFields(log.Fields{
+		log.G(ctx).WithFields(log.Fields{
 			"repoURL":  cloneOpts.URL(),
 			"revision": cloneOpts.Revision(),
 		}).Debug("starting with options: ")
 
 		// clone repo
-		log.G().Infof("cloning git repository: %s", cloneOpts.URL())
+		log.G(ctx).Infof("cloning git repository: %s", cloneOpts.URL())
 		r, repofs, err := getRepo(ctx, cloneOpts)
 		if err != nil {
 			return nil, nil, fmt.Errorf("Failed cloning the repository: %w", err)
 		}
 
 		root := repofs.Root()
-		log.G().Infof("using revision: \"%s\", installation path: \"%s\"", cloneOpts.Revision(), root)
+		log.G(ctx).Infof("using revision: \"%s\", installation path: \"%s\"", cloneOpts.Revision(), root)
 		if !repofs.ExistsOrDie(store.Default.BootsrtrapDir) {
 			return nil, nil, fmt.Errorf("Bootstrap directory not found, please execute `repo bootstrap` command")
 		}
@@ -65,7 +68,7 @@ var (
 			}
 		}
 
-		log.G().Debug("repository is ok")
+		log.G(ctx).Debug("repository is ok")
 
 		return r, repofs, nil
 	}
@@ -95,8 +98,8 @@ func createApp(opts *createAppOptions) ([]byte, error) {
 			Namespace: opts.namespace,
 			Name:      opts.name,
 			Labels: map[string]string{
-				"app.kubernetes.io/managed-by": store.Default.ManagedBy,
-				"app.kubernetes.io/name":       opts.name,
+				store.Default.LabelKeyAppManagedBy: store.Default.LabelValueManagedBy,
+				"app.kubernetes.io/name":           opts.name,
 			},
 			Finalizers: []string{
 				"resources-finalizer.argocd.argoproj.io",
@@ -139,6 +142,20 @@ func createApp(opts *createAppOptions) ([]byte, error) {
 	}
 
 	return yaml.Marshal(app)
+}
+
+func waitAppSynced(ctx context.Context, f kube.Factory, timeout time.Duration, appName, namespace, revision string, waitForCreation bool) error {
+	return f.Wait(ctx, &kube.WaitOptions{
+		Interval: store.Default.WaitInterval,
+		Timeout:  timeout,
+		Resources: []kube.Resource{
+			{
+				Name:      appName,
+				Namespace: namespace,
+				WaitFunc:  argocd.GetAppSyncWaitFunc(revision, waitForCreation),
+			},
+		},
+	})
 }
 
 type createAppSetOptions struct {
@@ -220,8 +237,8 @@ func createAppSet(o *createAppSetOptions) ([]byte, error) {
 	if o.appLabels == nil {
 		// default labels
 		appSet.Spec.Template.ApplicationSetTemplateMeta.Labels = map[string]string{
-			"app.kubernetes.io/managed-by": store.Default.ManagedBy,
-			"app.kubernetes.io/name":       o.appName,
+			store.Default.LabelKeyAppManagedBy: store.Default.LabelValueManagedBy,
+			"app.kubernetes.io/name":           o.appName,
 		}
 	}
 

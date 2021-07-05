@@ -6,6 +6,7 @@ require (
 	github.com/argoproj-labs/applicationset v0.1.0
 	github.com/argoproj/argo-cd v1.8.7
 	github.com/argoproj/argo-cd/v2 v2.0.3
+	github.com/argoproj/gitops-engine v0.3.3
 	github.com/briandowns/spinner v1.13.0
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-git/go-billy/v5 v5.3.1

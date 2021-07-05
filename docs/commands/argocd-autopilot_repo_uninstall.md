@@ -1,9 +1,9 @@
-## argocd-autopilot repo bootstrap
+## argocd-autopilot repo uninstall
 
-Bootstrap a new installation
+Uninstalls an installation
 
 ```
-argocd-autopilot repo bootstrap [flags]
+argocd-autopilot repo uninstall [flags]
 ```
 
 ### Examples
@@ -19,22 +19,21 @@ argocd-autopilot repo bootstrap [flags]
 
     --git-token <token>
 
-# Install argo-cd on the current kubernetes context in the argocd namespace
-# and persists the bootstrap manifests to the root of gitops repository
+# Uninstall argo-cd from the current kubernetes context in the argocd namespace
+# and delete all manifests rom the root of gitops repository
 
-    argocd-autopilot repo bootstrap --repo https://github.com/example/repo
+    argocd-autopilot repo uninstall --repo https://github.com/example/repo
 
-# Install argo-cd on the current kubernetes context in the argocd namespace
-# and persists the bootstrap manifests to a specific folder in the gitops repository
+# Uninstall argo-cd from the current kubernetes context in the argocd namespace
+# and delete all manifests from a specific folder in the gitops repository
 
-    argocd-autopilot repo bootstrap --repo https://github.com/example/repo/path/to/installation_root
+    argocd-autopilot repo uninstall --repo https://github.com/example/repo/path/to/installation_root
 
 ```
 
 ### Options
 
 ```
-      --app string                     The application specifier (e.g. github.com/argoproj-labs/argocd-autopilot/manifests?ref=v0.2.5), overrides the default installation argo-cd manifests
       --as string                      Username to impersonate for the operation
       --as-group stringArray           Group to impersonate for the operation, this flag can be repeated to specify multiple groups.
       --cache-dir string               Default cache directory (default "/home/user/.kube/cache")
@@ -43,16 +42,11 @@ argocd-autopilot repo bootstrap [flags]
       --client-key string              Path to a client key file for TLS
       --cluster string                 The name of the kubeconfig cluster to use
       --context string                 The name of the kubeconfig context to use
-      --dry-run                        If true, print manifests instead of applying them to the cluster (nothing will be commited to git)
   -t, --git-token string               Your git provider api token [GIT_TOKEN]
-  -h, --help                           help for bootstrap
-      --hide-password                  If true, will not print initial argo cd password
+  -h, --help                           help for uninstall
       --insecure-skip-tls-verify       If true, the server's certificate will not be checked for validity. This will make your HTTPS connections insecure
-      --installation-mode string       One of: normal|flat. If flat, will commit the bootstrap manifests, otherwise will commit the bootstrap kustomization.yaml (default "normal")
       --kubeconfig string              Path to the kubeconfig file to use for CLI requests.
   -n, --namespace string               If present, the namespace scope for this CLI request
-      --namespaced                     If true, install a namespaced version of argo-cd (no need for cluster-role)
-      --provider string                The git provider, one of: github
       --repo string                    Repository URL [GIT_REPO]
       --request-timeout string         The length of time to wait before giving up on a single server request. Non-zero values should contain a corresponding time unit (e.g. 1s, 2m, 3h). A value of zero means don't timeout requests. (default "0")
   -s, --server string                  The address and port of the Kubernetes API server
