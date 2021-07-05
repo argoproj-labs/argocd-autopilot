@@ -1,8 +1,8 @@
-### Breaking Changes:
-* Removed `repo create` command. From now on, the `repo bootstrap` command will automatically create the repository if it currently does not exist. A new `--provider` flag was added to this command, in order to specificy the git cloud provider to use when creating the repository. Autopilot currently only supports github. Without the flag value, autopilot will try to infer the provider from the repo URL. [116](https://github.com/argoproj-labs/argocd-autopilot/pull/116)
-
 ### New Features:
-* The `app create` now supports waiting for the Application to be fully Synced to the k8s cluster. The standard kubeclient flags were added in order to specificy which context is expected to recieve the new Application, and a `--wait-timeout` flag can set the duration to wait before returning an error. The default value of 0 will not perform any wait, nor require access to the cluster at all. [117](https://github.com/argoproj-labs/argocd-autopilot/pull/117)
+* [Add an repo uninstall command to argocd-autopilot](https://github.com/argoproj-labs/argocd-autopilot/issues/42) - Running this command will delete all manifest files and directory structure from the GitOps Repository, and all the resources from the k8s cluster
+
+### Additional Features:
+* [improve sanity check](https://github.com/argoproj-labs/argocd-autopilot/pull/119) - runs `repo bootstrap` on every push. Also fixed ClusterRoleBinding now being applied correctly
 
 ### Contributors:
 - Roi Kramer ([@roi-codefresh](https://github.com/roi-codefresh))
@@ -24,7 +24,7 @@ argocd-autopilot version
 ### Linux and WSL (using curl):
 ```bash
 # download and extract the binary
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.2.8/argocd-autopilot-linux-amd64.tar.gz | tar zx
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.2.9/argocd-autopilot-linux-amd64.tar.gz | tar zx
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
@@ -36,7 +36,7 @@ argocd-autopilot version
 ### Mac (using curl):
 ```bash
 # download and extract the binary
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.2.8/argocd-autopilot-darwin-amd64.tar.gz | tar zx
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.2.9/argocd-autopilot-darwin-amd64.tar.gz | tar zx
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
