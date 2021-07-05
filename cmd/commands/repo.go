@@ -61,8 +61,8 @@ type (
 		Namespace    string
 		KubeContext  string
 		Timeout      time.Duration
-		KubeFactory  kube.Factory
 		CloneOptions *git.CloneOptions
+		KubeFactory  kube.Factory
 	}
 
 	bootstrapManifests struct {
@@ -311,10 +311,10 @@ func NewRepoUninstallCommand() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return RunRepoUninstall(cmd.Context(), &RepoUninstallOptions{
 				Namespace:    cmd.Flag("namespace").Value.String(),
-				KubeContext:  cmd.Flag("context").Value.String(),
 				Timeout:      util.MustParseDuration(cmd.Flag("request-timeout").Value.String()),
-				KubeFactory:  f,
+				KubeContext:  cmd.Flag("context").Value.String(),
 				CloneOptions: cloneOpts,
+				KubeFactory:  f,
 			})
 		},
 	}

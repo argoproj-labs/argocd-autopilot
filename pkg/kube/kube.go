@@ -216,7 +216,6 @@ func (f *factory) Delete(ctx context.Context, resourceTypes []string, labelSelec
 		DeleteAllNamespaces: true,
 		LabelSelector:       labelSelector,
 		WaitForDeletion:     true,
-		Quiet:               true,
 	}
 
 	cmd := &cobra.Command{
