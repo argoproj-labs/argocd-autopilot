@@ -144,7 +144,7 @@ func createApp(opts *createAppOptions) ([]byte, error) {
 	return yaml.Marshal(app)
 }
 
-func waitAppSynced(ctx context.Context, f kube.Factory, timeout time.Duration, appName, namespace, revision string) error {
+func waitAppSynced(ctx context.Context, f kube.Factory, timeout time.Duration, appName, namespace, revision string, waitForCreation bool) error {
 	return f.Wait(ctx, &kube.WaitOptions{
 		Interval: store.Default.WaitInterval,
 		Timeout:  timeout,
@@ -152,7 +152,7 @@ func waitAppSynced(ctx context.Context, f kube.Factory, timeout time.Duration, a
 			{
 				Name:      appName,
 				Namespace: namespace,
-				WaitFunc:  argocd.GetAppSyncFn(revision),
+				WaitFunc:  argocd.GetAppSyncWaitFunc(revision, waitForCreation),
 			},
 		},
 	})

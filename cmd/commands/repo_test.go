@@ -572,7 +572,7 @@ func Test_deleteClusterResources(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			f := tt.beforeFn()
-			err := deleteClusterResources(context.Background(), f)
+			err := deleteClusterResources(context.Background(), f, 0)
 			tt.assertFn(t, f, err)
 		})
 	}

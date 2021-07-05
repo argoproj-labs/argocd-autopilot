@@ -59,7 +59,8 @@ type (
 		// Apply applies the provided manifests on the specified namespace
 		Apply(ctx context.Context, namespace string, manifests []byte) error
 
-		Delete(ctx context.Context, resourceTypes []string, labelSelector string) error
+		// Delete delets the resources by their type(s) and labelSelector
+		Delete(context.Context, *DeleteOptions) error
 
 		// Wait waits for all of the provided `Resources` to be ready by calling
 		// the `WaitFunc` of each resource until all of them returns `true`
@@ -76,6 +77,12 @@ type (
 		// if the resources is ready, (false, nil) if the resource is not ready yet, or (false, err)
 		// if some error occured (in that case the `Wait` will fail with that error).
 		WaitFunc WaitFunc
+	}
+
+	DeleteOptions struct {
+		LabelSelector string
+		ResourceTypes []string
+		Timeout       time.Duration
 	}
 
 	WaitOptions struct {
@@ -209,18 +216,24 @@ func (f *factory) Apply(ctx context.Context, namespace string, manifests []byte)
 	return cmd.ExecuteContext(ctx)
 }
 
-func (f *factory) Delete(ctx context.Context, resourceTypes []string, labelSelector string) error {
+func (f *factory) Delete(ctx context.Context, opts *DeleteOptions) error {
+	timeout := defaultPollTimeout
+	if opts.Timeout > 0 {
+		timeout = opts.Timeout
+	}
+
 	o := &del.DeleteOptions{
 		IOStreams:           DefaultIOStreams(),
 		CascadingStrategy:   metav1.DeletePropagationForeground,
 		DeleteAllNamespaces: true,
-		LabelSelector:       labelSelector,
+		LabelSelector:       opts.LabelSelector,
+		Timeout:             timeout,
 		WaitForDeletion:     true,
 	}
 
 	cmd := &cobra.Command{
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			args := strings.Join(resourceTypes, ",")
+			args := strings.Join(opts.ResourceTypes, ",")
 			if err := o.Complete(f.f, []string{args}, cmd); err != nil {
 				return err
 			}

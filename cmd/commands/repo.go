@@ -27,6 +27,7 @@ import (
 	billyUtils "github.com/go-git/go-billy/v5/util"
 	"github.com/spf13/cobra"
 	v1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kusttypes "sigs.k8s.io/kustomize/api/types"
 )
@@ -352,21 +353,24 @@ func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
 		return err
 	}
 
-	log.G(ctx).Debug("pushing changes to remote")
+	log.G(ctx).Info("pushing changes to remote")
 	revision, err := r.Persist(ctx, &git.PushOptions{CommitMsg: "Autopilot Uninstall"})
 	if err != nil {
 		return err
 	}
 
 	stop := util.WithSpinner(ctx, fmt.Sprintf("waiting for '%s' to be finish syncing", store.Default.BootsrtrapAppName))
-	if err = waitAppSynced(ctx, opts.KubeFactory, opts.Timeout, store.Default.BootsrtrapAppName, opts.Namespace, revision); err != nil {
-		stop()
-		return err
+	if err = waitAppSynced(ctx, opts.KubeFactory, opts.Timeout, store.Default.BootsrtrapAppName, opts.Namespace, revision, false); err != nil {
+		se, ok := err.(*kerrors.StatusError)
+		if !ok || se.ErrStatus.Reason != metav1.StatusReasonNotFound {
+			stop()
+			return err
+		}
 	}
 
 	stop()
-	log.G(ctx).Debug("Deleting cluster resources")
-	if err = deleteClusterResources(ctx, opts.KubeFactory); err != nil {
+	log.G(ctx).Info("Deleting cluster resources")
+	if err = deleteClusterResources(ctx, opts.KubeFactory, opts.Timeout); err != nil {
 		return err
 	}
 
@@ -375,7 +379,7 @@ func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
 		return err
 	}
 
-	log.G(ctx).Debug("pushing final commit to remote")
+	log.G(ctx).Info("pushing final commit to remote")
 	if _, err := r.Persist(ctx, &git.PushOptions{CommitMsg: "Autopilot Uninstall, deleted leftovers"}); err != nil {
 		return err
 	}
@@ -727,20 +731,28 @@ func deleteGitOpsFiles(repofs fs.FS) error {
 	return nil
 }
 
-func deleteClusterResources(ctx context.Context, f kube.Factory) error {
-	if err := f.Delete(ctx, []string{"applications", "secrets"}, store.Default.LabelKeyAppManagedBy+"="+store.Default.LabelValueManagedBy); err != nil {
+func deleteClusterResources(ctx context.Context, f kube.Factory, timeout time.Duration) error {
+	if err := f.Delete(ctx, &kube.DeleteOptions{
+		LabelSelector: store.Default.LabelKeyAppManagedBy + "=" + store.Default.LabelValueManagedBy,
+		ResourceTypes: []string{"applications", "secrets"},
+		Timeout:       timeout,
+	}); err != nil {
 		return fmt.Errorf("failed deleting argocd-autopilot resources: %w", err)
 	}
 
-	if err := f.Delete(ctx, []string{
-		"all",
-		"configmaps",
-		"secrets",
-		"serviceaccounts",
-		"networkpolicies",
-		"rolebindings",
-		"roles",
-	}, argocdcommon.LabelKeyAppInstance+"="+store.Default.ArgoCDName); err != nil {
+	if err := f.Delete(ctx, &kube.DeleteOptions{
+		LabelSelector: argocdcommon.LabelKeyAppInstance + "=" + store.Default.ArgoCDName,
+		ResourceTypes: []string{
+			"all",
+			"configmaps",
+			"secrets",
+			"serviceaccounts",
+			"networkpolicies",
+			"rolebindings",
+			"roles",
+		},
+		Timeout: timeout,
+	}); err != nil {
 		return fmt.Errorf("failed deleting Argo-CD resources: %w", err)
 	}
 

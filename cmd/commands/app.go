@@ -219,7 +219,7 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 		fullName := fmt.Sprintf("%s-%s", opts.ProjectName, opts.AppOpts.AppName)
 		// wait for argocd to be ready before applying argocd-apps
 		stop := util.WithSpinner(ctx, fmt.Sprintf("waiting for '%s' to be ready", fullName))
-		if err = waitAppSynced(ctx, opts.KubeFactory, opts.Timeout, fullName, namespace, revision); err != nil {
+		if err = waitAppSynced(ctx, opts.KubeFactory, opts.Timeout, fullName, namespace, revision, true); err != nil {
 			stop()
 			return fmt.Errorf("failed waiting for application to sync: %w", err)
 		}
