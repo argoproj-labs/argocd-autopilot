@@ -49,6 +49,7 @@ type (
 		AppSpecifier     string
 		InstallationMode string
 		Namespace        string
+		KubeConfig       string
 		KubeContext      string
 		Namespaced       bool
 		DryRun           bool
@@ -135,6 +136,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 				AppSpecifier:     appSpecifier,
 				InstallationMode: installationMode,
 				Namespace:        cmd.Flag("namespace").Value.String(),
+				KubeConfig:       cmd.Flag("kubeconfig").Value.String(),
 				KubeContext:      cmd.Flag("context").Value.String(),
 				Namespaced:       namespaced,
 				DryRun:           dryRun,
@@ -262,9 +264,10 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 
 	log.G(ctx).Infof("running argocd login to initialize argocd config")
 	err = argocdLogin(&argocd.LoginOptions{
-		Namespace: opts.Namespace,
-		Username:  "admin",
-		Password:  passwd,
+		Namespace:  opts.Namespace,
+		Username:   "admin",
+		Password:   passwd,
+		KubeConfig: opts.KubeConfig,
 	})
 	if err != nil {
 		return err
