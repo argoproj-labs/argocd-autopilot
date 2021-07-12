@@ -2,6 +2,7 @@ package argocd
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	"github.com/argoproj-labs/argocd-autopilot/pkg/kube"
@@ -116,7 +117,7 @@ func Login(opts *LoginOptions) error {
 		origKubeConfig := os.Getenv("KUBECONFIG")
 		defer func() { os.Setenv("KUBECONFIG", origKubeConfig) }()
 		if err := os.Setenv("KUBECONFIG", opts.KubeConfig); err != nil {
-			return err
+			return fmt.Errorf("failed to set KUBECONFIG env var: %w", err)
 		}
 	}
 
