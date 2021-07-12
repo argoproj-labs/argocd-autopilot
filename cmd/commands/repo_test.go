@@ -47,24 +47,17 @@ func Test_setBootstrapOptsDefaults(t *testing.T) {
 			opts: &RepoBootstrapOptions{
 				CloneOptions: &git.CloneOptions{},
 			},
-			preFn: func() {
-				currentKubeContext = func() (string, error) {
-					return "fooctx", nil
-				}
-			},
 			assertFn: func(t *testing.T, opts *RepoBootstrapOptions, ret error) {
 				assert.NoError(t, ret)
 				assert.Equal(t, "argocd", opts.Namespace)
 				assert.Equal(t, false, opts.Namespaced)
 				assert.Equal(t, "manifests", opts.AppSpecifier)
-				assert.Equal(t, "fooctx", opts.KubeContext)
 			},
 		},
 		"With App specifier": {
 			opts: &RepoBootstrapOptions{
 				CloneOptions: &git.CloneOptions{},
 				AppSpecifier: "https://github.com/foo/bar",
-				KubeContext:  "fooctx",
 			},
 			assertFn: func(t *testing.T, opts *RepoBootstrapOptions, ret error) {
 				assert.NoError(t, ret)
@@ -72,14 +65,12 @@ func Test_setBootstrapOptsDefaults(t *testing.T) {
 				assert.Equal(t, false, opts.Namespaced)
 				assert.Equal(t, installationModeNormal, opts.InstallationMode)
 				assert.Equal(t, "https://github.com/foo/bar", opts.AppSpecifier)
-				assert.Equal(t, "fooctx", opts.KubeContext)
 			},
 		},
 		"Namespaced": {
 			opts: &RepoBootstrapOptions{
 				CloneOptions:     &git.CloneOptions{},
 				InstallationMode: installationModeFlat,
-				KubeContext:      "fooctx",
 				Namespaced:       true,
 				Namespace:        "bar",
 			},
@@ -89,7 +80,6 @@ func Test_setBootstrapOptsDefaults(t *testing.T) {
 				assert.Equal(t, true, opts.Namespaced)
 				assert.Equal(t, installationModeFlat, opts.InstallationMode)
 				assert.Equal(t, "manifests/namespace-install", opts.AppSpecifier)
-				assert.Equal(t, "fooctx", opts.KubeContext)
 			},
 		},
 	}
@@ -248,7 +238,6 @@ func TestRunRepoBootstrap(t *testing.T) {
 			opts: &RepoBootstrapOptions{
 				DryRun:           true,
 				InstallationMode: installationModeFlat,
-				KubeContext:      "foo",
 				Namespace:        "bar",
 				CloneOptions: &git.CloneOptions{
 					Repo: "https://github.com/foo/bar/installation1?ref=main",
@@ -264,7 +253,6 @@ func TestRunRepoBootstrap(t *testing.T) {
 		"Flat installation": {
 			opts: &RepoBootstrapOptions{
 				InstallationMode: installationModeFlat,
-				KubeContext:      "foo",
 				Namespace:        "bar",
 				CloneOptions: &git.CloneOptions{
 					Repo: "https://github.com/foo/bar/installation1?ref=main",
@@ -321,7 +309,6 @@ func TestRunRepoBootstrap(t *testing.T) {
 		"Normal installation": {
 			opts: &RepoBootstrapOptions{
 				InstallationMode: installationModeNormal,
-				KubeContext:      "foo",
 				Namespace:        "bar",
 				CloneOptions: &git.CloneOptions{
 					Repo: "https://github.com/foo/bar/installation1?ref=main",
@@ -413,45 +400,20 @@ func Test_setUninstallOptsDefaults(t *testing.T) {
 	tests := map[string]struct {
 		opts               RepoUninstallOptions
 		want               *RepoUninstallOptions
-		wantErr            string
 		currentKubeContext func() (string, error)
 	}{
 		"Should not change anything, if all options are set": {
 			opts: RepoUninstallOptions{
-				Namespace:   "namespace",
-				KubeContext: "context",
-			},
-			want: &RepoUninstallOptions{
-				Namespace:   "namespace",
-				KubeContext: "context",
-			},
-		},
-		"Should set default argocd namespace, if it is not set": {
-			opts: RepoUninstallOptions{
-				KubeContext: "context",
-			},
-			want: &RepoUninstallOptions{
-				Namespace:   store.Default.ArgoCDNamespace,
-				KubeContext: "context",
-			},
-		},
-		"Should get current kube context, if it is not set": {
-			opts: RepoUninstallOptions{
 				Namespace: "namespace",
 			},
 			want: &RepoUninstallOptions{
-				Namespace:   "namespace",
-				KubeContext: "currentContext",
-			},
-			currentKubeContext: func() (string, error) {
-				return "currentContext", nil
+				Namespace: "namespace",
 			},
 		},
-		"Should fail, if getting current context fails": {
-			opts:    RepoUninstallOptions{},
-			wantErr: "some error",
-			currentKubeContext: func() (string, error) {
-				return "", errors.New("some error")
+		"Should set default argocd namespace, if it is not set": {
+			opts: RepoUninstallOptions{},
+			want: &RepoUninstallOptions{
+				Namespace: store.Default.ArgoCDNamespace,
 			},
 		},
 	}
@@ -463,17 +425,7 @@ func Test_setUninstallOptsDefaults(t *testing.T) {
 				currentKubeContext = tt.currentKubeContext
 			}
 
-			got, err := setUninstallOptsDefaults(tt.opts)
-			if err != nil {
-				if tt.wantErr != "" {
-					assert.EqualError(t, err, tt.wantErr)
-				} else {
-					t.Errorf("setUninstallOptsDefaults() error = %v", err)
-				}
-
-				return
-			}
-
+			got := setUninstallOptsDefaults(tt.opts)
 			assert.Equal(t, tt.want, got)
 		})
 	}
