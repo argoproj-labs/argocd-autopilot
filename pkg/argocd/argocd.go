@@ -2,6 +2,8 @@ package argocd
 
 import (
 	"context"
+	"fmt"
+	"os"
 
 	"github.com/argoproj-labs/argocd-autopilot/pkg/kube"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/log"
@@ -31,9 +33,10 @@ type (
 	}
 
 	LoginOptions struct {
-		Namespace string
-		Username  string
-		Password  string
+		Namespace  string
+		Username   string
+		Password   string
+		KubeConfig string
 	}
 )
 
@@ -103,12 +106,19 @@ func Login(opts *LoginOptions) error {
 		"--port-forward",
 		"--port-forward-namespace",
 		opts.Namespace,
-		"--password",
-		opts.Password,
 		"--username",
 		opts.Username,
+		"--password",
+		opts.Password,
 		"--name",
 		"autopilot",
+	}
+	if opts.KubeConfig != "" {
+		origKubeConfig := os.Getenv("KUBECONFIG")
+		defer func() { os.Setenv("KUBECONFIG", origKubeConfig) }()
+		if err := os.Setenv("KUBECONFIG", opts.KubeConfig); err != nil {
+			return fmt.Errorf("failed to set KUBECONFIG env var: %w", err)
+		}
 	}
 
 	root.SetArgs(args)

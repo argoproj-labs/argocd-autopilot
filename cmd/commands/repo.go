@@ -49,7 +49,7 @@ type (
 		AppSpecifier     string
 		InstallationMode string
 		Namespace        string
-		KubeContext      string
+		KubeConfig       string
 		Namespaced       bool
 		DryRun           bool
 		HidePassword     bool
@@ -60,7 +60,6 @@ type (
 
 	RepoUninstallOptions struct {
 		Namespace    string
-		KubeContext  string
 		Timeout      time.Duration
 		CloneOptions *git.CloneOptions
 		KubeFactory  kube.Factory
@@ -135,7 +134,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 				AppSpecifier:     appSpecifier,
 				InstallationMode: installationMode,
 				Namespace:        cmd.Flag("namespace").Value.String(),
-				KubeContext:      cmd.Flag("context").Value.String(),
+				KubeConfig:       cmd.Flag("kubeconfig").Value.String(),
 				Namespaced:       namespaced,
 				DryRun:           dryRun,
 				HidePassword:     hidePassword,
@@ -171,11 +170,16 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 		return err
 	}
 
+	kubeContext, err := currentKubeContext()
+	if err != nil {
+		return err
+	}
+
 	log.G(ctx).WithFields(log.Fields{
 		"repo-url":     opts.CloneOptions.URL(),
 		"revision":     opts.CloneOptions.Revision(),
 		"namespace":    opts.Namespace,
-		"kube-context": opts.KubeContext,
+		"kube-context": kubeContext,
 	}).Debug("starting with options: ")
 
 	manifests, err := buildBootstrapManifests(
@@ -217,7 +221,7 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 	log.G(ctx).Debug("repository is ok")
 
 	// apply built manifest to k8s cluster
-	log.G(ctx).Infof("using context: \"%s\", namespace: \"%s\"", opts.KubeContext, opts.Namespace)
+	log.G(ctx).Infof("using context: \"%s\", namespace: \"%s\"", kubeContext, opts.Namespace)
 	log.G(ctx).Infof("applying bootstrap manifests to cluster...")
 	if err = opts.KubeFactory.Apply(ctx, opts.Namespace, util.JoinManifests(manifests.namespace, manifests.applyManifests, manifests.repoCreds)); err != nil {
 		return fmt.Errorf("failed to apply bootstrap manifests to cluster: %w", err)
@@ -262,9 +266,10 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 
 	log.G(ctx).Infof("running argocd login to initialize argocd config")
 	err = argocdLogin(&argocd.LoginOptions{
-		Namespace: opts.Namespace,
-		Username:  "admin",
-		Password:  passwd,
+		Namespace:  opts.Namespace,
+		Username:   "admin",
+		Password:   passwd,
+		KubeConfig: opts.KubeConfig,
 	})
 	if err != nil {
 		return err
@@ -313,7 +318,6 @@ func NewRepoUninstallCommand() *cobra.Command {
 			return RunRepoUninstall(cmd.Context(), &RepoUninstallOptions{
 				Namespace:    cmd.Flag("namespace").Value.String(),
 				Timeout:      util.MustParseDuration(cmd.Flag("request-timeout").Value.String()),
-				KubeContext:  cmd.Flag("context").Value.String(),
 				CloneOptions: cloneOpts,
 				KubeFactory:  f,
 			})
@@ -331,7 +335,9 @@ func NewRepoUninstallCommand() *cobra.Command {
 func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
 	var err error
 
-	if opts, err = setUninstallOptsDefaults(*opts); err != nil {
+	opts = setUninstallOptsDefaults(*opts)
+	kubeContext, err := currentKubeContext()
+	if err != nil {
 		return err
 	}
 
@@ -339,7 +345,7 @@ func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
 		"repo-url":     opts.CloneOptions.URL(),
 		"revision":     opts.CloneOptions.Revision(),
 		"namespace":    opts.Namespace,
-		"kube-context": opts.KubeContext,
+		"kube-context": kubeContext,
 	}).Debug("starting with options: ")
 
 	log.G(ctx).Infof("cloning repo: %s", opts.CloneOptions.URL())
@@ -388,8 +394,6 @@ func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
 }
 
 func setBootstrapOptsDefaults(opts RepoBootstrapOptions) (*RepoBootstrapOptions, error) {
-	var err error
-
 	switch opts.InstallationMode {
 	case installationModeFlat, installationModeNormal:
 	case "":
@@ -409,12 +413,6 @@ func setBootstrapOptsDefaults(opts RepoBootstrapOptions) (*RepoBootstrapOptions,
 	if _, err := os.Stat(opts.AppSpecifier); err == nil {
 		log.G().Warnf("detected local bootstrap manifests, using 'flat' installation mode")
 		opts.InstallationMode = installationModeFlat
-	}
-
-	if opts.KubeContext == "" {
-		if opts.KubeContext, err = currentKubeContext(); err != nil {
-			return nil, err
-		}
 	}
 
 	return &opts, nil
@@ -695,20 +693,12 @@ func createCreds(repoUrl string) ([]byte, error) {
 	return yaml.Marshal(creds)
 }
 
-func setUninstallOptsDefaults(opts RepoUninstallOptions) (*RepoUninstallOptions, error) {
-	var err error
-
+func setUninstallOptsDefaults(opts RepoUninstallOptions) *RepoUninstallOptions {
 	if opts.Namespace == "" {
 		opts.Namespace = store.Default.ArgoCDNamespace
 	}
 
-	if opts.KubeContext == "" {
-		if opts.KubeContext, err = currentKubeContext(); err != nil {
-			return nil, err
-		}
-	}
-
-	return &opts, nil
+	return &opts
 }
 
 func deleteGitOpsFiles(repofs fs.FS) error {
