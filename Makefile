@@ -111,6 +111,7 @@ test:
 
 .PHONY: codegen
 codegen: $(GOBIN)/mockery
+	rm -f docs/commands/*
 	go generate ./...
 
 .PHONY: pre-commit
