@@ -27,10 +27,27 @@ func newGitea(opts *ProviderOptions) (Provider, error) {
 }
 
 func (g *gitea) CreateRepository(ctx context.Context, opts *CreateRepoOptions) (string, error) {
-	r, res, err := g.client.CreateRepo(gt.CreateRepoOption{
+	authUser, res, err := g.client.GetMyUserInfo()
+	if err != nil {
+		if res.StatusCode == 401 {
+			return "", ErrAuthenticationFailed(err)
+		}
+
+		return "", err
+	}
+
+	createOpts := gt.CreateRepoOption{
 		Name:    opts.Name,
 		Private: opts.Private,
-	})
+	}
+
+	var r *gt.Repository
+	if authUser.UserName != opts.Owner {
+		r, res, err = g.client.CreateOrgRepo(opts.Owner, createOpts)
+	} else {
+		r, res, err = g.client.CreateRepo(createOpts)
+	}
+
 	if err != nil {
 		if res.StatusCode == 404 {
 			return "", fmt.Errorf("owner %s not found: %w", opts.Owner, err)
