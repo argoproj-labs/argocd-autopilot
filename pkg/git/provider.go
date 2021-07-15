@@ -3,6 +3,7 @@ package git
 import (
 	"context"
 	"fmt"
+	"sort"
 )
 
 //go:generate mockery --name Provider --filename provider.go
@@ -70,5 +71,6 @@ func Providers() []string {
 		res = append(res, p)
 	}
 
+	sort.Strings(res) // must sort the providers by name, otherwise the codegen is not determenistic
 	return res
 }
