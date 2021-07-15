@@ -7,10 +7,19 @@ import (
 	gt "code.gitea.io/sdk/gitea"
 )
 
-type gitea struct {
-	opts   *ProviderOptions
-	client *gt.Client
-}
+//go:generate mockery --name Client --output gitea/mocks --case snake
+
+type (
+	Client interface {
+		CreateOrgRepo(org string, opt gt.CreateRepoOption) (*gt.Repository, *gt.Response, error)
+		CreateRepo(opt gt.CreateRepoOption) (*gt.Repository, *gt.Response, error)
+		GetMyUserInfo() (*gt.User, *gt.Response, error)
+	}
+
+	gitea struct {
+		client Client
+	}
+)
 
 func newGitea(opts *ProviderOptions) (Provider, error) {
 	c, err := gt.NewClient(opts.Host, gt.SetToken(opts.Auth.Password))
@@ -19,7 +28,6 @@ func newGitea(opts *ProviderOptions) (Provider, error) {
 	}
 
 	g := &gitea{
-		opts:   opts,
 		client: c,
 	}
 

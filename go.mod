@@ -3,7 +3,7 @@ module github.com/argoproj-labs/argocd-autopilot
 go 1.16
 
 require (
-	code.gitea.io/sdk/gitea v0.14.1 // indirect
+	code.gitea.io/sdk/gitea v0.14.1
 	github.com/argoproj-labs/applicationset v0.1.0
 	github.com/argoproj/argo-cd v1.8.7
 	github.com/argoproj/argo-cd/v2 v2.0.3
