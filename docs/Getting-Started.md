@@ -35,7 +35,8 @@ export GIT_REPO=https://github.com/owner/name?ref=gitops_branch
 ```
 
 #### Using a Specific git Provider
-You can add the `--provider` flag to the `repo bootstrap` command, to enforce using a specific provider when creating a new repository. If the value is not supplied, the code will attempt to infer it from the clone URL. 
+You can add the `--provider` flag to the `repo bootstrap` command, to enforce using a specific provider when creating a new repository. If the value is not supplied, the code will attempt to infer it from the clone URL.  
+Autopilot currently support github and gitea as SCM providers.
 
 All the following commands will use the variables you supplied in order to manage your GitOps repository.
 
