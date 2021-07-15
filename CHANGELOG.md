@@ -1,12 +1,20 @@
 # Changelog:
 
+# v0.2.10
+
+### New Features:
+* Support gitea as a SCM provider [#129](https://github.com/argoproj-labs/argocd-autopilot/issues/129)
+
+### Bug fixes:
+* `repo bootstrap` fails when running argocd login if passing different --kubeconfig argument [#125](https://github.com/argoproj-labs/argocd-autopilot/issues/125)
+
 # v0.2.9
 
 ### New Features:
-* [Add an repo uninstall command to argocd-autopilot](https://github.com/argoproj-labs/argocd-autopilot/issues/42) - Running this command will delete all manifest files and directory structure from the GitOps Repository, and all the resources from the k8s cluster
+* Add an repo uninstall command to argocd-autopilot [#42](https://github.com/argoproj-labs/argocd-autopilot/issues/42) - Running this command will delete all manifest files and directory structure from the GitOps Repository, and all the resources from the k8s cluster
 
 ### Additional Features:
-* [improve sanity check](https://github.com/argoproj-labs/argocd-autopilot/pull/119) - runs `repo bootstrap` on every push. Also fixed ClusterRoleBinding now being applied correctly
+* improve sanity check [#119](https://github.com/argoproj-labs/argocd-autopilot/pull/119) - runs `repo bootstrap` on every push. Also fixed ClusterRoleBinding now being applied correctly
 
 # v0.2.8
 
