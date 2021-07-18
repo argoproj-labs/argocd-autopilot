@@ -1,5 +1,10 @@
 # Changelog:
 
+# v0.2.11
+
+### Bug fixes:
+* fixed provider sort order in field description text [#131](https://github.com/argoproj-labs/argocd-autopilot/pull/131)
+
 # v0.2.10
 
 ### New Features:
