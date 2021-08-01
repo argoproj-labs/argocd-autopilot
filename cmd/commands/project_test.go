@@ -665,7 +665,7 @@ func Test_getDefaultAppLabels(t *testing.T) {
 			labels: nil,
 			want: map[string]string{
 				store.Default.LabelKeyAppManagedBy: store.Default.LabelValueManagedBy,
-				store.Default.LabelKeyAppName:      "{{ name }}",
+				store.Default.LabelKeyAppName:      "{{ appName }}",
 			},
 		},
 		"Should contain any additional labels sent": {
@@ -675,7 +675,7 @@ func Test_getDefaultAppLabels(t *testing.T) {
 			want: map[string]string{
 				"something":                        "or the other",
 				store.Default.LabelKeyAppManagedBy: store.Default.LabelValueManagedBy,
-				store.Default.LabelKeyAppName:      "{{ name }}",
+				store.Default.LabelKeyAppName:      "{{ appName }}",
 			},
 		},
 		"Should overwrite the default managed by": {
@@ -684,7 +684,7 @@ func Test_getDefaultAppLabels(t *testing.T) {
 			},
 			want: map[string]string{
 				store.Default.LabelKeyAppManagedBy: "someone else",
-				store.Default.LabelKeyAppName:      "{{ name }}",
+				store.Default.LabelKeyAppName:      "{{ appName }}",
 			},
 		},
 		"Should overwrite the default app name": {
