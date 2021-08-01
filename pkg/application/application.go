@@ -55,13 +55,14 @@ type (
 	}
 
 	Config struct {
-		AppName           string `json:"appName"`
-		UserGivenName     string `json:"userGivenName"`
-		DestNamespace     string `json:"destNamespace"`
-		DestServer        string `json:"destServer"`
-		SrcPath           string `json:"srcPath"`
-		SrcRepoURL        string `json:"srcRepoURL"`
-		SrcTargetRevision string `json:"srcTargetRevision"`
+		AppName           string            `json:"appName"`
+		UserGivenName     string            `json:"userGivenName"`
+		DestNamespace     string            `json:"destNamespace"`
+		DestServer        string            `json:"destServer"`
+		SrcPath           string            `json:"srcPath"`
+		SrcRepoURL        string            `json:"srcRepoURL"`
+		SrcTargetRevision string            `json:"srcTargetRevision"`
+		Labels            map[string]string `json:"labels"`
 	}
 
 	ClusterResConfig struct {
@@ -76,6 +77,7 @@ type (
 		DestNamespace    string
 		DestServer       string
 		InstallationMode string
+		Labels           map[string]string
 	}
 
 	baseApp struct {
@@ -283,6 +285,7 @@ func newKustApp(o *CreateOptions, projectName, repoURL, targetRevision, repoRoot
 		SrcRepoURL:        repoURL,
 		SrcPath:           filepath.Join(repoRoot, store.Default.AppsDir, o.AppName, store.Default.OverlaysDir, projectName),
 		SrcTargetRevision: targetRevision,
+		Labels:            o.Labels,
 	}
 
 	return app, nil
@@ -410,6 +413,7 @@ func newDirApp(opts *CreateOptions) *dirApp {
 		SrcRepoURL:        url,
 		SrcPath:           path,
 		SrcTargetRevision: gitRef,
+		Labels:            opts.Labels,
 	}
 
 	return app
