@@ -1,4 +1,4 @@
-VERSION=v0.2.11
+VERSION=v0.2.12
 OUT_DIR=dist
 
 CLI_NAME?=argocd-autopilot
