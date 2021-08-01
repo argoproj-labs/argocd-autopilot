@@ -1,5 +1,13 @@
 # Changelog:
 
+# v0.2.12
+
+### New Features:
+* Allow sending extra key-value pairs to app create [138](https://github.com/argoproj-labs/argocd-autopilot/issues/138)
+
+### Documentation fixes:
+* update url path to core_concepts docs [#141](https://github.com/argoproj-labs/argocd-autopilot/pull/141)
+
 # v0.2.11
 
 ### Bug fixes:
