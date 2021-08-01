@@ -157,7 +157,7 @@ func TestRunProjectCreate(t *testing.T) {
 	}
 }
 
-func Test_generateProject(t *testing.T) {
+func Test_generateProjectManifests(t *testing.T) {
 	tests := map[string]struct {
 		o                      *GenerateProjectOptions
 		wantName               string
@@ -168,6 +168,7 @@ func Test_generateProject(t *testing.T) {
 		wantDefaultDestServer  string
 		wantProject            string
 		wantContextName        string
+		wantLabels             map[string]string
 	}{
 		"should generate project and appset with correct values": {
 			o: &GenerateProjectOptions{
@@ -178,6 +179,9 @@ func Test_generateProject(t *testing.T) {
 				RepoURL:            "repoUrl",
 				Revision:           "revision",
 				InstallationPath:   "some/path",
+				Labels: map[string]string{
+					"some-key": "some-value",
+				},
 			},
 			wantName:               "name",
 			wantNamespace:          "namespace",
@@ -186,6 +190,11 @@ func Test_generateProject(t *testing.T) {
 			wantRevision:           "revision",
 			wantDefaultDestServer:  "defaultDestServer",
 			wantContextName:        "some-context-name",
+			wantLabels: map[string]string{
+				"some-key":                         "some-value",
+				store.Default.LabelKeyAppManagedBy: store.Default.LabelValueManagedBy,
+				store.Default.LabelKeyAppName:      "{{ appName }}",
+			},
 		},
 	}
 	for ttname, tt := range tests {
@@ -643,6 +652,56 @@ func TestRunProjectDelete(t *testing.T) {
 
 			if tt.assertFn != nil {
 				tt.assertFn(t, repo, repofs)
+			}
+		})
+	}
+}
+
+func Test_getDefaultAppLabels(t *testing.T) {
+	tests := map[string]struct {
+		labels map[string]string
+		want   map[string]string
+	}{
+		"Should return the default map when sending nil": {
+			labels: nil,
+			want: map[string]string{
+				store.Default.LabelKeyAppManagedBy: store.Default.LabelValueManagedBy,
+				store.Default.LabelKeyAppName:      "{{ appName }}",
+			},
+		},
+		"Should contain any additional labels sent": {
+			labels: map[string]string{
+				"something": "or the other",
+			},
+			want: map[string]string{
+				"something":                        "or the other",
+				store.Default.LabelKeyAppManagedBy: store.Default.LabelValueManagedBy,
+				store.Default.LabelKeyAppName:      "{{ appName }}",
+			},
+		},
+		"Should overwrite the default managed by": {
+			labels: map[string]string{
+				store.Default.LabelKeyAppManagedBy: "someone else",
+			},
+			want: map[string]string{
+				store.Default.LabelKeyAppManagedBy: "someone else",
+				store.Default.LabelKeyAppName:      "{{ appName }}",
+			},
+		},
+		"Should overwrite the default app name": {
+			labels: map[string]string{
+				store.Default.LabelKeyAppName: "another name",
+			},
+			want: map[string]string{
+				store.Default.LabelKeyAppManagedBy: store.Default.LabelValueManagedBy,
+				store.Default.LabelKeyAppName:      "another name",
+			},
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			if got := getDefaultAppLabels(tt.labels); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("getDefaultAppLabels() = %v, want %v", got, tt.want)
 			}
 		})
 	}

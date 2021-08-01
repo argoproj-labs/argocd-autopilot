@@ -46,6 +46,7 @@ var Default = struct {
 	DummyName            string
 	DestServerAnnotation string
 	GitUsername          string
+	LabelKeyAppName      string
 	LabelKeyAppManagedBy string
 	LabelValueManagedBy  string
 	OverlaysDir          string
@@ -66,6 +67,7 @@ var Default = struct {
 	DestServerAnnotation: "argocd-autopilot.argoproj-labs.io/default-dest-server",
 	DummyName:            "DUMMY",
 	GitUsername:          "username",
+	LabelKeyAppName:      "app.kubernetes.io/name",
 	LabelKeyAppManagedBy: "app.kubernetes.io/managed-by",
 	LabelValueManagedBy:  "argocd-autopilot",
 	OverlaysDir:          "overlays",

@@ -50,26 +50,26 @@ func Test_newKustApp(t *testing.T) {
 		wantErr           string
 		assertFn          func(*testing.T, *kustApp)
 	}{
-		"No app specifier": {
+		"Should fail when there is no app specifier": {
 			opts: &CreateOptions{
 				AppName: "name",
 			},
 			wantErr: ErrEmptyAppSpecifier.Error(),
 		},
-		"No app name": {
+		"Should fail when there is no app name": {
 			opts: &CreateOptions{
 				AppSpecifier: "app",
 			},
 			wantErr: ErrEmptyAppName.Error(),
 		},
-		"No project name": {
+		"Should fail when there is no project name": {
 			opts: &CreateOptions{
 				AppSpecifier: "app",
 				AppName:      "name",
 			},
 			wantErr: ErrEmptyProjectName.Error(),
 		},
-		"Invalid installation mode": {
+		"Should fail when there is an invalid installation mode": {
 			opts: &CreateOptions{
 				AppSpecifier:     "app",
 				AppName:          "name",
@@ -78,7 +78,7 @@ func Test_newKustApp(t *testing.T) {
 			projectName: "project",
 			wantErr:     "unknown installation mode: foo",
 		},
-		"Normal installation mode": {
+		"Should create a correct base kustomization and config.json": {
 			opts: &CreateOptions{
 				AppSpecifier: "app",
 				AppName:      "name",
@@ -100,7 +100,7 @@ func Test_newKustApp(t *testing.T) {
 				}, a.config))
 			},
 		},
-		"Flat installation mode with namespace": {
+		"Should create a flat install.yaml when InstallationModeFlat is set": {
 			opts: &CreateOptions{
 				AppSpecifier:     "app",
 				AppName:          "name",
@@ -123,6 +123,30 @@ func Test_newKustApp(t *testing.T) {
 					SrcPath:           filepath.Join(store.Default.AppsDir, "name", store.Default.OverlaysDir, "project"),
 					SrcRepoURL:        "github.com/owner/repo",
 					SrcTargetRevision: "branch",
+				}, a.config))
+			},
+		},
+		"Should have labels in the resulting config.json": {
+			opts: &CreateOptions{
+				AppSpecifier: "app",
+				AppName:      "name",
+				Labels: map[string]string{
+					"key": "value",
+				},
+			},
+			srcRepoURL:        "github.com/owner/repo",
+			srcTargetRevision: "branch",
+			projectName:       "project",
+			assertFn: func(t *testing.T, a *kustApp) {
+				assert.True(t, reflect.DeepEqual(&Config{
+					AppName:           "name",
+					UserGivenName:     "name",
+					SrcPath:           filepath.Join(store.Default.AppsDir, "name", store.Default.OverlaysDir, "project"),
+					SrcRepoURL:        "github.com/owner/repo",
+					SrcTargetRevision: "branch",
+					Labels: map[string]string{
+						"key": "value",
+					},
 				}, a.config))
 			},
 		},

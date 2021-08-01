@@ -32,6 +32,7 @@ type (
 		AppOpts       *application.CreateOptions
 		KubeFactory   kube.Factory
 		Timeout       time.Duration
+		Labels        map[string]string
 	}
 
 	AppDeleteOptions struct {
@@ -243,6 +244,10 @@ var setAppOptsDefaults = func(ctx context.Context, repofs fs.FS, opts *AppCreate
 
 	if opts.AppOpts.DestNamespace == "" {
 		opts.AppOpts.DestNamespace = "default"
+	}
+
+	if opts.AppOpts.Labels == nil {
+		opts.AppOpts.Labels = opts.Labels
 	}
 
 	if opts.AppOpts.AppType != "" {
