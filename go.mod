@@ -11,7 +11,7 @@ require (
 	github.com/briandowns/spinner v1.13.0
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-git/go-billy/v5 v5.3.1
-	github.com/go-git/go-git/v5 v5.4.1
+	github.com/go-git/go-git/v5 v5.4.2
 	github.com/gobuffalo/packr v1.30.1
 	github.com/google/go-github/v35 v35.3.0
 	github.com/sirupsen/logrus v1.8.1
