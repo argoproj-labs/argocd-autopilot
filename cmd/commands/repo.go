@@ -409,10 +409,6 @@ func setBootstrapOptsDefaults(opts RepoBootstrapOptions) (*RepoBootstrapOptions,
 
 	if opts.AppSpecifier == "" {
 		opts.AppSpecifier = getBootstrapAppSpecifier(opts.Insecure)
-	} else {
-		if opts.Insecure {
-			return nil, fmt.Errorf("cannot use flag '--insecure' in combination with '--app' flag")
-		}
 	}
 
 	if _, err := os.Stat(opts.AppSpecifier); err == nil {
