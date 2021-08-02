@@ -50,9 +50,9 @@ type (
 		InstallationMode string
 		Namespace        string
 		KubeConfig       string
-		Namespaced       bool
 		DryRun           bool
 		HidePassword     bool
+		Insecure         bool
 		Timeout          time.Duration
 		KubeFactory      kube.Factory
 		CloneOptions     *git.CloneOptions
@@ -97,9 +97,9 @@ func NewRepoCommand() *cobra.Command {
 func NewRepoBootstrapCommand() *cobra.Command {
 	var (
 		appSpecifier     string
-		namespaced       bool
 		dryRun           bool
 		hidePassword     bool
+		insecure         bool
 		installationMode string
 		cloneOpts        *git.CloneOptions
 		f                kube.Factory
@@ -135,9 +135,9 @@ func NewRepoBootstrapCommand() *cobra.Command {
 				InstallationMode: installationMode,
 				Namespace:        cmd.Flag("namespace").Value.String(),
 				KubeConfig:       cmd.Flag("kubeconfig").Value.String(),
-				Namespaced:       namespaced,
 				DryRun:           dryRun,
 				HidePassword:     hidePassword,
+				Insecure:         insecure,
 				Timeout:          util.MustParseDuration(cmd.Flag("request-timeout").Value.String()),
 				KubeFactory:      f,
 				CloneOptions:     cloneOpts,
@@ -146,9 +146,9 @@ func NewRepoBootstrapCommand() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&appSpecifier, "app", "", "The application specifier (e.g. github.com/argoproj-labs/argocd-autopilot/manifests?ref=v0.2.5), overrides the default installation argo-cd manifests")
-	cmd.Flags().BoolVar(&namespaced, "namespaced", false, "If true, install a namespaced version of argo-cd (no need for cluster-role)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "If true, print manifests instead of applying them to the cluster (nothing will be commited to git)")
 	cmd.Flags().BoolVar(&hidePassword, "hide-password", false, "If true, will not print initial argo cd password")
+	cmd.Flags().BoolVar(&insecure, "insecure", false, "Run Argo-CD server without TLS")
 	cmd.Flags().StringVar(&installationMode, "installation-mode", "normal", "One of: normal|flat. "+
 		"If flat, will commit the bootstrap manifests, otherwise will commit the bootstrap kustomization.yaml")
 
@@ -270,6 +270,7 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 		Username:   "admin",
 		Password:   passwd,
 		KubeConfig: opts.KubeConfig,
+		Insecure:   opts.Insecure,
 	})
 	if err != nil {
 		return err
@@ -407,7 +408,11 @@ func setBootstrapOptsDefaults(opts RepoBootstrapOptions) (*RepoBootstrapOptions,
 	}
 
 	if opts.AppSpecifier == "" {
-		opts.AppSpecifier = getBootstrapAppSpecifier(opts.Namespaced)
+		opts.AppSpecifier = getBootstrapAppSpecifier(opts.Insecure)
+	} else {
+		if opts.Insecure {
+			return nil, fmt.Errorf("cannot use flag '--insecure' in combination with '--app' flag")
+		}
 	}
 
 	if _, err := os.Stat(opts.AppSpecifier); err == nil {
@@ -478,9 +483,9 @@ func getInitialPassword(ctx context.Context, f kube.Factory, namespace string) (
 	return string(passwd), nil
 }
 
-func getBootstrapAppSpecifier(namespaced bool) string {
-	if namespaced {
-		return store.Get().InstallationManifestsNamespacedURL
+func getBootstrapAppSpecifier(insecure bool) string {
+	if insecure {
+		return store.Get().InstallationManifestsInsecureURL
 	}
 
 	return store.Get().InstallationManifestsURL

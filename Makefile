@@ -5,11 +5,11 @@ CLI_NAME?=argocd-autopilot
 IMAGE_REPOSITORY?=quay.io
 IMAGE_NAMESPACE?=argoprojlabs
 
-INSTALLATION_MANIFESTS_URL="github.com/argoproj-labs/argocd-autopilot/manifests?ref=$(VERSION)"
-INSTALLATION_MANIFESTS_NAMESPACED_URL="github.com/argoproj-labs/argocd-autopilot/manifests/namespace-install?ref=$(VERSION)"
+INSTALLATION_MANIFESTS_URL="github.com/argoproj-labs/argocd-autopilot/manifests/base?ref=$(VERSION)"
+INSTALLATION_MANIFESTS_INSECURE_URL="github.com/argoproj-labs/argocd-autopilot/manifests/insecure?ref=$(VERSION)"
 
-DEV_INSTALLATION_MANIFESTS_URL="manifests/"
-DEV_INSTALLATION_MANIFESTS_NAMESPACED_URL="manifests/namespace-install"
+DEV_INSTALLATION_MANIFESTS_URL="manifests/base"
+DEV_INSTALLATION_MANIFESTS_INSECURE_URL="manifests/insecure"
 
 CLI_SRCS := $(shell find . -name '*.go')
 
