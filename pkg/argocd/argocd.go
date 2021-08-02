@@ -37,6 +37,7 @@ type (
 		Username   string
 		Password   string
 		KubeConfig string
+		Insecure   bool
 	}
 )
 
@@ -119,6 +120,10 @@ func Login(opts *LoginOptions) error {
 		if err := os.Setenv("KUBECONFIG", opts.KubeConfig); err != nil {
 			return fmt.Errorf("failed to set KUBECONFIG env var: %w", err)
 		}
+	}
+
+	if opts.Insecure {
+		args = append(args, "--plaintext")
 	}
 
 	root.SetArgs(args)
