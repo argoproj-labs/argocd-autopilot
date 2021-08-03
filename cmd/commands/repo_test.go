@@ -82,18 +82,6 @@ func Test_setBootstrapOptsDefaults(t *testing.T) {
 				assert.Equal(t, "manifests/insecure", opts.AppSpecifier)
 			},
 		},
-		"InsecureWithAppSpecifier": {
-			opts: &RepoBootstrapOptions{
-				CloneOptions:     &git.CloneOptions{},
-				InstallationMode: installationModeFlat,
-				Insecure:         true,
-				Namespace:        "bar",
-				AppSpecifier:     "https://github.com/foo/bar",
-			},
-			assertFn: func(t *testing.T, opts *RepoBootstrapOptions, ret error) {
-				assert.EqualError(t, ret, "cannot use flag '--insecure' in combination with '--app' flag")
-			},
-		},
 	}
 
 	orgCurrentKubeContext := currentKubeContext
