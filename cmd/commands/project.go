@@ -35,6 +35,7 @@ type (
 		DestKubeContext string
 		DryRun          bool
 		AddCmd          argocd.AddClusterCmd
+		Labels          map[string]string
 	}
 
 	ProjectDeleteOptions struct {
@@ -55,6 +56,7 @@ type (
 		RepoURL            string
 		Revision           string
 		InstallationPath   string
+		Labels             map[string]string
 	}
 )
 
@@ -171,6 +173,7 @@ func RunProjectCreate(ctx context.Context, opts *ProjectCreateOptions) error {
 		InstallationPath:   opts.CloneOpts.Path(),
 		DefaultDestServer:  destServer,
 		DefaultDestContext: opts.DestKubeContext,
+		Labels:             opts.Labels,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to generate project resources: %w", err)
@@ -280,10 +283,7 @@ func generateProjectManifests(o *GenerateProjectOptions) (projectYAML, appSetYAM
 		destNamespace:               "{{ destNamespace }}",
 		prune:                       true,
 		preserveResourcesOnDeletion: false,
-		appLabels: map[string]string{
-			store.Default.LabelKeyAppManagedBy: store.Default.LabelValueManagedBy,
-			"app.kubernetes.io/name":           "{{ appName }}",
-		},
+		appLabels:                   getDefaultAppLabels(o.Labels),
 		generators: []appset.ApplicationSetGenerator{
 			{
 				Git: &appset.GitGenerator{
@@ -313,6 +313,18 @@ func generateProjectManifests(o *GenerateProjectOptions) (projectYAML, appSetYAM
 	}
 
 	return
+}
+
+func getDefaultAppLabels(labels map[string]string) map[string]string {
+	res := map[string]string{
+		store.Default.LabelKeyAppManagedBy: store.Default.LabelValueManagedBy,
+		store.Default.LabelKeyAppName:      "{{ appName }}",
+	}
+	for k, v := range labels {
+		res[k] = v
+	}
+
+	return res
 }
 
 func NewProjectListCommand(cloneOpts *git.CloneOptions) *cobra.Command {

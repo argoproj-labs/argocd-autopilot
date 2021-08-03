@@ -32,6 +32,7 @@ type (
 		AppOpts       *application.CreateOptions
 		KubeFactory   kube.Factory
 		Timeout       time.Duration
+		Labels        map[string]string
 	}
 
 	AppDeleteOptions struct {
@@ -217,6 +218,7 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 
 		log.G(ctx).WithField("timeout", opts.Timeout).Infof("Waiting for '%s' to finish syncing", opts.AppOpts.AppName)
 		fullName := fmt.Sprintf("%s-%s", opts.ProjectName, opts.AppOpts.AppName)
+
 		// wait for argocd to be ready before applying argocd-apps
 		stop := util.WithSpinner(ctx, fmt.Sprintf("waiting for '%s' to be ready", fullName))
 		if err = waitAppSynced(ctx, opts.KubeFactory, opts.Timeout, fullName, namespace, revision, true); err != nil {
@@ -243,6 +245,10 @@ var setAppOptsDefaults = func(ctx context.Context, repofs fs.FS, opts *AppCreate
 
 	if opts.AppOpts.DestNamespace == "" {
 		opts.AppOpts.DestNamespace = "default"
+	}
+
+	if opts.AppOpts.Labels == nil {
+		opts.AppOpts.Labels = opts.Labels
 	}
 
 	if opts.AppOpts.AppType != "" {

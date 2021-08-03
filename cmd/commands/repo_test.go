@@ -50,8 +50,8 @@ func Test_setBootstrapOptsDefaults(t *testing.T) {
 			assertFn: func(t *testing.T, opts *RepoBootstrapOptions, ret error) {
 				assert.NoError(t, ret)
 				assert.Equal(t, "argocd", opts.Namespace)
-				assert.Equal(t, false, opts.Namespaced)
-				assert.Equal(t, "manifests", opts.AppSpecifier)
+				assert.Equal(t, false, opts.Insecure)
+				assert.Equal(t, "manifests/base", opts.AppSpecifier)
 			},
 		},
 		"With App specifier": {
@@ -62,24 +62,24 @@ func Test_setBootstrapOptsDefaults(t *testing.T) {
 			assertFn: func(t *testing.T, opts *RepoBootstrapOptions, ret error) {
 				assert.NoError(t, ret)
 				assert.Equal(t, "argocd", opts.Namespace)
-				assert.Equal(t, false, opts.Namespaced)
+				assert.Equal(t, false, opts.Insecure)
 				assert.Equal(t, installationModeNormal, opts.InstallationMode)
 				assert.Equal(t, "https://github.com/foo/bar", opts.AppSpecifier)
 			},
 		},
-		"Namespaced": {
+		"Insecure": {
 			opts: &RepoBootstrapOptions{
 				CloneOptions:     &git.CloneOptions{},
 				InstallationMode: installationModeFlat,
-				Namespaced:       true,
+				Insecure:         true,
 				Namespace:        "bar",
 			},
 			assertFn: func(t *testing.T, opts *RepoBootstrapOptions, ret error) {
 				assert.NoError(t, ret)
 				assert.Equal(t, "bar", opts.Namespace)
-				assert.Equal(t, true, opts.Namespaced)
+				assert.Equal(t, true, opts.Insecure)
 				assert.Equal(t, installationModeFlat, opts.InstallationMode)
-				assert.Equal(t, "manifests/namespace-install", opts.AppSpecifier)
+				assert.Equal(t, "manifests/insecure", opts.AppSpecifier)
 			},
 		},
 	}

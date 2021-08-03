@@ -131,10 +131,6 @@ steps:
         title: linux_s390x
         environment:
          - TARGET=linux-s390x
-      linux_ppc64le:
-        title: linux_ppc64le
-        environment:
-         - TARGET=linux-ppc64le
       windows_amd64:
         title: windows_amd64
         environment:

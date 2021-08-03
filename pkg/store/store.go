@@ -9,12 +9,12 @@ import (
 var s Store
 
 var (
-	binaryName                         = "argocd-autopilot"
-	version                            = "v99.99.99"
-	buildDate                          = ""
-	gitCommit                          = ""
-	installationManifestsURL           = "manifests"
-	installationManifestsNamespacedURL = "manifests/namespace-install"
+	binaryName                       = "argocd-autopilot"
+	version                          = "v99.99.99"
+	buildDate                        = ""
+	gitCommit                        = ""
+	installationManifestsURL         = "manifests/base"
+	installationManifestsInsecureURL = "manifests/insecure"
 )
 
 type Version struct {
@@ -27,10 +27,10 @@ type Version struct {
 }
 
 type Store struct {
-	BinaryName                         string
-	Version                            Version
-	InstallationManifestsURL           string
-	InstallationManifestsNamespacedURL string
+	BinaryName                       string
+	Version                          Version
+	InstallationManifestsURL         string
+	InstallationManifestsInsecureURL string
 }
 
 var Default = struct {
@@ -46,6 +46,7 @@ var Default = struct {
 	DummyName            string
 	DestServerAnnotation string
 	GitUsername          string
+	LabelKeyAppName      string
 	LabelKeyAppManagedBy string
 	LabelValueManagedBy  string
 	OverlaysDir          string
@@ -66,6 +67,7 @@ var Default = struct {
 	DestServerAnnotation: "argocd-autopilot.argoproj-labs.io/default-dest-server",
 	DummyName:            "DUMMY",
 	GitUsername:          "username",
+	LabelKeyAppName:      "app.kubernetes.io/name",
 	LabelKeyAppManagedBy: "app.kubernetes.io/managed-by",
 	LabelValueManagedBy:  "argocd-autopilot",
 	OverlaysDir:          "overlays",
@@ -84,7 +86,7 @@ func Get() *Store {
 func init() {
 	s.BinaryName = binaryName
 	s.InstallationManifestsURL = installationManifestsURL
-	s.InstallationManifestsNamespacedURL = installationManifestsNamespacedURL
+	s.InstallationManifestsInsecureURL = installationManifestsInsecureURL
 
 	initVersion()
 }

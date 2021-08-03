@@ -1,5 +1,21 @@
 # Changelog:
 
+# v0.2.13
+
+### New Features:
+* Allow installation of Argo-CD in `insecure` mode (useful when you want the SSL termination to happen in the ingress controller)[#144](https://github.com/argoproj-labs/argocd-autopilot/issues/144)
+  
+### Breaking Changes:
+* Removed the `--namespaced` option from `repo bootstrap`. Installing argo-cd in namespaced mode cannot be used for bootstraping as the bootstrap installation contains CRDs, which are cluster scoped resources, which cannot be created by argo-cd in namespaced mode. Bottom line: it was never useable.
+
+# v0.2.12
+
+### New Features:
+* Allow sending extra key-value pairs to app create [138](https://github.com/argoproj-labs/argocd-autopilot/issues/138)
+
+### Documentation fixes:
+* update url path to core_concepts docs [#141](https://github.com/argoproj-labs/argocd-autopilot/pull/141)
+
 # v0.2.11
 
 ### Bug fixes:
