@@ -116,6 +116,8 @@ github.com/argoproj/argo-cd v1.8.7 h1:CkIu8p/gcTY/fOZWM2tHuSCIAV2HggXjJftrT1IIT3
 github.com/argoproj/argo-cd v1.8.7/go.mod h1:tqFZW5Lr9KBCDsvOaE5Fh8M1eJ1ThvR58pyyLv8Zqvs=
 github.com/argoproj/argo-cd/v2 v2.1.0-rc1 h1:RAq1gGkJaimNbZsXqh4JQkM3yoctHzNVGYONZOo/+jE=
 github.com/argoproj/argo-cd/v2 v2.1.0-rc1/go.mod h1:a21F1IEszRrCLvXXYc1sML3mjlMN3pp6rpDxy+7E0os=
+github.com/argoproj/argo-cd/v2 v2.1.0-rc2 h1:z1nWW86cXQ2NLxmamBsUWboGwcv5dhCpo4Ki2GZp/uw=
+github.com/argoproj/argo-cd/v2 v2.1.0-rc2/go.mod h1:a21F1IEszRrCLvXXYc1sML3mjlMN3pp6rpDxy+7E0os=
 github.com/argoproj/gitops-engine v0.2.1/go.mod h1:OxXp8YaT73rw9gEBnGBWg55af80nkV/uIjWCbJu1Nw0=
 github.com/argoproj/gitops-engine v0.2.2/go.mod h1:OxXp8YaT73rw9gEBnGBWg55af80nkV/uIjWCbJu1Nw0=
 github.com/argoproj/gitops-engine v0.3.1-0.20210709004906-a4c77d5c70fb h1:zwnkwh45K57emwKikePwtK4BLc3IuplxYxqMzZ4XTNY=
@@ -150,8 +152,8 @@ github.com/bombsimon/logrusr v1.0.0 h1:CTCkURYAt5nhCCnKH9eLShYayj2/8Kn/4Qg3QfiU+
 github.com/bombsimon/logrusr v1.0.0/go.mod h1:Jq0nHtvxabKE5EMwAAdgTaz7dfWE8C4i11NOltxGQpc=
 github.com/bradleyfalzon/ghinstallation v1.1.1 h1:pmBXkxgM1WeF8QYvDLT5kuQiHMcmf+X015GI0KM/E3I=
 github.com/bradleyfalzon/ghinstallation v1.1.1/go.mod h1:vyCmHTciHx/uuyN82Zc3rXN3X2KTK8nUTCrTMwAhcug=
-github.com/briandowns/spinner v1.13.0 h1:q/Y9LtpwtvL0CRzXrAMj0keVXqNhBYUFg6tBOUiY8ek=
-github.com/briandowns/spinner v1.13.0/go.mod h1:QOuQk7x+EaDASo80FEXwlwiA+j/PPIcX3FScO+3/ZPQ=
+github.com/briandowns/spinner v1.16.0 h1:DFmp6hEaIx2QXXuqSJmtfSBSAjRmpGiKG6ip2Wm/yOs=
+github.com/briandowns/spinner v1.16.0/go.mod h1:QOuQk7x+EaDASo80FEXwlwiA+j/PPIcX3FScO+3/ZPQ=
 github.com/caddyserver/caddy v1.0.3/go.mod h1:G+ouvOY32gENkJC+jhgl62TyhvqEsFaDiZ4uw0RzP1E=
 github.com/casbin/casbin v1.9.1 h1:ucjbS5zTrmSLtH4XogqOG920Poe6QatdXtz1FEbApeM=
 github.com/casbin/casbin v1.9.1/go.mod h1:z8uPsfBJGUsnkagrt3G8QvjgTKFMBJ32UP8HpZllfog=
