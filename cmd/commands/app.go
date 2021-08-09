@@ -142,9 +142,10 @@ func NewAppCreateCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 	cmd.Flags().StringVarP(&projectName, "project", "p", "", "Project name")
 	cmd.Flags().DurationVar(&timeout, "wait-timeout", time.Duration(0), "If not '0s', will try to connect to the cluster and wait until the application is in 'Synced' status for the specified timeout period")
 	appsCloneOpts = git.AddFlags(cmd, &git.AddFlagsOptions{
-		FS:       memfs.New(),
-		Prefix:   "apps",
-		Optional: true,
+		FS:            memfs.New(),
+		Prefix:        "apps",
+		OptionalToken: true,
+		OptionalRepo:  true,
 	})
 	appOpts = application.AddFlags(cmd)
 	f = kube.AddFlags(cmd.Flags())
