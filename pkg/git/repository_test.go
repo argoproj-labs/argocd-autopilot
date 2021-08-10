@@ -739,7 +739,8 @@ func TestAddFlags(t *testing.T) {
 		},
 		"Should create flags with optional": {
 			opts: &AddFlagsOptions{
-				Optional: true,
+				OptionalToken: true,
+				OptionalRepo:  true,
 			},
 			wantedFlags: []flag{
 				{
