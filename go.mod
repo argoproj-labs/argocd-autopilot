@@ -6,8 +6,8 @@ require (
 	code.gitea.io/sdk/gitea v0.14.1
 	github.com/argoproj-labs/applicationset v0.1.0
 	github.com/argoproj/argo-cd v1.8.7
-	github.com/argoproj/argo-cd/v2 v2.1.0-rc1
-	github.com/argoproj/gitops-engine v0.3.1-0.20210709004906-a4c77d5c70fb
+	github.com/argoproj/argo-cd/v2 v2.1.0-rc3
+	github.com/argoproj/gitops-engine v0.4.0
 	github.com/briandowns/spinner v1.16.0
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-git/go-billy/v5 v5.3.1
