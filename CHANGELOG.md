@@ -1,7 +1,10 @@
 # Changelog:
 
 # v0.2.14
-* Allow adding labels for the ArgoCD app created during the bootstrap[159](https://github.com/argoproj-labs/argocd-autopilot/issues/159)  
+* Bump k8s.io/api from 0.21.1 to 0.21.3 [#135](https://github.com/argoproj-labs/argocd-autopilot/pull/135)
+* Bump k8s.io/kubectl from 0.21.1 to 0.21.3 [#137](https://github.com/argoproj-labs/argocd-autopilot/pull/137)
+* Bump github.com/briandowns/spinner from 1.13.0 to 1.16.0 [#149](https://github.com/argoproj-labs/argocd-autopilot/pull/149)
+* Allow adding labels for the ArgoCD app created during the bootstrap [#159](https://github.com/argoproj-labs/argocd-autopilot/issues/159)
 
 # v0.2.13
 
