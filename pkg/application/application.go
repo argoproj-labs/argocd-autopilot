@@ -63,6 +63,7 @@ type (
 		SrcRepoURL        string            `json:"srcRepoURL"`
 		SrcTargetRevision string            `json:"srcTargetRevision"`
 		Labels            map[string]string `json:"labels"`
+		Recurse			  bool				`json:recurse`
 	}
 
 	ClusterResConfig struct {

@@ -82,6 +82,7 @@ type createAppOptions struct {
 	srcPath     string
 	destServer  string
 	noFinalizer bool
+	labels      map[string]string
 }
 
 func createApp(opts *createAppOptions) ([]byte, error) {
@@ -139,6 +140,11 @@ func createApp(opts *createAppOptions) ([]byte, error) {
 	}
 	if opts.noFinalizer {
 		app.ObjectMeta.Finalizers = []string{}
+	}
+	if len(opts.labels) > 0 {
+		for k, v := range opts.labels {
+			app.ObjectMeta.Labels[k] = v
+		}
 	}
 
 	return yaml.Marshal(app)

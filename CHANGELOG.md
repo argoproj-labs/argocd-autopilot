@@ -1,5 +1,8 @@
 # Changelog:
 
+# v0.2.14
+* Allow adding labels for the ArgoCD app created during the bootstrap[159](https://github.com/argoproj-labs/argocd-autopilot/issues/159)  
+
 # v0.2.13
 
 ### New Features:
