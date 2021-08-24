@@ -56,6 +56,7 @@ type (
 		Timeout          time.Duration
 		KubeFactory      kube.Factory
 		CloneOptions     *git.CloneOptions
+		ArgoCDLabels     map[string]string
 	}
 
 	RepoUninstallOptions struct {
@@ -186,6 +187,7 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 		opts.Namespace,
 		opts.AppSpecifier,
 		opts.CloneOptions,
+		opts.ArgoCDLabels,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to build bootstrap manifests: %w", err)
@@ -487,7 +489,7 @@ func getBootstrapAppSpecifier(insecure bool) string {
 	return store.Get().InstallationManifestsURL
 }
 
-func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.CloneOptions) (*bootstrapManifests, error) {
+func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.CloneOptions, argocdLabels map[string]string) (*bootstrapManifests, error) {
 	var err error
 	manifests := &bootstrapManifests{}
 
@@ -520,6 +522,7 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 		revision:    cloneOpts.Revision(),
 		srcPath:     filepath.Join(cloneOpts.Path(), store.Default.BootsrtrapDir, store.Default.ArgoCDName),
 		noFinalizer: true,
+		labels: argocdLabels,
 	})
 	if err != nil {
 		return nil, err

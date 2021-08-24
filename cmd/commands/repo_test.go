@@ -145,6 +145,7 @@ func Test_buildBootstrapManifests(t *testing.T) {
 		namespace    string
 		appSpecifier string
 		cloneOpts    *git.CloneOptions
+		argoCDLabels     map[string]string
 	}
 	tests := map[string]struct {
 		args     args
@@ -159,6 +160,9 @@ func Test_buildBootstrapManifests(t *testing.T) {
 					Repo: "https://github.com/foo/bar/installation1?ref=main",
 					Auth: git.Auth{Password: "test"},
 				},
+				argoCDLabels: map[string]string{
+					"name": "value",
+				},
 			},
 			assertFn: func(t *testing.T, b *bootstrapManifests, ret error) {
 				assert.NoError(t, ret)
@@ -172,6 +176,7 @@ func Test_buildBootstrapManifests(t *testing.T) {
 				assert.Equal(t, 0, len(argocdApp.ObjectMeta.Finalizers))
 				assert.Equal(t, "foo", argocdApp.Spec.Destination.Namespace)
 				assert.Equal(t, store.Default.DestServer, argocdApp.Spec.Destination.Server)
+				assert.Equal(t, "value", argocdApp.ObjectMeta.Labels["name"])
 
 				bootstrapApp := &argocdv1alpha1.Application{}
 				assert.NoError(t, yaml.Unmarshal(b.bootstrapApp, bootstrapApp))
@@ -220,6 +225,7 @@ func Test_buildBootstrapManifests(t *testing.T) {
 				tt.args.namespace,
 				tt.args.appSpecifier,
 				tt.args.cloneOpts,
+				tt.args.argoCDLabels,
 			)
 
 			tt.assertFn(t, b, ret)
