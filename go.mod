@@ -25,7 +25,7 @@ require (
 	k8s.io/cli-runtime v0.21.1
 	k8s.io/client-go v11.0.1-0.20190816222228-6d55c1b1f1ca+incompatible
 	k8s.io/kubectl v0.21.3
-	sigs.k8s.io/kustomize/api v0.8.8
+	sigs.k8s.io/kustomize/api v0.9.0
 )
 
 replace (
