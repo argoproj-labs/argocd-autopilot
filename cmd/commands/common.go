@@ -186,6 +186,18 @@ func createAppSet(o *createAppSetOptions) ([]byte, error) {
 		o.destServer = store.Default.DestServer
 	}
 
+	if o.appProject == "" {
+		o.appProject = "default"
+	}
+
+	if o.appLabels == nil {
+		// default labels
+		o.appLabels = map[string]string{
+			store.Default.LabelKeyAppManagedBy: store.Default.LabelValueManagedBy,
+			"app.kubernetes.io/name":           o.appName,
+		}
+	}
+
 	appSet := &appset.ApplicationSet{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ApplicationSet",
@@ -207,6 +219,7 @@ func createAppSet(o *createAppSetOptions) ([]byte, error) {
 					Labels:    o.appLabels,
 				},
 				Spec: appsetv1alpha1.ApplicationSpec{
+					Project: o.appProject,
 					Source: appsetv1alpha1.ApplicationSource{
 						RepoURL:        o.repoURL,
 						Path:           o.srcPath,
@@ -238,18 +251,6 @@ func createAppSet(o *createAppSetOptions) ([]byte, error) {
 				PreserveResourcesOnDeletion: o.preserveResourcesOnDeletion,
 			},
 		},
-	}
-
-	if o.appLabels == nil {
-		// default labels
-		appSet.Spec.Template.ApplicationSetTemplateMeta.Labels = map[string]string{
-			store.Default.LabelKeyAppManagedBy: store.Default.LabelValueManagedBy,
-			"app.kubernetes.io/name":           o.appName,
-		}
-	}
-
-	if o.appProject != "" {
-		appSet.Spec.Template.Spec.Project = o.appProject
 	}
 
 	return yaml.Marshal(appSet)
