@@ -1,7 +1,6 @@
 package application
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -43,7 +42,6 @@ var (
 	ErrEmptyProjectName             = errors.New("project name can not be empty, please specificy project name with: --project")
 	ErrAppAlreadyInstalledOnProject = errors.New("application already installed on project")
 	ErrAppCollisionWithExistingBase = errors.New("an application with the same name and a different base already exists, consider choosing a different name")
-	ErrAppBaseOnDifferentRepo       = errors.New("an application with the same name already exists in a different repo, consider choosing a different name")
 	ErrUnknownAppType               = errors.New("unknown application type")
 )
 
@@ -360,13 +358,8 @@ func kustCreateFiles(app *kustApp, repofs fs.FS, appsfs fs.FS, projectName strin
 		configPath = repofs.Join(appPath, projectName, "config.json")
 	}
 
-	config, err := json.Marshal(app.config)
-	if err != nil {
-		return fmt.Errorf("failed to marshal app config.json: %w", err)
-	}
-
-	if _, err = writeFile(repofs, configPath, "config", config); err != nil {
-		return err
+	if err = repofs.WriteJson(configPath, app.config); err != nil {
+		return fmt.Errorf("failed to write app config.json: %w", err)
 	}
 
 	return nil
@@ -405,6 +398,10 @@ func newDirApp(opts *CreateOptions) *dirApp {
 
 	host, orgRepo, path, gitRef, _, suffix, _ := util.ParseGitUrl(opts.AppSpecifier)
 	url := host + orgRepo + suffix
+	if path == "" {
+		path = "."
+	}
+
 	app.config = &Config{
 		AppName:           opts.AppName,
 		UserGivenName:     opts.AppName,
@@ -420,23 +417,22 @@ func newDirApp(opts *CreateOptions) *dirApp {
 }
 
 func (app *dirApp) CreateFiles(repofs fs.FS, appsfs fs.FS, projectName string) error {
-	basePath := repofs.Join(store.Default.AppsDir, app.opts.AppName, projectName)
-	configPath := repofs.Join(basePath, "config.json")
-	config, err := json.Marshal(app.config)
-	if err != nil {
-		return fmt.Errorf("failed to marshal app config.json: %w", err)
+	appPath := repofs.Join(store.Default.AppsDir, app.opts.AppName, projectName)
+	if repofs.ExistsOrDie(appPath) {
+		return ErrAppAlreadyInstalledOnProject
 	}
 
-	if _, err = writeFile(repofs, configPath, "config", config); err != nil {
-		return err
-	}
-
-	clusterName, err := getClusterName(repofs, app.opts.DestServer)
-	if err != nil {
-		return err
+	configPath := repofs.Join(appPath, "config.json")
+	if err := repofs.WriteJson(configPath, app.config); err != nil {
+		return fmt.Errorf("failed to write app config.json: %w", err)
 	}
 
 	if app.opts.DestNamespace != "" && app.opts.DestNamespace != "default" {
+		clusterName, err := getClusterName(repofs, app.opts.DestServer)
+		if err != nil {
+			return err
+		}
+
 		if err = createNamespaceManifest(repofs, clusterName, kube.GenerateNamespace(app.opts.DestNamespace)); err != nil {
 			return err
 		}
