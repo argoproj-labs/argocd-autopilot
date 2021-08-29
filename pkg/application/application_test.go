@@ -1,7 +1,6 @@
 package application
 
 import (
-	"encoding/json"
 	"errors"
 	"io/ioutil"
 	"path/filepath"
@@ -21,17 +20,12 @@ import (
 	kusttypes "sigs.k8s.io/kustomize/api/types"
 )
 
-func bootstrapMockFS(t *testing.T, repofs fs.FS) {
+func bootstrapMockFS() fs.FS {
+	repofs := fs.Create(memfs.New())
 	clusterResConf := &ClusterResConfig{Name: store.Default.ClusterContextName, Server: store.Default.DestServer}
-	clusterResConfJSON, err := json.Marshal(clusterResConf)
-	assert.NoError(t, err)
-	err = billyUtils.WriteFile(
-		repofs,
-		repofs.Join(store.Default.BootsrtrapDir, store.Default.ClusterResourcesDir, store.Default.ClusterContextName+".json"),
-		clusterResConfJSON,
-		0644,
-	)
-	assert.NoError(t, err)
+	clusterResPath := repofs.Join(store.Default.BootsrtrapDir, store.Default.ClusterResourcesDir, store.Default.ClusterContextName+".json")
+	_ = repofs.WriteYamls(clusterResPath, clusterResConf)
+	return repofs
 }
 
 func Test_newKustApp(t *testing.T) {
@@ -286,7 +280,7 @@ func Test_kustCreateFiles(t *testing.T) {
 						},
 					},
 				}
-				repofs := fs.Create(memfs.New())
+				repofs := bootstrapMockFS()
 				return app, repofs, repofs, "project"
 			},
 			assertFn: func(t *testing.T, repofs fs.FS, _ fs.FS, err error) {
@@ -309,7 +303,7 @@ func Test_kustCreateFiles(t *testing.T) {
 						},
 					},
 				}
-				repofs := fs.Create(memfs.New())
+				repofs := bootstrapMockFS()
 				appsfs := fs.Create(memfs.New())
 				return app, repofs, appsfs, "project"
 			},
@@ -339,7 +333,7 @@ func Test_kustCreateFiles(t *testing.T) {
 					},
 					manifests: []byte("some manifests"),
 				}
-				repofs := fs.Create(memfs.New())
+				repofs := bootstrapMockFS()
 				return app, repofs, repofs, "project"
 			},
 			assertFn: func(t *testing.T, repofs fs.FS, _ fs.FS, err error) {
@@ -361,7 +355,7 @@ func Test_kustCreateFiles(t *testing.T) {
 					},
 					namespace: kube.GenerateNamespace("foo"),
 				}
-				repofs := fs.Create(memfs.New())
+				repofs := bootstrapMockFS()
 				return app, repofs, repofs, "project"
 			},
 			assertFn: func(t *testing.T, repofs fs.FS, _ fs.FS, err error) {
@@ -384,7 +378,7 @@ func Test_kustCreateFiles(t *testing.T) {
 						},
 					},
 				}
-				repofs := fs.Create(memfs.New())
+				repofs := bootstrapMockFS()
 				return app, repofs, repofs, "project"
 			},
 			assertFn: func(t *testing.T, _ fs.FS, _ fs.FS, err error) {
@@ -415,7 +409,7 @@ func Test_kustCreateFiles(t *testing.T) {
 					},
 					Resources: []string{"github.com/owner/different_repo?ref=v1.2.3"},
 				}
-				repofs := fs.Create(memfs.New())
+				repofs := bootstrapMockFS()
 				_ = repofs.WriteYamls(repofs.Join(store.Default.AppsDir, "app", store.Default.BaseDir, "kustomization.yaml"), origBase)
 				return app, repofs, repofs, "project"
 			},
@@ -448,7 +442,7 @@ func Test_kustCreateFiles(t *testing.T) {
 					},
 					base: origBase,
 				}
-				repofs := fs.Create(memfs.New())
+				repofs := bootstrapMockFS()
 				_ = repofs.WriteYamls(repofs.Join(store.Default.AppsDir, "app", store.Default.BaseDir, "kustomization.yaml"), origBase)
 				_ = repofs.WriteYamls(repofs.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project", "kustomization.yaml"), overlay)
 				return app, repofs, repofs, "project"
@@ -466,7 +460,7 @@ func Test_kustCreateFiles(t *testing.T) {
 						},
 					},
 				}
-				repofs := fs.Create(memfs.New())
+				repofs := bootstrapMockFS()
 				appsfs := fs.Create(memfs.New())
 				_ = repofs.MkdirAll(repofs.Join(store.Default.AppsDir, "app"), 0666)
 				return app, repofs, appsfs, "project"
@@ -488,7 +482,7 @@ func Test_kustCreateFiles(t *testing.T) {
 					AppName:    "app",
 					SrcRepoURL: "https://github.com/owner/other_name.git",
 				}
-				repofs := fs.Create(memfs.New())
+				repofs := bootstrapMockFS()
 				appsfs := fs.Create(memfs.New())
 				_ = repofs.WriteJson(repofs.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project", "config.json"), config)
 				return app, repofs, appsfs, "project"
@@ -501,7 +495,6 @@ func Test_kustCreateFiles(t *testing.T) {
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
 			app, repofs, appsfs, projectName := tt.beforeFn()
-			bootstrapMockFS(t, repofs)
 			err := app.CreateFiles(repofs, appsfs, projectName)
 			tt.assertFn(t, repofs, appsfs, err)
 		})
@@ -692,7 +685,7 @@ func Test_newDirApp(t *testing.T) {
 		opts *CreateOptions
 		want *dirApp
 	}{
-		"Basic": {
+		"Should create a simple app with requested fields": {
 			opts: &CreateOptions{
 				AppName:       "fooapp",
 				AppSpecifier:  "github.com/foo/bar/somepath/in/repo?ref=v0.1.2",
@@ -711,6 +704,23 @@ func Test_newDirApp(t *testing.T) {
 				},
 			},
 		},
+		"Should use the correct path, when no path is supplied": {
+			opts: &CreateOptions{
+				AppName:      "fooapp",
+				AppSpecifier: "github.com/foo/bar",
+			},
+			want: &dirApp{
+				config: &Config{
+					AppName:           "fooapp",
+					UserGivenName:     "fooapp",
+					DestNamespace:     "",
+					DestServer:        "",
+					SrcRepoURL:        "https://github.com/foo/bar.git",
+					SrcTargetRevision: "",
+					SrcPath:           ".",
+				},
+			},
+		},
 	}
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
@@ -725,8 +735,31 @@ func Test_dirApp_CreateFiles(t *testing.T) {
 	tests := map[string]struct {
 		projectName string
 		app         *dirApp
+		beforeFn    func() fs.FS
 		assertFn    func(*testing.T, fs.FS, error)
 	}{
+		"Should fail if an app with the same name already exist": {
+			projectName: "project",
+			app: &dirApp{
+				baseApp: baseApp{
+					opts: &CreateOptions{
+						AppName:       "foo",
+						AppSpecifier:  "github.com/foo/bar/path",
+						DestNamespace: "default",
+						DestServer:    store.Default.DestServer,
+					},
+				},
+			},
+			beforeFn: func() fs.FS {
+				fs := bootstrapMockFS()
+				appPath := fs.Join(store.Default.AppsDir, "foo", "project", "DUMMY")
+				_ = billyUtils.WriteFile(fs, appPath, []byte{}, 0666)
+				return fs
+			},
+			assertFn: func(t *testing.T, _ fs.FS, err error) {
+				assert.Error(t, err, ErrAppAlreadyInstalledOnProject)
+			},
+		},
 		"Should not create namespace if app namespace is 'default'": {
 			app: &dirApp{
 				baseApp: baseApp{
@@ -738,7 +771,9 @@ func Test_dirApp_CreateFiles(t *testing.T) {
 					},
 				},
 			},
-			assertFn: func(t *testing.T, repofs fs.FS, _ error) {
+			beforeFn: bootstrapMockFS,
+			assertFn: func(t *testing.T, repofs fs.FS, err error) {
+				assert.NoError(t, err)
 				exists, err := repofs.Exists(repofs.Join(
 					store.Default.BootsrtrapDir,
 					store.Default.ClusterResourcesDir,
@@ -760,6 +795,7 @@ func Test_dirApp_CreateFiles(t *testing.T) {
 					},
 				},
 			},
+			beforeFn: bootstrapMockFS,
 			assertFn: func(t *testing.T, _ fs.FS, err error) {
 				assert.Error(t, err, "cluster 'some.new.server' is not configured yet, you need to create a project that uses this cluster first")
 			},
@@ -775,6 +811,7 @@ func Test_dirApp_CreateFiles(t *testing.T) {
 					},
 				},
 			},
+			beforeFn: bootstrapMockFS,
 			assertFn: func(t *testing.T, repofs fs.FS, _ error) {
 				exists, err := repofs.Exists(repofs.Join(
 					store.Default.BootsrtrapDir,
@@ -789,8 +826,7 @@ func Test_dirApp_CreateFiles(t *testing.T) {
 	}
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
-			repofs := fs.Create(memfs.New())
-			bootstrapMockFS(t, repofs)
+			repofs := tt.beforeFn()
 			tt.assertFn(t, repofs, tt.app.CreateFiles(repofs, repofs, tt.projectName))
 		})
 	}
