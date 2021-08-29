@@ -427,12 +427,12 @@ func (app *dirApp) CreateFiles(repofs fs.FS, appsfs fs.FS, projectName string) e
 		return fmt.Errorf("failed to write app config.json: %w", err)
 	}
 
-	if app.opts.DestNamespace != "" && app.opts.DestNamespace != "default" {
-		clusterName, err := getClusterName(repofs, app.opts.DestServer)
-		if err != nil {
-			return err
-		}
+	clusterName, err := getClusterName(repofs, app.opts.DestServer)
+	if err != nil {
+		return err
+	}
 
+	if app.opts.DestNamespace != "" && app.opts.DestNamespace != "default" {
 		if err = createNamespaceManifest(repofs, clusterName, kube.GenerateNamespace(app.opts.DestNamespace)); err != nil {
 			return err
 		}
