@@ -1,10 +1,25 @@
 # Changelog:
 
+# v0.2.15
+
+### Bug fixes:
+* Typo in error message [#162](https://github.com/argoproj-labs/argocd-autopilot/pull/162)
+* The cluster-resources application-set should not have an empty project value [#165](https://github.com/argoproj-labs/argocd-autopilot/issues/165)
+* Creating a DirApp with an existing name overwrites the previous application [#158](https://github.com/argoproj-labs/argocd-autopilot/issues/158)
+* Creating a DirApp with no path in the repo causes app to not be created in the cluster [#166](https://github.com/argoproj-labs/argocd-autopilot/issues/166)
+
+### Dependencies:
+* Default bootstrap now installs Argo-CD 2.1.1 and ApplicationSet 0.2.0 [#168](https://github.com/argoproj-labs/argocd-autopilot/pull/168)
+
 # v0.2.14
+
+### New featues:
+* Allow adding labels for the ArgoCD app created during the bootstrap [#159](https://github.com/argoproj-labs/argocd-autopilot/issues/159)
+
+### Dependencies:
 * Bump k8s.io/api from 0.21.1 to 0.21.3 [#135](https://github.com/argoproj-labs/argocd-autopilot/pull/135)
 * Bump k8s.io/kubectl from 0.21.1 to 0.21.3 [#137](https://github.com/argoproj-labs/argocd-autopilot/pull/137)
 * Bump github.com/briandowns/spinner from 1.13.0 to 1.16.0 [#149](https://github.com/argoproj-labs/argocd-autopilot/pull/149)
-* Allow adding labels for the ArgoCD app created during the bootstrap [#159](https://github.com/argoproj-labs/argocd-autopilot/issues/159)
 
 # v0.2.13
 
