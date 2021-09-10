@@ -82,6 +82,7 @@ argocd-autopilot project create [PROJECT] [flags]
 
 ```
   -t, --git-token string   Your git provider api token [GIT_TOKEN]
+  -u, --git-user string    Your git provider user name [GIT_USER] (not required in GitHub)
       --repo string        Repository URL [GIT_REPO]
 ```
 

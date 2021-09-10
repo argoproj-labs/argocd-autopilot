@@ -37,6 +37,7 @@ argocd-autopilot repo bootstrap [flags]
       --app string                 The application specifier (e.g. github.com/argoproj-labs/argocd-autopilot/manifests?ref=v0.2.5), overrides the default installation argo-cd manifests
       --dry-run                    If true, print manifests instead of applying them to the cluster (nothing will be commited to git)
   -t, --git-token string           Your git provider api token [GIT_TOKEN]
+  -u, --git-user string            Your git provider user name [GIT_USER] (not required in GitHub)
   -h, --help                       help for bootstrap
       --hide-password              If true, will not print initial argo cd password
       --insecure                   Run Argo-CD server without TLS
