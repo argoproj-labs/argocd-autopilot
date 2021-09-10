@@ -446,7 +446,7 @@ func waitClusterReady(ctx context.Context, f kube.Factory, timeout time.Duration
 	})
 }
 
-func getRepoCredsSecret(token, namespace string) ([]byte, error) {
+func getRepoCredsSecret(username, token, namespace string) ([]byte, error) {
 	return yaml.Marshal(&v1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
@@ -460,7 +460,7 @@ func getRepoCredsSecret(token, namespace string) ([]byte, error) {
 			},
 		},
 		Data: map[string][]byte{
-			"git_username": []byte(store.Default.GitUsername),
+			"git_username": []byte(username),
 			"git_token":    []byte(token),
 		},
 	})
@@ -586,7 +586,7 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 		return nil, err
 	}
 
-	manifests.repoCreds, err = getRepoCredsSecret(cloneOpts.Auth.Password, namespace)
+	manifests.repoCreds, err = getRepoCredsSecret(cloneOpts.Auth.Username, cloneOpts.Auth.Password, namespace)
 	if err != nil {
 		return nil, err
 	}

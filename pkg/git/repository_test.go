@@ -85,24 +85,19 @@ func Test_getAuth(t *testing.T) {
 		auth Auth
 		want transport.AuthMethod
 	}{
-		"Basic": {
+		"Should use the supplied username": {
 			auth: Auth{
+				Username: "test",
 				Password: "123",
 			},
 			want: &http.BasicAuth{
-				Username: "git",
+				Username: "test",
 				Password: "123",
 			},
 		},
-		"Username": {
-			auth: Auth{
-				Username: "test",
-				Password: "123",
-			},
-			want: &http.BasicAuth{
-				Username: "test",
-				Password: "123",
-			},
+		"Should return nil if no password is supplied": {
+			auth: Auth{},
+			want: nil,
 		},
 	}
 	for tname, tt := range tests {

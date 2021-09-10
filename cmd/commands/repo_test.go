@@ -205,7 +205,7 @@ func Test_buildBootstrapManifests(t *testing.T) {
 				assert.Equal(t, store.Default.RepoCredsSecretName, creds.ObjectMeta.Name)
 				assert.Equal(t, "foo", creds.ObjectMeta.Namespace)
 				assert.Equal(t, []byte("test"), creds.Data["git_token"])
-				assert.Equal(t, []byte(store.Default.GitUsername), creds.Data["git_username"])
+				assert.Equal(t, []byte(store.Default.GitHubUsername), creds.Data["git_username"])
 			},
 		},
 	}
