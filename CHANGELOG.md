@@ -3,6 +3,12 @@
 # v0.2.15
 
 ### Bug fixes:
+* Support Bitbucket stash as provider. [#171](https://github.com/argoproj-labs/argocd-autopilot/issues/171)
+  Added `--git-user` flag (and `GIT_USER` env variable) to support sending username for git authentication during clone/push
+
+# v0.2.15
+
+### Bug fixes:
 * Typo in error message [#162](https://github.com/argoproj-labs/argocd-autopilot/pull/162)
 * The cluster-resources application-set should not have an empty project value [#165](https://github.com/argoproj-labs/argocd-autopilot/issues/165)
 * Creating a DirApp with an existing name overwrites the previous application [#158](https://github.com/argoproj-labs/argocd-autopilot/issues/158)
