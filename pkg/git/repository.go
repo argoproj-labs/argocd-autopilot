@@ -42,6 +42,7 @@ type (
 		Prefix           string
 		CreateIfNotExist bool
 		Optional         bool
+		Progress         io.Writer
 	}
 
 	CloneOptions struct {
@@ -98,6 +99,7 @@ func AddFlags(cmd *cobra.Command, opts *AddFlagsOptions) *CloneOptions {
 	co := &CloneOptions{
 		FS:               fs.Create(opts.FS),
 		createIfNotExist: opts.CreateIfNotExist,
+		Progress:         opts.Progress,
 	}
 
 	if opts.Prefix != "" && !strings.HasSuffix(opts.Prefix, "-") {
