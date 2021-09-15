@@ -6,10 +6,10 @@ require (
 	code.gitea.io/sdk/gitea v0.14.1
 	github.com/argoproj-labs/applicationset v0.1.0
 	github.com/argoproj/argo-cd v1.8.7
-	github.com/argoproj/argo-cd/v2 v2.1.0-rc1
-	github.com/argoproj/gitops-engine v0.3.1-0.20210709004906-a4c77d5c70fb
+	github.com/argoproj/argo-cd/v2 v2.1.0-rc3
+	github.com/argoproj/gitops-engine v0.4.0
 	github.com/briandowns/spinner v1.16.0
-	github.com/ghodss/yaml v1.0.0
+	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-git/go-billy/v5 v5.3.1
 	github.com/go-git/go-git/v5 v5.4.1
 	github.com/gobuffalo/packr v1.30.1
@@ -19,7 +19,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.7.0
-	google.golang.org/grpc/examples v0.0.0-20210730002332-ea9b7a0a7651 // indirect
+	google.golang.org/grpc/examples v0.0.0-20210909173541-2608e38e6386 // indirect
 	k8s.io/api v0.21.3
 	k8s.io/apimachinery v0.21.1
 	k8s.io/cli-runtime v0.21.1

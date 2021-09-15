@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"text/tabwriter"
 	"time"
@@ -33,6 +34,7 @@ type (
 		KubeFactory   kube.Factory
 		Timeout       time.Duration
 		Labels        map[string]string
+		Progress      io.Writer
 	}
 
 	AppDeleteOptions struct {
@@ -40,6 +42,7 @@ type (
 		ProjectName string
 		AppName     string
 		Global      bool
+		Progress    io.Writer
 	}
 
 	AppListOptions struct {
@@ -49,8 +52,6 @@ type (
 )
 
 func NewAppCommand() *cobra.Command {
-	var cloneOpts *git.CloneOptions
-
 	cmd := &cobra.Command{
 		Use:     "application",
 		Aliases: []string{"app"},
@@ -60,7 +61,7 @@ func NewAppCommand() *cobra.Command {
 			exit(1)
 		},
 	}
-	cloneOpts = git.AddFlags(cmd, &git.AddFlagsOptions{
+	cloneOpts := git.AddFlags(cmd, &git.AddFlagsOptions{
 		FS: memfs.New(),
 	})
 
@@ -264,9 +265,10 @@ var setAppOptsDefaults = func(ctx context.Context, repofs fs.FS, opts *AppCreate
 		url := host + orgRepo + suffix
 		log.G(ctx).Infof("cloning repo: '%s', to infer app type from path '%s'", url, p)
 		cloneOpts := &git.CloneOptions{
-			Repo: opts.AppOpts.AppSpecifier,
-			Auth: opts.CloneOpts.Auth,
-			FS:   fs.Create(memfs.New()),
+			Repo:     opts.AppOpts.AppSpecifier,
+			Auth:     opts.CloneOpts.Auth,
+			FS:       fs.Create(memfs.New()),
+			Progress: opts.Progress,
 		}
 		cloneOpts.Parse()
 		_, fsys, err = getRepo(ctx, cloneOpts)
