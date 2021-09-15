@@ -1,5 +1,16 @@
 # Changelog:
 
+# v0.2.17
+
+### Bug fixes:
+* Getting Cluster.server has invalid type: got string, want pointer when creating project on a different cluster [#154](https://github.com/argoproj-labs/argocd-autopilot/issues/154)
+
+# v0.2.16
+
+### Bug fixes:
+* Support Bitbucket stash as provider. [#171](https://github.com/argoproj-labs/argocd-autopilot/issues/171)
+  Added `--git-user` flag (and `GIT_USER` env variable) to support sending username for git authentication during clone/push
+
 # v0.2.15
 
 ### Bug fixes:
