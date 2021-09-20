@@ -38,6 +38,7 @@ type Logger interface {
 
 	// AddPFlags adds persistent logger flags to cmd
 	AddPFlags(*cobra.Command)
+	Configure() error
 }
 
 func WithLogger(ctx context.Context, logger Logger) context.Context {
@@ -88,3 +89,4 @@ func (NopLogger) Errorf(string, ...interface{})          {}
 func (l NopLogger) WithField(string, interface{}) Logger { return l }
 func (l NopLogger) WithFields(Fields) Logger             { return l }
 func (l NopLogger) WithError(error) Logger               { return l }
+func (l NopLogger) Configure() error                     { return nil }

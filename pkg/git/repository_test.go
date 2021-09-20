@@ -572,7 +572,7 @@ func Test_repo_Persist(t *testing.T) {
 			mockWt.On("AddGlob", mock.Anything).Return(tt.retErr)
 			mockWt.On("Commit", mock.Anything, mock.Anything).Return(plumbing.NewHash(tt.retRevision), tt.retErr)
 
-			r := &repo{Repository: mockRepo}
+			r := &repo{Repository: mockRepo, progress: os.Stderr}
 			worktree = func(r gogit.Repository) (gogit.Worktree, error) {
 				return mockWt, tt.retErr
 			}
