@@ -522,7 +522,7 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 		revision:    cloneOpts.Revision(),
 		srcPath:     filepath.Join(cloneOpts.Path(), store.Default.BootsrtrapDir, store.Default.ArgoCDName),
 		noFinalizer: true,
-		labels: argocdLabels,
+		labels:      argocdLabels,
 	})
 	if err != nil {
 		return nil, err

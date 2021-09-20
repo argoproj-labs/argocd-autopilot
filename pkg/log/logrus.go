@@ -65,8 +65,12 @@ func (l *logrusAdapter) AddPFlags(cmd *cobra.Command) {
 		cmdutil.LogFormat = *format
 		cmdutil.LogLevel = l.c.Level
 
-		return l.configure(flags)
+		return l.configure()
 	}
+}
+
+func (l *logrusAdapter) Configure() error {
+	return l.configure()
 }
 
 func (l *logrusAdapter) Printf(format string, args ...interface{}) {
@@ -89,7 +93,7 @@ func (l *logrusAdapter) WithError(err error) Logger {
 	return FromLogrus(l.Entry.WithError(err), l.c)
 }
 
-func (l *logrusAdapter) configure(f *pflag.FlagSet) error {
+func (l *logrusAdapter) configure() error {
 	var (
 		err  error
 		fmtr logrus.Formatter

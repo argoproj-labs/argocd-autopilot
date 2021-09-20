@@ -59,11 +59,13 @@ type (
 	PushOptions struct {
 		AddGlobPattern string
 		CommitMsg      string
+		Progress       io.Writer
 	}
 
 	repo struct {
 		gogit.Repository
-		auth Auth
+		auth     Auth
+		progress io.Writer
 	}
 )
 
@@ -205,6 +207,11 @@ func (r *repo) Persist(ctx context.Context, opts *PushOptions) (string, error) {
 		return "", ErrNilOpts
 	}
 
+	progress := opts.Progress
+	if progress == nil {
+		progress = r.progress
+	}
+
 	addPattern := "."
 
 	if opts.AddGlobPattern != "" {
@@ -227,7 +234,7 @@ func (r *repo) Persist(ctx context.Context, opts *PushOptions) (string, error) {
 
 	return h.String(), r.PushContext(ctx, &gg.PushOptions{
 		Auth:     getAuth(r.auth),
-		Progress: os.Stderr,
+		Progress: progress,
 	})
 }
 
@@ -236,15 +243,16 @@ var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 		return nil, ErrNilOpts
 	}
 
-	if opts.Progress == nil {
-		opts.Progress = os.Stderr
+	progress := opts.Progress
+	if progress == nil {
+		progress = os.Stderr
 	}
 
 	cloneOpts := &gg.CloneOptions{
 		URL:      opts.url,
 		Auth:     getAuth(opts.Auth),
 		Depth:    1,
-		Progress: opts.Progress,
+		Progress: progress,
 	}
 
 	log.G(ctx).WithField("url", opts.url).Debug("cloning git repo")
@@ -253,7 +261,7 @@ var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 		return nil, err
 	}
 
-	repo := &repo{Repository: r, auth: opts.Auth}
+	repo := &repo{Repository: r, auth: opts.Auth, progress: progress}
 
 	if opts.revision != "" {
 		if err := checkoutRef(repo, opts.revision); err != nil {
@@ -306,7 +314,12 @@ var initRepo = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 		return nil, err
 	}
 
-	r := &repo{Repository: ggr, auth: opts.Auth}
+	progress := opts.Progress
+	if progress == nil {
+		progress = os.Stderr
+	}
+
+	r := &repo{Repository: ggr, auth: opts.Auth, progress: progress}
 	if err = r.addRemote("origin", opts.url); err != nil {
 		return nil, err
 	}
