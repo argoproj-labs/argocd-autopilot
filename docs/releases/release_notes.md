@@ -1,8 +1,8 @@
-### Bug fixes:
-* Getting Cluster.server has invalid type: got string, want pointer when creating project on a different cluster [#154](https://github.com/argoproj-labs/argocd-autopilot/issues/154)
+### Internal features:
+* Allow controlling the output of git clone and push progress [#178](https://github.com/argoproj-labs/argocd-autopilot/pull/178)
 
 ### Contributors:
-- Noam Gal ([@noam-codefresh](https://github.com/noam-codefresh))
+- Roi Kramer ([@roi-codefresh](https://github.com/roi-codefresh))
 
 ## Installation:
 
@@ -20,7 +20,7 @@ argocd-autopilot version
 ### Linux and WSL (using curl):
 ```bash
 # download and extract the binary
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.2.17/argocd-autopilot-linux-amd64.tar.gz | tar zx
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.2.18/argocd-autopilot-linux-amd64.tar.gz | tar zx
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
@@ -32,7 +32,7 @@ argocd-autopilot version
 ### Mac (using curl):
 ```bash
 # download and extract the binary
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.2.17/argocd-autopilot-darwin-amd64.tar.gz | tar zx
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.2.18/argocd-autopilot-darwin-amd64.tar.gz | tar zx
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
