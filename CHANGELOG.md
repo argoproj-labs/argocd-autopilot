@@ -1,5 +1,10 @@
 # Changelog:
 
+# v0.2.18
+
+### Internal features:
+* Allow controlling the output of git clone and push progress [#178](https://github.com/argoproj-labs/argocd-autopilot/pull/178)
+
 # v0.2.17
 
 ### Bug fixes:
