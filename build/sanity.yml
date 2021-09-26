@@ -39,7 +39,7 @@ steps:
     commands:
     - make clean
     - make local
-    - cp /usr/local/bin/argocd-autopilot /codefresh/volume/gopath/bin/argocd-autopilot
+    - cp /usr/local/bin/argocd-autopilot-dev /codefresh/volume/gopath/bin/argocd-autopilot
     - argocd-autopilot version
     when:
       steps:

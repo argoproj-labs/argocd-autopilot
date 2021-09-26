@@ -35,6 +35,7 @@ argocd-autopilot repo uninstall [flags]
 
 ```
   -t, --git-token string         Your git provider api token [GIT_TOKEN]
+  -u, --git-user string          Your git provider user name [GIT_USER] (not required in GitHub)
   -h, --help                     help for uninstall
       --kubeconfig string        Path to the kubeconfig file to use for CLI requests.
   -n, --namespace string         If present, the namespace scope for this CLI request

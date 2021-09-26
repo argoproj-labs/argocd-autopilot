@@ -12,6 +12,7 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/fs"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/git/gogit"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/log"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 
 	billy "github.com/go-git/go-billy/v5"
@@ -58,11 +59,13 @@ type (
 	PushOptions struct {
 		AddGlobPattern string
 		CommitMsg      string
+		Progress       io.Writer
 	}
 
 	repo struct {
 		gogit.Repository
-		auth Auth
+		auth     Auth
+		progress io.Writer
 	}
 )
 
@@ -105,13 +108,16 @@ func AddFlags(cmd *cobra.Command, opts *AddFlagsOptions) *CloneOptions {
 
 	envPrefix := strings.ReplaceAll(strings.ToUpper(opts.Prefix), "-", "_")
 	cmd.PersistentFlags().StringVar(&co.Auth.Password, opts.Prefix+"git-token", "", fmt.Sprintf("Your git provider api token [%sGIT_TOKEN]", envPrefix))
+	cmd.PersistentFlags().StringVar(&co.Auth.Username, opts.Prefix+"git-user", "", fmt.Sprintf("Your git provider user name [%sGIT_USER] (not required in GitHub)", envPrefix))
 	cmd.PersistentFlags().StringVar(&co.Repo, opts.Prefix+"repo", "", fmt.Sprintf("Repository URL [%sGIT_REPO]", envPrefix))
 
 	util.Die(viper.BindEnv(opts.Prefix+"git-token", envPrefix+"GIT_TOKEN"))
+	util.Die(viper.BindEnv(opts.Prefix+"git-user", envPrefix+"GIT_USER"))
 	util.Die(viper.BindEnv(opts.Prefix+"repo", envPrefix+"GIT_REPO"))
 
 	if opts.Prefix == "" {
 		cmd.Flag("git-token").Shorthand = "t"
+		cmd.Flag("git-user").Shorthand = "u"
 	}
 
 	if opts.CreateIfNotExist {
@@ -135,6 +141,10 @@ func (o *CloneOptions) Parse() {
 
 	host, orgRepo, o.path, o.revision, _, suffix, _ = util.ParseGitUrl(o.Repo)
 	o.url = host + orgRepo + suffix
+
+	if o.Auth.Username == "" {
+		o.Auth.Username = store.Default.GitHubUsername
+	}
 }
 
 func (o *CloneOptions) GetRepo(ctx context.Context) (Repository, fs.FS, error) {
@@ -202,6 +212,11 @@ func (r *repo) Persist(ctx context.Context, opts *PushOptions) (string, error) {
 		return "", ErrNilOpts
 	}
 
+	progress := opts.Progress
+	if progress == nil {
+		progress = r.progress
+	}
+
 	addPattern := "."
 
 	if opts.AddGlobPattern != "" {
@@ -224,7 +239,7 @@ func (r *repo) Persist(ctx context.Context, opts *PushOptions) (string, error) {
 
 	return h.String(), r.PushContext(ctx, &gg.PushOptions{
 		Auth:     getAuth(r.auth),
-		Progress: os.Stderr,
+		Progress: progress,
 	})
 }
 
@@ -233,15 +248,16 @@ var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 		return nil, ErrNilOpts
 	}
 
-	if opts.Progress == nil {
-		opts.Progress = os.Stderr
+	progress := opts.Progress
+	if progress == nil {
+		progress = os.Stderr
 	}
 
 	cloneOpts := &gg.CloneOptions{
 		URL:      opts.url,
 		Auth:     getAuth(opts.Auth),
 		Depth:    1,
-		Progress: opts.Progress,
+		Progress: progress,
 	}
 
 	log.G(ctx).WithField("url", opts.url).Debug("cloning git repo")
@@ -250,7 +266,7 @@ var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 		return nil, err
 	}
 
-	repo := &repo{Repository: r, auth: opts.Auth}
+	repo := &repo{Repository: r, auth: opts.Auth, progress: progress}
 
 	if opts.revision != "" {
 		if err := checkoutRef(repo, opts.revision); err != nil {
@@ -303,7 +319,12 @@ var initRepo = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 		return nil, err
 	}
 
-	r := &repo{Repository: ggr, auth: opts.Auth}
+	progress := opts.Progress
+	if progress == nil {
+		progress = os.Stderr
+	}
+
+	r := &repo{Repository: ggr, auth: opts.Auth, progress: progress}
 	if err = r.addRemote("origin", opts.url); err != nil {
 		return nil, err
 	}
@@ -382,13 +403,8 @@ func getAuth(auth Auth) transport.AuthMethod {
 		return nil
 	}
 
-	username := auth.Username
-	if username == "" {
-		username = "git"
-	}
-
 	return &http.BasicAuth{
-		Username: username,
+		Username: auth.Username,
 		Password: auth.Password,
 	}
 }

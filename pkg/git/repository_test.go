@@ -85,24 +85,19 @@ func Test_getAuth(t *testing.T) {
 		auth Auth
 		want transport.AuthMethod
 	}{
-		"Basic": {
+		"Should use the supplied username": {
 			auth: Auth{
+				Username: "test",
 				Password: "123",
 			},
 			want: &http.BasicAuth{
-				Username: "git",
+				Username: "test",
 				Password: "123",
 			},
 		},
-		"Username": {
-			auth: Auth{
-				Username: "test",
-				Password: "123",
-			},
-			want: &http.BasicAuth{
-				Username: "test",
-				Password: "123",
-			},
+		"Should return nil if no password is supplied": {
+			auth: Auth{},
+			want: nil,
 		},
 	}
 	for tname, tt := range tests {
@@ -577,7 +572,7 @@ func Test_repo_Persist(t *testing.T) {
 			mockWt.On("AddGlob", mock.Anything).Return(tt.retErr)
 			mockWt.On("Commit", mock.Anything, mock.Anything).Return(plumbing.NewHash(tt.retRevision), tt.retErr)
 
-			r := &repo{Repository: mockRepo}
+			r := &repo{Repository: mockRepo, progress: os.Stderr}
 			worktree = func(r gogit.Repository) (gogit.Worktree, error) {
 				return mockWt, tt.retErr
 			}
