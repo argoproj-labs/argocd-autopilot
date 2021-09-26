@@ -192,6 +192,11 @@ func (o *CloneOptions) Path() string {
 	return o.path
 }
 
+func (o *CloneOptions) SetPath(newPath string) string {
+	o.path = newPath
+	return o.path
+}
+
 func (r *repo) Persist(ctx context.Context, opts *PushOptions) (string, error) {
 	if opts == nil {
 		return "", ErrNilOpts
