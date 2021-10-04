@@ -958,68 +958,72 @@ func Test_createRepo(t *testing.T) {
 	}
 }
 
-// func Test_repo_commit(t *testing.T) {
-// 	tests := map[string]struct {
-// 		branchName string
-// 		wantErr    bool
-// 		retErr     error
-// 		assertFn   func(t *testing.T, r *mocks.Repository, wt *mocks.Worktree)
-// 	}{
-// 		"Init current branch": {
-// 			branchName: "",
-// 			assertFn: func(t *testing.T, r *mocks.Repository, wt *mocks.Worktree) {
-// 				r.AssertNotCalled(t, "Worktree")
-// 				wt.AssertCalled(t, "Commit", "initial commit", mock.Anything)
-// 				wt.AssertNotCalled(t, "Checkout")
-// 			},
-// 		},
-// 		"Init and checkout branch": {
-// 			assertFn: func(t *testing.T, _ *mocks.Repository, wt *mocks.Worktree) {
-// 				wt.AssertCalled(t, "Commit", "initial commit", mock.Anything)
-// 				b := plumbing.NewBranchReferenceName("test")
-// 				wt.AssertCalled(t, "Checkout", &gg.CheckoutOptions{
-// 					Branch: b,
-// 					Create: true,
-// 				})
-// 			},
-// 		},
-// 		"Error": {
-// 			branchName: "test",
-// 			wantErr:    true,
-// 			retErr:     fmt.Errorf("error"),
-// 			assertFn: func(t *testing.T, _ *mocks.Repository, wt *mocks.Worktree) {
-// 				wt.AssertCalled(t, "Commit", "initial commit", mock.Anything)
-// 				wt.AssertNotCalled(t, "Checkout")
-// 			},
-// 		},
-// 	}
+func Test_repo_commit(t *testing.T) {
+	tests := map[string]struct {
+		branchName string
+		wantErr    bool
+		retErr     error
+		assertFn   func(t *testing.T, r *mocks.Repository, wt *mocks.Worktree)
+	}{
+		"Init current branch": {
+			branchName: "",
+			assertFn: func(t *testing.T, r *mocks.Repository, wt *mocks.Worktree) {
+				r.AssertNotCalled(t, "Worktree")
+				wt.AssertCalled(t, "Commit", "initial commit", mock.Anything)
+				wt.AssertNotCalled(t, "Checkout")
+			},
+		},
+		"Init and checkout branch": {
+			assertFn: func(t *testing.T, _ *mocks.Repository, wt *mocks.Worktree) {
+				wt.AssertCalled(t, "Commit", "initial commit", mock.Anything)
+				b := plumbing.NewBranchReferenceName("test")
+				wt.AssertCalled(t, "Checkout", &gg.CheckoutOptions{
+					Branch: b,
+					Create: true,
+				})
+			},
+		},
+		"Error": {
+			branchName: "test",
+			wantErr:    true,
+			retErr:     fmt.Errorf("error"),
+			assertFn: func(t *testing.T, _ *mocks.Repository, wt *mocks.Worktree) {
+				wt.AssertCalled(t, "Commit", "initial commit", mock.Anything)
+				wt.AssertNotCalled(t, "Checkout")
+			},
+		},
+	}
 
-// 	orgWorktree := worktree
-// 	defer func() { worktree = orgWorktree }()
-// 	for tname, tt := range tests {
-// 		t.Run(tname, func(t *testing.T) {
-// 			mockRepo := &mocks.Repository{}
-// 			mockWt := &mocks.Worktree{}
-// 			mockWt.On("Commit", mock.Anything, mock.Anything).Return(nil, tt.retErr)
-// 			mockWt.On("Checkout", mock.Anything).Return(tt.retErr)
+	orgWorktree := worktree
+	defer func() { worktree = orgWorktree }()
+	for tname, tt := range tests {
+		t.Run(tname, func(t *testing.T) {
+			mockRepo := &mocks.Repository{}
+			mockWt := &mocks.Worktree{}
+			mockWt.On("Commit", mock.Anything, mock.Anything).Return(nil, tt.retErr)
+			mockWt.On("Checkout", mock.Anything).Return(tt.retErr)
 
-// 			config := &config.Config{
-// 				User: struct{Name string; Email string}{
-// 					Name: "name",
-// 					Email: "email",
-// 				},
-// 			}
+			config := &config.Config{
+				User: struct{Name string; Email string}{
+					Name: "name",
+					Email: "email",
+				},
+			}
 
-// 			mockRepo.On("ConfigScoped", mock.Anything).Return(config, nil)
-// 			mockRepo.On("AddGlob", mock.Anything).Return(nil)
+			mockRepo.On("ConfigScoped", mock.Anything).Return(config, nil)
+			mockRepo.On("AddGlob", mock.Anything).Return(nil)
 
-// 			worktree = func(r gogit.Repository) (gogit.Worktree, error) { return mockWt, nil }
+			worktree = func(r gogit.Repository) (gogit.Worktree, error) { return mockWt, nil }
 
-// 			r := &repo{Repository: mockRepo}
+			r := &repo{Repository: mockRepo}
 
-// 			if err := r.initBranch(context.Background(), tt.branchName); (err != nil) != tt.wantErr {
-// 				t.Errorf("repo.checkout() error = %v, wantErr %v", err, tt.wantErr)
-// 			}
-// 		})
-// 	}
-// }
+			_, err := r.commit(&PushOptions{
+				CommitMsg: "test",
+			})
+			
+			if (err != nil) != tt.wantErr {
+				t.Errorf("repo.checkout() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
