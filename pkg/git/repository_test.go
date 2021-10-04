@@ -154,13 +154,19 @@ func Test_repo_initBranch(t *testing.T) {
 			mockWt.On("Commit", mock.Anything, mock.Anything).Return(nil, tt.retErr)
 			mockWt.On("Checkout", mock.Anything).Return(tt.retErr)
 
-			var Config *config.Config
-			User := Config.User
-			User.Name = "name"
-			User.Email = "email"
-			Config.User = User
+			type User struct {
+				Name  string
+				Email string
+			}
 
-			mockRepo.On("ConfigScoped", mock.Anything).Return(Config, nil)
+			cfg := &config.Config{
+				User: User{
+					Name:  "asd",
+					Email: "asd",
+				},
+			}
+
+			mockRepo.On("ConfigScoped", mock.Anything).Return(cfg, nil)
 
 			worktree = func(r gogit.Repository) (gogit.Worktree, error) { return mockWt, nil }
 
