@@ -910,7 +910,7 @@ func Test_createRepo(t *testing.T) {
 			opts: &CloneOptions{
 				Repo: "https://github.com/owner.git",
 			},
-			wantErr: "Failed parsing organization and repo from 'owner'",
+			wantErr: "failed parsing organization and repo from 'owner'",
 		},
 		"Should succesfully parse owner and name for long orgRepos": {
 			opts: &CloneOptions{
@@ -958,7 +958,7 @@ func Test_createRepo(t *testing.T) {
 	}
 }
 
-// func Test_repo_initBranch(t *testing.T) {
+// func Test_repo_commit(t *testing.T) {
 // 	tests := map[string]struct {
 // 		branchName string
 // 		wantErr    bool
@@ -1003,23 +1003,15 @@ func Test_createRepo(t *testing.T) {
 // 			mockWt.On("Commit", mock.Anything, mock.Anything).Return(nil, tt.retErr)
 // 			mockWt.On("Checkout", mock.Anything).Return(tt.retErr)
 
-// 			type User struct {
-// 				Name  string
-// 				Email string
+// 			config := &config.Config{
+// 				User: struct{Name string; Email string}{
+// 					Name: "name",
+// 					Email: "email",
+// 				},
 // 			}
 
-// 			user := User{
-// 				Name:  "asd",
-// 				Email: "asd",	
-// 			}
-// 			cfg := &config.Config{
-// 				User: user,
-// 			}
-
-// 			mockRepo.On("ConfigScoped", mock.Anything).Return(cfg, nil)
+// 			mockRepo.On("ConfigScoped", mock.Anything).Return(config, nil)
 // 			mockRepo.On("AddGlob", mock.Anything).Return(nil)
-
-// 			// fmt.Println(cfg.User.Name)
 
 // 			worktree = func(r gogit.Repository) (gogit.Worktree, error) { return mockWt, nil }
 
