@@ -156,8 +156,8 @@ func Test_repo_initBranch(t *testing.T) {
 
 			cfg := &config.Config{
 				User: struct{Name string; Email string}{
-					Name: "asd",
-					Email: "asd",
+					Name: "name",
+					Email: "email",
 				},
 			}
 
@@ -223,6 +223,16 @@ func Test_initRepo(t *testing.T) {
 
 			ggInitRepo = func(s storage.Storer, worktree billy.Filesystem) (gogit.Repository, error) { return mockRepo, nil }
 			worktree = func(r gogit.Repository) (gogit.Worktree, error) { return mockWt, nil }
+
+			cfg := &config.Config{
+				User: struct{Name string; Email string}{
+					Name: "name",
+					Email: "email",
+				},
+			}
+
+			mockRepo.On("ConfigScoped", mock.Anything).Return(cfg, nil)
+			mockWt.On("AddGlob", mock.Anything).Return(tt.retErr)
 
 			tt.opts.Parse()
 			got, err := initRepo(context.Background(), tt.opts)
