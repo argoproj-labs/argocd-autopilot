@@ -159,11 +159,12 @@ func Test_repo_initBranch(t *testing.T) {
 				Email string
 			}
 
+			user := User{
+				Name:  "asd",
+				Email: "asd",	
+			}
 			cfg := &config.Config{
-				User: User{
-					Name:  "asd",
-					Email: "asd",
-				},
+				User: user,
 			}
 
 			mockRepo.On("ConfigScoped", mock.Anything).Return(cfg, nil)
