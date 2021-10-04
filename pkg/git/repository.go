@@ -224,21 +224,21 @@ func (r *repo) Persist(ctx context.Context, opts *PushOptions) (string, error) {
 	})
 }
 
-func (r *repo) commit(opts *PushOptions) (plumbing.Hash, gogit.Worktree, error) {
+func (r *repo) commit(opts *PushOptions) (*plumbing.Hash, gogit.Worktree, error) {
 	var h plumbing.Hash
 
 	cfg, err := r.ConfigScoped(config.SystemScope)
 	if err != nil {
-		return h, nil, err
+		return nil, nil, fmt.Errorf("failed to get gitconfig. Error: %w", err)
 	}
 
 	if cfg.User.Name == "" || cfg.User.Email == "" {
-		return h, nil, fmt.Errorf("failed to commit. Please make sure your gitconfig contains a name and an email")
+		return nil, nil, fmt.Errorf("failed to commit. Please make sure your gitconfig contains a name and an email")
 	}
 	
 	w, err := worktree(r)
 	if err != nil {
-		return h, w, err
+		return nil, nil, err
 	}
 
 	if !opts.ShouldSkipAddGlob {
@@ -248,16 +248,16 @@ func (r *repo) commit(opts *PushOptions) (plumbing.Hash, gogit.Worktree, error) 
 		}
 		
 		if err := w.AddGlob(addPattern); err != nil {
-			return h, w, err
+			return nil, nil, err
 		}
 	}
 
 	h, err = w.Commit(opts.CommitMsg, &gg.CommitOptions{All: true})
 	if err != nil {
-		return h, w, err
+		return nil, nil, err
 	}
 
-	return h, w, nil
+	return &h, w, nil
 }
 
 var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
@@ -395,7 +395,7 @@ func (r *repo) addRemote(name, url string) error {
 func (r *repo) initBranch(ctx context.Context, branchName string) error {	
 	_, w, err := r.commit(&PushOptions{
 		CommitMsg: "initial commit",
-		ShouldSkipAddGlob: true,
+		ShouldSkipAddGlob: false, // TODO: change to true (just for test now)
 	})
 
 	if err != nil {
