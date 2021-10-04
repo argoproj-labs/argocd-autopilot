@@ -974,22 +974,12 @@ func Test_repo_commit(t *testing.T) {
 		retErr     error
 		assertFn   func(t *testing.T, r *mocks.Repository, wt *mocks.Worktree)
 	}{
-		"Init current branch": {
+		"Success": {
 			branchName: "",
 			assertFn: func(t *testing.T, r *mocks.Repository, wt *mocks.Worktree) {
 				r.AssertNotCalled(t, "Worktree")
 				wt.AssertCalled(t, "Commit", "initial commit", mock.Anything)
 				wt.AssertNotCalled(t, "Checkout")
-			},
-		},
-		"Init and checkout branch": {
-			assertFn: func(t *testing.T, _ *mocks.Repository, wt *mocks.Worktree) {
-				wt.AssertCalled(t, "Commit", "initial commit", mock.Anything)
-				b := plumbing.NewBranchReferenceName("test")
-				wt.AssertCalled(t, "Checkout", &gg.CheckoutOptions{
-					Branch: b,
-					Create: true,
-				})
 			},
 		},
 		"Error": {
