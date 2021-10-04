@@ -246,6 +246,7 @@ func (r *repo) commit(opts *PushOptions) (*plumbing.Hash, error) {
 	}
 
 	if err := w.AddGlob(addPattern); err != nil {
+		// allowing the glob pattern to not match any files, in case of add-all ("."), like with initBranch for example
 		if addPattern != "." || err != gg.ErrGlobNoMatches {
 			return nil, err
 		}
