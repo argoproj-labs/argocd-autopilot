@@ -217,8 +217,6 @@ func (r *repo) Persist(ctx context.Context, opts *PushOptions) (string, error) {
 		return "", err
 	}
 
-	fmt.Println(h.String())
-
 	return h.String(), r.PushContext(ctx, &gg.PushOptions{
 		Auth:     getAuth(r.auth),
 		Progress: progress,
