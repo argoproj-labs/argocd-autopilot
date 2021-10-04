@@ -60,6 +60,7 @@ type (
 		AddGlobPattern string
 		CommitMsg      string
 		Progress       io.Writer
+		ShouldSkipAddGlob bool
 	}
 
 	repo struct {
@@ -212,22 +213,7 @@ func (r *repo) Persist(ctx context.Context, opts *PushOptions) (string, error) {
 		progress = r.progress
 	}
 
-	addPattern := "."
-
-	if opts.AddGlobPattern != "" {
-		addPattern = opts.AddGlobPattern
-	}
-
-	w, err := worktree(r)
-	if err != nil {
-		return "", err
-	}
-
-	if err := w.AddGlob(addPattern); err != nil {
-		return "", err
-	}
-
-	h, err := w.Commit(opts.CommitMsg, &gg.CommitOptions{All: true})
+	h, _, err := r.commit(opts)
 	if err != nil {
 		return "", err
 	}
@@ -236,6 +222,42 @@ func (r *repo) Persist(ctx context.Context, opts *PushOptions) (string, error) {
 		Auth:     getAuth(r.auth),
 		Progress: progress,
 	})
+}
+
+func (r *repo) commit(opts *PushOptions) (plumbing.Hash, gogit.Worktree, error) {
+	var h plumbing.Hash
+
+	cfg, err := r.ConfigScoped(config.SystemScope)
+	if err != nil {
+		return h, nil, err
+	}
+
+	if cfg.User.Name == "" || cfg.User.Email == "" {
+		return h, nil, fmt.Errorf("failed to commit. Please make sure your gitconfig contains a name and an email")
+	}
+	
+	w, err := worktree(r)
+	if err != nil {
+		return h, w, err
+	}
+
+	if !opts.ShouldSkipAddGlob {
+		addPattern := "."
+		if opts.AddGlobPattern != "" {
+			addPattern = opts.AddGlobPattern
+		}
+		
+		if err := w.AddGlob(addPattern); err != nil {
+			return h, w, err
+		}
+	}
+
+	h, err = w.Commit(opts.CommitMsg, &gg.CommitOptions{All: true})
+	if err != nil {
+		return h, w, err
+	}
+
+	return h, w, nil
 }
 
 var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
@@ -370,15 +392,14 @@ func (r *repo) addRemote(name, url string) error {
 	return err
 }
 
-func (r *repo) initBranch(ctx context.Context, branchName string) error {
-	w, err := worktree(r)
-	if err != nil {
-		return err
-	}
+func (r *repo) initBranch(ctx context.Context, branchName string) error {	
+	_, w, err := r.commit(&PushOptions{
+		CommitMsg: "initial commit",
+		ShouldSkipAddGlob: true,
+	})
 
-	_, err = w.Commit("initial commit", &gg.CommitOptions{})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to commit while trying to initialize the branch. Error: %w", err)
 	}
 
 	if branchName == "" {
