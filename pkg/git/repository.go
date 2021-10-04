@@ -60,7 +60,6 @@ type (
 		AddGlobPattern string
 		CommitMsg      string
 		Progress       io.Writer
-		ShouldSkipAddGlob bool
 	}
 
 	repo struct {
@@ -213,10 +212,12 @@ func (r *repo) Persist(ctx context.Context, opts *PushOptions) (string, error) {
 		progress = r.progress
 	}
 
-	h, _, err := r.commit(opts)
+	h, err := r.commit(opts)
 	if err != nil {
 		return "", err
 	}
+
+	fmt.Println(h.String())
 
 	return h.String(), r.PushContext(ctx, &gg.PushOptions{
 		Auth:     getAuth(r.auth),
@@ -224,40 +225,40 @@ func (r *repo) Persist(ctx context.Context, opts *PushOptions) (string, error) {
 	})
 }
 
-func (r *repo) commit(opts *PushOptions) (*plumbing.Hash, gogit.Worktree, error) {
+func (r *repo) commit(opts *PushOptions) (*plumbing.Hash, error) {
 	var h plumbing.Hash
 
 	cfg, err := r.ConfigScoped(config.SystemScope)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get gitconfig. Error: %w", err)
+		return nil, fmt.Errorf("failed to get gitconfig. Error: %w", err)
 	}
 
 	if cfg.User.Name == "" || cfg.User.Email == "" {
-		return nil, nil, fmt.Errorf("failed to commit. Please make sure your gitconfig contains a name and an email")
-	}
-	
-	w, err := worktree(r)
-	if err != nil {
-		return nil, nil, err
+		return nil, fmt.Errorf("failed to commit. Please make sure your gitconfig contains a name and an email")
 	}
 
-	if !opts.ShouldSkipAddGlob {
-		addPattern := "."
-		if opts.AddGlobPattern != "" {
-			addPattern = opts.AddGlobPattern
-		}
-		
-		if err := w.AddGlob(addPattern); err != nil {
-			return nil, nil, err
+	w, err := worktree(r)
+	if err != nil {
+		return nil, err
+	}
+
+	addPattern := "."
+	if opts.AddGlobPattern != "" {
+		addPattern = opts.AddGlobPattern
+	}
+
+	if err := w.AddGlob(addPattern); err != nil {
+		if addPattern != "." || err != gg.ErrGlobNoMatches {
+			return nil, err
 		}
 	}
 
 	h, err = w.Commit(opts.CommitMsg, &gg.CommitOptions{All: true})
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return &h, w, nil
+	return &h, nil
 }
 
 var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
@@ -318,7 +319,7 @@ var createRepo = func(ctx context.Context, opts *CloneOptions) (string, error) {
 
 	s := strings.Split(orgRepo, "/")
 	if len(s) < 2 {
-		return "", fmt.Errorf("Failed parsing organization and repo from '%s'", orgRepo)
+		return "", fmt.Errorf("failed parsing organization and repo from '%s'", orgRepo)
 	}
 
 	owner := strings.Join(s[:len(s)-1], "/")
@@ -392,10 +393,9 @@ func (r *repo) addRemote(name, url string) error {
 	return err
 }
 
-func (r *repo) initBranch(ctx context.Context, branchName string) error {	
-	_, w, err := r.commit(&PushOptions{
+func (r *repo) initBranch(ctx context.Context, branchName string) error {
+	_, err := r.commit(&PushOptions{
 		CommitMsg: "initial commit",
-		ShouldSkipAddGlob: false, // TODO: change to true (just for test now)
 	})
 
 	if err != nil {
@@ -408,6 +408,12 @@ func (r *repo) initBranch(ctx context.Context, branchName string) error {
 
 	b := plumbing.NewBranchReferenceName(branchName)
 	log.G(ctx).WithField("branch", b).Debug("checking out branch")
+
+	w, err := worktree(r)
+	if err != nil {
+		return err
+	}
+
 	return w.Checkout(&gg.CheckoutOptions{
 		Branch: b,
 		Create: true,
