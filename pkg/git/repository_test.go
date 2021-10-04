@@ -154,6 +154,13 @@ func Test_repo_initBranch(t *testing.T) {
 			mockWt.On("Commit", mock.Anything, mock.Anything).Return(nil, tt.retErr)
 			mockWt.On("Checkout", mock.Anything).Return(tt.retErr)
 
+			User := map[string]string {
+				"Name": "name",
+				"Email": "email",
+			}
+
+			mockRepo.On("ConfigScoped").Return(User)
+
 			worktree = func(r gogit.Repository) (gogit.Worktree, error) { return mockWt, nil }
 
 			r := &repo{Repository: mockRepo}
