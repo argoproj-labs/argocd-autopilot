@@ -155,8 +155,10 @@ func Test_repo_initBranch(t *testing.T) {
 			mockWt.On("Checkout", mock.Anything).Return(tt.retErr)
 
 			var Config *config.Config
-			Config.User.Name = "name"
-			Config.User.Email = "email"
+			User := Config.User
+			User.Name = "name"
+			User.Email = "email"
+			Config.User = User
 
 			mockRepo.On("ConfigScoped", mock.Anything).Return(Config, nil)
 
@@ -965,20 +967,23 @@ func Test_createRepo(t *testing.T) {
 // 			mockRepo := &mocks.Repository{}
 // 			mockWt := &mocks.Worktree{}
 // 			mockWt.On("Commit", mock.Anything, mock.Anything).Return(nil, tt.retErr)
-// 			mockWt.On("Checkout", mock.Anything).Return(tt.retErr)
+// 			// mockWt.On("Checkout", mock.Anything).Return(tt.retErr)
 
-// 			User := map[string]string {
-// 				"Name": "name",
-// 				"Email": "email",
-// 			}
+// 			var Config *config.Config
+// 			Config.User.Name = "name"
+// 			Config.User.Email = "email"
 
-// 			mockRepo.On("ConfigScoped", mock.Anything).Return(User, nil)
+// 			mockRepo.On("ConfigScoped", mock.Anything).Return(Config, nil)
 
 // 			worktree = func(r gogit.Repository) (gogit.Worktree, error) { return mockWt, nil }
 
 // 			r := &repo{Repository: mockRepo}
 
-// 			if err := r.initBranch(context.Background(), tt.branchName); (err != nil) != tt.wantErr {
+// 			_, err := r.commit(&PushOptions{
+// 				CommitMsg: "initial commit",
+// 			})
+
+// 			if (err != nil) != tt.wantErr {
 // 				t.Errorf("repo.checkout() error = %v, wantErr %v", err, tt.wantErr)
 // 			}
 // 		})
