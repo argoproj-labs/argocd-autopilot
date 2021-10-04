@@ -154,12 +154,11 @@ func Test_repo_initBranch(t *testing.T) {
 			mockWt.On("Commit", mock.Anything, mock.Anything).Return(nil, tt.retErr)
 			mockWt.On("Checkout", mock.Anything).Return(tt.retErr)
 
-			User := map[string]string {
-				"Name": "name",
-				"Email": "email",
-			}
+			var Config *config.Config
+			Config.User.Name = "name"
+			Config.User.Email = "email"
 
-			mockRepo.On("ConfigScoped", mock.Anything).Return(User, nil)
+			mockRepo.On("ConfigScoped", mock.Anything).Return(Config, nil)
 
 			worktree = func(r gogit.Repository) (gogit.Worktree, error) { return mockWt, nil }
 
@@ -973,7 +972,7 @@ func Test_createRepo(t *testing.T) {
 // 				"Email": "email",
 // 			}
 
-// 			mockRepo.On("ConfigScoped").Return(User)
+// 			mockRepo.On("ConfigScoped", mock.Anything).Return(User, nil)
 
 // 			worktree = func(r gogit.Repository) (gogit.Worktree, error) { return mockWt, nil }
 
