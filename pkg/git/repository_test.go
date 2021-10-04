@@ -154,14 +154,14 @@ func Test_repo_initBranch(t *testing.T) {
 			mockWt.On("Commit", mock.Anything, mock.Anything).Return(nil, tt.retErr)
 			mockWt.On("Checkout", mock.Anything).Return(tt.retErr)
 
-			cfg := &config.Config{
+			gitConfig := &config.Config{
 				User: struct{Name string; Email string}{
 					Name: "name",
 					Email: "email",
 				},
 			}
 
-			mockRepo.On("ConfigScoped", mock.Anything).Return(cfg, nil)
+			mockRepo.On("ConfigScoped", mock.Anything).Return(gitConfig, nil)
 			mockWt.On("AddGlob", mock.Anything).Return(tt.retErr)
 
 			// fmt.Println(cfg.User.Name)
@@ -598,6 +598,16 @@ func Test_repo_Persist(t *testing.T) {
 			worktree = func(r gogit.Repository) (gogit.Worktree, error) {
 				return mockWt, tt.retErr
 			}
+
+			gitConfig := &config.Config{
+				User: struct{Name string; Email string}{
+					Name: "name",
+					Email: "email",
+				},
+			}
+
+			mockRepo.On("ConfigScoped", mock.Anything).Return(gitConfig, nil)
+			mockWt.On("AddGlob", mock.Anything).Return(tt.retErr)
 
 			revision, err := r.Persist(context.Background(), tt.opts)
 			tt.assertFn(t, mockRepo, mockWt, revision, err)
