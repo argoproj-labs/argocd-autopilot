@@ -155,8 +155,11 @@ func Test_repo_initBranch(t *testing.T) {
 			mockWt.On("Checkout", mock.Anything).Return(tt.retErr)
 
 			gitConfig := &config.Config{
-				User: struct{Name string; Email string}{
-					Name: "name",
+				User: struct {
+					Name  string
+					Email string
+				}{
+					Name:  "name",
 					Email: "email",
 				},
 			}
@@ -225,8 +228,11 @@ func Test_initRepo(t *testing.T) {
 			worktree = func(r gogit.Repository) (gogit.Worktree, error) { return mockWt, nil }
 
 			cfg := &config.Config{
-				User: struct{Name string; Email string}{
-					Name: "name",
+				User: struct {
+					Name  string
+					Email string
+				}{
+					Name:  "name",
 					Email: "email",
 				},
 			}
@@ -600,8 +606,11 @@ func Test_repo_Persist(t *testing.T) {
 			}
 
 			gitConfig := &config.Config{
-				User: struct{Name string; Email string}{
-					Name: "name",
+				User: struct {
+					Name  string
+					Email string
+				}{
+					Name:  "name",
 					Email: "email",
 				},
 			}
@@ -1004,14 +1013,17 @@ func Test_repo_commit(t *testing.T) {
 			mockWt.On("Checkout", mock.Anything).Return(tt.retErr)
 
 			config := &config.Config{
-				User: struct{Name string; Email string}{
-					Name: "name",
+				User: struct {
+					Name  string
+					Email string
+				}{
+					Name:  "name",
 					Email: "email",
 				},
 			}
 
 			mockRepo.On("ConfigScoped", mock.Anything).Return(config, nil)
-			mockRepo.On("AddGlob", mock.Anything).Return(nil)
+			mockWt.On("AddGlob", mock.Anything).Return(tt.retErr)
 
 			worktree = func(r gogit.Repository) (gogit.Worktree, error) { return mockWt, nil }
 
@@ -1020,7 +1032,7 @@ func Test_repo_commit(t *testing.T) {
 			_, err := r.commit(&PushOptions{
 				CommitMsg: "test",
 			})
-			
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("repo.checkout() error = %v, wantErr %v", err, tt.wantErr)
 			}
