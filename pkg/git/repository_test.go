@@ -168,8 +168,9 @@ func Test_repo_initBranch(t *testing.T) {
 			}
 
 			mockRepo.On("ConfigScoped", mock.Anything).Return(cfg, nil)
+			mockRepo.On("AddGlob", mock.Anything).Return(nil)
 
-			fmt.Println(cfg.User.Name)
+			// fmt.Println(cfg.User.Name)
 
 			worktree = func(r gogit.Repository) (gogit.Worktree, error) { return mockWt, nil }
 
