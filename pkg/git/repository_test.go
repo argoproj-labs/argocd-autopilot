@@ -968,7 +968,7 @@ func Test_createRepo(t *testing.T) {
 
 func Test_repo_commit(t *testing.T) {
 	tests := map[string]struct {
-		Run        bool
+		// Run        bool
 		branchName string
 		wantErr    string
 		retErr     error
@@ -976,20 +976,13 @@ func Test_repo_commit(t *testing.T) {
 		beforeFn   func() *mocks.Repository
 	}{
 		"Success": {
-			Run:        true,
+			// Run:        true,
 			branchName: "",
 			beforeFn: func() *mocks.Repository {
 				mockRepo := &mocks.Repository{}
 				mockWt := &mocks.Worktree{} 
 				// mockWt.On("Commit", "test", &gg.CommitOptions{All: true}).Return(plumbing.NewHash("0dee45f70b37aeb59e6d2efb29855f97df9bccb2"), nil)
-				mockWt.On("Commit", "test", &gg.CommitOptions{
-					All: true,
-					Author: &object.Signature{
-					},
-					Committer: &object.Signature{
-					},
-					Parents: []plumbing.Hash{},
-					}).Return(nil, nil)
+				mockWt.On("Commit", "test", mock.Anything).Return(nil, nil)
 				mockWt.On("Checkout", mock.Anything).Return(nil)
 				mockWt.On("AddGlob", mock.Anything).Return(nil)
 				worktree = func(r gogit.Repository) (gogit.Worktree, error) { 
