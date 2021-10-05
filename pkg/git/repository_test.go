@@ -1029,7 +1029,51 @@ func Test_repo_commit(t *testing.T) {
 			},
 		},
 
-		"Error - r.ConfigScope fails": {
+		"Error - ConfigScope fails": {
+			branchName: "test",
+			beforeFn: func() *mocks.Repository {
+				mockRepo := &mocks.Repository{}
+				mockRepo.On("ConfigScoped", mock.Anything).Return(nil, fmt.Errorf("test Config error"))
+
+				return mockRepo
+			},
+			wantErr: "failed to get gitconfig. Error: test Config error",
+			assertFn: func(t *testing.T, _ *mocks.Repository, wt *mocks.Worktree) {
+				wt.AssertNotCalled(t, "Commit", "initial commit", mock.Anything)
+			},
+		},
+
+		"Error - AddGlob fails": {
+			branchName: "test",
+			beforeFn: func() *mocks.Repository {
+				mockRepo := &mocks.Repository{}
+				config := &config.Config{
+					User: struct {
+						Name  string
+						Email string
+					}{
+						Name:  "",
+						Email: "",
+					},
+				}
+
+				mockRepo.On("ConfigScoped", mock.Anything).Return(config, nil)
+				mockWt := &mocks.Worktree{}
+				mockWt.On("AddGlob", mock.Anything).Return(fmt.Errorf("add glob error"))
+
+				worktree = func(r gogit.Repository) (gogit.Worktree, error) {
+					return mockWt, nil
+				}
+
+				return mockRepo
+			},
+			wantErr: "add glob error",
+			assertFn: func(t *testing.T, _ *mocks.Repository, wt *mocks.Worktree) {
+				wt.AssertNotCalled(t, "Commit", "initial commit", mock.Anything)
+			},
+		},
+
+		"Error - Commit fails": {
 			branchName: "test",
 			beforeFn: func() *mocks.Repository {
 				mockRepo := &mocks.Repository{}
@@ -1067,7 +1111,7 @@ func Test_repo_commit(t *testing.T) {
 				return
 			}
 
-			assert.Equal(t, got, hash)
+			assert.Equal(t, got, &hash)
 		})
 	}
 }
