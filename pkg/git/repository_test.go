@@ -11,12 +11,14 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/fs"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/git/gogit"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/git/gogit/mocks"
+	"golang.org/x/crypto/openpgp"
 
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
 	gg "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/storage"
@@ -967,18 +969,37 @@ func Test_createRepo(t *testing.T) {
 
 func Test_repo_commit(t *testing.T) {
 	tests := map[string]struct {
+		Run        bool
 		branchName string
 		wantErr    string
 		retErr     error
 		assertFn   func(t *testing.T, r *mocks.Repository, wt *mocks.Worktree)
-		beforeFn func() *mocks.Repository
+		beforeFn   func() *mocks.Repository
 	}{
 		"Success": {
+			Run:        true,
 			branchName: "",
 			beforeFn: func() *mocks.Repository {
 				mockRepo := &mocks.Repository{}
-				mockWt := &mocks.Worktree{}
-				mockRepo.On("Worktree").Return(mockWt)
+				mockWt := &mocks.Worktree{} 
+				// mockWt.On("Commit", "test", &gg.CommitOptions{All: true}).Return(plumbing.NewHash("0dee45f70b37aeb59e6d2efb29855f97df9bccb2"), nil)
+				mockWt.On("Commit", mock.Anything, &gg.CommitOptions{
+					All: true,
+					Author: &object.Signature{
+						Name: "asd",
+						Email: "asd",
+					},
+					Committer: &object.Signature{
+						Name: "asd",
+						Email: "asd",
+					},
+					Parents: []plumbing.Hash{},
+					}).Return(nil, nil)
+				mockWt.On("Checkout", mock.Anything).Return(nil)
+				mockWt.On("AddGlob", mock.Anything).Return(nil)
+				worktree = func(r gogit.Repository) (gogit.Worktree, error) { 
+					return mockWt, nil 
+				}
 
 				config := &config.Config{
 					User: struct {
@@ -989,13 +1010,13 @@ func Test_repo_commit(t *testing.T) {
 						Email: "email",
 					},
 				}
-	
+
 				mockRepo.On("ConfigScoped", mock.Anything).Return(config, nil)
 
 				return mockRepo
 			},
 			assertFn: func(t *testing.T, r *mocks.Repository, wt *mocks.Worktree) {
-				r.AssertCalled(t, "Worktree") 
+				r.AssertCalled(t, "Worktree")
 				wt.AssertCalled(t, "Commit", "initial commit", mock.Anything)
 			},
 		},
@@ -1004,8 +1025,23 @@ func Test_repo_commit(t *testing.T) {
 			beforeFn: func() *mocks.Repository {
 				mockRepo := &mocks.Repository{}
 				mockWt := &mocks.Worktree{}
-				mockRepo.On("Worktree").Return(mockWt)
-
+				mockWt.On("Commit", mock.Anything, &gg.CommitOptions{
+					All: true,
+					Author: &object.Signature{
+						Name: "asd",
+						Email: "asd",
+					},
+					Committer: &object.Signature{
+						Name: "asd",
+						Email: "asd",
+					},
+					Parents: []plumbing.Hash{},
+					}).Return(nil, nil)
+				mockWt.On("Checkout", mock.Anything).Return(nil)
+				mockWt.On("AddGlob", mock.Anything).Return(nil)
+				worktree = func(r gogit.Repository) (gogit.Worktree, error) { 
+					return mockWt, nil 
+				}
 				config := &config.Config{
 					User: struct {
 						Name  string
@@ -1015,13 +1051,13 @@ func Test_repo_commit(t *testing.T) {
 						Email: "",
 					},
 				}
-	
+
 				mockRepo.On("ConfigScoped", mock.Anything).Return(config, nil)
 
 				return mockRepo
 			},
-			wantErr:    "failed to commit. Please make sure your gitconfig contains a name and an email",
-			retErr:     fmt.Errorf("error"),
+			wantErr: "failed to commit. Please make sure your gitconfig contains a name and an email",
+			retErr:  fmt.Errorf("error"),
 			assertFn: func(t *testing.T, _ *mocks.Repository, wt *mocks.Worktree) {
 				wt.AssertNotCalled(t, "Commit", "initial commit", mock.Anything)
 			},
@@ -1031,15 +1067,11 @@ func Test_repo_commit(t *testing.T) {
 	orgWorktree := worktree
 	defer func() { worktree = orgWorktree }()
 	for tname, tt := range tests {
+		// if !tt.Run { // TODO: REMOVE
+		// 	continue
+		// }
 		t.Run(tname, func(t *testing.T) {
 			mockRepo := tt.beforeFn()
-			mockWt := &mocks.Worktree{}
-			mockWt.On("Commit", mock.Anything, mock.Anything).Return(nil, tt.retErr)
-			mockWt.On("Checkout", mock.Anything).Return(tt.retErr)
-			mockWt.On("AddGlob", mock.Anything).Return(tt.retErr)
-
-			// worktree = func(r gogit.Repository) (gogit.Worktree, error) { return mockWt, nil }
-
 			r := &repo{Repository: mockRepo}
 
 			_, err := r.commit(&PushOptions{
