@@ -422,9 +422,9 @@ func (app *dirApp) CreateFiles(repofs fs.FS, appsfs fs.FS, projectName string) e
 		return ErrAppAlreadyInstalledOnProject
 	}
 
-	configPath := repofs.Join(appPath, "config.json")
+	configPath := repofs.Join(appPath, "config_dir.json")
 	if err := repofs.WriteJson(configPath, app.config); err != nil {
-		return fmt.Errorf("failed to write app config.json: %w", err)
+		return fmt.Errorf("failed to write app config_dir.json: %w", err)
 	}
 
 	clusterName, err := getClusterName(repofs, app.opts.DestServer)
