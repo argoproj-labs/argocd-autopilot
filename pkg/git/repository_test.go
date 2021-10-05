@@ -978,8 +978,8 @@ func Test_repo_commit(t *testing.T) {
 			beforeFn: func() *mocks.Repository {
 				mockRepo := &mocks.Repository{}
 				mockWt := &mocks.Worktree{}
-				mockWt.On("Commit", "test", mock.Anything).Return(nil, nil)
-				mockWt.On("Checkout", mock.Anything).Return(nil)
+				hash := plumbing.NewHash("3992c4")
+				mockWt.On("Commit", "test", mock.Anything).Return(&hash, nil)
 				mockWt.On("AddGlob", mock.Anything).Return(nil)
 				worktree = func(r gogit.Repository) (gogit.Worktree, error) {
 					return mockWt, nil
@@ -1004,16 +1004,11 @@ func Test_repo_commit(t *testing.T) {
 				wt.AssertCalled(t, "Commit", "initial commit", mock.Anything)
 			},
 		},
-		"Error": {
+		"Error - no gitconfig name and email": {
 			branchName: "test",
 			beforeFn: func() *mocks.Repository {
 				mockRepo := &mocks.Repository{}
-				mockWt := &mocks.Worktree{}
-				mockWt.On("Checkout", mock.Anything).Return(nil)
-				mockWt.On("AddGlob", mock.Anything).Return(nil)
-				worktree = func(r gogit.Repository) (gogit.Worktree, error) {
-					return mockWt, nil
-				}
+
 				config := &config.Config{
 					User: struct {
 						Name  string
@@ -1029,7 +1024,31 @@ func Test_repo_commit(t *testing.T) {
 				return mockRepo
 			},
 			wantErr: "failed to commit. Please make sure your gitconfig contains a name and an email",
-			retErr:  fmt.Errorf("error"),
+			assertFn: func(t *testing.T, _ *mocks.Repository, wt *mocks.Worktree) {
+				wt.AssertNotCalled(t, "Commit", "initial commit", mock.Anything)
+			},
+		},
+
+		"Error - r.Config fails": {
+			branchName: "test",
+			beforeFn: func() *mocks.Repository {
+				mockRepo := &mocks.Repository{}
+
+				config := &config.Config{
+					User: struct {
+						Name  string
+						Email string
+					}{
+						Name:  "",
+						Email: "",
+					},
+				}
+
+				mockRepo.On("ConfigScoped", mock.Anything).Return(config, fmt.Errorf("test Config error"))
+
+				return mockRepo
+			},
+			wantErr: "failed to commit. Please make sure your gitconfig contains a name and an email. Error: test Config error",
 			assertFn: func(t *testing.T, _ *mocks.Repository, wt *mocks.Worktree) {
 				wt.AssertNotCalled(t, "Commit", "initial commit", mock.Anything)
 			},
@@ -1043,7 +1062,10 @@ func Test_repo_commit(t *testing.T) {
 			mockRepo := tt.beforeFn()
 			r := &repo{Repository: mockRepo}
 
-			_, err := r.commit(&PushOptions{
+			hash := plumbing.NewHash("3992c4")
+			h := &hash
+
+			got, err := r.commit(&PushOptions{
 				CommitMsg: "test",
 			})
 
@@ -1056,6 +1078,8 @@ func Test_repo_commit(t *testing.T) {
 
 				return
 			}
+
+			assert.Equal(t, got, h)
 		})
 	}
 }
