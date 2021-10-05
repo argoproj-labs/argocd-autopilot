@@ -167,8 +167,6 @@ func Test_repo_initBranch(t *testing.T) {
 			mockRepo.On("ConfigScoped", mock.Anything).Return(gitConfig, nil)
 			mockWt.On("AddGlob", mock.Anything).Return(tt.retErr)
 
-			// fmt.Println(cfg.User.Name)
-
 			worktree = func(r gogit.Repository) (gogit.Worktree, error) { return mockWt, nil }
 
 			r := &repo{Repository: mockRepo}
@@ -970,25 +968,62 @@ func Test_createRepo(t *testing.T) {
 func Test_repo_commit(t *testing.T) {
 	tests := map[string]struct {
 		branchName string
-		wantErr    bool
+		wantErr    string
 		retErr     error
 		assertFn   func(t *testing.T, r *mocks.Repository, wt *mocks.Worktree)
+		beforeFn func() *mocks.Repository
 	}{
 		"Success": {
 			branchName: "",
+			beforeFn: func() *mocks.Repository {
+				mockRepo := &mocks.Repository{}
+				mockWt := &mocks.Worktree{}
+				mockRepo.On("Worktree").Return(mockWt)
+
+				config := &config.Config{
+					User: struct {
+						Name  string
+						Email string
+					}{
+						Name:  "name",
+						Email: "email",
+					},
+				}
+	
+				mockRepo.On("ConfigScoped", mock.Anything).Return(config, nil)
+
+				return mockRepo
+			},
 			assertFn: func(t *testing.T, r *mocks.Repository, wt *mocks.Worktree) {
-				r.AssertNotCalled(t, "Worktree")
+				r.AssertCalled(t, "Worktree") 
 				wt.AssertCalled(t, "Commit", "initial commit", mock.Anything)
-				wt.AssertNotCalled(t, "Checkout")
 			},
 		},
 		"Error": {
 			branchName: "test",
-			wantErr:    true,
+			beforeFn: func() *mocks.Repository {
+				mockRepo := &mocks.Repository{}
+				mockWt := &mocks.Worktree{}
+				mockRepo.On("Worktree").Return(mockWt)
+
+				config := &config.Config{
+					User: struct {
+						Name  string
+						Email string
+					}{
+						Name:  "",
+						Email: "",
+					},
+				}
+	
+				mockRepo.On("ConfigScoped", mock.Anything).Return(config, nil)
+
+				return mockRepo
+			},
+			wantErr:    "failed to commit. Please make sure your gitconfig contains a name and an email",
 			retErr:     fmt.Errorf("error"),
 			assertFn: func(t *testing.T, _ *mocks.Repository, wt *mocks.Worktree) {
-				wt.AssertCalled(t, "Commit", "initial commit", mock.Anything)
-				wt.AssertNotCalled(t, "Checkout")
+				wt.AssertNotCalled(t, "Commit", "initial commit", mock.Anything)
 			},
 		},
 	}
@@ -997,25 +1032,13 @@ func Test_repo_commit(t *testing.T) {
 	defer func() { worktree = orgWorktree }()
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
-			mockRepo := &mocks.Repository{}
+			mockRepo := tt.beforeFn()
 			mockWt := &mocks.Worktree{}
 			mockWt.On("Commit", mock.Anything, mock.Anything).Return(nil, tt.retErr)
 			mockWt.On("Checkout", mock.Anything).Return(tt.retErr)
-
-			config := &config.Config{
-				User: struct {
-					Name  string
-					Email string
-				}{
-					Name:  "name",
-					Email: "email",
-				},
-			}
-
-			mockRepo.On("ConfigScoped", mock.Anything).Return(config, nil)
 			mockWt.On("AddGlob", mock.Anything).Return(tt.retErr)
 
-			worktree = func(r gogit.Repository) (gogit.Worktree, error) { return mockWt, nil }
+			// worktree = func(r gogit.Repository) (gogit.Worktree, error) { return mockWt, nil }
 
 			r := &repo{Repository: mockRepo}
 
@@ -1023,8 +1046,14 @@ func Test_repo_commit(t *testing.T) {
 				CommitMsg: "test",
 			})
 
-			if (err != nil) != tt.wantErr {
-				t.Errorf("repo.checkout() error = %v, wantErr %v", err, tt.wantErr)
+			if err != nil {
+				if tt.wantErr != "" {
+					assert.EqualError(t, err, tt.wantErr)
+				} else {
+					t.Errorf("r.commit() error = %v", err)
+				}
+
+				return
 			}
 		})
 	}
