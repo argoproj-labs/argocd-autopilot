@@ -1029,22 +1029,11 @@ func Test_repo_commit(t *testing.T) {
 			},
 		},
 
-		"Error - r.Config fails": {
+		"Error - r.ConfigScope fails": {
 			branchName: "test",
 			beforeFn: func() *mocks.Repository {
 				mockRepo := &mocks.Repository{}
-
-				config := &config.Config{
-					User: struct {
-						Name  string
-						Email string
-					}{
-						Name:  "",
-						Email: "",
-					},
-				}
-
-				mockRepo.On("ConfigScoped", mock.Anything).Return(config, fmt.Errorf("test Config error"))
+				mockRepo.On("ConfigScoped", mock.Anything).Return(nil, fmt.Errorf("test Config error"))
 
 				return mockRepo
 			},
