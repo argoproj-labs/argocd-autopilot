@@ -1,5 +1,10 @@
 # Changelog:
 
+# v0.2.19
+
+### Features
+* Change directory app to `recurse` mode by default [#185](https://github.com/argoproj-labs/argocd-autopilot/pull/185).
+
 # v0.2.18
 
 ### Internal features:
