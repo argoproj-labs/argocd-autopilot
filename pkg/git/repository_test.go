@@ -968,7 +968,6 @@ func Test_createRepo(t *testing.T) {
 
 func Test_repo_commit(t *testing.T) {
 	tests := map[string]struct {
-		// Run        bool
 		branchName string
 		wantErr    string
 		retErr     error
@@ -976,12 +975,10 @@ func Test_repo_commit(t *testing.T) {
 		beforeFn   func() *mocks.Repository
 	}{
 		"Success": {
-			// Run:        true,
 			branchName: "",
 			beforeFn: func() *mocks.Repository {
 				mockRepo := &mocks.Repository{}
 				mockWt := &mocks.Worktree{} 
-				// mockWt.On("Commit", "test", &gg.CommitOptions{All: true}).Return(plumbing.NewHash("0dee45f70b37aeb59e6d2efb29855f97df9bccb2"), nil)
 				mockWt.On("Commit", "test", mock.Anything).Return(nil, nil)
 				mockWt.On("Checkout", mock.Anything).Return(nil)
 				mockWt.On("AddGlob", mock.Anything).Return(nil)
@@ -1051,9 +1048,6 @@ func Test_repo_commit(t *testing.T) {
 	orgWorktree := worktree
 	defer func() { worktree = orgWorktree }()
 	for tname, tt := range tests {
-		// if !tt.Run { // TODO: REMOVE
-		// 	continue
-		// }
 		t.Run(tname, func(t *testing.T) {
 			mockRepo := tt.beforeFn()
 			r := &repo{Repository: mockRepo}
