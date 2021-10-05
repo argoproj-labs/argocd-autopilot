@@ -979,7 +979,7 @@ func Test_repo_commit(t *testing.T) {
 				mockRepo := &mocks.Repository{}
 				mockWt := &mocks.Worktree{}
 				hash := plumbing.NewHash("3992c4")
-				mockWt.On("Commit", "test", mock.Anything).Return(&hash, nil)
+				mockWt.On("Commit", "test", mock.Anything).Return(hash, nil)
 				mockWt.On("AddGlob", mock.Anything).Return(nil)
 				worktree = func(r gogit.Repository) (gogit.Worktree, error) {
 					return mockWt, nil
@@ -1052,7 +1052,6 @@ func Test_repo_commit(t *testing.T) {
 			r := &repo{Repository: mockRepo}
 
 			hash := plumbing.NewHash("3992c4")
-			h := &hash
 
 			got, err := r.commit(&PushOptions{
 				CommitMsg: "test",
@@ -1068,7 +1067,7 @@ func Test_repo_commit(t *testing.T) {
 				return
 			}
 
-			assert.Equal(t, got, h)
+			assert.Equal(t, got, hash)
 		})
 	}
 }
