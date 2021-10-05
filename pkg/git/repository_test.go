@@ -982,15 +982,11 @@ func Test_repo_commit(t *testing.T) {
 				mockRepo := &mocks.Repository{}
 				mockWt := &mocks.Worktree{} 
 				// mockWt.On("Commit", "test", &gg.CommitOptions{All: true}).Return(plumbing.NewHash("0dee45f70b37aeb59e6d2efb29855f97df9bccb2"), nil)
-				mockWt.On("Commit", mock.Anything, &gg.CommitOptions{
+				mockWt.On("Commit", "test", &gg.CommitOptions{
 					All: true,
 					Author: &object.Signature{
-						Name: "asd",
-						Email: "asd",
 					},
 					Committer: &object.Signature{
-						Name: "asd",
-						Email: "asd",
 					},
 					Parents: []plumbing.Hash{},
 					}).Return(nil, nil)
@@ -1024,15 +1020,11 @@ func Test_repo_commit(t *testing.T) {
 			beforeFn: func() *mocks.Repository {
 				mockRepo := &mocks.Repository{}
 				mockWt := &mocks.Worktree{}
-				mockWt.On("Commit", mock.Anything, &gg.CommitOptions{
+				mockWt.On("Commit", "test", &gg.CommitOptions{
 					All: true,
 					Author: &object.Signature{
-						Name: "asd",
-						Email: "asd",
 					},
 					Committer: &object.Signature{
-						Name: "asd",
-						Email: "asd",
 					},
 					Parents: []plumbing.Hash{},
 					}).Return(nil, nil)
