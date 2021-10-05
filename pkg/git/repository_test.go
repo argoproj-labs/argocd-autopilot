@@ -154,6 +154,19 @@ func Test_repo_initBranch(t *testing.T) {
 			mockWt.On("Commit", mock.Anything, mock.Anything).Return(nil, tt.retErr)
 			mockWt.On("Checkout", mock.Anything).Return(tt.retErr)
 
+			gitConfig := &config.Config{
+				User: struct {
+					Name  string
+					Email string
+				}{
+					Name:  "name",
+					Email: "email",
+				},
+			}
+
+			mockRepo.On("ConfigScoped", mock.Anything).Return(gitConfig, nil)
+			mockWt.On("AddGlob", mock.Anything).Return(tt.retErr)
+
 			worktree = func(r gogit.Repository) (gogit.Worktree, error) { return mockWt, nil }
 
 			r := &repo{Repository: mockRepo}
@@ -211,6 +224,19 @@ func Test_initRepo(t *testing.T) {
 
 			ggInitRepo = func(s storage.Storer, worktree billy.Filesystem) (gogit.Repository, error) { return mockRepo, nil }
 			worktree = func(r gogit.Repository) (gogit.Worktree, error) { return mockWt, nil }
+
+			cfg := &config.Config{
+				User: struct {
+					Name  string
+					Email string
+				}{
+					Name:  "name",
+					Email: "email",
+				},
+			}
+
+			mockRepo.On("ConfigScoped", mock.Anything).Return(cfg, nil)
+			mockWt.On("AddGlob", mock.Anything).Return(tt.retErr)
 
 			tt.opts.Parse()
 			got, err := initRepo(context.Background(), tt.opts)
@@ -577,6 +603,19 @@ func Test_repo_Persist(t *testing.T) {
 				return mockWt, tt.retErr
 			}
 
+			gitConfig := &config.Config{
+				User: struct {
+					Name  string
+					Email string
+				}{
+					Name:  "name",
+					Email: "email",
+				},
+			}
+
+			mockRepo.On("ConfigScoped", mock.Anything).Return(gitConfig, nil)
+			mockWt.On("AddGlob", mock.Anything).Return(tt.retErr)
+
 			revision, err := r.Persist(context.Background(), tt.opts)
 			tt.assertFn(t, mockRepo, mockWt, revision, err)
 		})
@@ -878,7 +917,7 @@ func Test_createRepo(t *testing.T) {
 			opts: &CloneOptions{
 				Repo: "https://github.com/owner.git",
 			},
-			wantErr: "Failed parsing organization and repo from 'owner'",
+			wantErr: "failed parsing organization and repo from 'owner'",
 		},
 		"Should succesfully parse owner and name for long orgRepos": {
 			opts: &CloneOptions{
@@ -922,6 +961,174 @@ func Test_createRepo(t *testing.T) {
 			if got != tt.want {
 				t.Errorf("createRepo() = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func Test_repo_commit(t *testing.T) {
+	tests := map[string]struct {
+		branchName string
+		wantErr    string
+		retErr     error
+		assertFn   func(t *testing.T, r *mocks.Repository, wt *mocks.Worktree)
+		beforeFn   func() *mocks.Repository
+	}{
+		"Success": {
+			branchName: "",
+			beforeFn: func() *mocks.Repository {
+				mockRepo := &mocks.Repository{}
+				mockWt := &mocks.Worktree{}
+				hash := plumbing.NewHash("3992c4")
+				mockWt.On("Commit", "test", mock.Anything).Return(hash, nil)
+				mockWt.On("AddGlob", mock.Anything).Return(nil)
+				worktree = func(r gogit.Repository) (gogit.Worktree, error) {
+					return mockWt, nil
+				}
+
+				config := &config.Config{
+					User: struct {
+						Name  string
+						Email string
+					}{
+						Name:  "name",
+						Email: "email",
+					},
+				}
+
+				mockRepo.On("ConfigScoped", mock.Anything).Return(config, nil)
+
+				return mockRepo
+			},
+			assertFn: func(t *testing.T, r *mocks.Repository, wt *mocks.Worktree) {
+				r.AssertCalled(t, "Worktree")
+				wt.AssertCalled(t, "Commit", "initial commit", mock.Anything)
+			},
+		},
+		"Error - no gitconfig name and email": {
+			branchName: "test",
+			beforeFn: func() *mocks.Repository {
+				mockRepo := &mocks.Repository{}
+
+				config := &config.Config{
+					User: struct {
+						Name  string
+						Email string
+					}{
+						Name:  "",
+						Email: "",
+					},
+				}
+
+				mockRepo.On("ConfigScoped", mock.Anything).Return(config, nil)
+
+				return mockRepo
+			},
+			wantErr: "failed to commit. Please make sure your gitconfig contains a name and an email",
+			assertFn: func(t *testing.T, _ *mocks.Repository, wt *mocks.Worktree) {
+				wt.AssertNotCalled(t, "Commit", "initial commit", mock.Anything)
+			},
+		},
+
+		"Error - ConfigScope fails": {
+			branchName: "test",
+			beforeFn: func() *mocks.Repository {
+				mockRepo := &mocks.Repository{}
+				mockRepo.On("ConfigScoped", mock.Anything).Return(nil, fmt.Errorf("test Config error"))
+
+				return mockRepo
+			},
+			wantErr: "failed to get gitconfig. Error: test Config error",
+			assertFn: func(t *testing.T, _ *mocks.Repository, wt *mocks.Worktree) {
+				wt.AssertNotCalled(t, "Commit", "initial commit", mock.Anything)
+			},
+		},
+
+		"Error - AddGlob fails": {
+			branchName: "test",
+			beforeFn: func() *mocks.Repository {
+				mockRepo := &mocks.Repository{}
+				config := &config.Config{
+					User: struct {
+						Name  string
+						Email string
+					}{
+						Name:  "name",
+						Email: "email",
+					},
+				}
+
+				mockRepo.On("ConfigScoped", mock.Anything).Return(config, nil)
+				mockWt := &mocks.Worktree{}
+				mockWt.On("AddGlob", mock.Anything).Return(fmt.Errorf("add glob error"))
+
+				worktree = func(r gogit.Repository) (gogit.Worktree, error) {
+					return mockWt, nil
+				}
+
+				return mockRepo
+			},
+			wantErr: "add glob error",
+			assertFn: func(t *testing.T, _ *mocks.Repository, wt *mocks.Worktree) {
+				wt.AssertNotCalled(t, "Commit", "initial commit", mock.Anything)
+			},
+		},
+
+		"Error - Commit fails": {
+			branchName: "test",
+			beforeFn: func() *mocks.Repository {
+				mockRepo := &mocks.Repository{}
+				mockWt := &mocks.Worktree{}
+				mockWt.On("AddGlob", mock.Anything).Return(nil)
+				worktree = func(r gogit.Repository) (gogit.Worktree, error) {
+					return mockWt, nil
+				}
+
+				config := &config.Config{
+					User: struct {
+						Name  string
+						Email string
+					}{
+						Name:  "name",
+						Email: "email",
+					},
+				}
+
+				mockRepo.On("ConfigScoped", mock.Anything).Return(config, nil)
+				mockWt.On("Commit", "test", mock.Anything).Return(nil, fmt.Errorf("test Config error"))
+
+				return mockRepo
+			},
+			wantErr: "test Config error",
+			assertFn: func(t *testing.T, _ *mocks.Repository, wt *mocks.Worktree) {
+				wt.AssertNotCalled(t, "Commit", "initial commit", mock.Anything)
+			},
+		},
+	}
+
+	orgWorktree := worktree
+	defer func() { worktree = orgWorktree }()
+	for tname, tt := range tests {
+		t.Run(tname, func(t *testing.T) {
+			mockRepo := tt.beforeFn()
+			r := &repo{Repository: mockRepo}
+
+			hash := plumbing.NewHash("3992c4")
+
+			got, err := r.commit(&PushOptions{
+				CommitMsg: "test",
+			})
+
+			if err != nil {
+				if tt.wantErr != "" {
+					assert.EqualError(t, err, tt.wantErr)
+				} else {
+					t.Errorf("r.commit() error = %v", err)
+				}
+
+				return
+			}
+
+			assert.Equal(t, got, &hash)
 		})
 	}
 }

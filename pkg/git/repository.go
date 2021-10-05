@@ -212,22 +212,7 @@ func (r *repo) Persist(ctx context.Context, opts *PushOptions) (string, error) {
 		progress = r.progress
 	}
 
-	addPattern := "."
-
-	if opts.AddGlobPattern != "" {
-		addPattern = opts.AddGlobPattern
-	}
-
-	w, err := worktree(r)
-	if err != nil {
-		return "", err
-	}
-
-	if err := w.AddGlob(addPattern); err != nil {
-		return "", err
-	}
-
-	h, err := w.Commit(opts.CommitMsg, &gg.CommitOptions{All: true})
+	h, err := r.commit(opts)
 	if err != nil {
 		return "", err
 	}
@@ -236,6 +221,43 @@ func (r *repo) Persist(ctx context.Context, opts *PushOptions) (string, error) {
 		Auth:     getAuth(r.auth),
 		Progress: progress,
 	})
+}
+
+func (r *repo) commit(opts *PushOptions) (*plumbing.Hash, error) {
+	var h plumbing.Hash
+
+	cfg, err := r.ConfigScoped(config.SystemScope)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get gitconfig. Error: %w", err)
+	}
+
+	if cfg.User.Name == "" || cfg.User.Email == "" {
+		return nil, fmt.Errorf("failed to commit. Please make sure your gitconfig contains a name and an email")
+	}
+
+	w, err := worktree(r)
+	if err != nil {
+		return nil, err
+	}
+
+	addPattern := "."
+	if opts.AddGlobPattern != "" {
+		addPattern = opts.AddGlobPattern
+	}
+
+	if err := w.AddGlob(addPattern); err != nil {
+		// allowing the glob pattern to not match any files, in case of add-all ("."), like with initBranch for example
+		if addPattern != "." || err != gg.ErrGlobNoMatches {
+			return nil, err
+		}
+	}
+
+	h, err = w.Commit(opts.CommitMsg, &gg.CommitOptions{All: true})
+	if err != nil {
+		return nil, err
+	}
+
+	return &h, nil
 }
 
 var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
@@ -296,7 +318,7 @@ var createRepo = func(ctx context.Context, opts *CloneOptions) (string, error) {
 
 	s := strings.Split(orgRepo, "/")
 	if len(s) < 2 {
-		return "", fmt.Errorf("Failed parsing organization and repo from '%s'", orgRepo)
+		return "", fmt.Errorf("failed parsing organization and repo from '%s'", orgRepo)
 	}
 
 	owner := strings.Join(s[:len(s)-1], "/")
@@ -371,14 +393,12 @@ func (r *repo) addRemote(name, url string) error {
 }
 
 func (r *repo) initBranch(ctx context.Context, branchName string) error {
-	w, err := worktree(r)
-	if err != nil {
-		return err
-	}
+	_, err := r.commit(&PushOptions{
+		CommitMsg: "initial commit",
+	})
 
-	_, err = w.Commit("initial commit", &gg.CommitOptions{})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to commit while trying to initialize the branch. Error: %w", err)
 	}
 
 	if branchName == "" {
@@ -387,6 +407,12 @@ func (r *repo) initBranch(ctx context.Context, branchName string) error {
 
 	b := plumbing.NewBranchReferenceName(branchName)
 	log.G(ctx).WithField("branch", b).Debug("checking out branch")
+
+	w, err := worktree(r)
+	if err != nil {
+		return err
+	}
+
 	return w.Checkout(&gg.CheckoutOptions{
 		Branch: b,
 		Create: true,
