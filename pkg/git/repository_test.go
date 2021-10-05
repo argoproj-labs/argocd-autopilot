@@ -17,7 +17,6 @@ import (
 	gg "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/storage"
@@ -978,12 +977,12 @@ func Test_repo_commit(t *testing.T) {
 			branchName: "",
 			beforeFn: func() *mocks.Repository {
 				mockRepo := &mocks.Repository{}
-				mockWt := &mocks.Worktree{} 
+				mockWt := &mocks.Worktree{}
 				mockWt.On("Commit", "test", mock.Anything).Return(nil, nil)
 				mockWt.On("Checkout", mock.Anything).Return(nil)
 				mockWt.On("AddGlob", mock.Anything).Return(nil)
-				worktree = func(r gogit.Repository) (gogit.Worktree, error) { 
-					return mockWt, nil 
+				worktree = func(r gogit.Repository) (gogit.Worktree, error) {
+					return mockWt, nil
 				}
 
 				config := &config.Config{
@@ -1010,18 +1009,10 @@ func Test_repo_commit(t *testing.T) {
 			beforeFn: func() *mocks.Repository {
 				mockRepo := &mocks.Repository{}
 				mockWt := &mocks.Worktree{}
-				mockWt.On("Commit", "test", &gg.CommitOptions{
-					All: true,
-					Author: &object.Signature{
-					},
-					Committer: &object.Signature{
-					},
-					Parents: []plumbing.Hash{},
-					}).Return(nil, nil)
 				mockWt.On("Checkout", mock.Anything).Return(nil)
 				mockWt.On("AddGlob", mock.Anything).Return(nil)
-				worktree = func(r gogit.Repository) (gogit.Worktree, error) { 
-					return mockWt, nil 
+				worktree = func(r gogit.Repository) (gogit.Worktree, error) {
+					return mockWt, nil
 				}
 				config := &config.Config{
 					User: struct {
