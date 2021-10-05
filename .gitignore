@@ -91,4 +91,4 @@ $RECYCLE.BIN/
 site
 
 # codecov 
-codecov.log
+codecov*
