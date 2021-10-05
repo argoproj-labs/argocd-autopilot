@@ -11,7 +11,6 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/fs"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/git/gogit"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/git/gogit/mocks"
-	"golang.org/x/crypto/openpgp"
 
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
