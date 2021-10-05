@@ -1052,8 +1052,8 @@ func Test_repo_commit(t *testing.T) {
 						Name  string
 						Email string
 					}{
-						Name:  "",
-						Email: "",
+						Name:  "name",
+						Email: "email",
 					},
 				}
 
@@ -1077,11 +1077,28 @@ func Test_repo_commit(t *testing.T) {
 			branchName: "test",
 			beforeFn: func() *mocks.Repository {
 				mockRepo := &mocks.Repository{}
-				mockRepo.On("ConfigScoped", mock.Anything).Return(nil, fmt.Errorf("test Config error"))
+				mockWt := &mocks.Worktree{}
+				mockWt.On("AddGlob", mock.Anything).Return(nil)
+				worktree = func(r gogit.Repository) (gogit.Worktree, error) {
+					return mockWt, nil
+				}
+
+				config := &config.Config{
+					User: struct {
+						Name  string
+						Email string
+					}{
+						Name:  "name",
+						Email: "email",
+					},
+				}
+
+				mockRepo.On("ConfigScoped", mock.Anything).Return(config, nil)
+				mockWt.On("Commit", "test", mock.Anything).Return(nil, fmt.Errorf("test Config error"))
 
 				return mockRepo
 			},
-			wantErr: "failed to commit. Please make sure your gitconfig contains a name and an email. Error: test Config error",
+			wantErr: "test Config error",
 			assertFn: func(t *testing.T, _ *mocks.Repository, wt *mocks.Worktree) {
 				wt.AssertNotCalled(t, "Commit", "initial commit", mock.Anything)
 			},
