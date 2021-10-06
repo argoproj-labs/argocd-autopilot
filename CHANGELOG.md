@@ -1,5 +1,10 @@
 # Changelog:
 
+# v0.2.20
+
+### Features
+* Directory app supports include/exclude options
+
 # v0.2.19
 
 ### Features
