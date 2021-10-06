@@ -4,9 +4,8 @@ go 1.16
 
 require (
 	code.gitea.io/sdk/gitea v0.14.1
-	github.com/argoproj-labs/applicationset v0.1.0
-	github.com/argoproj/argo-cd v1.8.7
-	github.com/argoproj/argo-cd/v2 v2.1.2
+	github.com/argoproj-labs/applicationset v0.2.0
+	github.com/argoproj/argo-cd/v2 v2.1.0
 	github.com/argoproj/gitops-engine v0.4.1
 	github.com/briandowns/spinner v1.16.0
 	github.com/ghodss/yaml v1.0.0
@@ -28,8 +27,6 @@ require (
 )
 
 replace (
-	github.com/argoproj-labs/applicationset => github.com/argoproj-labs/applicationset v0.0.0-20210614145856-2c62537a8e5a
-
 	github.com/golang/protobuf => github.com/golang/protobuf v1.4.2
 	github.com/gorilla/websocket => github.com/gorilla/websocket v1.4.2
 	github.com/grpc-ecosystem/grpc-gateway => github.com/grpc-ecosystem/grpc-gateway v1.16.0

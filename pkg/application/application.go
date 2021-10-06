@@ -76,6 +76,8 @@ type (
 		DestServer       string
 		InstallationMode string
 		Labels           map[string]string
+		Exclude          string
+		Include          string
 	}
 
 	baseApp struct {
@@ -84,7 +86,13 @@ type (
 
 	dirApp struct {
 		baseApp
-		config *Config
+		dirConfig *dirConfig
+	}
+
+	dirConfig struct {
+		Config
+		Exclude string `json:"exclude"`
+		Include string `json:"include"`
 	}
 
 	kustApp struct {
@@ -402,15 +410,19 @@ func newDirApp(opts *CreateOptions) *dirApp {
 		path = "."
 	}
 
-	app.config = &Config{
-		AppName:           opts.AppName,
-		UserGivenName:     opts.AppName,
-		DestNamespace:     opts.DestNamespace,
-		DestServer:        opts.DestServer,
-		SrcRepoURL:        url,
-		SrcPath:           path,
-		SrcTargetRevision: gitRef,
-		Labels:            opts.Labels,
+	app.dirConfig = &dirConfig{
+		Config: Config{
+			AppName:           opts.AppName,
+			UserGivenName:     opts.AppName,
+			DestNamespace:     opts.DestNamespace,
+			DestServer:        opts.DestServer,
+			SrcRepoURL:        url,
+			SrcPath:           path,
+			SrcTargetRevision: gitRef,
+			Labels:            opts.Labels,
+		},
+		Exclude: opts.Exclude,
+		Include: opts.Include,
 	}
 
 	return app
@@ -423,7 +435,7 @@ func (app *dirApp) CreateFiles(repofs fs.FS, appsfs fs.FS, projectName string) e
 	}
 
 	configPath := repofs.Join(appPath, "config_dir.json")
-	if err := repofs.WriteJson(configPath, app.config); err != nil {
+	if err := repofs.WriteJson(configPath, app.dirConfig); err != nil {
 		return fmt.Errorf("failed to write app config_dir.json: %w", err)
 	}
 
