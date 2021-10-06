@@ -693,14 +693,17 @@ func Test_newDirApp(t *testing.T) {
 				DestServer:    "buzz",
 			},
 			want: &dirApp{
-				config: &Config{
-					AppName:           "fooapp",
-					UserGivenName:     "fooapp",
-					DestNamespace:     "fizz",
-					DestServer:        "buzz",
-					SrcRepoURL:        "https://github.com/foo/bar.git",
-					SrcTargetRevision: "v0.1.2",
-					SrcPath:           "somepath/in/repo",
+
+				dirConfig: &dirConfig{
+					Config: Config{
+						AppName:           "fooapp",
+						UserGivenName:     "fooapp",
+						DestNamespace:     "fizz",
+						DestServer:        "buzz",
+						SrcRepoURL:        "https://github.com/foo/bar.git",
+						SrcTargetRevision: "v0.1.2",
+						SrcPath:           "somepath/in/repo",
+					},
 				},
 			},
 		},
@@ -710,22 +713,24 @@ func Test_newDirApp(t *testing.T) {
 				AppSpecifier: "github.com/foo/bar",
 			},
 			want: &dirApp{
-				config: &Config{
-					AppName:           "fooapp",
-					UserGivenName:     "fooapp",
-					DestNamespace:     "",
-					DestServer:        "",
-					SrcRepoURL:        "https://github.com/foo/bar.git",
-					SrcTargetRevision: "",
-					SrcPath:           ".",
+				dirConfig: &dirConfig{
+					Config: Config{
+						AppName:           "fooapp",
+						UserGivenName:     "fooapp",
+						DestNamespace:     "",
+						DestServer:        "",
+						SrcRepoURL:        "https://github.com/foo/bar.git",
+						SrcTargetRevision: "",
+						SrcPath:           ".",
+					},
 				},
 			},
 		},
 	}
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
-			if got := newDirApp(tt.opts); !reflect.DeepEqual(got.config, tt.want.config) {
-				t.Errorf("newDirApp() = %+v, want %+v", got.config, tt.want.config)
+			if got := newDirApp(tt.opts); !reflect.DeepEqual(got.dirConfig, tt.want.dirConfig) {
+				t.Errorf("newDirApp() = %+v, want %+v", got.dirConfig, tt.want.dirConfig)
 			}
 		})
 	}
