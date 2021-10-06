@@ -20,7 +20,6 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 
 	appset "github.com/argoproj-labs/applicationset/api/v1alpha1"
-	"github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/ghodss/yaml"
 	"github.com/go-git/go-billy/v5/memfs"
@@ -309,10 +308,12 @@ func generateProjectManifests(o *GenerateProjectOptions) (projectYAML, appSetYAM
 					},
 					RequeueAfterSeconds: &DefaultApplicationSetGeneratorInterval,
 					Template: appset.ApplicationSetTemplate{
-						Spec: v1alpha1.ApplicationSpec{
-							Source: v1alpha1.ApplicationSource{
-								Directory: &v1alpha1.ApplicationSourceDirectory{
+						Spec: argocdv1alpha1.ApplicationSpec{
+							Source: argocdv1alpha1.ApplicationSource{
+								Directory: &argocdv1alpha1.ApplicationSourceDirectory{
 									Recurse: true,
+									Exclude: "{{ exclude }}",
+									Include: "{{ include }}",	
 								},
 							},
 						} ,

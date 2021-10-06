@@ -16,7 +16,6 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 
 	appset "github.com/argoproj-labs/applicationset/api/v1alpha1"
-	appsetv1alpha1 "github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/ghodss/yaml"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -218,25 +217,25 @@ func createAppSet(o *createAppSetOptions) ([]byte, error) {
 					Name:      o.appName,
 					Labels:    o.appLabels,
 				},
-				Spec: appsetv1alpha1.ApplicationSpec{
+				Spec: argocdv1alpha1.ApplicationSpec{
 					Project: o.appProject,
-					Source: appsetv1alpha1.ApplicationSource{
+					Source: argocdv1alpha1.ApplicationSource{
 						RepoURL:        o.repoURL,
 						Path:           o.srcPath,
 						TargetRevision: o.revision,
 					},
-					Destination: appsetv1alpha1.ApplicationDestination{
+					Destination: argocdv1alpha1.ApplicationDestination{
 						Server:    o.destServer,
 						Namespace: o.destNamespace,
 					},
-					SyncPolicy: &appsetv1alpha1.SyncPolicy{
-						Automated: &appsetv1alpha1.SyncPolicyAutomated{
+					SyncPolicy: &argocdv1alpha1.SyncPolicy{
+						Automated: &argocdv1alpha1.SyncPolicyAutomated{
 							SelfHeal:   true,
 							Prune:      o.prune,
 							AllowEmpty: true,
 						},
 					},
-					IgnoreDifferences: []appsetv1alpha1.ResourceIgnoreDifferences{
+					IgnoreDifferences: []argocdv1alpha1.ResourceIgnoreDifferences{
 						{
 							Group: "argoproj.io",
 							Kind:  "Application",
