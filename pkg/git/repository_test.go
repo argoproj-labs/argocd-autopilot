@@ -584,6 +584,35 @@ func Test_repo_Persist(t *testing.T) {
 				w.AssertCalled(t, "Commit", "hello", mock.Anything)
 			},
 		},
+		"Retry push on 'repo not found err'": {
+			opts: &PushOptions{
+				AddGlobPattern: "test",
+				CommitMsg:      "hello",
+			},
+			retErr:      transport.ErrRepositoryNotFound,
+			retRevision: "0dee45f70b37aeb59e6d2efb29855f97df9bccb2",
+			assertFn: func(t *testing.T, r *mocks.Repository, w *mocks.Worktree, revision string, err error) {
+				assert.Equal(t, "0dee45f70b37aeb59e6d2efb29855f97df9bccb2", revision)
+				assert.Error(t, err, transport.ErrRepositoryNotFound)
+				r.AssertCalled(t, "PushContext", mock.Anything, &gg.PushOptions{
+					Auth:     nil,
+					Progress: os.Stderr,
+				})
+				r.AssertNumberOfCalls(t, "PushContext", 3)
+				w.AssertCalled(t, "AddGlob", "test")
+				w.AssertCalled(t, "Commit", "hello", mock.Anything)
+			},
+		},
+	}
+
+	gitConfig := &config.Config{
+		User: struct {
+			Name  string
+			Email string
+		}{
+			Name:  "name",
+			Email: "email",
+		},
 	}
 
 	worktreeOrg := worktree
@@ -593,28 +622,16 @@ func Test_repo_Persist(t *testing.T) {
 		t.Run(tname, func(t *testing.T) {
 			mockRepo := &mocks.Repository{}
 			mockRepo.On("PushContext", mock.Anything, mock.Anything).Return(tt.retErr)
+			mockRepo.On("ConfigScoped", mock.Anything).Return(gitConfig, nil)
 
 			mockWt := &mocks.Worktree{}
-			mockWt.On("AddGlob", mock.Anything).Return(tt.retErr)
-			mockWt.On("Commit", mock.Anything, mock.Anything).Return(plumbing.NewHash(tt.retRevision), tt.retErr)
+			mockWt.On("AddGlob", mock.Anything).Return(nil)
+			mockWt.On("Commit", mock.Anything, mock.Anything).Return(plumbing.NewHash(tt.retRevision), nil)
 
 			r := &repo{Repository: mockRepo, progress: os.Stderr}
 			worktree = func(r gogit.Repository) (gogit.Worktree, error) {
-				return mockWt, tt.retErr
+				return mockWt, nil
 			}
-
-			gitConfig := &config.Config{
-				User: struct {
-					Name  string
-					Email string
-				}{
-					Name:  "name",
-					Email: "email",
-				},
-			}
-
-			mockRepo.On("ConfigScoped", mock.Anything).Return(gitConfig, nil)
-			mockWt.On("AddGlob", mock.Anything).Return(tt.retErr)
 
 			revision, err := r.Persist(context.Background(), tt.opts)
 			tt.assertFn(t, mockRepo, mockWt, revision, err)
