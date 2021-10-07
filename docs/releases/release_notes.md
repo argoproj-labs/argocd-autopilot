@@ -1,8 +1,8 @@
-### Features
-* Change directory app to `recurse` mode by default [#185](https://github.com/argoproj-labs/argocd-autopilot/pull/185).
+### Bug Fixes
+* Fixed sporadic "repository not found" errors when cloning or pushing [#191](https://github.com/argoproj-labs/argocd-autopilot/pull/191).
 
 ### Contributors:
-- Oren Gurfinkel ([@oren-codefresh](https://github.com/oren-codefresh))
+- Roi Kramer ([@roi-codefresh](https://github.com/roi-codefresh))
 
 ## Installation:
 
@@ -20,7 +20,7 @@ argocd-autopilot version
 ### Linux and WSL (using curl):
 ```bash
 # download and extract the binary
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.2.19/argocd-autopilot-linux-amd64.tar.gz | tar zx
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.2.20/argocd-autopilot-linux-amd64.tar.gz | tar zx
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
@@ -32,7 +32,7 @@ argocd-autopilot version
 ### Mac (using curl):
 ```bash
 # download and extract the binary
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.2.19/argocd-autopilot-darwin-amd64.tar.gz | tar zx
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.2.20/argocd-autopilot-darwin-amd64.tar.gz | tar zx
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
