@@ -369,6 +369,24 @@ func Test_clone(t *testing.T) {
 			retErr:  transport.ErrRepositoryNotFound,
 			wantErr: true,
 		},
+		"Should not retry if createIfNotExist is true": {
+			opts: &CloneOptions{
+				Repo:             "https://github.com/owner/name",
+				createIfNotExist: true,
+			},
+			expectedOpts: &gg.CloneOptions{
+				URL:      "https://github.com/owner/name.git",
+				Auth:     nil,
+				Depth:    1,
+				Progress: os.Stderr,
+			},
+			assertFn: func(t *testing.T, r *repo, cloneCalls int) {
+				assert.Nil(t, r)
+				assert.Equal(t, cloneCalls, 1)
+			},
+			retErr:  transport.ErrRepositoryNotFound,
+			wantErr: true,
+		},
 	}
 
 	origCheckoutRef, origClone := checkoutRef, ggClone

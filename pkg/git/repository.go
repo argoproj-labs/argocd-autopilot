@@ -283,8 +283,9 @@ func (r *repo) commit(opts *PushOptions) (*plumbing.Hash, error) {
 
 var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 	var (
-		err error
-		r   gogit.Repository
+		err            error
+		r              gogit.Repository
+		curPushRetries = pushRetries
 	)
 
 	if opts == nil {
@@ -305,7 +306,11 @@ var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 
 	log.G(ctx).WithField("url", opts.url).Debug("cloning git repo")
 
-	for try := 0; try < pushRetries; try++ {
+	if opts.createIfNotExist {
+		curPushRetries = 1 // no retries
+	}
+
+	for try := 0; try < curPushRetries; try++ {
 		r, err = ggClone(ctx, memory.NewStorage(), opts.FS, cloneOpts)
 		if err == nil || !errors.Is(err, transport.ErrRepositoryNotFound) {
 			break
@@ -314,7 +319,7 @@ var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 		log.G(ctx).WithFields(log.Fields{
 			"retry": try,
 			"err":   err.Error(),
-		}).Warn("Failed to clone repository, trying again in 3 seconds...")
+		}).Debug("Failed to clone repository, trying again in 3 seconds...")
 
 		time.Sleep(failureBackoffTime)
 	}
