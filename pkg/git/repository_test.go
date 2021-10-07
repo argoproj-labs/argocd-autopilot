@@ -259,11 +259,11 @@ func Test_clone(t *testing.T) {
 		wantErr      bool
 		expectedOpts *gg.CloneOptions
 		checkoutRef  func(t *testing.T, r *repo, ref string) error
-		assertFn     func(t *testing.T, r *repo)
+		assertFn     func(t *testing.T, r *repo, cloneCalls int)
 	}{
 		"Should fail when there are no CloneOptions": {
 			wantErr: true,
-			assertFn: func(t *testing.T, r *repo) {
+			assertFn: func(t *testing.T, r *repo, cloneCalls int) {
 				assert.Nil(t, r)
 			},
 		},
@@ -277,7 +277,7 @@ func Test_clone(t *testing.T) {
 				Depth:    1,
 				Progress: os.Stderr,
 			},
-			assertFn: func(t *testing.T, r *repo) {
+			assertFn: func(t *testing.T, r *repo, cloneCalls int) {
 				assert.NotNil(t, r)
 			},
 		},
@@ -298,7 +298,7 @@ func Test_clone(t *testing.T) {
 				Depth:    1,
 				Progress: os.Stderr,
 			},
-			assertFn: func(t *testing.T, r *repo) {
+			assertFn: func(t *testing.T, r *repo, cloneCalls int) {
 				assert.NotNil(t, r)
 			},
 		},
@@ -313,7 +313,7 @@ func Test_clone(t *testing.T) {
 			},
 			retErr:  fmt.Errorf("error"),
 			wantErr: true,
-			assertFn: func(t *testing.T, r *repo) {
+			assertFn: func(t *testing.T, r *repo, cloneCalls int) {
 				assert.Nil(t, r)
 			},
 		},
@@ -330,7 +330,7 @@ func Test_clone(t *testing.T) {
 				assert.Equal(t, "test", ref)
 				return nil
 			},
-			assertFn: func(t *testing.T, r *repo) {
+			assertFn: func(t *testing.T, r *repo, cloneCalls int) {
 				assert.NotNil(t, r)
 			},
 		},
@@ -348,9 +348,44 @@ func Test_clone(t *testing.T) {
 				assert.Equal(t, "test", ref)
 				return errors.New("some error")
 			},
-			assertFn: func(t *testing.T, r *repo) {
+			assertFn: func(t *testing.T, r *repo, cloneCalls int) {
 				assert.Nil(t, r)
 			},
+		},
+		"Should retry if fails with 'repo not found' error": {
+			opts: &CloneOptions{
+				Repo: "https://github.com/owner/name",
+			},
+			expectedOpts: &gg.CloneOptions{
+				URL:      "https://github.com/owner/name.git",
+				Auth:     nil,
+				Depth:    1,
+				Progress: os.Stderr,
+			},
+			assertFn: func(t *testing.T, r *repo, cloneCalls int) {
+				assert.Nil(t, r)
+				assert.Equal(t, cloneCalls, 3)
+			},
+			retErr:  transport.ErrRepositoryNotFound,
+			wantErr: true,
+		},
+		"Should not retry if createIfNotExist is true": {
+			opts: &CloneOptions{
+				Repo:             "https://github.com/owner/name",
+				createIfNotExist: true,
+			},
+			expectedOpts: &gg.CloneOptions{
+				URL:      "https://github.com/owner/name.git",
+				Auth:     nil,
+				Depth:    1,
+				Progress: os.Stderr,
+			},
+			assertFn: func(t *testing.T, r *repo, cloneCalls int) {
+				assert.Nil(t, r)
+				assert.Equal(t, cloneCalls, 1)
+			},
+			retErr:  transport.ErrRepositoryNotFound,
+			wantErr: true,
 		},
 	}
 
@@ -363,7 +398,9 @@ func Test_clone(t *testing.T) {
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
 			mockRepo := &mocks.Repository{}
+			cloneCalls := 0
 			ggClone = func(_ context.Context, _ storage.Storer, _ billy.Filesystem, o *gg.CloneOptions) (gogit.Repository, error) {
+				cloneCalls++
 				if tt.expectedOpts != nil {
 					assert.True(t, reflect.DeepEqual(o, tt.expectedOpts), "opts not equal")
 				}
@@ -391,7 +428,7 @@ func Test_clone(t *testing.T) {
 				return
 			}
 
-			tt.assertFn(t, got)
+			tt.assertFn(t, got, cloneCalls)
 		})
 	}
 }
@@ -584,6 +621,35 @@ func Test_repo_Persist(t *testing.T) {
 				w.AssertCalled(t, "Commit", "hello", mock.Anything)
 			},
 		},
+		"Retry push on 'repo not found err'": {
+			opts: &PushOptions{
+				AddGlobPattern: "test",
+				CommitMsg:      "hello",
+			},
+			retErr:      transport.ErrRepositoryNotFound,
+			retRevision: "0dee45f70b37aeb59e6d2efb29855f97df9bccb2",
+			assertFn: func(t *testing.T, r *mocks.Repository, w *mocks.Worktree, revision string, err error) {
+				assert.Equal(t, "0dee45f70b37aeb59e6d2efb29855f97df9bccb2", revision)
+				assert.Error(t, err, transport.ErrRepositoryNotFound)
+				r.AssertCalled(t, "PushContext", mock.Anything, &gg.PushOptions{
+					Auth:     nil,
+					Progress: os.Stderr,
+				})
+				r.AssertNumberOfCalls(t, "PushContext", 3)
+				w.AssertCalled(t, "AddGlob", "test")
+				w.AssertCalled(t, "Commit", "hello", mock.Anything)
+			},
+		},
+	}
+
+	gitConfig := &config.Config{
+		User: struct {
+			Name  string
+			Email string
+		}{
+			Name:  "name",
+			Email: "email",
+		},
 	}
 
 	worktreeOrg := worktree
@@ -593,28 +659,16 @@ func Test_repo_Persist(t *testing.T) {
 		t.Run(tname, func(t *testing.T) {
 			mockRepo := &mocks.Repository{}
 			mockRepo.On("PushContext", mock.Anything, mock.Anything).Return(tt.retErr)
+			mockRepo.On("ConfigScoped", mock.Anything).Return(gitConfig, nil)
 
 			mockWt := &mocks.Worktree{}
-			mockWt.On("AddGlob", mock.Anything).Return(tt.retErr)
-			mockWt.On("Commit", mock.Anything, mock.Anything).Return(plumbing.NewHash(tt.retRevision), tt.retErr)
+			mockWt.On("AddGlob", mock.Anything).Return(nil)
+			mockWt.On("Commit", mock.Anything, mock.Anything).Return(plumbing.NewHash(tt.retRevision), nil)
 
 			r := &repo{Repository: mockRepo, progress: os.Stderr}
 			worktree = func(r gogit.Repository) (gogit.Worktree, error) {
-				return mockWt, tt.retErr
+				return mockWt, nil
 			}
-
-			gitConfig := &config.Config{
-				User: struct {
-					Name  string
-					Email string
-				}{
-					Name:  "name",
-					Email: "email",
-				},
-			}
-
-			mockRepo.On("ConfigScoped", mock.Anything).Return(gitConfig, nil)
-			mockWt.On("AddGlob", mock.Anything).Return(tt.retErr)
 
 			revision, err := r.Persist(context.Background(), tt.opts)
 			tt.assertFn(t, mockRepo, mockWt, revision, err)

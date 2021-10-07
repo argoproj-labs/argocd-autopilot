@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/argoproj-labs/argocd-autopilot/pkg/fs"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/git/gogit"
@@ -75,6 +76,12 @@ var (
 	ErrNoParse      = errors.New("must call Parse before using CloneOptions")
 	ErrRepoNotFound = errors.New("git repository not found")
 	ErrNoRemotes    = errors.New("no remotes in repository")
+)
+
+// Defaults
+const (
+	pushRetries        = 3
+	failureBackoffTime = 3 * time.Second
 )
 
 // go-git functions (we mock those in tests)
@@ -217,10 +224,24 @@ func (r *repo) Persist(ctx context.Context, opts *PushOptions) (string, error) {
 		return "", err
 	}
 
-	return h.String(), r.PushContext(ctx, &gg.PushOptions{
-		Auth:     getAuth(r.auth),
-		Progress: progress,
-	})
+	for try := 0; try < pushRetries; try++ {
+		err = r.PushContext(ctx, &gg.PushOptions{
+			Auth:     getAuth(r.auth),
+			Progress: progress,
+		})
+		if err == nil || !errors.Is(err, transport.ErrRepositoryNotFound) {
+			break
+		}
+
+		log.G(ctx).WithFields(log.Fields{
+			"retry": try,
+			"err":   err.Error(),
+		}).Warn("Failed to push to repository, trying again in 3 seconds...")
+
+		time.Sleep(failureBackoffTime)
+	}
+
+	return h.String(), err
 }
 
 func (r *repo) commit(opts *PushOptions) (*plumbing.Hash, error) {
@@ -261,6 +282,12 @@ func (r *repo) commit(opts *PushOptions) (*plumbing.Hash, error) {
 }
 
 var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
+	var (
+		err            error
+		r              gogit.Repository
+		curPushRetries = pushRetries
+	)
+
 	if opts == nil {
 		return nil, ErrNilOpts
 	}
@@ -278,7 +305,25 @@ var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 	}
 
 	log.G(ctx).WithField("url", opts.url).Debug("cloning git repo")
-	r, err := ggClone(ctx, memory.NewStorage(), opts.FS, cloneOpts)
+
+	if opts.createIfNotExist {
+		curPushRetries = 1 // no retries
+	}
+
+	for try := 0; try < curPushRetries; try++ {
+		r, err = ggClone(ctx, memory.NewStorage(), opts.FS, cloneOpts)
+		if err == nil || !errors.Is(err, transport.ErrRepositoryNotFound) {
+			break
+		}
+
+		log.G(ctx).WithFields(log.Fields{
+			"retry": try,
+			"err":   err.Error(),
+		}).Debug("Failed to clone repository, trying again in 3 seconds...")
+
+		time.Sleep(failureBackoffTime)
+	}
+
 	if err != nil {
 		return nil, err
 	}
