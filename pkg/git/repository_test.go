@@ -259,11 +259,11 @@ func Test_clone(t *testing.T) {
 		wantErr      bool
 		expectedOpts *gg.CloneOptions
 		checkoutRef  func(t *testing.T, r *repo, ref string) error
-		assertFn     func(t *testing.T, r *repo)
+		assertFn     func(t *testing.T, r *repo, cloneCalls int)
 	}{
 		"Should fail when there are no CloneOptions": {
 			wantErr: true,
-			assertFn: func(t *testing.T, r *repo) {
+			assertFn: func(t *testing.T, r *repo, cloneCalls int) {
 				assert.Nil(t, r)
 			},
 		},
@@ -277,7 +277,7 @@ func Test_clone(t *testing.T) {
 				Depth:    1,
 				Progress: os.Stderr,
 			},
-			assertFn: func(t *testing.T, r *repo) {
+			assertFn: func(t *testing.T, r *repo, cloneCalls int) {
 				assert.NotNil(t, r)
 			},
 		},
@@ -298,7 +298,7 @@ func Test_clone(t *testing.T) {
 				Depth:    1,
 				Progress: os.Stderr,
 			},
-			assertFn: func(t *testing.T, r *repo) {
+			assertFn: func(t *testing.T, r *repo, cloneCalls int) {
 				assert.NotNil(t, r)
 			},
 		},
@@ -313,7 +313,7 @@ func Test_clone(t *testing.T) {
 			},
 			retErr:  fmt.Errorf("error"),
 			wantErr: true,
-			assertFn: func(t *testing.T, r *repo) {
+			assertFn: func(t *testing.T, r *repo, cloneCalls int) {
 				assert.Nil(t, r)
 			},
 		},
@@ -330,7 +330,7 @@ func Test_clone(t *testing.T) {
 				assert.Equal(t, "test", ref)
 				return nil
 			},
-			assertFn: func(t *testing.T, r *repo) {
+			assertFn: func(t *testing.T, r *repo, cloneCalls int) {
 				assert.NotNil(t, r)
 			},
 		},
@@ -348,9 +348,26 @@ func Test_clone(t *testing.T) {
 				assert.Equal(t, "test", ref)
 				return errors.New("some error")
 			},
-			assertFn: func(t *testing.T, r *repo) {
+			assertFn: func(t *testing.T, r *repo, cloneCalls int) {
 				assert.Nil(t, r)
 			},
+		},
+		"Should retry if fails with 'repo not found' error": {
+			opts: &CloneOptions{
+				Repo: "https://github.com/owner/name",
+			},
+			expectedOpts: &gg.CloneOptions{
+				URL:      "https://github.com/owner/name.git",
+				Auth:     nil,
+				Depth:    1,
+				Progress: os.Stderr,
+			},
+			assertFn: func(t *testing.T, r *repo, cloneCalls int) {
+				assert.Nil(t, r)
+				assert.Equal(t, cloneCalls, 3)
+			},
+			retErr:  transport.ErrRepositoryNotFound,
+			wantErr: true,
 		},
 	}
 
@@ -363,7 +380,9 @@ func Test_clone(t *testing.T) {
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
 			mockRepo := &mocks.Repository{}
+			cloneCalls := 0
 			ggClone = func(_ context.Context, _ storage.Storer, _ billy.Filesystem, o *gg.CloneOptions) (gogit.Repository, error) {
+				cloneCalls++
 				if tt.expectedOpts != nil {
 					assert.True(t, reflect.DeepEqual(o, tt.expectedOpts), "opts not equal")
 				}
@@ -391,7 +410,7 @@ func Test_clone(t *testing.T) {
 				return
 			}
 
-			tt.assertFn(t, got)
+			tt.assertFn(t, got, cloneCalls)
 		})
 	}
 }
