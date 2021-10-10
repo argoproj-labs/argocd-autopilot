@@ -344,27 +344,12 @@ func NewRepoUninstallCommand() *cobra.Command {
 	return cmd
 }
 
-func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
-	var err error
-
-	opts = setUninstallOptsDefaults(*opts)
-	kubeContext, err := currentKubeContext()
-	if err != nil {
-		return err
-	}
-
-	log.G(ctx).WithFields(log.Fields{
-		"repo-url":     opts.CloneOptions.URL(),
-		"revision":     opts.CloneOptions.Revision(),
-		"namespace":    opts.Namespace,
-		"kube-context": kubeContext,
-	}).Debug("starting with options: ")
-
+func UninstallFromRepo(ctx context.Context, opts *RepoUninstallOptions) (git.Repository, fs.FS, string, error) {
 	log.G(ctx).Infof("cloning repo: %s", opts.CloneOptions.URL())
 	r, repofs, err := getRepo(ctx, opts.CloneOptions)
 	if err != nil {
 		if !opts.Force {
-			return err
+			return nil, nil, "", err
 		}
 		log.G().Warnf("Continuing uninstall, even though failed getting repo")
 	}
@@ -374,12 +359,11 @@ func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
 		err = deleteGitOpsFiles(repofs, opts.Force)
 		if err != nil {
 			if !opts.Force {
-				return err
+				return nil, nil, "", err
 			}
 			log.G().Warnf("Continuing uninstall, even though failed deleting gitops files")
 		}
 	}
-	
 
 	var revision string
 	if r != nil {
@@ -387,12 +371,41 @@ func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
 		revision, err = r.Persist(ctx, &git.PushOptions{CommitMsg: "Autopilot Uninstall"})
 		if err != nil {
 			if !opts.Force {
-				return err
+				return nil, nil, "", err
 			}
 			log.G().Warnf("Continuing uninstall, even though failed pushing changes to remote repo")
 		}
 	}
-	
+
+	return r, repofs, revision, nil
+}
+
+func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
+	var err error
+
+	opts = setUninstallOptsDefaults(*opts)
+	kubeContext, err := currentKubeContext()
+	if err != nil {
+		if !opts.Force {
+			return err
+		}
+		log.G().Warnf("Continuing uninstall, even though failed getting current kube context")
+	}
+
+	log.G(ctx).WithFields(log.Fields{
+		"repo-url":     opts.CloneOptions.URL(),
+		"revision":     opts.CloneOptions.Revision(),
+		"namespace":    opts.Namespace,
+		"kube-context": kubeContext,
+	}).Debug("starting with options: ")
+
+	r, repofs, revision, err := UninstallFromRepo(ctx, opts)
+	if err != nil {
+		if !opts.Force {
+			return err
+		}
+		log.G().Warnf("Continuing uninstall, even though failed uninstalling from repo")
+	}
 
 	stop := util.WithSpinner(ctx, fmt.Sprintf("waiting for '%s' to be finish syncing", store.Default.BootsrtrapAppName))
 	err = waitAppSynced(ctx, opts.KubeFactory, opts.Timeout, store.Default.BootsrtrapAppName, opts.Namespace, revision, false)
@@ -435,7 +448,6 @@ func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
 		}
 	}
 
-
 	if r != nil {
 		log.G(ctx).Info("pushing final commit to remote")
 		_, err = r.Persist(ctx, &git.PushOptions{CommitMsg: "Autopilot Uninstall, deleted leftovers"})
@@ -449,6 +461,7 @@ func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
 
 	return nil
 }
+
 
 func setBootstrapOptsDefaults(opts RepoBootstrapOptions) (*RepoBootstrapOptions, error) {
 	switch opts.InstallationMode {
