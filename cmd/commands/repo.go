@@ -754,16 +754,16 @@ func deleteGitOpsFiles(repofs fs.FS, force bool) error {
 			return fmt.Errorf("failed deleting '%s' folder: %w", store.Default.AppsDir, err)
 		}
 
-		log.G().Warnf("Continuing uninstall, even though failed deleting '%s' folder: %w", store.Default.AppsDir, err)
+		log.G().Warnf("Continuing uninstall, even though failed deleting apps folder. Err: %w", err)
 	}
 
 	err = billyUtils.RemoveAll(repofs, store.Default.BootsrtrapDir)
 	if err != nil {
 		if !force {
-			return fmt.Errorf("failed deleting '%s' folder: %w", store.Default.BootsrtrapDir, err)
+			return fmt.Errorf("failed deleting bootstrap folder: %w", err)
 		}
 
-		log.G().Warnf("Continuing uninstall, even though failed deleting '%s' folder: %w", store.Default.BootsrtrapDir, err)
+		log.G().Warnf("Continuing uninstall, even though failed deleting bootstrap folder: %w", err)
 	}
 
 	err = billyUtils.RemoveAll(repofs, store.Default.ProjectsDir)
@@ -772,7 +772,7 @@ func deleteGitOpsFiles(repofs fs.FS, force bool) error {
 			return fmt.Errorf("failed deleting '%s' folder: %w", store.Default.ProjectsDir, err)
 		}
 
-		log.G().Warnf("Continuing uninstall, even though failed deleting '%s' folder: %w", store.Default.ProjectsDir, err)
+		log.G().Warnf("Continuing uninstall, even though failed deleting projects folder: %w", err)
 	}
 
 	err = billyUtils.WriteFile(repofs, repofs.Join(store.Default.BootsrtrapDir, store.Default.DummyName), []byte{}, 0666)
@@ -781,7 +781,7 @@ func deleteGitOpsFiles(repofs fs.FS, force bool) error {
 			return fmt.Errorf("failed creating '%s' file in '%s' folder: %w", store.Default.DummyName, store.Default.ProjectsDir, err)
 		}
 
-		log.G().Warnf("Continuing uninstall, even though failed creating '%s' file in '%s' folder: %w", store.Default.DummyName, store.Default.ProjectsDir, err)
+		log.G().Warnf("Continuing uninstall, even though failed creating dummy file in projects folder: %w", err)
 	}
 
 	return nil

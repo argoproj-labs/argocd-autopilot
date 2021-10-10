@@ -51,13 +51,13 @@ var (
 		log.G(ctx).Infof("cloning git repository: %s", cloneOpts.URL())
 		r, repofs, err := getRepo(ctx, cloneOpts)
 		if err != nil {
-			return nil, nil, fmt.Errorf("Failed cloning the repository: %w", err)
+			return nil, nil, fmt.Errorf("failed cloning the repository: %w", err)
 		}
 
 		root := repofs.Root()
 		log.G(ctx).Infof("using revision: \"%s\", installation path: \"%s\"", cloneOpts.Revision(), root)
 		if !repofs.ExistsOrDie(store.Default.BootsrtrapDir) {
-			return nil, nil, fmt.Errorf("Bootstrap directory not found, please execute `repo bootstrap` command")
+			return nil, nil, fmt.Errorf("bootstrap directory not found, please execute `repo bootstrap` command")
 		}
 
 		if projectName != "" {
