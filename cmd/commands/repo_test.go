@@ -612,6 +612,7 @@ func TestRunRepoUninstall(t *testing.T) {
 				f.On("Delete", mock.Anything, &kube.DeleteOptions{
 					LabelSelector: store.Default.LabelKeyAppManagedBy + "=" + store.Default.LabelValueManagedBy,
 					ResourceTypes: []string{"applications", "secrets"},
+					WaitForDeletion: false,
 				}).Return(errors.New("some error"))
 			},
 		},
