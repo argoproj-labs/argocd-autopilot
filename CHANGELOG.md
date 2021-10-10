@@ -1,5 +1,11 @@
 # Changelog:
 
+# v0.2.22
+
+### Features
+* Added a --force flag to `argocd-autopilot repo uninstall`: not allowing cluster and repo deletion errors from stopping the uninstall flow.
+* Added a --fast-exit flag to `argocd-autopilot repo uninstall`: not waiting for full deletion of cluster resources.
+
 # v0.2.21
 
 ### Bug Fixes
