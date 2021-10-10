@@ -48,11 +48,13 @@ var Default = struct {
 	GitHubUsername       string
 	LabelKeyAppName      string
 	LabelKeyAppManagedBy string
+	LabelKeyAppPartOf    string
 	LabelValueManagedBy  string
 	OverlaysDir          string
 	ProjectsDir          string
 	RootAppName          string
 	RepoCredsSecretName  string
+	ArgoCDApplicationSet string
 	WaitInterval         time.Duration
 }{
 	AppsDir:              "apps",
@@ -69,11 +71,13 @@ var Default = struct {
 	GitHubUsername:       "username",
 	LabelKeyAppName:      "app.kubernetes.io/name",
 	LabelKeyAppManagedBy: "app.kubernetes.io/managed-by",
+	LabelKeyAppPartOf:    "app.kubernetes.io/part-of",
 	LabelValueManagedBy:  "argocd-autopilot",
 	OverlaysDir:          "overlays",
 	ProjectsDir:          "projects",
 	RootAppName:          "root",
 	RepoCredsSecretName:  "autopilot-secret",
+	ArgoCDApplicationSet: "argocd-applicationset",
 	WaitInterval:         time.Second * 3,
 }
 

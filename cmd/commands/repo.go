@@ -768,11 +768,10 @@ func deleteGitOpsFiles(repofs fs.FS, force bool) error {
 
 func deleteClusterResources(ctx context.Context, opts *deleteClusterResourcesOptions) error {
 	labelSelectors := []string{
-		store.Default.LabelKeyAppManagedBy + "=" + store.Default.LabelValueManagedBy, // this label holds "argocd-autopilot"
+		store.Default.LabelKeyAppManagedBy + "=" + store.Default.LabelValueManagedBy,
 		argocdcommon.LabelKeyAppInstance + "=" + store.Default.ArgoCDName,
-		"app.kubernetes.io/part-of=argocd",
-		"app.kubernetes.io/part-of=argocd-applicationset",
-		"app.kubernetes.io/instance=argo-cd",
+		store.Default.LabelKeyAppPartOf + "=" + store.Default.ArgoCDNamespace,
+		store.Default.LabelKeyAppPartOf + "=" + store.Default.ArgoCDApplicationSet,
 	}
 
 	for _, labelSelector := range labelSelectors {
