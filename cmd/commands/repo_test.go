@@ -145,7 +145,7 @@ func Test_buildBootstrapManifests(t *testing.T) {
 		namespace    string
 		appSpecifier string
 		cloneOpts    *git.CloneOptions
-		argoCDLabels     map[string]string
+		argoCDLabels map[string]string
 	}
 	tests := map[string]struct {
 		args     args
@@ -478,22 +478,33 @@ func Test_deleteClusterResources(t *testing.T) {
 		"Should delete all resources": {
 			beforeFn: func() kube.Factory {
 				mf := &kubemocks.Factory{}
-				mf.On("Delete", mock.Anything, &kube.DeleteOptions{
-					LabelSelector: store.Default.LabelKeyAppManagedBy + "=" + store.Default.LabelValueManagedBy,
-					ResourceTypes: []string{"applications", "secrets"},
-				}).Return(nil)
-				mf.On("Delete", mock.Anything, &kube.DeleteOptions{
-					LabelSelector: argocdcommon.LabelKeyAppInstance + "=" + store.Default.ArgoCDName,
-					ResourceTypes: []string{
-						"all",
-						"configmaps",
-						"secrets",
-						"serviceaccounts",
-						"networkpolicies",
-						"rolebindings",
-						"roles",
-					},
-				}).Return(nil)
+
+				labelSelectors := []string{
+					store.Default.LabelKeyAppManagedBy + "=" + store.Default.LabelValueManagedBy,
+					argocdcommon.LabelKeyAppInstance + "=" + store.Default.ArgoCDName,
+					store.Default.LabelKeyAppPartOf + "=" + store.Default.ArgoCDNamespace,
+					store.Default.LabelKeyAppPartOf + "=" + store.Default.ArgoCDApplicationSet,
+				}
+
+				for _, labelSelector := range labelSelectors {
+					mf.On("Delete", mock.Anything, &kube.DeleteOptions{
+						LabelSelector: labelSelector,
+						ResourceTypes: []string{"applications", "secrets"},
+					}).Return(nil)
+					mf.On("Delete", mock.Anything, &kube.DeleteOptions{
+						LabelSelector: labelSelector,
+						ResourceTypes: []string{
+							"all",
+							"configmaps",
+							"secrets",
+							"serviceaccounts",
+							"networkpolicies",
+							"rolebindings",
+							"roles",
+						},
+					}).Return(nil)
+				}
+
 				return mf
 			},
 			assertFn: func(t *testing.T, f kube.Factory, err error) {
@@ -504,10 +515,18 @@ func Test_deleteClusterResources(t *testing.T) {
 		"Should fail if failed to delete argocd-autopilot resources": {
 			beforeFn: func() kube.Factory {
 				mf := &kubemocks.Factory{}
-				mf.On("Delete", mock.Anything, &kube.DeleteOptions{
-					LabelSelector: store.Default.LabelKeyAppManagedBy + "=" + store.Default.LabelValueManagedBy,
-					ResourceTypes: []string{"applications", "secrets"},
-				}).Return(errors.New("some error"))
+
+				labelSelectors := []string{
+					store.Default.LabelKeyAppManagedBy + "=" + store.Default.LabelValueManagedBy,
+				}
+
+				for _, labelSelector := range labelSelectors {
+					mf.On("Delete", mock.Anything, &kube.DeleteOptions{
+						LabelSelector: labelSelector,
+						ResourceTypes: []string{"applications", "secrets"},
+					}).Return(errors.New("some error"))
+				}
+
 				return mf
 			},
 			assertFn: func(t *testing.T, f kube.Factory, err error) {
@@ -518,12 +537,13 @@ func Test_deleteClusterResources(t *testing.T) {
 		"Should fail if failed to delete Argo-CD resources": {
 			beforeFn: func() kube.Factory {
 				mf := &kubemocks.Factory{}
+
 				mf.On("Delete", mock.Anything, &kube.DeleteOptions{
 					LabelSelector: store.Default.LabelKeyAppManagedBy + "=" + store.Default.LabelValueManagedBy,
 					ResourceTypes: []string{"applications", "secrets"},
 				}).Return(nil)
 				mf.On("Delete", mock.Anything, &kube.DeleteOptions{
-					LabelSelector: argocdcommon.LabelKeyAppInstance + "=" + store.Default.ArgoCDName,
+					LabelSelector: store.Default.LabelKeyAppManagedBy + "=" + store.Default.LabelValueManagedBy,
 					ResourceTypes: []string{
 						"all",
 						"configmaps",
@@ -534,6 +554,7 @@ func Test_deleteClusterResources(t *testing.T) {
 						"roles",
 					},
 				}).Return(errors.New("some error"))
+
 				return mf
 			},
 			assertFn: func(t *testing.T, f kube.Factory, err error) {
@@ -547,7 +568,8 @@ func Test_deleteClusterResources(t *testing.T) {
 			f := tt.beforeFn()
 			err := deleteClusterResources(context.Background(), &deleteClusterResourcesOptions{
 				KubeFactory: f,
-				Timeout: 0,
+				Timeout:     0,
+				FastExit:    true,
 			})
 			tt.assertFn(t, f, err)
 		})
