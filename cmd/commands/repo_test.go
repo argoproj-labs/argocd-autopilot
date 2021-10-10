@@ -464,7 +464,7 @@ func Test_deleteGitOpsFiles(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			fs := tt.beforeFn()
-			err := deleteGitOpsFiles(fs)
+			err := deleteGitOpsFiles(fs, false)
 			tt.assertFn(t, fs, err)
 		})
 	}
@@ -545,7 +545,10 @@ func Test_deleteClusterResources(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			f := tt.beforeFn()
-			err := deleteClusterResources(context.Background(), f, 0)
+			err := deleteClusterResources(context.Background(), &deleteClusterResourcesOptions{
+				KubeFactory: f,
+				Timeout: 0,
+			})
 			tt.assertFn(t, f, err)
 		})
 	}
