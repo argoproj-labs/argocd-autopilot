@@ -2,7 +2,6 @@ package kube
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -84,7 +83,6 @@ type (
 		LabelSelector   string
 		ResourceTypes   []string
 		Timeout         time.Duration
-		Force           bool
 		WaitForDeletion bool
 	}
 
@@ -246,13 +244,7 @@ func (f *factory) Delete(ctx context.Context, opts *DeleteOptions) error {
 			args := strings.Join(opts.ResourceTypes, ",")
 			err := o.Complete(f.f, []string{args}, cmd)
 			if err != nil {
-				if opts.WaitForDeletion && !opts.Force {
-					return err
-				}
-
-				log.G().Warnf("%s", fmt.Errorf("failed deleting argocd-autopilot resources: %w", err))
-				log.G().Warnf("Continuing uninstall, due to --force flag")
-				return nil
+				return err
 			}
 
 			return o.RunDelete(f.f)
