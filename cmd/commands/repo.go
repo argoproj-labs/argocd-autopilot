@@ -372,27 +372,27 @@ func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
 	if repofs != nil {
 		log.G(ctx).Debug("deleting files from repo")
 		err = deleteGitOpsFiles(repofs, opts.Force)
+		if err != nil {
+			if !opts.Force {
+				return err
+			}
+			log.G().Warnf("Continuing uninstall, even though failed deleting gitops files")
+		}
 	}
 	
-	if err != nil {
-		if !opts.Force {
-			return err
-		}
-		log.G().Warnf("Continuing uninstall, even though failed deleting gitops files")
-	}
 
 	var revision string
 	if r != nil {
 		log.G(ctx).Info("pushing changes to remote")
 		revision, err = r.Persist(ctx, &git.PushOptions{CommitMsg: "Autopilot Uninstall"})
+		if err != nil {
+			if !opts.Force {
+				return err
+			}
+			log.G().Warnf("Continuing uninstall, even though failed pushing changes to remote repo")
+		}
 	}
 	
-	if err != nil {
-		if !opts.Force {
-			return err
-		}
-		log.G().Warnf("Continuing uninstall, even though failed pushing changes to remote repo")
-	}
 
 	stop := util.WithSpinner(ctx, fmt.Sprintf("waiting for '%s' to be finish syncing", store.Default.BootsrtrapAppName))
 	err = waitAppSynced(ctx, opts.KubeFactory, opts.Timeout, store.Default.BootsrtrapAppName, opts.Namespace, revision, false)
@@ -427,25 +427,24 @@ func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
 	if repofs != nil {
 		log.G(ctx).Debug("Deleting leftovers from repo")
 		err = billyUtils.RemoveAll(repofs, store.Default.BootsrtrapDir)
+		if err != nil {
+			if !opts.Force {
+				return err
+			}
+			log.G().Warnf("Continuing uninstall, even though failed completing deleting leftovers from repo")
+		}
 	}
 
-	if err != nil {
-		if !opts.Force {
-			return err
-		}
-		log.G().Warnf("Continuing uninstall, even though failed completing deleting leftovers from repo")
-	}
 
 	if r != nil {
 		log.G(ctx).Info("pushing final commit to remote")
 		_, err = r.Persist(ctx, &git.PushOptions{CommitMsg: "Autopilot Uninstall, deleted leftovers"})
-	}
-	
-	if err != nil {
-		if !opts.Force {
-			return err
+		if err != nil {
+			if !opts.Force {
+				return err
+			}
+			log.G().Warnf("Continuing uninstall, even though failed pushing final commit to remote")
 		}
-		log.G().Warnf("Continuing uninstall, even though failed pushing final commit to remote")
 	}
 
 	return nil
