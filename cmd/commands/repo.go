@@ -358,11 +358,12 @@ func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
 	}
 
 	log.G(ctx).Debug("deleting files from repo")
-	if err = deleteGitOpsFiles(repofs); err != nil {
-		return err
+	err = deleteGitOpsFiles(repofs)
+	if err != nil {
+		return err 
 	}
 
-	log.G(ctx).Info("pushing changes to remote")
+	log.G(ctx).Info("pushing changes to remote") // TODO: why don't i see the logs in the console
 	revision, err := r.Persist(ctx, &git.PushOptions{CommitMsg: "Autopilot Uninstall"})
 	if err != nil {
 		return err
@@ -379,17 +380,20 @@ func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
 
 	stop()
 	log.G(ctx).Info("Deleting cluster resources")
-	if err = deleteClusterResources(ctx, opts.KubeFactory, opts.Timeout); err != nil {
-		return err
+	err = deleteClusterResources(ctx, opts.KubeFactory, opts.Timeout)
+	if err != nil {
+		return err 
 	}
 
 	log.G(ctx).Debug("Deleting leftovers from repo")
-	if err = billyUtils.RemoveAll(repofs, store.Default.BootsrtrapDir); err != nil {
+	err = billyUtils.RemoveAll(repofs, store.Default.BootsrtrapDir)
+	if err != nil {
 		return err
 	}
 
 	log.G(ctx).Info("pushing final commit to remote")
-	if _, err := r.Persist(ctx, &git.PushOptions{CommitMsg: "Autopilot Uninstall, deleted leftovers"}); err != nil {
+	_, err = r.Persist(ctx, &git.PushOptions{CommitMsg: "Autopilot Uninstall, deleted leftovers"})
+	if err != nil {
 		return err
 	}
 
