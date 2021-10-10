@@ -80,9 +80,10 @@ type (
 	}
 
 	DeleteOptions struct {
-		LabelSelector string
-		ResourceTypes []string
-		Timeout       time.Duration
+		LabelSelector   string
+		ResourceTypes   []string
+		Timeout         time.Duration
+		WaitForDeletion bool
 	}
 
 	WaitOptions struct {
@@ -235,13 +236,14 @@ func (f *factory) Delete(ctx context.Context, opts *DeleteOptions) error {
 		DeleteAllNamespaces: true,
 		LabelSelector:       opts.LabelSelector,
 		Timeout:             timeout,
-		WaitForDeletion:     true,
+		WaitForDeletion:     opts.WaitForDeletion,
 	}
 
 	cmd := &cobra.Command{
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			args := strings.Join(opts.ResourceTypes, ",")
-			if err := o.Complete(f.f, []string{args}, cmd); err != nil {
+			err := o.Complete(f.f, []string{args}, cmd)
+			if err != nil {
 				return err
 			}
 

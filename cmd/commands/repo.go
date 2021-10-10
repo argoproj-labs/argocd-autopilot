@@ -64,6 +64,8 @@ type (
 		Timeout      time.Duration
 		CloneOptions *git.CloneOptions
 		KubeFactory  kube.Factory
+		Force        bool
+		FastExit     bool
 	}
 
 	bootstrapManifests struct {
@@ -76,6 +78,12 @@ type (
 		applyManifests         []byte
 		bootstrapKustomization []byte
 		namespace              []byte
+	}
+
+	deleteClusterResourcesOptions struct {
+		Timeout     time.Duration
+		KubeFactory kube.Factory
+		FastExit    bool
 	}
 )
 
@@ -229,7 +237,7 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 		return fmt.Errorf("failed to apply bootstrap manifests to cluster: %w", err)
 	}
 
-	// write argocd manifests
+	// write argocd manifests to repo
 	if err = writeManifestsToRepo(repofs, manifests, opts.InstallationMode, opts.Namespace); err != nil {
 		return fmt.Errorf("failed to write manifests to repo: %w", err)
 	}
@@ -341,7 +349,11 @@ func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
 	opts = setUninstallOptsDefaults(*opts)
 	kubeContext, err := currentKubeContext()
 	if err != nil {
-		return err
+		if !opts.Force {
+			return err
+		}
+
+		log.G().Warnf("Continuing uninstall, even though failed getting current kube context")
 	}
 
 	log.G(ctx).WithFields(log.Fields{
@@ -354,43 +366,43 @@ func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
 	log.G(ctx).Infof("cloning repo: %s", opts.CloneOptions.URL())
 	r, repofs, err := getRepo(ctx, opts.CloneOptions)
 	if err != nil {
-		return err
-	}
-
-	log.G(ctx).Debug("deleting files from repo")
-	if err = deleteGitOpsFiles(repofs); err != nil {
-		return err
-	}
-
-	log.G(ctx).Info("pushing changes to remote")
-	revision, err := r.Persist(ctx, &git.PushOptions{CommitMsg: "Autopilot Uninstall"})
-	if err != nil {
-		return err
-	}
-
-	stop := util.WithSpinner(ctx, fmt.Sprintf("waiting for '%s' to be finish syncing", store.Default.BootsrtrapAppName))
-	if err = waitAppSynced(ctx, opts.KubeFactory, opts.Timeout, store.Default.BootsrtrapAppName, opts.Namespace, revision, false); err != nil {
-		se, ok := err.(*kerrors.StatusError)
-		if !ok || se.ErrStatus.Reason != metav1.StatusReasonNotFound {
-			stop()
+		if !opts.Force {
 			return err
+		}
+
+		log.G().Warnf("Continuing uninstall, even though failed getting repo: %w", err)
+	}
+
+	var revision string
+	if r != nil && repofs != nil {
+		revision, err = removeFromRepo(ctx, r, repofs)
+		if err != nil {
+			if !opts.Force {
+				return err
+			}
+
+			log.G().Warnf("Continuing uninstall, even though failed uninstalling from repo: %w", err)
 		}
 	}
 
-	stop()
-	log.G(ctx).Info("Deleting cluster resources")
-	if err = deleteClusterResources(ctx, opts.KubeFactory, opts.Timeout); err != nil {
-		return err
+	err = removeFromCluster(ctx, opts, revision)
+	if err != nil {
+		if !opts.Force {
+			return err
+		}
+
+		log.G().Warnf("Continuing uninstall, even though failed completing deletion of cluster resources: %w", err)
 	}
 
-	log.G(ctx).Debug("Deleting leftovers from repo")
-	if err = billyUtils.RemoveAll(repofs, store.Default.BootsrtrapDir); err != nil {
-		return err
-	}
+	if r != nil && repofs != nil {
+		err = removeLeftoversFromRepo(ctx, r, repofs)
+		if err != nil {
+			if !opts.Force {
+				return err
+			}
 
-	log.G(ctx).Info("pushing final commit to remote")
-	if _, err := r.Persist(ctx, &git.PushOptions{CommitMsg: "Autopilot Uninstall, deleted leftovers"}); err != nil {
-		return err
+			log.G().Warnf("Continuing uninstall, even though failed removing leftovers from repo: %w", err)
+		}
 	}
 
 	return nil
@@ -705,50 +717,110 @@ func setUninstallOptsDefaults(opts RepoUninstallOptions) *RepoUninstallOptions {
 	return &opts
 }
 
+func removeFromRepo(ctx context.Context, r git.Repository, repofs fs.FS) (string, error) {
+	log.G(ctx).Debug("deleting files from repo")
+	err := deleteGitOpsFiles(repofs)
+	if err != nil {
+		return "", err
+	}
+
+	log.G(ctx).Info("pushing changes to remote")
+	return r.Persist(ctx, &git.PushOptions{CommitMsg: "Autopilot Uninstall"})
+}
+
 func deleteGitOpsFiles(repofs fs.FS) error {
-	if err := billyUtils.RemoveAll(repofs, store.Default.AppsDir); err != nil {
+	err := billyUtils.RemoveAll(repofs, store.Default.AppsDir)
+	if err != nil {
 		return fmt.Errorf("failed deleting '%s' folder: %w", store.Default.AppsDir, err)
 	}
 
-	if err := billyUtils.RemoveAll(repofs, store.Default.BootsrtrapDir); err != nil {
-		return fmt.Errorf("failed deleting '%s' folder: %w", store.Default.BootsrtrapDir, err)
+	err = billyUtils.RemoveAll(repofs, store.Default.BootsrtrapDir)
+	if err != nil {
+		return fmt.Errorf("failed deleting bootstrap folder: %w", err)
 	}
 
-	if err := billyUtils.RemoveAll(repofs, store.Default.ProjectsDir); err != nil {
+	err = billyUtils.RemoveAll(repofs, store.Default.ProjectsDir)
+	if err != nil {
 		return fmt.Errorf("failed deleting '%s' folder: %w", store.Default.ProjectsDir, err)
 	}
 
-	if err := billyUtils.WriteFile(repofs, repofs.Join(store.Default.BootsrtrapDir, store.Default.DummyName), []byte{}, 0666); err != nil {
+	err = billyUtils.WriteFile(repofs, repofs.Join(store.Default.BootsrtrapDir, store.Default.DummyName), []byte{}, 0666)
+	if err != nil {
 		return fmt.Errorf("failed creating '%s' file in '%s' folder: %w", store.Default.DummyName, store.Default.ProjectsDir, err)
 	}
 
 	return nil
 }
 
-func deleteClusterResources(ctx context.Context, f kube.Factory, timeout time.Duration) error {
-	if err := f.Delete(ctx, &kube.DeleteOptions{
-		LabelSelector: store.Default.LabelKeyAppManagedBy + "=" + store.Default.LabelValueManagedBy,
-		ResourceTypes: []string{"applications", "secrets"},
-		Timeout:       timeout,
-	}); err != nil {
-		return fmt.Errorf("failed deleting argocd-autopilot resources: %w", err)
+func removeFromCluster(ctx context.Context, opts *RepoUninstallOptions, revision string) error {
+	if revision != "" {
+		stop := util.WithSpinner(ctx, fmt.Sprintf("waiting for '%s' to be finish syncing", store.Default.BootsrtrapAppName))
+		err := waitAppSynced(ctx, opts.KubeFactory, opts.Timeout, store.Default.BootsrtrapAppName, opts.Namespace, revision, false)
+		if err != nil {
+			se, ok := err.(*kerrors.StatusError)
+			if !ok || se.ErrStatus.Reason != metav1.StatusReasonNotFound {
+				stop()
+				return err
+			}
+		}
+
+		stop()
 	}
 
-	if err := f.Delete(ctx, &kube.DeleteOptions{
-		LabelSelector: argocdcommon.LabelKeyAppInstance + "=" + store.Default.ArgoCDName,
-		ResourceTypes: []string{
-			"all",
-			"configmaps",
-			"secrets",
-			"serviceaccounts",
-			"networkpolicies",
-			"rolebindings",
-			"roles",
-		},
-		Timeout: timeout,
-	}); err != nil {
-		return fmt.Errorf("failed deleting Argo-CD resources: %w", err)
+	log.G(ctx).Info("Deleting cluster resources")
+	return deleteClusterResources(ctx, &deleteClusterResourcesOptions{
+		Timeout:     opts.Timeout,
+		KubeFactory: opts.KubeFactory,
+		FastExit:    opts.FastExit,
+	})
+}
+
+func deleteClusterResources(ctx context.Context, opts *deleteClusterResourcesOptions) error {
+	labelSelectors := []string{
+		store.Default.LabelKeyAppManagedBy + "=" + store.Default.LabelValueManagedBy,
+		argocdcommon.LabelKeyAppInstance + "=" + store.Default.ArgoCDName,
+		store.Default.LabelKeyAppPartOf + "=" + store.Default.ArgoCDNamespace,
+		store.Default.LabelKeyAppPartOf + "=" + store.Default.ArgoCDApplicationSet,
+	}
+
+	for _, labelSelector := range labelSelectors {
+		if err := opts.KubeFactory.Delete(ctx, &kube.DeleteOptions{
+			LabelSelector:   labelSelector,
+			ResourceTypes:   []string{"applications", "secrets"},
+			Timeout:         opts.Timeout,
+			WaitForDeletion: !opts.FastExit,
+		}); err != nil {
+			return fmt.Errorf("failed deleting argocd-autopilot resources: %w", err)
+		}
+
+		if err := opts.KubeFactory.Delete(ctx, &kube.DeleteOptions{
+			LabelSelector: labelSelector,
+			ResourceTypes: []string{
+				"all",
+				"configmaps",
+				"secrets",
+				"serviceaccounts",
+				"networkpolicies",
+				"rolebindings",
+				"roles",
+			},
+			Timeout: opts.Timeout,
+		}); err != nil {
+			return fmt.Errorf("failed deleting Argo-CD resources: %w", err)
+		}
 	}
 
 	return nil
+}
+
+func removeLeftoversFromRepo(ctx context.Context, r git.Repository, repofs fs.FS) error {
+	log.G(ctx).Debug("Deleting leftovers from repo")
+	err := billyUtils.RemoveAll(repofs, store.Default.BootsrtrapDir)
+	if err != nil {
+		return err
+	}
+
+	log.G(ctx).Info("pushing final commit to remote")
+	_, err = r.Persist(ctx, &git.PushOptions{CommitMsg: "Autopilot Uninstall, deleted leftovers"})
+	return err
 }
