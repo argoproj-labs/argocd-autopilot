@@ -233,7 +233,7 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 
 	// apply built manifest to k8s cluster
 	log.G(ctx).Infof("using context: \"%s\", namespace: \"%s\"", kubeContext, opts.Namespace)
-	log.G(ctx).Infof("applying bootstrap manifests to cluster...") // TODO: here we create the 'application crd'
+	log.G(ctx).Infof("applying bootstrap manifests to cluster...") // TODO: here we create 'application crd'
 	if err = opts.KubeFactory.Apply(ctx, opts.Namespace, util.JoinManifests(manifests.namespace, manifests.applyManifests, manifests.repoCreds)); err != nil {
 		return fmt.Errorf("failed to apply bootstrap manifests to cluster: %w", err)
 	}
