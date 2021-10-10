@@ -1,5 +1,10 @@
 # Changelog:
 
+# v0.2.21
+
+### Bug Fixes
+* Fixed sporadic "repository not found" errors when cloning or pushing [#191](https://github.com/argoproj-labs/argocd-autopilot/pull/191).
+
 # v0.2.19
 
 ### Features
