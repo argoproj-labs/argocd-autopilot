@@ -369,8 +369,11 @@ func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
 		log.G().Warnf("Continuing uninstall, even though failed getting repo")
 	}
 
-	log.G(ctx).Debug("deleting files from repo")
-	err = deleteGitOpsFiles(repofs, opts.Force)
+	if repofs != nil {
+		log.G(ctx).Debug("deleting files from repo")
+		err = deleteGitOpsFiles(repofs, opts.Force)
+	}
+	
 	if err != nil {
 		if !opts.Force {
 			return err
@@ -378,8 +381,12 @@ func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
 		log.G().Warnf("Continuing uninstall, even though failed deleting gitops files")
 	}
 
-	log.G(ctx).Info("pushing changes to remote")
-	revision, err := r.Persist(ctx, &git.PushOptions{CommitMsg: "Autopilot Uninstall"})
+	var revision string
+	if r != nil {
+		log.G(ctx).Info("pushing changes to remote")
+		revision, err = r.Persist(ctx, &git.PushOptions{CommitMsg: "Autopilot Uninstall"})
+	}
+	
 	if err != nil {
 		if !opts.Force {
 			return err
@@ -417,8 +424,11 @@ func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
 		log.G().Warnf("Continuing uninstall, even though failed completing deletion of cluster resources")
 	}
 
-	log.G(ctx).Debug("Deleting leftovers from repo")
-	err = billyUtils.RemoveAll(repofs, store.Default.BootsrtrapDir)
+	if repofs != nil {
+		log.G(ctx).Debug("Deleting leftovers from repo")
+		err = billyUtils.RemoveAll(repofs, store.Default.BootsrtrapDir)
+	}
+
 	if err != nil {
 		if !opts.Force {
 			return err
@@ -426,8 +436,11 @@ func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
 		log.G().Warnf("Continuing uninstall, even though failed completing deleting leftovers from repo")
 	}
 
-	log.G(ctx).Info("pushing final commit to remote")
-	_, err = r.Persist(ctx, &git.PushOptions{CommitMsg: "Autopilot Uninstall, deleted leftovers"})
+	if r != nil {
+		log.G(ctx).Info("pushing final commit to remote")
+		_, err = r.Persist(ctx, &git.PushOptions{CommitMsg: "Autopilot Uninstall, deleted leftovers"})
+	}
+	
 	if err != nil {
 		if !opts.Force {
 			return err
