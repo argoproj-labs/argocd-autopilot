@@ -610,9 +610,21 @@ func TestRunRepoUninstall(t *testing.T) {
 				r.On("Persist", mock.Anything, &git.PushOptions{CommitMsg: "Autopilot Uninstall"}).Return("revision", nil)
 				f.On("Wait", mock.Anything, mock.Anything).Return(nil)
 				f.On("Delete", mock.Anything, &kube.DeleteOptions{
-					LabelSelector: store.Default.LabelKeyAppManagedBy + "=" + store.Default.LabelValueManagedBy,
-					ResourceTypes: []string{"applications", "secrets"},
+					LabelSelector:   store.Default.LabelKeyAppManagedBy + "=" + store.Default.LabelValueManagedBy,
+					ResourceTypes:   []string{"applications", "secrets"},
 					WaitForDeletion: false,
+				}).Return(errors.New("some error"))
+				f.On("Delete", mock.Anything, &kube.DeleteOptions{
+					LabelSelector: store.Default.LabelKeyAppManagedBy + "=" + store.Default.LabelValueManagedBy,
+					ResourceTypes: []string{
+						"all",
+						"configmaps",
+						"secrets",
+						"serviceaccounts",
+						"networkpolicies",
+						"rolebindings",
+						"roles",
+					}, WaitForDeletion: false,
 				}).Return(errors.New("some error"))
 			},
 		},
