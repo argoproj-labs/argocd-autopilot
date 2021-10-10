@@ -34,13 +34,13 @@ func Test_prepareRepo(t *testing.T) {
 			},
 		},
 		"Should fail when clone fails": {
-			wantErr: "Failed cloning the repository: some error",
+			wantErr: "failed cloning the repository: some error",
 			getRepo: func() (git.Repository, fs.FS, error) {
 				return nil, nil, errors.New("some error")
 			},
 		},
 		"Should fail when there is no bootstrap at repo root": {
-			wantErr: "Bootstrap directory not found, please execute `repo bootstrap` command",
+			wantErr: "bootstrap directory not found, please execute `repo bootstrap` command",
 			getRepo: func() (git.Repository, fs.FS, error) {
 				return &gitmocks.Repository{}, fs.Create(memfs.New()), nil
 			},
