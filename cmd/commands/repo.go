@@ -344,7 +344,7 @@ func NewRepoUninstallCommand() *cobra.Command {
 	return cmd
 }
 
-func UninstallFromRepo(ctx context.Context, opts *RepoUninstallOptions) (git.Repository, fs.FS, string, error) {
+func RemoveFromRepo(ctx context.Context, opts *RepoUninstallOptions) (git.Repository, fs.FS, string, error) {
 	log.G(ctx).Infof("cloning repo: %s", opts.CloneOptions.URL())
 	r, repofs, err := getRepo(ctx, opts.CloneOptions)
 	if err != nil {
@@ -380,6 +380,32 @@ func UninstallFromRepo(ctx context.Context, opts *RepoUninstallOptions) (git.Rep
 	return r, repofs, revision, nil
 }
 
+func  RemoveLeftoversFromRepo(ctx context.Context, opts *RepoUninstallOptions, r git.Repository, repofs fs.FS) error {
+	if repofs != nil {
+		log.G(ctx).Debug("Deleting leftovers from repo")
+		err := billyUtils.RemoveAll(repofs, store.Default.BootsrtrapDir)
+		if err != nil {
+			if !opts.Force {
+				return err
+			}
+			log.G().Warnf("Continuing uninstall, even though failed completing deleting leftovers from repo")
+		}
+	}
+
+	if r != nil {
+		log.G(ctx).Info("pushing final commit to remote")
+		_, err := r.Persist(ctx, &git.PushOptions{CommitMsg: "Autopilot Uninstall, deleted leftovers"})
+		if err != nil {
+			if !opts.Force {
+				return err
+			}
+			log.G().Warnf("Continuing uninstall, even though failed pushing final commit to remote")
+		}
+	}
+
+	return nil
+}
+
 func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
 	var err error
 
@@ -399,7 +425,7 @@ func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
 		"kube-context": kubeContext,
 	}).Debug("starting with options: ")
 
-	r, repofs, revision, err := UninstallFromRepo(ctx, opts)
+	r, repofs, revision, err := RemoveFromRepo(ctx, opts)
 	if err != nil {
 		if !opts.Force {
 			return err
@@ -437,26 +463,12 @@ func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
 		log.G().Warnf("Continuing uninstall, even though failed completing deletion of cluster resources")
 	}
 
-	if repofs != nil {
-		log.G(ctx).Debug("Deleting leftovers from repo")
-		err = billyUtils.RemoveAll(repofs, store.Default.BootsrtrapDir)
-		if err != nil {
-			if !opts.Force {
-				return err
-			}
-			log.G().Warnf("Continuing uninstall, even though failed completing deleting leftovers from repo")
+	err = RemoveLeftoversFromRepo(ctx, opts, r, repofs)
+	if err != nil {
+		if !opts.Force {
+			return err
 		}
-	}
-
-	if r != nil {
-		log.G(ctx).Info("pushing final commit to remote")
-		_, err = r.Persist(ctx, &git.PushOptions{CommitMsg: "Autopilot Uninstall, deleted leftovers"})
-		if err != nil {
-			if !opts.Force {
-				return err
-			}
-			log.G().Warnf("Continuing uninstall, even though failed pushing final commit to remote")
-		}
+		log.G().Warnf("Continuing uninstall, even though failed removing leftovers from repo")
 	}
 
 	return nil
