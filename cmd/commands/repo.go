@@ -363,19 +363,28 @@ func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
 	log.G(ctx).Infof("cloning repo: %s", opts.CloneOptions.URL())
 	r, repofs, err := getRepo(ctx, opts.CloneOptions)
 	if err != nil {
-		return err
+		if !opts.Force {
+			return err
+		}
+		log.G().Warnf("Continuing uninstall, even though failed getting repo")
 	}
 
 	log.G(ctx).Debug("deleting files from repo")
 	err = deleteGitOpsFiles(repofs, opts.Force)
 	if err != nil {
-		return err
+		if !opts.Force {
+			return err
+		}
+		log.G().Warnf("Continuing uninstall, even though failed deleting gitops files")
 	}
 
 	log.G(ctx).Info("pushing changes to remote")
 	revision, err := r.Persist(ctx, &git.PushOptions{CommitMsg: "Autopilot Uninstall"})
 	if err != nil {
-		return err
+		if !opts.Force {
+			return err
+		}
+		log.G().Warnf("Continuing uninstall, even though failed pushing changes to remote repo")
 	}
 
 	stop := util.WithSpinner(ctx, fmt.Sprintf("waiting for '%s' to be finish syncing", store.Default.BootsrtrapAppName))
@@ -384,7 +393,10 @@ func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
 		se, ok := err.(*kerrors.StatusError)
 		if !ok || se.ErrStatus.Reason != metav1.StatusReasonNotFound {
 			stop()
-			return err
+			if !opts.Force {
+				return err
+			}
+			log.G().Warnf("Continuing uninstall, even though failed waiting for autopilot-bootstrap app to sync")
 		}
 	}
 
@@ -399,19 +411,28 @@ func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
 	})
 
 	if err != nil {
-		return err
+		if !opts.Force {
+			return err
+		}
+		log.G().Warnf("Continuing uninstall, even though failed completing deletion of cluster resources")
 	}
 
 	log.G(ctx).Debug("Deleting leftovers from repo")
 	err = billyUtils.RemoveAll(repofs, store.Default.BootsrtrapDir)
 	if err != nil {
-		return err
+		if !opts.Force {
+			return err
+		}
+		log.G().Warnf("Continuing uninstall, even though failed completing deleting leftovers from repo")
 	}
 
 	log.G(ctx).Info("pushing final commit to remote")
 	_, err = r.Persist(ctx, &git.PushOptions{CommitMsg: "Autopilot Uninstall, deleted leftovers"})
 	if err != nil {
-		return err
+		if !opts.Force {
+			return err
+		}
+		log.G().Warnf("Continuing uninstall, even though failed pushing final commit to remote")
 	}
 
 	return nil
@@ -733,7 +754,7 @@ func deleteGitOpsFiles(repofs fs.FS, force bool) error {
 			return fmt.Errorf("failed deleting '%s' folder: %w", store.Default.AppsDir, err)
 		}
 
-		log.G().Warnf("continuing uninstall, even though failed deleting '%s' folder: %w", store.Default.AppsDir, err)
+		log.G().Warnf("Continuing uninstall, even though failed deleting '%s' folder: %w", store.Default.AppsDir, err)
 	}
 
 	err = billyUtils.RemoveAll(repofs, store.Default.BootsrtrapDir)
@@ -742,7 +763,7 @@ func deleteGitOpsFiles(repofs fs.FS, force bool) error {
 			return fmt.Errorf("failed deleting '%s' folder: %w", store.Default.BootsrtrapDir, err)
 		}
 
-		log.G().Warnf("continuing uninstall, even though failed deleting '%s' folder: %w", store.Default.BootsrtrapDir, err)
+		log.G().Warnf("Continuing uninstall, even though failed deleting '%s' folder: %w", store.Default.BootsrtrapDir, err)
 	}
 
 	err = billyUtils.RemoveAll(repofs, store.Default.ProjectsDir)
@@ -751,7 +772,7 @@ func deleteGitOpsFiles(repofs fs.FS, force bool) error {
 			return fmt.Errorf("failed deleting '%s' folder: %w", store.Default.ProjectsDir, err)
 		}
 
-		log.G().Warnf("continuing uninstall, even though failed deleting '%s' folder: %w", store.Default.ProjectsDir, err)
+		log.G().Warnf("Continuing uninstall, even though failed deleting '%s' folder: %w", store.Default.ProjectsDir, err)
 	}
 
 	err = billyUtils.WriteFile(repofs, repofs.Join(store.Default.BootsrtrapDir, store.Default.DummyName), []byte{}, 0666)
@@ -760,7 +781,7 @@ func deleteGitOpsFiles(repofs fs.FS, force bool) error {
 			return fmt.Errorf("failed creating '%s' file in '%s' folder: %w", store.Default.DummyName, store.Default.ProjectsDir, err)
 		}
 
-		log.G().Warnf("continuing uninstall, even though failed creating '%s' file in '%s' folder: %w", store.Default.DummyName, store.Default.ProjectsDir, err)
+		log.G().Warnf("Continuing uninstall, even though failed creating '%s' file in '%s' folder: %w", store.Default.DummyName, store.Default.ProjectsDir, err)
 	}
 
 	return nil
@@ -782,11 +803,23 @@ func deleteClusterResources(ctx context.Context, opts *deleteClusterResourcesOpt
 			Force:           opts.Force,
 			WaitForDeletion: !opts.FastExit,
 		}); err != nil {
-			if labelSelector == store.Default.LabelValueManagedBy {
-				return fmt.Errorf("failed deleting argocd-autopilot resources: %w", err)
-			} else {
-				return fmt.Errorf("failed deleting Argo-CD resources: %w", err)
-			}
+			return fmt.Errorf("failed deleting argocd-autopilot resources: %w", err)
+		}
+
+		if err := opts.KubeFactory.Delete(ctx, &kube.DeleteOptions{
+			LabelSelector: labelSelector,
+			ResourceTypes: []string{
+				"all",
+				"configmaps",
+				"secrets",
+				"serviceaccounts",
+				"networkpolicies",
+				"rolebindings",
+				"roles",
+			},
+			Timeout: opts.Timeout,
+		}); err != nil {
+			return fmt.Errorf("failed deleting Argo-CD resources: %w", err)
 		}
 	}
 
