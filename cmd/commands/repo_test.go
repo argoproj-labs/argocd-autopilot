@@ -634,22 +634,32 @@ func TestRunRepoUninstall(t *testing.T) {
 				r.On("Persist", mock.Anything, &git.PushOptions{CommitMsg: "Autopilot Uninstall"}).Return("revision", nil)
 				r.On("Persist", mock.Anything, &git.PushOptions{CommitMsg: "Autopilot Uninstall, deleted leftovers"}).Return("", errors.New("some error"))
 				f.On("Wait", mock.Anything, mock.Anything).Return(nil)
-				f.On("Delete", mock.Anything, &kube.DeleteOptions{
-					LabelSelector: store.Default.LabelKeyAppManagedBy + "=" + store.Default.LabelValueManagedBy,
-					ResourceTypes: []string{"applications", "secrets"},
-				}).Return(nil)
-				f.On("Delete", mock.Anything, &kube.DeleteOptions{
-					LabelSelector: argocdcommon.LabelKeyAppInstance + "=" + store.Default.ArgoCDName,
-					ResourceTypes: []string{
-						"all",
-						"configmaps",
-						"secrets",
-						"serviceaccounts",
-						"networkpolicies",
-						"rolebindings",
-						"roles",
-					},
-				}).Return(nil)
+				
+				labelSelectors := []string{
+					store.Default.LabelKeyAppManagedBy + "=" + store.Default.LabelValueManagedBy,
+					argocdcommon.LabelKeyAppInstance + "=" + store.Default.ArgoCDName,
+					store.Default.LabelKeyAppPartOf + "=" + store.Default.ArgoCDNamespace,
+					store.Default.LabelKeyAppPartOf + "=" + store.Default.ArgoCDApplicationSet,
+				}
+
+				for _, labelSelector := range labelSelectors {
+					f.On("Delete", mock.Anything, &kube.DeleteOptions{
+						LabelSelector: labelSelector,
+						ResourceTypes: []string{"applications", "secrets"},
+					}).Return(nil)
+					f.On("Delete", mock.Anything, &kube.DeleteOptions{
+						LabelSelector: labelSelector,
+						ResourceTypes: []string{
+							"all",
+							"configmaps",
+							"secrets",
+							"serviceaccounts",
+							"networkpolicies",
+							"rolebindings",
+							"roles",
+						},
+					}).Return(nil)
+				}
 			},
 		},
 		"Should succeed if no errors": {
@@ -657,22 +667,33 @@ func TestRunRepoUninstall(t *testing.T) {
 				r.On("Persist", mock.Anything, &git.PushOptions{CommitMsg: "Autopilot Uninstall"}).Return("revision", nil)
 				r.On("Persist", mock.Anything, &git.PushOptions{CommitMsg: "Autopilot Uninstall, deleted leftovers"}).Return("", nil)
 				f.On("Wait", mock.Anything, mock.Anything).Return(nil)
-				f.On("Delete", mock.Anything, &kube.DeleteOptions{
-					LabelSelector: store.Default.LabelKeyAppManagedBy + "=" + store.Default.LabelValueManagedBy,
-					ResourceTypes: []string{"applications", "secrets"},
-				}).Return(nil)
-				f.On("Delete", mock.Anything, &kube.DeleteOptions{
-					LabelSelector: argocdcommon.LabelKeyAppInstance + "=" + store.Default.ArgoCDName,
-					ResourceTypes: []string{
-						"all",
-						"configmaps",
-						"secrets",
-						"serviceaccounts",
-						"networkpolicies",
-						"rolebindings",
-						"roles",
-					},
-				}).Return(nil)
+				
+				labelSelectors := []string{
+					store.Default.LabelKeyAppManagedBy + "=" + store.Default.LabelValueManagedBy,
+					argocdcommon.LabelKeyAppInstance + "=" + store.Default.ArgoCDName,
+					store.Default.LabelKeyAppPartOf + "=" + store.Default.ArgoCDNamespace,
+					store.Default.LabelKeyAppPartOf + "=" + store.Default.ArgoCDApplicationSet,
+				}
+
+				for _, labelSelector := range labelSelectors {
+					f.On("Delete", mock.Anything, &kube.DeleteOptions{
+						LabelSelector: labelSelector,
+						ResourceTypes: []string{"applications", "secrets"},
+					}).Return(nil)
+					
+					f.On("Delete", mock.Anything, &kube.DeleteOptions{
+						LabelSelector: labelSelector,
+						ResourceTypes: []string{
+							"all",
+							"configmaps",
+							"secrets",
+							"serviceaccounts",
+							"networkpolicies",
+							"rolebindings",
+							"roles",
+						},
+					}).Return(nil)
+				}
 			},
 		},
 	}
@@ -709,6 +730,7 @@ func TestRunRepoUninstall(t *testing.T) {
 					Repo: "https://github.com/owner/name",
 				},
 				KubeFactory: f,
+				FastExit: true,
 			}
 			opts.CloneOptions.Parse()
 			err := RunRepoUninstall(context.Background(), opts)
