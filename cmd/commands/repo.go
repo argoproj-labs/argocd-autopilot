@@ -233,7 +233,7 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 
 	// apply built manifest to k8s cluster
 	log.G(ctx).Infof("using context: \"%s\", namespace: \"%s\"", kubeContext, opts.Namespace)
-	log.G(ctx).Infof("applying bootstrap manifests to cluster...") // TODO: here we create 'application crd'
+	log.G(ctx).Infof("applying bootstrap manifests to cluster...")
 	if err = opts.KubeFactory.Apply(ctx, opts.Namespace, util.JoinManifests(manifests.namespace, manifests.applyManifests, manifests.repoCreds)); err != nil {
 		return fmt.Errorf("failed to apply bootstrap manifests to cluster: %w", err)
 	}
@@ -372,7 +372,7 @@ func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
 		return err
 	}
 
-	log.G(ctx).Info("pushing changes to remote") // TODO: why i dont see these logs
+	log.G(ctx).Info("pushing changes to remote")
 	revision, err := r.Persist(ctx, &git.PushOptions{CommitMsg: "Autopilot Uninstall"})
 	if err != nil {
 		return err
@@ -381,7 +381,7 @@ func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
 	stop := util.WithSpinner(ctx, fmt.Sprintf("waiting for '%s' to be finish syncing", store.Default.BootsrtrapAppName))
 	err = waitAppSynced(ctx, opts.KubeFactory, opts.Timeout, store.Default.BootsrtrapAppName, opts.Namespace, revision, false)
 	if err != nil {
-		se, ok := err.(*kerrors.StatusError) // TODO: what is "ok" here?
+		se, ok := err.(*kerrors.StatusError)
 		if !ok || se.ErrStatus.Reason != metav1.StatusReasonNotFound {
 			stop()
 			return err

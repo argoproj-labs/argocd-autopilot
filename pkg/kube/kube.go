@@ -246,12 +246,12 @@ func (f *factory) Delete(ctx context.Context, opts *DeleteOptions) error {
 			args := strings.Join(opts.ResourceTypes, ",")
 			err := o.Complete(f.f, []string{args}, cmd)
 			if err != nil {
-				if opts.WaitForDeletion && !opts.Force { // it checks the force or fast-exit
+				if opts.WaitForDeletion && !opts.Force {
 					return err
 				}
 
 				log.G().Warnf("%s", fmt.Errorf("failed deleting argocd-autopilot resources: %w", err))
-				log.G().Warnf("Due to --force flag, continuing uninstall")
+				log.G().Warnf("Continuing uninstall, due to --force flag")
 				return nil
 			}
 
