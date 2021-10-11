@@ -209,24 +209,24 @@ func (o *CloneOptions) Path() string {
 	return o.path
 }
 
-func (o *CloneOptions) GetGitProvider(ctx context.Context, host string, provider string, repo string) (string, bool, error) {
+func (o *CloneOptions) GetGitProvider(ctx context.Context, host, provider, repo string) (string, bool, error) {
 	if host == "" {
 		host, _, _, _, _, _, _ = util.ParseGitUrl(repo)
 	}
 
-	shouldWarn := false
+	shouldWarnNoExplicitProvider := false
 	providerType := provider
 	if providerType == "" {
 		u, err := url.Parse(host)
 		if err != nil {
-			return "", shouldWarn, err
+			return "", shouldWarnNoExplicitProvider, err
 		}
 
 		providerType = strings.TrimSuffix(u.Hostname(), ".com")
-		shouldWarn = true
+		shouldWarnNoExplicitProvider = true
 	}
 
-	return providerType, shouldWarn, nil
+	return providerType, shouldWarnNoExplicitProvider, nil
 }
 
 func (r *repo) Persist(ctx context.Context, opts *PushOptions) (string, error) {
