@@ -370,7 +370,7 @@ func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
 			return err
 		}
 
-		log.G().Warnf("Continuing uninstall, even though failed getting repo: %w", err)
+		log.G().Warnf("Continuing uninstall, even though failed getting repo: %v", err)
 	}
 
 	var revision string
@@ -381,7 +381,7 @@ func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
 				return err
 			}
 
-			log.G().Warnf("Continuing uninstall, even though failed uninstalling from repo: %w", err)
+			log.G().Warnf("Continuing uninstall, even though failed uninstalling from repo: %v", err)
 		}
 	}
 
@@ -391,7 +391,7 @@ func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
 			return err
 		}
 
-		log.G().Warnf("Continuing uninstall, even though failed completing deletion of cluster resources: %w", err)
+		log.G().Warnf("Continuing uninstall, even though failed completing deletion of cluster resources: %v", err)
 	}
 
 	if r != nil && repofs != nil {
@@ -401,7 +401,7 @@ func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
 				return err
 			}
 
-			log.G().Warnf("Continuing uninstall, even though failed removing leftovers from repo: %w", err)
+			log.G().Warnf("Continuing uninstall, even though failed removing leftovers from repo: %v", err)
 		}
 	}
 
