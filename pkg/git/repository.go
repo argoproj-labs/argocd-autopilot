@@ -209,24 +209,14 @@ func (o *CloneOptions) Path() string {
 	return o.path
 }
 
-func (o *CloneOptions) GetGitProvider(ctx context.Context, host, provider, repo string) (string, bool, error) {
-	if host == "" {
-		host, _, _, _, _, _, _ = util.ParseGitUrl(repo)
+func (o *CloneOptions) GetGitProvider() (string, error) {
+	host, _, _, _, _, _, _ := util.ParseGitUrl(o.Repo)
+	u, err := url.Parse(host)
+	if err != nil {
+		return "", err
 	}
 
-	shouldWarnNoExplicitProvider := false
-	providerType := provider
-	if providerType == "" {
-		u, err := url.Parse(host)
-		if err != nil {
-			return "", shouldWarnNoExplicitProvider, err
-		}
-
-		providerType = strings.TrimSuffix(u.Hostname(), ".com")
-		shouldWarnNoExplicitProvider = true
-	}
-
-	return providerType, shouldWarnNoExplicitProvider, nil
+	return strings.TrimSuffix(u.Hostname(), ".com"), nil
 }
 
 func (r *repo) Persist(ctx context.Context, opts *PushOptions) (string, error) {
@@ -360,14 +350,16 @@ var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 }
 
 var createRepo = func(ctx context.Context, opts *CloneOptions) (string, error) {
+	var err error
 	host, orgRepo, _, _, _, _, _ := util.ParseGitUrl(opts.Repo)
 
-	providerType, shouldWarn, err := opts.GetGitProvider(ctx, host, opts.Provider, orgRepo)
-	if err != nil {
-		return "", fmt.Errorf("failed to get git provider: %w", err)
-	}
+	providerType := opts.Provider
+	if providerType == "" {
+		providerType, err = opts.GetGitProvider()
+		if err != nil {
+			return "", fmt.Errorf("failed to get git provider: %w", err)
+		}
 
-	if shouldWarn {
 		log.G(ctx).Warnf("--provider not specified, assuming provider from url: %s", providerType)
 	}
 
