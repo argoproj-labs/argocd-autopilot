@@ -14,6 +14,27 @@ type Repository struct {
 	mock.Mock
 }
 
+// CurrentBranch provides a mock function with given fields:
+func (_m *Repository) CurrentBranch() (string, error) {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // Persist provides a mock function with given fields: ctx, opts
 func (_m *Repository) Persist(ctx context.Context, opts *git.PushOptions) (string, error) {
 	ret := _m.Called(ctx, opts)

@@ -260,7 +260,7 @@ func (r *repo) Persist(ctx context.Context, opts *PushOptions) (string, error) {
 }
 
 func (r *repo) CurrentBranch() (string, error) {
-	ref, err := r.Reference(plumbing.ReferenceName(plumbing.HEAD), true)
+	ref, err := r.Head()
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve ref: %w", err)
 	}
