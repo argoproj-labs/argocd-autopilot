@@ -1,5 +1,10 @@
 # Changelog:
 
+# v0.2.23
+
+### Features
+* Use default branch from git config instead of master [#196](https://github.com/argoproj-labs/argocd-autopilot/pull/196)
+
 # v0.2.22
 
 ### Features
