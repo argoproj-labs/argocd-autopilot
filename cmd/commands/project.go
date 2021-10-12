@@ -313,10 +313,10 @@ func generateProjectManifests(o *GenerateProjectOptions) (projectYAML, appSetYAM
 								Directory: &argocdv1alpha1.ApplicationSourceDirectory{
 									Recurse: true,
 									Exclude: "{{ exclude }}",
-									Include: "{{ include }}",	
+									Include: "{{ include }}",
 								},
 							},
-						} ,
+						},
 					},
 				},
 			},

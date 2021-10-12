@@ -36,6 +36,8 @@ type (
 	Repository interface {
 		// Persist runs add, commit and push to the repository default remote
 		Persist(ctx context.Context, opts *PushOptions) (string, error)
+		// CurrentBranch returns the name of the current branch
+		CurrentBranch() (string, error)
 	}
 
 	AddFlagsOptions struct {
@@ -100,6 +102,19 @@ var (
 
 	worktree = func(r gogit.Repository) (gogit.Worktree, error) {
 		return r.Worktree()
+	}
+
+	defaultBranch = func() (string, error) {
+		cfg, err := config.LoadConfig(config.GlobalScope)
+		if err != nil {
+			return "", fmt.Errorf("failed to load global git config: %w", err)
+		}
+
+		if cfg.Init.DefaultBranch == "" {
+			return "main", nil
+		}
+
+		return cfg.Init.DefaultBranch, nil
 	}
 )
 
@@ -242,6 +257,15 @@ func (r *repo) Persist(ctx context.Context, opts *PushOptions) (string, error) {
 	}
 
 	return h.String(), err
+}
+
+func (r *repo) CurrentBranch() (string, error) {
+	ref, err := r.Head()
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve ref: %w", err)
+	}
+
+	return ref.Name().Short(), nil
 }
 
 func (r *repo) commit(opts *PushOptions) (*plumbing.Hash, error) {
@@ -447,7 +471,10 @@ func (r *repo) initBranch(ctx context.Context, branchName string) error {
 	}
 
 	if branchName == "" {
-		return nil
+		branchName, err = defaultBranch()
+		if err != nil {
+			return err
+		}
 	}
 
 	b := plumbing.NewBranchReferenceName(branchName)
