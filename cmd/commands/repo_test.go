@@ -431,7 +431,7 @@ func Test_setUninstallOptsDefaults(t *testing.T) {
 				currentKubeContext = tt.currentKubeContext
 			}
 
-			got := setUninstallOptsDefaults(tt.opts)
+			got, _ := setUninstallOptsDefaults(tt.opts)
 			assert.Equal(t, tt.want, got)
 		})
 	}
