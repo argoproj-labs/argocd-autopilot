@@ -52,6 +52,7 @@ argocd-autopilot application create [APP_NAME] [flags]
       --apps-git-token string      Your git provider api token [APPS_GIT_TOKEN]
       --apps-git-user string       Your git provider user name [APPS_GIT_USER] (not required in GitHub)
       --apps-repo string           Repository URL [APPS_GIT_REPO]
+      --context string             The name of the kubeconfig context to use
       --dest-namespace string      K8s target namespace (overrides the namespace specified in the kustomization.yaml)
       --dest-server string         K8s cluster URL (e.g. https://kubernetes.default.svc) (default "https://kubernetes.default.svc")
   -h, --help                       help for create
