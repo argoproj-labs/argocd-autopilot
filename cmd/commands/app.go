@@ -26,15 +26,16 @@ import (
 
 type (
 	AppCreateOptions struct {
-		CloneOpts     *git.CloneOptions
-		AppsCloneOpts *git.CloneOptions
-		ProjectName   string
-		AppOpts       *application.CreateOptions
-		KubeFactory   kube.Factory
-		Timeout       time.Duration
-		Labels        map[string]string
-		Include       string
-		Exclude       string
+		CloneOpts       *git.CloneOptions
+		AppsCloneOpts   *git.CloneOptions
+		ProjectName     string
+		KubeContextName string
+		AppOpts         *application.CreateOptions
+		KubeFactory     kube.Factory
+		Timeout         time.Duration
+		Labels          map[string]string
+		Include         string
+		Exclude         string
 	}
 
 	AppDeleteOptions struct {
@@ -131,12 +132,13 @@ func NewAppCreateCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 
 			appOpts.AppName = args[0]
 			return RunAppCreate(ctx, &AppCreateOptions{
-				CloneOpts:     cloneOpts,
-				AppsCloneOpts: appsCloneOpts,
-				ProjectName:   projectName,
-				AppOpts:       appOpts,
-				Timeout:       timeout,
-				KubeFactory:   f,
+				CloneOpts:       cloneOpts,
+				AppsCloneOpts:   appsCloneOpts,
+				ProjectName:     projectName,
+				KubeContextName: cmd.Flag("context").Value.String(),
+				AppOpts:         appOpts,
+				Timeout:         timeout,
+				KubeFactory:     f,
 			})
 		},
 	}

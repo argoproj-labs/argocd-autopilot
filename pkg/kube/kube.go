@@ -107,10 +107,12 @@ func AddFlags(flags *pflag.FlagSet) Factory {
 	timeout := "0"
 	kubeConfig := ""
 	namespace := ""
+	context := ""
 	confFlags := &genericclioptions.ConfigFlags{
 		Timeout:    &timeout,
 		KubeConfig: &kubeConfig,
 		Namespace:  &namespace,
+		Context: &context,
 	}
 	confFlags.AddFlags(flags)
 	mvFlags := cmdutil.NewMatchVersionFlags(confFlags)
