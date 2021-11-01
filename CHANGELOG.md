@@ -1,5 +1,10 @@
 # Changelog:
 
+# v0.2.24
+
+### Features
+* Added `--context` flag to `repo bootstrap`, `repo uninstall` and `app create`. [#199](https://github.com/argoproj-labs/argocd-autopilot/pull/199)
+
 # v0.2.23
 
 ### Features
