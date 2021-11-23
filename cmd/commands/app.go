@@ -215,7 +215,7 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 	}
 
 	if opts.Timeout > 0 {
-		namespace, err := getInstallationNamespace(opts.CloneOpts.FS)
+		namespace, err := getInstallationNamespace(repofs)
 		if err != nil {
 			return fmt.Errorf("failed to get application namespace: %w", err)
 		}
