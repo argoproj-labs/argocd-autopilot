@@ -2,6 +2,11 @@
 
 # v0.2.25
 
+### Bug Fixes
+* Fixed failed installation into a repo sub-directory [#206](https://github.com/argoproj-labs/argocd-autopilot/pull/206)
+
+# v0.2.24
+
 ### Features
 * Added `--context` flag to `repo bootstrap`, `repo uninstall` and `app create`. [#199](https://github.com/argoproj-labs/argocd-autopilot/pull/199)
 
