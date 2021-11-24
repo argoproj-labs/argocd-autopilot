@@ -47,5 +47,5 @@ When using the Docker image, you have to provide the `.kube` and `.gitconfig` di
 docker run \
   -v ~/.kube:/home/autopilot/.kube \
   -v ~/.gitconfig:/home/autopilot/.gitconfig \
-  -it quay.io/argoprojlabs/argocd-autopilot:v0.2.25 <cmd> <flags>
+  -it quay.io/argoprojlabs/argocd-autopilot:v0.2.24 <cmd> <flags>
 ```
