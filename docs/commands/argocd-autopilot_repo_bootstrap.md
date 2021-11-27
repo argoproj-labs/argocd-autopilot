@@ -45,7 +45,7 @@ argocd-autopilot repo bootstrap [flags]
       --installation-mode string   One of: normal|flat. If flat, will commit the bootstrap manifests, otherwise will commit the bootstrap kustomization.yaml (default "normal")
       --kubeconfig string          Path to the kubeconfig file to use for CLI requests.
   -n, --namespace string           If present, the namespace scope for this CLI request
-      --provider string            The git provider, one of: gitea|github
+      --provider string            The git provider, one of: gitea|github|gitlab
       --repo string                Repository URL [GIT_REPO]
       --request-timeout string     The length of time to wait before giving up on a single server request. Non-zero values should contain a corresponding time unit (e.g. 1s, 2m, 3h). A value of zero means don't timeout requests. (default "0")
 ```
