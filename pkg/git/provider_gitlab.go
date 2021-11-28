@@ -75,7 +75,7 @@ func (g *gitlab) CreateRepository(ctx context.Context, opts *CreateRepoOptions) 
 
 	p, _, err := g.client.CreateProject(&createOpts)
 	if err != nil {
-		return "", fmt.Errorf("failed creating the project %s under %s: %s", opts.Name, opts.Owner, err)
+		return "", fmt.Errorf("failed creating the project %s under %s: %w", opts.Name, opts.Owner, err)
 	}
 
 	if p.WebURL == "" {
