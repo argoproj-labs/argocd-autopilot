@@ -1,5 +1,10 @@
 # Changelog:
 
+# v0.2.26
+
+### Features
+* Added support for gitlab git provider. [#209](https://github.com/argoproj-labs/argocd-autopilot/pull/209)
+
 # v0.2.25
 
 ### Bug Fixes
