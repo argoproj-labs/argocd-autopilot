@@ -53,6 +53,7 @@ var (
 var supportedProviders = map[string]func(*ProviderOptions) (Provider, error){
 	"github": newGithub,
 	"gitea":  newGitea,
+	"gitlab": newGitlab,
 }
 
 // New creates a new git provider
