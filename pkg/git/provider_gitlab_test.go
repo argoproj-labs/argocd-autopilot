@@ -55,9 +55,10 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 			beforeFn: func(c *glmocks.GitlabClient) {
 				u := &gl.User{Username: "username"}
 				c.On("CurrentUser").Return(u, nil, nil)
-				g := []*gl.Group{&gl.Group{Path: "anotherOrg", ID: 1}}
+				g := []*gl.Group{{FullPath: "anotherOrg", ID: 1}}
 				c.On("ListGroups", &gl.ListGroupsOptions{
 					MinAccessLevel: gl.AccessLevel(gl.DeveloperPermissions),
+					TopLevelOnly:   gl.Bool(false),
 				}).Return(g, nil, nil)
 			},
 			wantErr: "group org not found",
@@ -107,9 +108,10 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 				u := &gl.User{Username: "username"}
 				c.On("CurrentUser").Return(u, nil, nil)
 				p := &gl.Project{WebURL: "http://gitlab.com/org/projectName"}
-				g := []*gl.Group{&gl.Group{Path: "org", ID: 1}}
+				g := []*gl.Group{{FullPath: "org", ID: 1}}
 				c.On("ListGroups", &gl.ListGroupsOptions{
 					MinAccessLevel: gl.AccessLevel(gl.DeveloperPermissions),
+					TopLevelOnly:   gl.Bool(false),
 				}).Return(g, nil, nil)
 				createOpts := gl.CreateProjectOptions{
 					Name:        gl.String("projectName"),
@@ -119,6 +121,29 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 				c.On("CreateProject", &createOpts).Return(p, nil, nil)
 			},
 			want: "http://gitlab.com/org/projectName",
+		},
+		"Creates project under sub group": {
+			opts: &CreateRepoOptions{
+				Name:  "projectName",
+				Owner: "org/subOrg",
+			},
+			beforeFn: func(c *glmocks.GitlabClient) {
+				u := &gl.User{Username: "username"}
+				c.On("CurrentUser").Return(u, nil, nil)
+				p := &gl.Project{WebURL: "http://gitlab.com/org/subOrg/projectName"}
+				g := []*gl.Group{{FullPath: "org/subOrg", ID: 1}}
+				c.On("ListGroups", &gl.ListGroupsOptions{
+					MinAccessLevel: gl.AccessLevel(gl.DeveloperPermissions),
+					TopLevelOnly:   gl.Bool(false),
+				}).Return(g, nil, nil)
+				createOpts := gl.CreateProjectOptions{
+					Name:        gl.String("projectName"),
+					Visibility:  gl.Visibility(gl.PublicVisibility),
+					NamespaceID: gl.Int(1),
+				}
+				c.On("CreateProject", &createOpts).Return(p, nil, nil)
+			},
+			want: "http://gitlab.com/org/subOrg/projectName",
 		},
 		"Creates private project": {
 			opts: &CreateRepoOptions{

@@ -88,15 +88,17 @@ func (g *gitlab) CreateRepository(ctx context.Context, opts *CreateRepoOptions) 
 func (g *gitlab) getGroupIdByName(groupName string) (int, error) {
 	groups, _, err := g.client.ListGroups(&gl.ListGroupsOptions{
 		MinAccessLevel: gl.AccessLevel(gl.DeveloperPermissions),
+		TopLevelOnly:   gl.Bool(false),
 	})
 	if err != nil {
 		return 0, err
 	}
 
 	for _, group := range groups {
-		if group.Path == groupName {
+		if group.FullPath == groupName {
 			return group.ID, nil
 		}
 	}
+
 	return 0, fmt.Errorf("group %s not found", groupName)
 }
