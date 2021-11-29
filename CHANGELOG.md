@@ -1,5 +1,10 @@
 # Changelog:
 
+# v0.2.27
+
+### Features
+* Added option to create a git-src repo in case it doesn't already exist. [#209](https://github.com/argoproj-labs/argocd-autopilot/pull/212)
+
 # v0.2.26
 
 ### Features
