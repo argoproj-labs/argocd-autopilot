@@ -53,10 +53,10 @@ type (
 		Auth             Auth
 		FS               fs.FS
 		Progress         io.Writer
+		CreateIfNotExist bool
 		url              string
 		revision         string
 		path             string
-		createIfNotExist bool
 	}
 
 	PushOptions struct {
