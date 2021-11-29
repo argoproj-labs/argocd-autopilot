@@ -53,10 +53,10 @@ type (
 		Auth             Auth
 		FS               fs.FS
 		Progress         io.Writer
+		CreateIfNotExist bool
 		url              string
 		revision         string
 		path             string
-		createIfNotExist bool
 	}
 
 	PushOptions struct {
@@ -121,7 +121,7 @@ var (
 func AddFlags(cmd *cobra.Command, opts *AddFlagsOptions) *CloneOptions {
 	co := &CloneOptions{
 		FS:               fs.Create(opts.FS),
-		createIfNotExist: opts.CreateIfNotExist,
+		CreateIfNotExist: opts.CreateIfNotExist,
 	}
 
 	if opts.Prefix != "" && !strings.HasSuffix(opts.Prefix, "-") {
@@ -182,7 +182,7 @@ func (o *CloneOptions) GetRepo(ctx context.Context) (Repository, fs.FS, error) {
 	if err != nil {
 		switch err {
 		case transport.ErrRepositoryNotFound:
-			if !o.createIfNotExist {
+			if !o.CreateIfNotExist {
 				return nil, nil, err
 			}
 
@@ -330,7 +330,7 @@ var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 
 	log.G(ctx).WithField("url", opts.url).Debug("cloning git repo")
 
-	if opts.createIfNotExist {
+	if opts.CreateIfNotExist {
 		curPushRetries = 1 // no retries
 	}
 
