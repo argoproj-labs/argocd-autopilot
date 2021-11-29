@@ -369,10 +369,10 @@ func Test_clone(t *testing.T) {
 			retErr:  transport.ErrRepositoryNotFound,
 			wantErr: true,
 		},
-		"Should not retry if createIfNotExist is true": {
+		"Should not retry if CreateIfNotExist is true": {
 			opts: &CloneOptions{
 				Repo:             "https://github.com/owner/name",
-				createIfNotExist: true,
+				CreateIfNotExist: true,
 			},
 			expectedOpts: &gg.CloneOptions{
 				URL:      "https://github.com/owner/name.git",

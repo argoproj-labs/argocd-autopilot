@@ -330,7 +330,7 @@ var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 
 	log.G(ctx).WithField("url", opts.url).Debug("cloning git repo")
 
-	if opts.createIfNotExist {
+	if opts.CreateIfNotExist {
 		curPushRetries = 1 // no retries
 	}
 
