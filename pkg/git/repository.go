@@ -121,7 +121,7 @@ var (
 func AddFlags(cmd *cobra.Command, opts *AddFlagsOptions) *CloneOptions {
 	co := &CloneOptions{
 		FS:               fs.Create(opts.FS),
-		createIfNotExist: opts.CreateIfNotExist,
+		CreateIfNotExist: opts.CreateIfNotExist,
 	}
 
 	if opts.Prefix != "" && !strings.HasSuffix(opts.Prefix, "-") {
@@ -182,7 +182,7 @@ func (o *CloneOptions) GetRepo(ctx context.Context) (Repository, fs.FS, error) {
 	if err != nil {
 		switch err {
 		case transport.ErrRepositoryNotFound:
-			if !o.createIfNotExist {
+			if !o.CreateIfNotExist {
 				return nil, nil, err
 			}
 

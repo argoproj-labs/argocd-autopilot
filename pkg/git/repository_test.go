@@ -491,10 +491,10 @@ func TestGetRepo(t *testing.T) {
 				assert.Error(t, transport.ErrRepositoryNotFound, e)
 			},
 		},
-		"Should fail when createIfNotExist is true and create fails": {
+		"Should fail when CreateIfNotExist is true and create fails": {
 			opts: &CloneOptions{
 				Repo:             "https://github.com/owner/name",
-				createIfNotExist: true,
+				CreateIfNotExist: true,
 			},
 			wantErr: "some error",
 			cloneFn: func(_ context.Context, opts *CloneOptions) (*repo, error) {
@@ -526,10 +526,10 @@ func TestGetRepo(t *testing.T) {
 				assert.EqualError(t, e, "failed to initialize repository: some error")
 			},
 		},
-		"Should create and init repo when createIfNotExist is true": {
+		"Should create and init repo when CreateIfNotExist is true": {
 			opts: &CloneOptions{
 				Repo:             "https://github.com/owner/name",
-				createIfNotExist: true,
+				CreateIfNotExist: true,
 				FS:               fs.Create(memfs.New()),
 			},
 			wantErr: "some error",
