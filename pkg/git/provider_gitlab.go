@@ -29,7 +29,7 @@ type (
 )
 
 func newGitlab(opts *ProviderOptions) (Provider, error) {
-	c, err := gl.NewClient(opts.Auth.Password)
+	c, err := gl.NewClient(opts.Auth.Password, gl.WithBaseURL(opts.Host))
 	if err != nil {
 		return nil, err
 	}
