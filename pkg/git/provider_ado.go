@@ -2,6 +2,7 @@ package git
 
 import (
 	"context"
+	"fmt"
 	"github.com/microsoft/azure-devops-go-api/azuredevops"
 	ado "github.com/microsoft/azure-devops-go-api/azuredevops/git"
 	"time"
@@ -35,6 +36,10 @@ func newAdo(opts *ProviderOptions) (Provider, error) {
 }
 
 func (g *adoGit) CreateRepository(ctx context.Context, opts *CreateRepoOptions) (string, error) {
+	if opts.Name == "" || opts.Project == "" {
+		return "", fmt.Errorf("name and project need to be provided to create an azure devops repository. "+
+			"name: '%s' project '%s'", opts.Name, opts.Project)
+	}
 	gitRepoToCreate := &ado.GitRepositoryCreateOptions{
 		Name: &opts.Name,
 	}
@@ -46,5 +51,5 @@ func (g *adoGit) CreateRepository(ctx context.Context, opts *CreateRepoOptions) 
 	if err != nil {
 		return "", err
 	}
-	return *repository.Url, nil
+	return *repository.RemoteUrl, nil
 }
