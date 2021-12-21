@@ -882,7 +882,7 @@ func TestAddFlags(t *testing.T) {
 			wantedFlags: []flag{
 				{
 					name:  "provider",
-					usage: "The git provider, one of: gitea|github|gitlab",
+					usage: "The git provider, one of: gitea|github|gitlab|ado",
 				},
 			},
 		},

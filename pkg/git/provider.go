@@ -29,8 +29,10 @@ type (
 	}
 
 	CreateRepoOptions struct {
-		Owner   string
-		Name    string
+		Owner string
+		Name  string
+		// ADO project name
+		Project string
 		Private bool
 	}
 
@@ -54,6 +56,7 @@ var supportedProviders = map[string]func(*ProviderOptions) (Provider, error){
 	"github": newGithub,
 	"gitea":  newGitea,
 	"gitlab": newGitlab,
+	"ado":    newAdo,
 }
 
 // New creates a new git provider
@@ -72,6 +75,6 @@ func Providers() []string {
 		res = append(res, p)
 	}
 
-	sort.Strings(res) // must sort the providers by name, otherwise the codegen is not determenistic
+	sort.Strings(res) // must sort the providers by name, otherwise the codegen is not deterministic
 	return res
 }
