@@ -5,23 +5,45 @@ import (
 	"fmt"
 	"github.com/microsoft/azure-devops-go-api/azuredevops"
 	ado "github.com/microsoft/azure-devops-go-api/azuredevops/git"
+	"net/url"
+	"strings"
 	"time"
 )
 
-//go:generate mockery --name AdoClient --output ado/mocks --case snake
+//go:generate mockery --name Ado* --output ado/mocks --case snake
 type (
 	AdoClient interface {
 		CreateRepository(context.Context, ado.CreateRepositoryArgs) (*ado.GitRepository, error)
 	}
+
+	AdoUrl interface {
+		GetProjectName() string
+	}
+
 	adoGit struct {
 		adoClient AdoClient
+		opts      *ProviderOptions
+		adoUrl    AdoUrl
+	}
+
+	adoGitUrl struct {
+		loginUrl     string
+		subscription string
+		projectName  string
+		repoName     string
 	}
 )
 
+const Azure = "azure"
+const AzureHostName = "dev.azure"
 const timeoutTime = 10 * time.Second
 
 func newAdo(opts *ProviderOptions) (Provider, error) {
-	connection := azuredevops.NewPatConnection(opts.Host, opts.Auth.Password)
+	adoUrl, err := parseAdoUrl(opts.Host)
+	if err != nil {
+		return nil, err
+	}
+	connection := azuredevops.NewPatConnection(adoUrl.loginUrl, opts.Auth.Password)
 	ctx, cancel := context.WithTimeout(context.Background(), timeoutTime)
 	defer cancel()
 	// FYI: ado also has a "core" client that can be used to update project, teams, and other ADO constructs
@@ -32,24 +54,59 @@ func newAdo(opts *ProviderOptions) (Provider, error) {
 
 	return &adoGit{
 		adoClient: gitClient,
+		opts:      opts,
+		adoUrl:    adoUrl,
 	}, nil
 }
 
 func (g *adoGit) CreateRepository(ctx context.Context, opts *CreateRepoOptions) (string, error) {
-	if opts.Name == "" || opts.Project == "" {
-		return "", fmt.Errorf("name and project need to be provided to create an azure devops repository. "+
-			"name: '%s' project '%s'", opts.Name, opts.Project)
+	if opts.Name == "" {
+		return "", fmt.Errorf("name needs to be provided to create an azure devops repository. "+
+			"name: '%s'", opts.Name)
 	}
 	gitRepoToCreate := &ado.GitRepositoryCreateOptions{
 		Name: &opts.Name,
 	}
+	project := g.adoUrl.GetProjectName()
 	createRepositoryArgs := ado.CreateRepositoryArgs{
 		GitRepositoryToCreate: gitRepoToCreate,
-		Project:               &opts.Project,
+		Project:               &project,
 	}
 	repository, err := g.adoClient.CreateRepository(ctx, createRepositoryArgs)
 	if err != nil {
 		return "", err
 	}
 	return *repository.RemoteUrl, nil
+}
+
+func (a *adoGitUrl) GetProjectName() string {
+	return a.projectName
+}
+
+// getLoginUrl parses a URL and returns the URL with only first part of the path
+// this path should be the subscription in Azure DevOps
+// ie, https://dev.azure.com/SUB/PROJECT/_git/REPO would return https://dev.azure.com/SUB
+func parseAdoUrl(host string) (*adoGitUrl, error) {
+	u, err := url.Parse(host)
+	if err != nil {
+		return nil, err
+	}
+	var sub, project, repoName string
+	path := strings.Split(u.Path, "/")
+	if len(path) < 5 {
+		return nil, fmt.Errorf("unable to parse Azure DevOps url")
+	} else {
+		// 1 since the path starts with a slash
+		sub = path[1]
+		project = path[2]
+		// skip _git
+		repoName = path[4]
+	}
+	loginUrl := fmt.Sprintf("%s://%s/%s", u.Scheme, u.Host, sub)
+	return &adoGitUrl{
+		loginUrl:     loginUrl,
+		subscription: sub,
+		projectName:  project,
+		repoName:     repoName,
+	}, nil
 }

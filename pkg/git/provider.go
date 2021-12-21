@@ -29,10 +29,8 @@ type (
 	}
 
 	CreateRepoOptions struct {
-		Owner string
-		Name  string
-		// ADO project name
-		Project string
+		Owner   string
+		Name    string
 		Private bool
 	}
 
@@ -56,7 +54,7 @@ var supportedProviders = map[string]func(*ProviderOptions) (Provider, error){
 	"github": newGithub,
 	"gitea":  newGitea,
 	"gitlab": newGitlab,
-	"ado":    newAdo,
+	Azure:    newAdo,
 }
 
 // New creates a new git provider
