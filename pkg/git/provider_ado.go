@@ -82,9 +82,7 @@ func (a *adoGitUrl) GetProjectName() string {
 	return a.projectName
 }
 
-// getLoginUrl parses a URL and returns the URL with only first part of the path
-// this path should be the subscription in Azure DevOps
-// ie, https://dev.azure.com/SUB/PROJECT/_git/REPO would return https://dev.azure.com/SUB
+// getLoginUrl parses a URL to retrieve the subscription and project name
 func parseAdoUrl(host string) (*adoGitUrl, error) {
 	u, err := url.Parse(host)
 	if err != nil {
