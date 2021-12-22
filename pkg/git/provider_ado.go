@@ -30,7 +30,6 @@ type (
 		loginUrl     string
 		subscription string
 		projectName  string
-		repoName     string
 	}
 )
 
@@ -91,7 +90,7 @@ func parseAdoUrl(host string) (*adoGitUrl, error) {
 	if err != nil {
 		return nil, err
 	}
-	var sub, project, repoName string
+	var sub, project string
 	path := strings.Split(u.Path, "/")
 	if len(path) < 5 {
 		return nil, fmt.Errorf("unable to parse Azure DevOps url")
@@ -99,14 +98,11 @@ func parseAdoUrl(host string) (*adoGitUrl, error) {
 		// 1 since the path starts with a slash
 		sub = path[1]
 		project = path[2]
-		// skip _git
-		repoName = path[4]
 	}
 	loginUrl := fmt.Sprintf("%s://%s/%s", u.Scheme, u.Host, sub)
 	return &adoGitUrl{
 		loginUrl:     loginUrl,
 		subscription: sub,
 		projectName:  project,
-		repoName:     repoName,
 	}, nil
 }

@@ -114,11 +114,9 @@ func Test_parseAdoUrl(t *testing.T) {
 			loginUrl:     "https://dev.azure.com/SUB",
 			subscription: "SUB",
 			projectName:  "PROJECT",
-			repoName:     "REPO",
-		},
-			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
-				return false
-			}},
+		}, wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+			return false
+		}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
