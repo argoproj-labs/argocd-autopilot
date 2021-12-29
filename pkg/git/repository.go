@@ -372,7 +372,11 @@ var createRepo = func(ctx context.Context, opts *CloneOptions) (string, error) {
 			return "", err
 		}
 
-		providerType = strings.TrimSuffix(u.Hostname(), ".com")
+		if strings.Contains(u.Hostname(), AzureHostName) {
+			providerType = Azure
+		} else {
+			providerType = strings.TrimSuffix(u.Hostname(), ".com")
+		}
 		log.G(ctx).Warnf("--provider not specified, assuming provider from url: %s", providerType)
 	}
 
@@ -385,18 +389,34 @@ var createRepo = func(ctx context.Context, opts *CloneOptions) (string, error) {
 		return "", fmt.Errorf("failed to create the repository, you can try to manually create it before trying again: %w", err)
 	}
 
+	switch providerType {
+	case Azure:
+		return p.CreateRepository(ctx, &CreateRepoOptions{
+			Owner: "",
+			Name:  orgRepo,
+		})
+	default:
+		repoOptions, err := getDefaultRepoOptions(orgRepo)
+		if err != nil {
+			return "", nil
+		}
+		return p.CreateRepository(ctx, repoOptions)
+	}
+}
+
+func getDefaultRepoOptions(orgRepo string) (*CreateRepoOptions, error) {
 	s := strings.Split(orgRepo, "/")
 	if len(s) < 2 {
-		return "", fmt.Errorf("failed parsing organization and repo from '%s'", orgRepo)
+		return nil, fmt.Errorf("failed parsing organization and repo from '%s'", orgRepo)
 	}
 
 	owner := strings.Join(s[:len(s)-1], "/")
 	name := s[len(s)-1]
-	return p.CreateRepository(ctx, &CreateRepoOptions{
+	return &CreateRepoOptions{
 		Owner:   owner,
 		Name:    name,
 		Private: true,
-	})
+	}, nil
 }
 
 var initRepo = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
