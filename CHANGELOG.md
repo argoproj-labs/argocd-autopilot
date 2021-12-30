@@ -1,5 +1,10 @@
 # Changelog:
 
+# v0.2.28
+
+### Features
+* Added support for Azure DevOps git provider. [#217](https://github.com/argoproj-labs/argocd-autopilot/pull/217)
+
 # v0.2.27
 
 ### Features
