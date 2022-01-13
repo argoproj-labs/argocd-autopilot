@@ -18,7 +18,7 @@ Argo CD Autopilot saves operators time by:
 - Handles secrets for Argo CD to prevent them from spilling into plaintext git. (Soon to come)
 
 The Argo-CD Autopilot is a tool which offers an opinionated way of installing Argo-CD and managing GitOps repositories.
-
+fdsaf
 ## Installation
 ### Using brew:
 ```bash
