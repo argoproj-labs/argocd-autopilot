@@ -52,9 +52,13 @@ argocd-autopilot version
 
 ### Linux AUR:
 ```bash
+# install
 yay -S argocd-autopilot-bin
-or
+# or
 sudo pacman -S argocd-autopilot-bin
+
+# check the installation
+argocd-autopilot version
 ```
 
 ### Linux and WSL (using curl):
