@@ -50,6 +50,17 @@ choco install argocd-autopilot
 argocd-autopilot version
 ```
 
+### Linux AUR:
+```bash
+# install
+yay -S argocd-autopilot-bin
+# or
+sudo pacman -S argocd-autopilot-bin
+
+# check the installation
+argocd-autopilot version
+```
+
 ### Linux and WSL (using curl):
 ```bash
 # get the latest version or change to a specific version
