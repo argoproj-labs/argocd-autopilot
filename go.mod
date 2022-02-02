@@ -16,9 +16,9 @@ require (
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/microsoft/azure-devops-go-api/azuredevops v1.0.0-b5
 	github.com/sirupsen/logrus v1.8.1
-	github.com/spf13/cobra v1.1.3
+	github.com/spf13/cobra v1.2.1
 	github.com/spf13/pflag v1.0.5
-	github.com/spf13/viper v1.7.1
+	github.com/spf13/viper v1.8.1
 	github.com/stretchr/testify v1.7.0
 	github.com/xanzy/go-gitlab v0.52.2
 	k8s.io/api v0.21.3
@@ -26,7 +26,7 @@ require (
 	k8s.io/cli-runtime v0.21.1
 	k8s.io/client-go v11.0.1-0.20190816222228-6d55c1b1f1ca+incompatible
 	k8s.io/kubectl v0.21.3
-	sigs.k8s.io/kustomize/api v0.8.8
+	sigs.k8s.io/kustomize/api v0.11.0
 )
 
 replace (
