@@ -50,6 +50,7 @@ var Default = struct {
 	LabelKeyAppManagedBy string
 	LabelKeyAppPartOf    string
 	LabelValueManagedBy  string
+	LabelKeyCFInternal   string
 	OverlaysDir          string
 	ProjectsDir          string
 	RootAppName          string
@@ -73,6 +74,7 @@ var Default = struct {
 	LabelKeyAppManagedBy: "app.kubernetes.io/managed-by",
 	LabelKeyAppPartOf:    "app.kubernetes.io/part-of",
 	LabelValueManagedBy:  "argocd-autopilot",
+	LabelKeyCFInternal:   "codefresh.io/internal",
 	OverlaysDir:          "overlays",
 	ProjectsDir:          "projects",
 	RootAppName:          "root",
