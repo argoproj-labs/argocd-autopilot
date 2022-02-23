@@ -112,7 +112,7 @@ func AddFlags(flags *pflag.FlagSet) Factory {
 		Timeout:    &timeout,
 		KubeConfig: &kubeConfig,
 		Namespace:  &namespace,
-		Context: &context,
+		Context:    &context,
 	}
 	confFlags.AddFlags(flags)
 	mvFlags := cmdutil.NewMatchVersionFlags(confFlags)
@@ -257,7 +257,7 @@ func (f *factory) Delete(ctx context.Context, opts *DeleteOptions) error {
 
 	cmdutil.AddDryRunFlag(cmd)
 
-	cmd.SetArgs([]string{})
+	cmd.SetArgs([]string{"--ignore-not-found"})
 
 	return cmd.ExecuteContext(ctx)
 }
