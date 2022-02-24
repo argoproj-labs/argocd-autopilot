@@ -1,5 +1,10 @@
 # Changelog:
 
+# v0.2.30
+
+### Features
+* Added bootstrap apps labels. [#235](https://github.com/argoproj-labs/argocd-autopilot/pull/235)
+
 # v0.2.29
 
 ### Bug Fixes
