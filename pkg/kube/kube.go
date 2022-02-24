@@ -236,6 +236,7 @@ func (f *factory) Delete(ctx context.Context, opts *DeleteOptions) error {
 		IOStreams:           DefaultIOStreams(),
 		CascadingStrategy:   metav1.DeletePropagationForeground,
 		DeleteAllNamespaces: true,
+		IgnoreNotFound:      true,
 		LabelSelector:       opts.LabelSelector,
 		Timeout:             timeout,
 		WaitForDeletion:     opts.WaitForDeletion,
@@ -257,7 +258,7 @@ func (f *factory) Delete(ctx context.Context, opts *DeleteOptions) error {
 
 	cmdutil.AddDryRunFlag(cmd)
 
-	cmd.SetArgs([]string{"--ignore-not-found"})
+	cmd.SetArgs([]string{})
 
 	return cmd.ExecuteContext(ctx)
 }
