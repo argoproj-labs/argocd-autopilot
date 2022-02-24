@@ -1,5 +1,10 @@
 # Changelog:
 
+# v0.2.29
+
+### Bug Fixes
+* Ignore `resource not found` errors when running `argocd-autopilot repo uninstall`. [#234](https://github.com/argoproj-labs/argocd-autopilot/pull/234)
+
 # v0.2.28
 
 ### Features
