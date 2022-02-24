@@ -1,5 +1,20 @@
 # Changelog:
 
+# v0.2.29
+
+### Bug Fixes
+* Ignore `resource not found` errors when running `argocd-autopilot repo uninstall`. [#234](https://github.com/argoproj-labs/argocd-autopilot/pull/234)
+
+# v0.2.28
+
+### Features
+* Added support for Azure DevOps git provider. [#217](https://github.com/argoproj-labs/argocd-autopilot/pull/217)
+
+# v0.2.27
+
+### Features
+* Added option to create a git-src repo in case it doesn't already exist. [#209](https://github.com/argoproj-labs/argocd-autopilot/pull/212)
+
 # v0.2.26
 
 ### Features

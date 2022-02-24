@@ -11,6 +11,27 @@ brew install argocd-autopilot
 argocd-autopilot version
 ```
 
+### Using scoop:
+```bash
+# update
+scoop update
+
+# install
+scoop install argocd-autopilot
+
+# check the installation
+argocd-autopilot version
+```
+
+### Using chocolatey:
+```bash
+# install
+choco install argocd-autopilot
+
+# check the installation
+argocd-autopilot version
+```
+
 ### Linux and WSL (using curl):
 ```bash
 # get the latest version or change to a specific version

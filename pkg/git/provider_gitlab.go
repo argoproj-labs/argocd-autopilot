@@ -46,7 +46,7 @@ func newGitlab(opts *ProviderOptions) (Provider, error) {
 	return g, nil
 }
 
-func (g *gitlab) CreateRepository(ctx context.Context, opts *CreateRepoOptions) (string, error) {
+func (g *gitlab) CreateRepository(_ context.Context, opts *CreateRepoOptions) (string, error) {
 	authUser, res, err := g.client.CurrentUser()
 	if err != nil {
 		if res.StatusCode == 401 {

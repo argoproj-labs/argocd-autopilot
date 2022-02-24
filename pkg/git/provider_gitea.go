@@ -34,7 +34,7 @@ func newGitea(opts *ProviderOptions) (Provider, error) {
 	return g, nil
 }
 
-func (g *gitea) CreateRepository(ctx context.Context, opts *CreateRepoOptions) (string, error) {
+func (g *gitea) CreateRepository(_ context.Context, opts *CreateRepoOptions) (string, error) {
 	authUser, res, err := g.client.GetMyUserInfo()
 	if err != nil {
 		if res.StatusCode == 401 {
