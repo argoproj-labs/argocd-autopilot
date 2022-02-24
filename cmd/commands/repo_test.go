@@ -142,10 +142,11 @@ func Test_validateRepo(t *testing.T) {
 
 func Test_buildBootstrapManifests(t *testing.T) {
 	type args struct {
-		namespace    string
-		appSpecifier string
-		cloneOpts    *git.CloneOptions
-		argoCDLabels map[string]string
+		namespace           string
+		appSpecifier        string
+		cloneOpts           *git.CloneOptions
+		argoCDLabels        map[string]string
+		bootstrapAppsLabels map[string]string
 	}
 	tests := map[string]struct {
 		args     args
@@ -162,6 +163,9 @@ func Test_buildBootstrapManifests(t *testing.T) {
 				},
 				argoCDLabels: map[string]string{
 					"name": "value",
+				},
+				bootstrapAppsLabels: map[string]string{
+					"name": "value2",
 				},
 			},
 			assertFn: func(t *testing.T, b *bootstrapManifests, ret error) {
@@ -186,6 +190,7 @@ func Test_buildBootstrapManifests(t *testing.T) {
 				assert.NotEqual(t, 0, len(bootstrapApp.ObjectMeta.Finalizers))
 				assert.Equal(t, "foo", bootstrapApp.Spec.Destination.Namespace)
 				assert.Equal(t, store.Default.DestServer, bootstrapApp.Spec.Destination.Server)
+				assert.Equal(t, "value2", bootstrapApp.ObjectMeta.Labels["name"])
 
 				rootApp := &argocdv1alpha1.Application{}
 				assert.NoError(t, yaml.Unmarshal(b.rootApp, rootApp))
@@ -195,6 +200,7 @@ func Test_buildBootstrapManifests(t *testing.T) {
 				assert.NotEqual(t, 0, len(rootApp.ObjectMeta.Finalizers))
 				assert.Equal(t, "foo", rootApp.Spec.Destination.Namespace)
 				assert.Equal(t, store.Default.DestServer, rootApp.Spec.Destination.Server)
+				assert.Equal(t, "value2", rootApp.ObjectMeta.Labels["name"])
 
 				ns := &v1.Namespace{}
 				assert.NoError(t, yaml.Unmarshal(b.namespace, ns))
@@ -226,6 +232,7 @@ func Test_buildBootstrapManifests(t *testing.T) {
 				tt.args.appSpecifier,
 				tt.args.cloneOpts,
 				tt.args.argoCDLabels,
+				tt.args.bootstrapAppsLabels,
 			)
 
 			tt.assertFn(t, b, ret)
