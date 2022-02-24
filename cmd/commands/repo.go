@@ -46,18 +46,19 @@ var (
 
 type (
 	RepoBootstrapOptions struct {
-		AppSpecifier     string
-		InstallationMode string
-		Namespace        string
-		KubeConfig       string
-		KubeContextName  string
-		DryRun           bool
-		HidePassword     bool
-		Insecure         bool
-		Timeout          time.Duration
-		KubeFactory      kube.Factory
-		CloneOptions     *git.CloneOptions
-		ArgoCDLabels     map[string]string
+		AppSpecifier        string
+		InstallationMode    string
+		Namespace           string
+		KubeConfig          string
+		KubeContextName     string
+		DryRun              bool
+		HidePassword        bool
+		Insecure            bool
+		Timeout             time.Duration
+		KubeFactory         kube.Factory
+		CloneOptions        *git.CloneOptions
+		ArgoCDLabels        map[string]string
+		BootstrapAppsLabels map[string]string
 	}
 
 	RepoUninstallOptions struct {
@@ -194,6 +195,7 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 		opts.AppSpecifier,
 		opts.CloneOptions,
 		opts.ArgoCDLabels,
+		opts.BootstrapAppsLabels,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to build bootstrap manifests: %w", err)
@@ -507,7 +509,7 @@ func getBootstrapAppSpecifier(insecure bool) string {
 	return store.Get().InstallationManifestsURL
 }
 
-func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.CloneOptions, argocdLabels map[string]string) (*bootstrapManifests, error) {
+func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.CloneOptions, argocdLabels map[string]string, bootstrapAppsLabels map[string]string) (*bootstrapManifests, error) {
 	var err error
 	manifests := &bootstrapManifests{}
 
@@ -517,9 +519,7 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 		repoURL:   cloneOpts.URL(),
 		revision:  cloneOpts.Revision(),
 		srcPath:   filepath.Join(cloneOpts.Path(), store.Default.BootsrtrapDir),
-		labels: map[string]string{
-			store.Default.LabelKeyCFInternal: "true",
-		},
+		labels: bootstrapAppsLabels,
 	})
 	if err != nil {
 		return nil, err
@@ -531,9 +531,7 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 		repoURL:   cloneOpts.URL(),
 		revision:  cloneOpts.Revision(),
 		srcPath:   filepath.Join(cloneOpts.Path(), store.Default.ProjectsDir),
-		labels: map[string]string{
-			store.Default.LabelKeyCFInternal: "true",
-		},
+		labels: bootstrapAppsLabels,
 	})
 	if err != nil {
 		return nil, err
@@ -559,9 +557,7 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 		revision:     cloneOpts.Revision(),
 		appName:      store.Default.ClusterResourcesDir + "-{{name}}",
 		appNamespace: namespace,
-		appLabels: map[string]string{
-			store.Default.LabelKeyCFInternal: "true",
-		},
+		appLabels: bootstrapAppsLabels,
 		destServer:                  "{{server}}",
 		prune:                       false,
 		preserveResourcesOnDeletion: true,
