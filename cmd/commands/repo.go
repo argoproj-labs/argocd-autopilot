@@ -519,7 +519,7 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 		repoURL:   cloneOpts.URL(),
 		revision:  cloneOpts.Revision(),
 		srcPath:   filepath.Join(cloneOpts.Path(), store.Default.BootsrtrapDir),
-		labels: bootstrapAppsLabels,
+		labels:    bootstrapAppsLabels,
 	})
 	if err != nil {
 		return nil, err
@@ -531,7 +531,7 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 		repoURL:   cloneOpts.URL(),
 		revision:  cloneOpts.Revision(),
 		srcPath:   filepath.Join(cloneOpts.Path(), store.Default.ProjectsDir),
-		labels: bootstrapAppsLabels,
+		labels:    bootstrapAppsLabels,
 	})
 	if err != nil {
 		return nil, err
@@ -551,13 +551,13 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 	}
 
 	manifests.clusterResAppSet, err = createAppSet(&createAppSetOptions{
-		name:         store.Default.ClusterResourcesDir,
-		namespace:    namespace,
-		repoURL:      cloneOpts.URL(),
-		revision:     cloneOpts.Revision(),
-		appName:      store.Default.ClusterResourcesDir + "-{{name}}",
-		appNamespace: namespace,
-		appLabels: bootstrapAppsLabels,
+		name:                        store.Default.ClusterResourcesDir,
+		namespace:                   namespace,
+		repoURL:                     cloneOpts.URL(),
+		revision:                    cloneOpts.Revision(),
+		appName:                     store.Default.ClusterResourcesDir + "-{{name}}",
+		appNamespace:                namespace,
+		appLabels:                   bootstrapAppsLabels,
 		destServer:                  "{{server}}",
 		prune:                       false,
 		preserveResourcesOnDeletion: true,
