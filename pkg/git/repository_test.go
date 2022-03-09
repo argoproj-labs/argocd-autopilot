@@ -254,12 +254,12 @@ func Test_initRepo(t *testing.T) {
 
 func Test_clone(t *testing.T) {
 	tests := map[string]struct {
-		opts         *CloneOptions
-		retErr       error
-		wantErr      bool
-		expectedOpts *gg.CloneOptions
-		checkoutRef  func(t *testing.T, r *repo, ref string) error
-		assertFn     func(t *testing.T, r *repo, cloneCalls int)
+		opts           *CloneOptions
+		retErr         error
+		wantErr        bool
+		expectedOpts   *gg.CloneOptions
+		checkoutBranch func(t *testing.T, r *repo, branch string, createIfNotExists bool) error
+		assertFn       func(t *testing.T, r *repo, cloneCalls int)
 	}{
 		"Should fail when there are no CloneOptions": {
 			wantErr: true,
@@ -326,8 +326,8 @@ func Test_clone(t *testing.T) {
 				Depth:    1,
 				Progress: os.Stderr,
 			},
-			checkoutRef: func(t *testing.T, _ *repo, ref string) error {
-				assert.Equal(t, "test", ref)
+			checkoutBranch: func(t *testing.T, r *repo, branch string, createIfNotExists bool) error {
+				assert.Equal(t, "test", branch)
 				return nil
 			},
 			assertFn: func(t *testing.T, r *repo, cloneCalls int) {
@@ -344,8 +344,8 @@ func Test_clone(t *testing.T) {
 				Progress: os.Stderr,
 			},
 			wantErr: true,
-			checkoutRef: func(t *testing.T, _ *repo, ref string) error {
-				assert.Equal(t, "test", ref)
+			checkoutBranch: func(t *testing.T, r *repo, branch string, createIfNotExists bool) error {
+				assert.Equal(t, "test", branch)
 				return errors.New("some error")
 			},
 			assertFn: func(t *testing.T, r *repo, cloneCalls int) {
@@ -389,9 +389,9 @@ func Test_clone(t *testing.T) {
 		},
 	}
 
-	origCheckoutRef, origClone := checkoutRef, ggClone
+	origCheckoutBranch, origClone := checkoutBranch, ggClone
 	defer func() {
-		checkoutRef = origCheckoutRef
+		checkoutBranch = origCheckoutBranch
 		ggClone = origClone
 	}()
 
@@ -416,9 +416,9 @@ func Test_clone(t *testing.T) {
 				tt.opts.Parse()
 			}
 
-			if tt.checkoutRef != nil {
-				checkoutRef = func(r *repo, ref string) error {
-					return tt.checkoutRef(t, r, ref)
+			if tt.checkoutBranch != nil {
+				checkoutBranch = func(r *repo, branch string, createIfNotExists bool) error {
+					return tt.checkoutBranch(t, r, branch, false)
 				}
 			}
 
@@ -781,7 +781,7 @@ func Test_repo_checkoutRef(t *testing.T) {
 			}).Return(nil)
 			mockrepo := tt.beforeFn()
 			r := &repo{Repository: mockrepo}
-			if err := r.checkoutRef(tt.ref); err != nil {
+			if err := r.checkoutBranch(tt.ref, false); err != nil {
 				if tt.wantErr != "" {
 					assert.EqualError(t, err, tt.wantErr)
 				} else {
