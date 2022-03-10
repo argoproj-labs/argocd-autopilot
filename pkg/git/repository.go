@@ -88,8 +88,8 @@ const (
 
 // go-git functions (we mock those in tests)
 var (
-	checkoutRef = func(r *repo, ref string) error {
-		return r.checkoutRef(ref)
+	checkoutBranch = func(r *repo, branch string, createIfNotExists bool) error {
+		return r.checkoutBranch(branch, createIfNotExists)
 	}
 
 	ggClone = func(ctx context.Context, s storage.Storer, worktree billy.Filesystem, o *gg.CloneOptions) (gogit.Repository, error) {
@@ -355,7 +355,7 @@ var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 	repo := &repo{Repository: r, auth: opts.Auth, progress: progress}
 
 	if opts.revision != "" {
-		if err := checkoutRef(repo, opts.revision); err != nil {
+		if err := checkoutBranch(repo, opts.revision, opts.CreateIfNotExist); err != nil {
 			return nil, err
 		}
 	}
@@ -438,41 +438,50 @@ var initRepo = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 	return r, r.initBranch(ctx, opts.revision)
 }
 
-func (r *repo) checkoutRef(ref string) error {
-	hash, err := r.ResolveRevision(plumbing.Revision(ref))
-	if err != nil {
-		if err != plumbing.ErrReferenceNotFound {
-			return err
-		}
-
-		log.G().WithField("ref", ref).Debug("failed resolving ref, trying to resolve from remote branch")
-		remotes, err := r.Remotes()
-		if err != nil {
-			return err
-		}
-
-		if len(remotes) == 0 {
-			return ErrNoRemotes
-		}
-
-		remoteref := fmt.Sprintf("%s/%s", remotes[0].Config().Name, ref)
-		hash, err = r.ResolveRevision(plumbing.Revision(remoteref))
-		if err != nil {
-			return err
-		}
-	}
-
+func (r *repo) checkoutBranch(branch string, createIfNotExists bool) error {
 	wt, err := worktree(r)
 	if err != nil {
 		return err
 	}
 
-	log.G().WithFields(log.Fields{
-		"ref":  ref,
-		"hash": hash.String(),
-	}).Debug("checking out commit")
+	err = wt.Checkout(&gg.CheckoutOptions{
+		Branch: plumbing.NewBranchReferenceName(branch),
+	})
+	if err != plumbing.ErrReferenceNotFound {
+		return err
+	}
+
+	remotes, err := r.Remotes()
+	if err != nil {
+		return err
+	}
+
+	if len(remotes) == 0 {
+		return ErrNoRemotes
+	}
+
+	err = wt.Checkout(&gg.CheckoutOptions{
+		Branch: plumbing.NewRemoteReferenceName(remotes[0].Config().Name, branch),
+	})
+	if err != nil {
+		if err == plumbing.ErrReferenceNotFound && createIfNotExists {
+			// no remote branch but create is true
+			// so we will create a new local branch
+			return wt.Checkout(&gg.CheckoutOptions{
+				Branch: plumbing.NewBranchReferenceName(branch),
+				Create: true,
+			})
+
+		}
+
+		return err
+	}
+
+	// if succeeded to checkout to a remote branch with this name,
+	// checkout to a local branch from the remote branch
 	return wt.Checkout(&gg.CheckoutOptions{
-		Hash: *hash,
+		Branch: plumbing.NewBranchReferenceName(branch),
+		Create: true,
 	})
 }
 

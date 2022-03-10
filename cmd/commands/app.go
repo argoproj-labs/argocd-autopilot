@@ -165,6 +165,12 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 		appsfs   fs.FS
 	)
 
+	log.G(ctx).WithFields(log.Fields{
+		"app-url":      opts.AppsCloneOpts.URL(),
+		"app-revision": opts.AppsCloneOpts.Revision(),
+		"app-path":     opts.AppsCloneOpts.Path(),
+	}).Debug("starting with options: ")
+
 	r, repofs, err := prepareRepo(ctx, opts.CloneOpts, opts.ProjectName)
 	if err != nil {
 		return err
