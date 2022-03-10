@@ -463,19 +463,22 @@ func (r *repo) checkoutBranch(branch string, createIfNotExists bool) error {
 	err = wt.Checkout(&gg.CheckoutOptions{
 		Branch: plumbing.NewRemoteReferenceName(remotes[0].Config().Name, branch),
 	})
-	if !createIfNotExists || err != plumbing.ErrReferenceNotFound {
-		if err == nil {
-			// if succeeded to checkout to a remote branch with this name,
-			// checkout to a local branch from the remote branch
-			err = wt.Checkout(&gg.CheckoutOptions{
+	if err != nil {
+		if err == plumbing.ErrReferenceNotFound && createIfNotExists {
+			// no remote branch but create is true
+			// so we will create a new local branch
+			return wt.Checkout(&gg.CheckoutOptions{
 				Branch: plumbing.NewBranchReferenceName(branch),
 				Create: true,
 			})
+
 		}
 
 		return err
 	}
 
+	// if succeeded to checkout to a remote branch with this name,
+	// checkout to a local branch from the remote branch
 	return wt.Checkout(&gg.CheckoutOptions{
 		Branch: plumbing.NewBranchReferenceName(branch),
 		Create: true,
