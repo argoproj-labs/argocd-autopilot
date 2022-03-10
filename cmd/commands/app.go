@@ -52,8 +52,6 @@ type (
 )
 
 func NewAppCommand() *cobra.Command {
-	var cloneOpts *git.CloneOptions
-
 	cmd := &cobra.Command{
 		Use:     "application",
 		Aliases: []string{"app"},
@@ -63,19 +61,17 @@ func NewAppCommand() *cobra.Command {
 			exit(1)
 		},
 	}
-	cloneOpts = git.AddFlags(cmd, &git.AddFlagsOptions{
-		FS: memfs.New(),
-	})
 
-	cmd.AddCommand(NewAppCreateCommand(cloneOpts))
-	cmd.AddCommand(NewAppListCommand(cloneOpts))
-	cmd.AddCommand(NewAppDeleteCommand(cloneOpts))
+	cmd.AddCommand(NewAppCreateCommand())
+	cmd.AddCommand(NewAppListCommand())
+	cmd.AddCommand(NewAppDeleteCommand())
 
 	return cmd
 }
 
-func NewAppCreateCommand(cloneOpts *git.CloneOptions) *cobra.Command {
+func NewAppCreateCommand() *cobra.Command {
 	var (
+		cloneOpts     *git.CloneOptions
 		appsCloneOpts *git.CloneOptions
 		appOpts       *application.CreateOptions
 		projectName   string
@@ -145,6 +141,10 @@ func NewAppCreateCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 
 	cmd.Flags().StringVarP(&projectName, "project", "p", "", "Project name")
 	cmd.Flags().DurationVar(&timeout, "wait-timeout", time.Duration(0), "If not '0s', will try to connect to the cluster and wait until the application is in 'Synced' status for the specified timeout period")
+	cloneOpts = git.AddFlags(cmd, &git.AddFlagsOptions{
+		FS:            memfs.New(),
+		CloneForWrite: true,
+	})
 	appsCloneOpts = git.AddFlags(cmd, &git.AddFlagsOptions{
 		FS:       memfs.New(),
 		Prefix:   "apps",
@@ -314,7 +314,11 @@ func getCommitMsg(opts *AppCreateOptions, repofs fs.FS) string {
 	return commitMsg
 }
 
-func NewAppListCommand(cloneOpts *git.CloneOptions) *cobra.Command {
+func NewAppListCommand() *cobra.Command {
+	var (
+		cloneOpts *git.CloneOptions
+	)
+
 	cmd := &cobra.Command{
 		Use:   "list [PROJECT_NAME]",
 		Short: "List all applications in a project",
@@ -346,6 +350,10 @@ func NewAppListCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 			})
 		},
 	}
+
+	cloneOpts = git.AddFlags(cmd, &git.AddFlagsOptions{
+		FS: memfs.New(),
+	})
 
 	return cmd
 }
@@ -394,8 +402,9 @@ func getConfigFileFromPath(repofs fs.FS, appPath string) (*application.Config, e
 	return &conf, nil
 }
 
-func NewAppDeleteCommand(cloneOpts *git.CloneOptions) *cobra.Command {
+func NewAppDeleteCommand() *cobra.Command {
 	var (
+		cloneOpts   *git.CloneOptions
 		projectName string
 		global      bool
 	)
@@ -440,6 +449,11 @@ func NewAppDeleteCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 
 	cmd.Flags().StringVarP(&projectName, "project", "p", "", "Project name")
 	cmd.Flags().BoolVarP(&global, "global", "g", false, "global")
+
+	cloneOpts = git.AddFlags(cmd, &git.AddFlagsOptions{
+		FS:            memfs.New(),
+		CloneForWrite: true,
+	})
 
 	return cmd
 }

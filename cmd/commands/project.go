@@ -61,8 +61,6 @@ type (
 )
 
 func NewProjectCommand() *cobra.Command {
-	var cloneOpts *git.CloneOptions
-
 	cmd := &cobra.Command{
 		Use:     "project",
 		Aliases: []string{"proj"},
@@ -72,22 +70,20 @@ func NewProjectCommand() *cobra.Command {
 			exit(1)
 		},
 	}
-	cloneOpts = git.AddFlags(cmd, &git.AddFlagsOptions{
-		FS: memfs.New(),
-	})
 
-	cmd.AddCommand(NewProjectCreateCommand(cloneOpts))
-	cmd.AddCommand(NewProjectListCommand(cloneOpts))
-	cmd.AddCommand(NewProjectDeleteCommand(cloneOpts))
+	cmd.AddCommand(NewProjectCreateCommand())
+	cmd.AddCommand(NewProjectListCommand())
+	cmd.AddCommand(NewProjectDeleteCommand())
 
 	return cmd
 }
 
-func NewProjectCreateCommand(cloneOpts *git.CloneOptions) *cobra.Command {
+func NewProjectCreateCommand() *cobra.Command {
 	var (
 		kubeContext string
 		dryRun      bool
 		addCmd      argocd.AddClusterCmd
+		cloneOpts   *git.CloneOptions
 	)
 
 	cmd := &cobra.Command{
@@ -128,6 +124,10 @@ func NewProjectCreateCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 	cmd.Flags().StringVar(&kubeContext, "dest-kube-context", "", "The default destination kubernetes context for applications in this project")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "If true, print manifests instead of applying them to the cluster (nothing will be commited to git)")
 
+	cloneOpts = git.AddFlags(cmd, &git.AddFlagsOptions{
+		FS:            memfs.New(),
+		CloneForWrite: true,
+	})
 	addCmd, err := argocd.AddClusterAddFlags(cmd)
 	die(err)
 
@@ -350,7 +350,11 @@ func getDefaultAppLabels(labels map[string]string) map[string]string {
 	return res
 }
 
-func NewProjectListCommand(cloneOpts *git.CloneOptions) *cobra.Command {
+func NewProjectListCommand() *cobra.Command {
+	var (
+		cloneOpts *git.CloneOptions
+	)
+
 	cmd := &cobra.Command{
 		Use:   "list ",
 		Short: "Lists all the projects on a git repository",
@@ -377,6 +381,10 @@ func NewProjectListCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 			})
 		},
 	}
+
+	cloneOpts = git.AddFlags(cmd, &git.AddFlagsOptions{
+		FS: memfs.New(),
+	})
 
 	return cmd
 }
@@ -418,7 +426,11 @@ var getProjectInfoFromFile = func(repofs fs.FS, name string) (*argocdv1alpha1.Ap
 	return proj, appSet, nil
 }
 
-func NewProjectDeleteCommand(cloneOpts *git.CloneOptions) *cobra.Command {
+func NewProjectDeleteCommand() *cobra.Command {
+	var (
+		cloneOpts *git.CloneOptions
+	)
+
 	cmd := &cobra.Command{
 		Use:   "delete [PROJECT_NAME]",
 		Short: "Delete a project and all of its applications",
@@ -450,6 +462,11 @@ func NewProjectDeleteCommand(cloneOpts *git.CloneOptions) *cobra.Command {
 			})
 		},
 	}
+
+	cloneOpts = git.AddFlags(cmd, &git.AddFlagsOptions{
+		FS:            memfs.New(),
+		CloneForWrite: true,
+	})
 
 	return cmd
 }

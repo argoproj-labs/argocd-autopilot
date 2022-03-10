@@ -45,6 +45,7 @@ var (
 		log.G(ctx).WithFields(log.Fields{
 			"repoURL":  cloneOpts.URL(),
 			"revision": cloneOpts.Revision(),
+			"forWrite": cloneOpts.CloneForWrite,
 		}).Debug("starting with options: ")
 
 		// clone repo

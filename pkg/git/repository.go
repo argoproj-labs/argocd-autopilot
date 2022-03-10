@@ -44,7 +44,10 @@ type (
 		FS               billy.Filesystem
 		Prefix           string
 		CreateIfNotExist bool
-		Optional         bool
+		// CloneForWrite if true will not allow 'ref' query param which is not
+		// a branch name
+		CloneForWrite bool
+		Optional      bool
 	}
 
 	CloneOptions struct {
@@ -54,6 +57,8 @@ type (
 		FS               fs.FS
 		Progress         io.Writer
 		CreateIfNotExist bool
+		CloneForWrite    bool
+		UpsertBranch     bool
 		url              string
 		revision         string
 		path             string
@@ -88,8 +93,12 @@ const (
 
 // go-git functions (we mock those in tests)
 var (
-	checkoutBranch = func(r *repo, branch string, createIfNotExists bool) error {
-		return r.checkoutBranch(branch, createIfNotExists)
+	checkoutRef = func(r *repo, ref string) error {
+		return r.checkoutRef(ref)
+	}
+
+	checkoutBranch = func(r *repo, branch string, upsertBranch bool) error {
+		return r.checkoutBranch(branch, upsertBranch)
 	}
 
 	ggClone = func(ctx context.Context, s storage.Storer, worktree billy.Filesystem, o *gg.CloneOptions) (gogit.Repository, error) {
@@ -122,6 +131,7 @@ func AddFlags(cmd *cobra.Command, opts *AddFlagsOptions) *CloneOptions {
 	co := &CloneOptions{
 		FS:               fs.Create(opts.FS),
 		CreateIfNotExist: opts.CreateIfNotExist,
+		CloneForWrite:    opts.CloneForWrite,
 	}
 
 	if opts.Prefix != "" && !strings.HasSuffix(opts.Prefix, "-") {
@@ -144,6 +154,10 @@ func AddFlags(cmd *cobra.Command, opts *AddFlagsOptions) *CloneOptions {
 
 	if opts.CreateIfNotExist {
 		cmd.PersistentFlags().StringVar(&co.Provider, opts.Prefix+"provider", "", fmt.Sprintf("The git provider, one of: %v", strings.Join(Providers(), "|")))
+	}
+
+	if opts.CloneForWrite {
+		cmd.PersistentFlags().BoolVarP(&co.UpsertBranch, opts.Prefix+"upsert-branch", "b", false, "If true will try to checkout the specified branch and create it if it doesn't exist")
 	}
 
 	if !opts.Optional {
@@ -355,8 +369,21 @@ var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 	repo := &repo{Repository: r, auth: opts.Auth, progress: progress}
 
 	if opts.revision != "" {
-		if err := checkoutBranch(repo, opts.revision, opts.CreateIfNotExist); err != nil {
-			return nil, err
+		if opts.CloneForWrite {
+			log.G(ctx).WithFields(log.Fields{
+				"branch": opts.revision,
+				"upsert": opts.UpsertBranch,
+			}).Debug("Trying to checkout branch")
+
+			if err := checkoutBranch(repo, opts.revision, opts.UpsertBranch); err != nil {
+				return nil, err
+			}
+		} else {
+			log.G(ctx).WithField("ref", opts.revision).Debug("Trying to checkout ref")
+
+			if err := checkoutRef(repo, opts.revision); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -438,7 +465,7 @@ var initRepo = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 	return r, r.initBranch(ctx, opts.revision)
 }
 
-func (r *repo) checkoutBranch(branch string, createIfNotExists bool) error {
+func (r *repo) checkoutBranch(branch string, upsertBranch bool) error {
 	wt, err := worktree(r)
 	if err != nil {
 		return err
@@ -464,7 +491,7 @@ func (r *repo) checkoutBranch(branch string, createIfNotExists bool) error {
 		Branch: plumbing.NewRemoteReferenceName(remotes[0].Config().Name, branch),
 	})
 	if err != nil {
-		if err == plumbing.ErrReferenceNotFound && createIfNotExists {
+		if err == plumbing.ErrReferenceNotFound && upsertBranch {
 			// no remote branch but create is true
 			// so we will create a new local branch
 			return wt.Checkout(&gg.CheckoutOptions{
@@ -482,6 +509,44 @@ func (r *repo) checkoutBranch(branch string, createIfNotExists bool) error {
 	return wt.Checkout(&gg.CheckoutOptions{
 		Branch: plumbing.NewBranchReferenceName(branch),
 		Create: true,
+	})
+}
+
+func (r *repo) checkoutRef(ref string) error {
+	hash, err := r.ResolveRevision(plumbing.Revision(ref))
+	if err != nil {
+		if err != plumbing.ErrReferenceNotFound {
+			return err
+		}
+
+		log.G().WithField("ref", ref).Debug("failed resolving ref, trying to resolve from remote branch")
+		remotes, err := r.Remotes()
+		if err != nil {
+			return err
+		}
+
+		if len(remotes) == 0 {
+			return ErrNoRemotes
+		}
+
+		remoteref := fmt.Sprintf("%s/%s", remotes[0].Config().Name, ref)
+		hash, err = r.ResolveRevision(plumbing.Revision(remoteref))
+		if err != nil {
+			return err
+		}
+	}
+
+	wt, err := worktree(r)
+	if err != nil {
+		return err
+	}
+
+	log.G().WithFields(log.Fields{
+		"ref":  ref,
+		"hash": hash.String(),
+	}).Debug("checking out commit")
+	return wt.Checkout(&gg.CheckoutOptions{
+		Hash: *hash,
 	})
 }
 

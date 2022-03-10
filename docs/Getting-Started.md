@@ -28,11 +28,21 @@ If you want the autopilot-managed folder structure to reside under some sub-fold
 export GIT_REPO=https://github.com/owner/name/some/relative/path
 ```
 
-#### Using a Specific Revision
+#### Using a Specific Branch
 If you want to use a specific branch for your GitOps repository operations, you can use the `ref` query parameter:
 ```
 export GIT_REPO=https://github.com/owner/name?ref=gitops_branch
 ```
+
+!!! note
+    When running commands that commit or write to the repository, the value of `ref` can only be a branch.
+
+
+!!! tip
+    When running commands that commit or write to the repository you may also specify the `-b`, this would create the branch specified in `ref` if it doesn't exist. 
+
+    Note that when doing so the new branch would be create from the default branch.
+
 
 #### Using a Specific git Provider
 You can add the `--provider` flag to the `repo bootstrap` command, to enforce using a specific provider when creating a new repository. If the value is not supplied, the code will attempt to infer it from the clone URL.  

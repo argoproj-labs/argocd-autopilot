@@ -44,6 +44,8 @@ argocd-autopilot project create [PROJECT] [flags]
       --exec-command-args stringArray      Arguments to supply to the --exec-command executable
       --exec-command-env stringToString    Environment vars to set when running the --exec-command executable (default [])
       --exec-command-install-hint string   Text shown to the user when the --exec-command executable doesn't seem to be present
+  -t, --git-token string                   Your git provider api token [GIT_TOKEN]
+  -u, --git-user string                    Your git provider user name [GIT_USER] (not required in GitHub)
       --grpc-web                           Enables gRPC-web protocol. Useful if Argo CD server is behind proxy which does not support HTTP2.
       --grpc-web-root-path string          Enables gRPC-web protocol. Useful if Argo CD server is behind proxy which does not support HTTP2. Set web root.
   -H, --header strings                     Sets additional header to all requests made by Argo CD CLI. (Can be repeated multiple times to add multiple headers, also supports comma separated headers)
@@ -55,21 +57,15 @@ argocd-autopilot project create [PROJECT] [flags]
       --plaintext                          Disable TLS
       --port-forward                       Connect to a random argocd-server port using port forwarding
       --port-forward-namespace string      Namespace name which should be used for port forwarding
+      --repo string                        Repository URL [GIT_REPO]
       --server string                      Argo CD server address
       --server-crt string                  Server certificate file
       --service-account string             System namespace service account to use for kubernetes resource management. If not set then default "argocd-manager" SA will be created
       --shard int                          Cluster shard number; inferred from hostname if not set (default -1)
       --system-namespace string            Use different system namespace (default "kube-system")
       --upsert                             Override an existing cluster with the same name even if the spec differs
+  -b, --upsert-branch                      If true will try to checkout the specified branch and create it if it doesn't exist
   -y, --yes                                Skip explicit confirmation
-```
-
-### Options inherited from parent commands
-
-```
-  -t, --git-token string   Your git provider api token [GIT_TOKEN]
-  -u, --git-user string    Your git provider user name [GIT_USER] (not required in GitHub)
-      --repo string        Repository URL [GIT_REPO]
 ```
 
 ### SEE ALSO

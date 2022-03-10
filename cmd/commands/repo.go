@@ -168,6 +168,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 	cloneOpts = git.AddFlags(cmd, &git.AddFlagsOptions{
 		FS:               memfs.New(),
 		CreateIfNotExist: true,
+		CloneForWrite:    true,
 	})
 
 	// add kubernetes flags
@@ -299,6 +300,7 @@ func NewRepoUninstallCommand() *cobra.Command {
 	var (
 		cloneOpts *git.CloneOptions
 		f         kube.Factory
+		force     bool
 	)
 
 	cmd := &cobra.Command{
@@ -323,6 +325,12 @@ func NewRepoUninstallCommand() *cobra.Command {
 # and delete all manifests from a specific folder in the gitops repository
 
 	<BIN> repo uninstall --repo https://github.com/example/repo/path/to/installation_root
+
+# Uninstall using the --force flag will try to uninstall even if some steps
+# failed. For example, if it cannot clone the bootstrap repo for some reason
+# it will still attempt to delete argo-cd from the cluster. Use with caution!
+
+	<BIN> repo uninstall --repo https://github.com/example/repo --force
 `),
 		PreRun: func(_ *cobra.Command, _ []string) { cloneOpts.Parse() },
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -335,13 +343,17 @@ func NewRepoUninstallCommand() *cobra.Command {
 				KubeContextName: kubeContextName,
 				Timeout:         util.MustParseDuration(cmd.Flag("request-timeout").Value.String()),
 				CloneOptions:    cloneOpts,
+				Force:           force,
 				KubeFactory:     f,
 			})
 		},
 	}
 
+	cmd.Flags().BoolVar(&force, "force", false, "If true, will try to complete the uninstallation even if one or more of the uninstallation steps failed")
+
 	cloneOpts = git.AddFlags(cmd, &git.AddFlagsOptions{
-		FS: memfs.New(),
+		FS:            memfs.New(),
+		CloneForWrite: true,
 	})
 	f = kube.AddFlags(cmd.Flags())
 

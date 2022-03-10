@@ -29,15 +29,11 @@ argocd-autopilot project delete [PROJECT_NAME] [flags]
 ### Options
 
 ```
-  -h, --help   help for delete
-```
-
-### Options inherited from parent commands
-
-```
   -t, --git-token string   Your git provider api token [GIT_TOKEN]
   -u, --git-user string    Your git provider user name [GIT_USER] (not required in GitHub)
+  -h, --help               help for delete
       --repo string        Repository URL [GIT_REPO]
+  -b, --upsert-branch      If true will try to checkout the specified branch and create it if it doesn't exist
 ```
 
 ### SEE ALSO
