@@ -29,14 +29,9 @@ argocd-autopilot application list [PROJECT_NAME] [flags]
 ### Options
 
 ```
-  -h, --help   help for list
-```
-
-### Options inherited from parent commands
-
-```
   -t, --git-token string   Your git provider api token [GIT_TOKEN]
   -u, --git-user string    Your git provider user name [GIT_USER] (not required in GitHub)
+  -h, --help               help for list
       --repo string        Repository URL [GIT_REPO]
 ```
 
