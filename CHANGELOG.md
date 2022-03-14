@@ -8,6 +8,13 @@
 ### Changes
 * Removed dependency on `argoproj-labs/applicationset` and moved to install it from https://github.com/argoproj/argo-cd/tree/master/manifests/addons/applicationset. [#247](https://github.com/argoproj-labs/argocd-autopilot/pull/247)
 
+# v0.2.31
+
+### Features
+* Added `--force` flag to the `repo uninstall` command which allows you to skip failed steps in the uninstall process to ensure a clean cluster. [#243](https://github.com/argoproj-labs/argocd-autopilot/pull/243)
+
+### Bug Fixes
+* Fixed "already up-to-date" error when trying to bootstrap on a different branch. [#243](https://github.com/argoproj-labs/argocd-autopilot/pull/243)
 
 # v0.2.30
 
