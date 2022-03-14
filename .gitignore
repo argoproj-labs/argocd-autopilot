@@ -24,6 +24,7 @@ dist/
 .DS_Store
 .AppleDouble
 .LSOverride
+.dccache
 
 # Icon must end with two \r
 Icon

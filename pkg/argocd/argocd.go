@@ -9,9 +9,6 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/log"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 
-	// used to solve this issue: https://github.com/argoproj/argo-cd/issues/2907
-	_ "github.com/argoproj-labs/argocd-autopilot/util/assets"
-
 	"github.com/argoproj/argo-cd/v2/cmd/argocd/commands"
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	argocdcs "github.com/argoproj/argo-cd/v2/pkg/client/clientset/versioned"
