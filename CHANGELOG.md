@@ -1,5 +1,14 @@
 # Changelog:
 
+# v0.3.0
+
+### Security Fixes
+* Moved to using Argo-CD and ApplicationSet stable versions (currently: argocd-v2.3.1 and applicationset-v0.4.1). [#247](https://github.com/argoproj-labs/argocd-autopilot/pull/247)
+
+### Changes
+* Removed dependency on `argoproj-labs/applicationset` and moved to install it from https://github.com/argoproj/argo-cd/tree/master/manifests/addons/applicationset. [#247](https://github.com/argoproj-labs/argocd-autopilot/pull/247)
+
+
 # v0.2.30
 
 ### Features
