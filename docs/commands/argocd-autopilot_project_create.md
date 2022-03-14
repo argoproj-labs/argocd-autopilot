@@ -29,13 +29,14 @@ argocd-autopilot project create [PROJECT] [flags]
 ### Options
 
 ```
+      --annotation stringArray             Set metadata annotations (e.g. --annotation key=value)
       --auth-token string                  Authentication token
       --aws-cluster-name string            AWS Cluster name if set then aws cli eks token command will be used to access cluster
       --aws-role-arn string                Optional AWS role arn. If set then AWS IAM Authenticator assumes a role to perform cluster operations instead of the default AWS credential provider chain.
       --client-crt string                  Client certificate file
       --client-crt-key string              Client certificate key file
       --cluster-resources                  Indicates if cluster level resources should be managed. The setting is used only if list of managed namespaces is not empty.
-      --config string                      Path to Argo CD config (default "/home/user/.argocd/config")
+      --config string                      Path to Argo CD config (default "/home/user/.config/argocd/config")
       --core                               If set to true then CLI talks directly to Kubernetes instead of talking to Argo CD API server
       --dest-kube-context string           The default destination kubernetes context for applications in this project
       --dry-run                            If true, print manifests instead of applying them to the cluster (nothing will be commited to git)
@@ -53,10 +54,12 @@ argocd-autopilot project create [PROJECT] [flags]
       --http-retry-max int                 Maximum number of retries to establish http connection to Argo CD server
       --in-cluster                         Indicates Argo CD resides inside this cluster and should connect using the internal k8s hostname (kubernetes.default.svc)
       --insecure                           Skip server certificate and domain verification
+      --label stringArray                  Set metadata labels (e.g. --label key=value)
       --name string                        Overwrite the cluster name
       --plaintext                          Disable TLS
       --port-forward                       Connect to a random argocd-server port using port forwarding
       --port-forward-namespace string      Namespace name which should be used for port forwarding
+      --project string                     project of the cluster
       --repo string                        Repository URL [GIT_REPO]
       --server string                      Argo CD server address
       --server-crt string                  Server certificate file

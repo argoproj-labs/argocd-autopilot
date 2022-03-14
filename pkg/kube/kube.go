@@ -56,8 +56,8 @@ type (
 		// ToRESTConfig returns a rest Config object or error
 		ToRESTConfig() (*restclient.Config, error)
 
-		// Apply applies the provided manifests on the specified namespace
-		Apply(ctx context.Context, namespace string, manifests []byte) error
+		// Apply applies the provided manifests
+		Apply(ctx context.Context, manifests []byte) error
 
 		// Delete delets the resources by their type(s) and labelSelector
 		Delete(context.Context, *DeleteOptions) error
@@ -168,60 +168,42 @@ func (f *factory) ToRESTConfig() (*restclient.Config, error) {
 	return f.f.ToRESTConfig()
 }
 
-func (f *factory) Apply(ctx context.Context, namespace string, manifests []byte) error {
+func (f *factory) Apply(ctx context.Context, manifests []byte) error {
 	reader, buf, err := os.Pipe()
 	if err != nil {
 		return err
 	}
 
-	o := apply.NewApplyOptions(DefaultIOStreams())
+	cmd := apply.NewCmdApply("apply", f.f, DefaultIOStreams())
 
 	stdin := os.Stdin
 	os.Stdin = reader
 	defer func() { os.Stdin = stdin }()
 
-	cmd := &cobra.Command{
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			o.DeleteFlags.FileNameFlags.Filenames = &[]string{"-"}
-			o.Overwrite = true
-
-			if err := o.Complete(f.f, cmd); err != nil {
-				return err
+	run := cmd.Run
+	cmd.Run = nil
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		errc := make(chan error)
+		go func() {
+			if _, err = buf.Write(manifests); err != nil {
+				errc <- err
 			}
-
-			// order matters
-			o.Namespace = namespace
-			if o.Namespace != "" {
-				o.EnforceNamespace = true
+			if err = buf.Close(); err != nil {
+				errc <- err
 			}
+			close(errc)
+		}()
 
-			errc := make(chan error)
-			go func() {
-				if _, err = buf.Write(manifests); err != nil {
-					errc <- err
-				}
-				if err = buf.Close(); err != nil {
-					errc <- err
-				}
-				close(errc)
-			}()
+		run(cmd, args)
 
-			if err = o.Run(); err != nil {
-				return err
-			}
-
-			return <-errc
-		},
-		SilenceErrors: true,
-		SilenceUsage:  true,
+		return <-errc
 	}
+	cmd.SilenceErrors = true
+	cmd.SilenceUsage = true
 
-	cmdutil.AddDryRunFlag(cmd)
-	cmdutil.AddServerSideApplyFlags(cmd)
-	cmdutil.AddValidateFlags(cmd)
-	cmdutil.AddFieldManagerFlagVar(cmd, &o.FieldManager, apply.FieldManagerClientSideApply)
+	args := []string{"-f", "-", "--overwrite"}
 
-	cmd.SetArgs([]string{})
+	cmd.SetArgs(args)
 
 	return cmd.ExecuteContext(ctx)
 }

@@ -1,4 +1,4 @@
-FROM golang:1.16.3-alpine3.13 as base
+FROM golang:1.17.8-alpine3.15 as base
 
 WORKDIR /go/src/github.com/argoproj-labs/argocd-autopilot
 
@@ -21,7 +21,7 @@ RUN go mod verify
 
 ############################### CLI ###############################
 ### Compile
-FROM golang:1.16.3-alpine3.13 as autopilot-build
+FROM golang:1.17.8-alpine3.15 as autopilot-build
 
 WORKDIR /go/src/github.com/argoproj-labs/argocd-autopilot
 
@@ -38,7 +38,7 @@ ENV GOBIN /go/bin
 RUN make local DEV_MODE=false
 
 ### Run
-FROM alpine:3.13 as autopilot
+FROM alpine:3.15 as autopilot
 
 WORKDIR /go/src/github.com/argoproj-labs/argocd-autopilot
 

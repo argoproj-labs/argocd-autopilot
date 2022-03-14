@@ -12,7 +12,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth" // used for authentication with cloud providers
 )
 
-//go:generate sh -c "echo  generating command docs... && cd .. && go run ./hack/cmd-docs/main.go"
+//go:generate sh -c "echo  generating command docs... && cd .. && ARGOCD_CONFIG_DIR=/home/user/.config/argocd go run ./hack/cmd-docs/main.go"
 
 func main() {
 	ctx := context.Background()

@@ -19,7 +19,7 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 
-	appset "github.com/argoproj-labs/applicationset/api/v1alpha1"
+	appset "github.com/argoproj/applicationset/api/v1alpha1"
 	argocdcommon "github.com/argoproj/argo-cd/v2/common"
 	argocdsettings "github.com/argoproj/argo-cd/v2/util/settings"
 	"github.com/ghodss/yaml"
@@ -234,7 +234,7 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 	// apply built manifest to k8s cluster
 	log.G(ctx).Infof("using context: \"%s\", namespace: \"%s\"", opts.KubeContextName, opts.Namespace)
 	log.G(ctx).Infof("applying bootstrap manifests to cluster...")
-	if err = opts.KubeFactory.Apply(ctx, opts.Namespace, util.JoinManifests(manifests.namespace, manifests.applyManifests, manifests.repoCreds)); err != nil {
+	if err = opts.KubeFactory.Apply(ctx, util.JoinManifests(manifests.namespace, manifests.applyManifests, manifests.repoCreds)); err != nil {
 		return fmt.Errorf("failed to apply bootstrap manifests to cluster: %w", err)
 	}
 
@@ -266,7 +266,7 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 
 	// apply "Argo-CD" Application that references "bootstrap/argo-cd"
 	log.G(ctx).Infof("applying argo-cd bootstrap application")
-	if err = opts.KubeFactory.Apply(ctx, opts.Namespace, manifests.bootstrapApp); err != nil {
+	if err = opts.KubeFactory.Apply(ctx, manifests.bootstrapApp); err != nil {
 		return err
 	}
 
