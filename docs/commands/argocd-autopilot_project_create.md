@@ -36,7 +36,7 @@ argocd-autopilot project create [PROJECT] [flags]
       --client-crt string                  Client certificate file
       --client-crt-key string              Client certificate key file
       --cluster-resources                  Indicates if cluster level resources should be managed. The setting is used only if list of managed namespaces is not empty.
-      --config string                      Path to Argo CD config (default "/home/user/.argocd/config")
+      --config string                      Path to Argo CD config (default "/home/user/.config/argocd/config")
       --core                               If set to true then CLI talks directly to Kubernetes instead of talking to Argo CD API server
       --dest-kube-context string           The default destination kubernetes context for applications in this project
       --dry-run                            If true, print manifests instead of applying them to the cluster (nothing will be commited to git)
