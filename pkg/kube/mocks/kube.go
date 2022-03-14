@@ -18,13 +18,13 @@ type Factory struct {
 	mock.Mock
 }
 
-// Apply provides a mock function with given fields: ctx, namespace, manifests
-func (_m *Factory) Apply(ctx context.Context, namespace string, manifests []byte) error {
-	ret := _m.Called(ctx, namespace, manifests)
+// Apply provides a mock function with given fields: ctx, manifests
+func (_m *Factory) Apply(ctx context.Context, manifests []byte) error {
+	ret := _m.Called(ctx, manifests)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, []byte) error); ok {
-		r0 = rf(ctx, namespace, manifests)
+	if rf, ok := ret.Get(0).(func(context.Context, []byte) error); ok {
+		r0 = rf(ctx, manifests)
 	} else {
 		r0 = ret.Error(0)
 	}
