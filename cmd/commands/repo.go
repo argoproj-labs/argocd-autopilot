@@ -19,7 +19,7 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 
-	appset "github.com/argoproj-labs/applicationset/api/v1alpha1"
+	appset "github.com/argoproj/applicationset/api/v1alpha1"
 	argocdcommon "github.com/argoproj/argo-cd/v2/common"
 	argocdsettings "github.com/argoproj/argo-cd/v2/util/settings"
 	"github.com/ghodss/yaml"
