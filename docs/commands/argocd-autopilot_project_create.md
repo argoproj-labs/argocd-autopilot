@@ -29,6 +29,7 @@ argocd-autopilot project create [PROJECT] [flags]
 ### Options
 
 ```
+      --annotation stringArray             Set metadata annotations (e.g. --annotation key=value)
       --auth-token string                  Authentication token
       --aws-cluster-name string            AWS Cluster name if set then aws cli eks token command will be used to access cluster
       --aws-role-arn string                Optional AWS role arn. If set then AWS IAM Authenticator assumes a role to perform cluster operations instead of the default AWS credential provider chain.
@@ -53,10 +54,12 @@ argocd-autopilot project create [PROJECT] [flags]
       --http-retry-max int                 Maximum number of retries to establish http connection to Argo CD server
       --in-cluster                         Indicates Argo CD resides inside this cluster and should connect using the internal k8s hostname (kubernetes.default.svc)
       --insecure                           Skip server certificate and domain verification
+      --label stringArray                  Set metadata labels (e.g. --label key=value)
       --name string                        Overwrite the cluster name
       --plaintext                          Disable TLS
       --port-forward                       Connect to a random argocd-server port using port forwarding
       --port-forward-namespace string      Namespace name which should be used for port forwarding
+      --project string                     project of the cluster
       --repo string                        Repository URL [GIT_REPO]
       --server string                      Argo CD server address
       --server-crt string                  Server certificate file
