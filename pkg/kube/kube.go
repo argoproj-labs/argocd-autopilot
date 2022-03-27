@@ -56,8 +56,8 @@ type (
 		// ToRESTConfig returns a rest Config object or error
 		ToRESTConfig() (*restclient.Config, error)
 
-		// Apply applies the provided manifests on the specified namespace
-		Apply(ctx context.Context, namespace string, manifests []byte) error
+		// Apply applies the provided manifests
+		Apply(ctx context.Context, manifests []byte) error
 
 		// Delete delets the resources by their type(s) and labelSelector
 		Delete(context.Context, *DeleteOptions) error
@@ -168,7 +168,7 @@ func (f *factory) ToRESTConfig() (*restclient.Config, error) {
 	return f.f.ToRESTConfig()
 }
 
-func (f *factory) Apply(ctx context.Context, namespace string, manifests []byte) error {
+func (f *factory) Apply(ctx context.Context, manifests []byte) error {
 	reader, buf, err := os.Pipe()
 	if err != nil {
 		return err
@@ -202,10 +202,6 @@ func (f *factory) Apply(ctx context.Context, namespace string, manifests []byte)
 	cmd.SilenceUsage = true
 
 	args := []string{"-f", "-", "--overwrite"}
-
-	if namespace != "" {
-		args = append(args, "-n", namespace)
-	}
 
 	cmd.SetArgs(args)
 
