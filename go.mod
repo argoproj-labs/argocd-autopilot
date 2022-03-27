@@ -17,7 +17,7 @@ require (
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.10.1
-	github.com/stretchr/testify v1.7.0
+	github.com/stretchr/testify v1.7.1
 	github.com/xanzy/go-gitlab v0.59.0
 	k8s.io/api v0.23.1
 	k8s.io/apimachinery v0.23.1
@@ -25,7 +25,7 @@ require (
 	k8s.io/client-go v0.23.1
 	k8s.io/kubectl v0.23.1
 	sigs.k8s.io/kustomize/api v0.11.2
-	sigs.k8s.io/kustomize/kyaml v0.13.3
+	sigs.k8s.io/kustomize/kyaml v0.13.5
 )
 
 require (
