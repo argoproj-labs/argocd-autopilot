@@ -3,6 +3,10 @@
 
 # options for analysis running
 run:
+  # https://github.com/golangci/golangci-lint/issues/2649
+  # enable go 1.17 linting, will not allow generics
+  go: "1.17"
+
   # default concurrency is a available CPU number
   concurrency: 4
 
