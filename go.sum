@@ -147,10 +147,11 @@ github.com/appscode/go v0.0.0-20190808133642-1d4ef1f1c1e0/go.mod h1:iy07dV61Z7QQ
 github.com/argoproj/applicationset v0.4.1 h1:PzTn77TK7XQB3CdpCDPbwU4pQgip0x4qvuJQ8XiBk5E=
 github.com/argoproj/applicationset v0.4.1/go.mod h1:cJZ7CWG80kBII4QNalyAvSr8eVifo8jKkyXoVl9qXaA=
 github.com/argoproj/argo-cd/v2 v2.3.0-rc5.0.20220225234205-31676e2aea6f/go.mod h1:PQw/102hk/8LmuMy0daLH1SIFYq3f95cUya+3NZP3xg=
-github.com/argoproj/argo-cd/v2 v2.3.1 h1:67HBWMwgu64XOY+9FXNtKcnaSqg8PqrTdp/cL9OrgS4=
-github.com/argoproj/argo-cd/v2 v2.3.1/go.mod h1:PQw/102hk/8LmuMy0daLH1SIFYq3f95cUya+3NZP3xg=
-github.com/argoproj/gitops-engine v0.6.0 h1:Tnh6kUUVuBV0m3gueYIymAeErWl9XNN9O9JcOoNM0vU=
+github.com/argoproj/argo-cd/v2 v2.3.2 h1:IqKaRDKnJG34XJSaD2Vv3DzdczfiHHtHw33cGnhYUAg=
+github.com/argoproj/argo-cd/v2 v2.3.2/go.mod h1:MTHjKkegafoqMLsA4FBcBe4t2Q9XKu4S7g0YgyGqnVs=
 github.com/argoproj/gitops-engine v0.6.0/go.mod h1:pRgVpLW7pZqf7n3COJ7UcDepk4cI61LAcJd64Q3Jq/c=
+github.com/argoproj/gitops-engine v0.6.1 h1:fiaMQ+0OfBHQWInekgkO645i4dolvl3KA//0F7n4PK8=
+github.com/argoproj/gitops-engine v0.6.1/go.mod h1:pRgVpLW7pZqf7n3COJ7UcDepk4cI61LAcJd64Q3Jq/c=
 github.com/argoproj/notifications-engine v0.3.1-0.20220127183449-91deed20b998 h1:V9RDg+IZeebnm3XjkfkbN07VM21Fu1Cy/RJNoHO++VM=
 github.com/argoproj/notifications-engine v0.3.1-0.20220127183449-91deed20b998/go.mod h1:5mKv7zEgI3NO0L+fsuRSwBSY9EIXSuyIsDND8O8TTIw=
 github.com/argoproj/pkg v0.11.1-0.20211203175135-36c59d8fafe0 h1:Cfp7rO/HpVxnwlRqJe0jHiBbZ77ZgXhB6HWlYD02Xdc=
