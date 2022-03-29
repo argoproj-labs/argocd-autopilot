@@ -157,3 +157,4 @@ $(GOBIN)/golangci-lint:
 	@mkdir dist || true
 	@echo installing: golangci-lint
 	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(GOBIN) v1.45.2
+	@echo golangci-lint version `golangci-lint version`
