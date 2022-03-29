@@ -41,8 +41,8 @@ Please report vulnerabilities by e-mail to the following address:
 
 All vulnerabilities and associated information will be treated with full confidentiality. 
 
-## Securing your Argo CD Instance
+## Public Disclosure
 
-See the [operator manual security page](docs/operator-manual/security.md) for 
-additional information about Argo CD's security features and how to make your 
-Argo CD production ready.
+Security vulnerabilities will be disclosed via release notes and using the
+[GitHub Security Advisories](https://github.com/argoproj-labs/argocd-autopilot/security/advisories)
+feature to keep our community well informed, and will credit you for your findings (unless you prefer to stay anonymous, of course).
