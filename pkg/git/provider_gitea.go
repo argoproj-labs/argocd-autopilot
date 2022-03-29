@@ -7,7 +7,7 @@ import (
 	gt "code.gitea.io/sdk/gitea"
 )
 
-//go:generate mockery --name Client --output gitea/mocks --case snake
+//go:generate mockgen -destination=./gitea/mocks/client.go -package=mocks -source=./provider_gitea.go Client
 
 type (
 	Client interface {

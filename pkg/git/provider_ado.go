@@ -3,14 +3,16 @@ package git
 import (
 	"context"
 	"fmt"
-	"github.com/microsoft/azure-devops-go-api/azuredevops"
-	ado "github.com/microsoft/azure-devops-go-api/azuredevops/git"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/microsoft/azure-devops-go-api/azuredevops"
+	ado "github.com/microsoft/azure-devops-go-api/azuredevops/git"
 )
 
-//go:generate mockery --name Ado* --output ado/mocks --case snake
+//go:generate mockgen -destination=./ado/mocks/ado.go -package=mocks -source=./provider_ado.go AdoClient,AdoUrl
+
 type (
 	AdoClient interface {
 		CreateRepository(context.Context, ado.CreateRepositoryArgs) (*ado.GitRepository, error)

@@ -110,7 +110,7 @@ test:
 	./hack/test.sh
 
 .PHONY: codegen
-codegen: $(GOBIN)/mockery
+codegen: $(GOBIN)/mockgen
 	rm -f docs/commands/*
 	go generate ./...
 
@@ -149,25 +149,11 @@ tidy:
 check-worktree:
 	@./hack/check_worktree.sh
 
-$(GOBIN)/mockery:
-	@mkdir dist || true
-	@echo installing: mockery
-	@curl -L -o dist/mockery.tar.gz -- https://github.com/vektra/mockery/releases/download/v2.8.0/mockery_2.8.0_$(shell uname -s)_$(shell uname -m).tar.gz
-	@tar zxvf dist/mockery.tar.gz mockery
-	@rm dist/mockery.tar.gz
-	@chmod +x mockery
-	@mkdir -p $(GOBIN)
-	@mv mockery $(GOBIN)/mockery
-	@mockery --version
+$(GOBIN)/mockgen:
+	@go install github.com/golang/mock/mockgen@v1.6.0
+	@mockgen -version
 
 $(GOBIN)/golangci-lint:
 	@mkdir dist || true
 	@echo installing: golangci-lint
 	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(GOBIN) v1.45.2
-
-$(GOBIN)/interfacer: cwd=$(shell pwd)
-$(GOBIN)/interfacer:
-	@cd /tmp
-	@echo installing: interfacer
-	@GO111MODULE=on go get -v github.com/rjeczalik/interfaces/cmd/interfacer@v0.1.1
-	@cd ${cwd}

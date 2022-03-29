@@ -7,7 +7,7 @@ import (
 	gl "github.com/xanzy/go-gitlab"
 )
 
-//go:generate mockery --name GitlabClient --output gitlab/mocks --case snake
+//go:generate mockgen -destination=./gitlab/mocks/client.go -package=mocks -source=./provider_gitlab.go GitlabClient
 
 type (
 	GitlabClient interface {

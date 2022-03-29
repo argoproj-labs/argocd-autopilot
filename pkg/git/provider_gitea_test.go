@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	gtmocks "github.com/argoproj-labs/argocd-autopilot/pkg/git/gitea/mocks"
+	"github.com/golang/mock/gomock"
 
 	gt "code.gitea.io/sdk/gitea"
 	"github.com/stretchr/testify/assert"
@@ -15,7 +16,7 @@ import (
 func Test_gitea_CreateRepository(t *testing.T) {
 	tests := map[string]struct {
 		opts     *CreateRepoOptions
-		beforeFn func(*gtmocks.Client)
+		beforeFn func(*gtmocks.MockClient)
 		want     string
 		wantErr  string
 	}{
@@ -24,13 +25,15 @@ func Test_gitea_CreateRepository(t *testing.T) {
 				Name:  "repo",
 				Owner: "username",
 			},
-			beforeFn: func(c *gtmocks.Client) {
+			beforeFn: func(c *gtmocks.MockClient) {
 				res := &gt.Response{
 					Response: &http.Response{
 						StatusCode: 401,
 					},
 				}
-				c.On("GetMyUserInfo").Return(nil, res, errors.New("some error"))
+				c.EXPECT().GetMyUserInfo().
+					Times(1).
+					Return(nil, res, errors.New("some error"))
 			},
 			wantErr: "authentication failed, make sure credentials are correct: some error",
 		},
@@ -39,11 +42,13 @@ func Test_gitea_CreateRepository(t *testing.T) {
 				Name:  "repo",
 				Owner: "username",
 			},
-			beforeFn: func(c *gtmocks.Client) {
+			beforeFn: func(c *gtmocks.MockClient) {
 				res := &gt.Response{
 					Response: &http.Response{},
 				}
-				c.On("GetMyUserInfo").Return(nil, res, errors.New("some error"))
+				c.EXPECT().GetMyUserInfo().
+					Times(1).
+					Return(nil, res, errors.New("some error"))
 			},
 			wantErr: "some error",
 		},
@@ -52,9 +57,11 @@ func Test_gitea_CreateRepository(t *testing.T) {
 				Name:  "repo",
 				Owner: "org",
 			},
-			beforeFn: func(c *gtmocks.Client) {
+			beforeFn: func(c *gtmocks.MockClient) {
 				u := &gt.User{UserName: "username"}
-				c.On("GetMyUserInfo").Return(u, nil, nil)
+				c.EXPECT().GetMyUserInfo().
+					Times(1).
+					Return(u, nil, nil)
 				createOpts := gt.CreateRepoOption{
 					Name:    "repo",
 					Private: false,
@@ -64,7 +71,9 @@ func Test_gitea_CreateRepository(t *testing.T) {
 						StatusCode: 404,
 					},
 				}
-				c.On("CreateOrgRepo", "org", createOpts).Return(nil, res, errors.New("some error"))
+				c.EXPECT().CreateOrgRepo("org", createOpts).
+					Times(1).
+					Return(nil, res, errors.New("some error"))
 			},
 			wantErr: "owner org not found: some error",
 		},
@@ -73,9 +82,11 @@ func Test_gitea_CreateRepository(t *testing.T) {
 				Name:  "repo",
 				Owner: "username",
 			},
-			beforeFn: func(c *gtmocks.Client) {
+			beforeFn: func(c *gtmocks.MockClient) {
 				u := &gt.User{UserName: "username"}
-				c.On("GetMyUserInfo").Return(u, nil, nil)
+				c.EXPECT().GetMyUserInfo().
+					Times(1).
+					Return(u, nil, nil)
 				createOpts := gt.CreateRepoOption{
 					Name:    "repo",
 					Private: false,
@@ -83,7 +94,9 @@ func Test_gitea_CreateRepository(t *testing.T) {
 				res := &gt.Response{
 					Response: &http.Response{},
 				}
-				c.On("CreateRepo", createOpts).Return(nil, res, errors.New("some error"))
+				c.EXPECT().CreateRepo(createOpts).
+					Times(1).
+					Return(nil, res, errors.New("some error"))
 			},
 			wantErr: "some error",
 		},
@@ -92,9 +105,11 @@ func Test_gitea_CreateRepository(t *testing.T) {
 				Name:  "repo",
 				Owner: "org",
 			},
-			beforeFn: func(c *gtmocks.Client) {
+			beforeFn: func(c *gtmocks.MockClient) {
 				u := &gt.User{UserName: "username"}
-				c.On("GetMyUserInfo").Return(u, nil, nil)
+				c.EXPECT().GetMyUserInfo().
+					Times(1).
+					Return(u, nil, nil)
 				r := &gt.Repository{
 					CloneURL: "http://gitea.com/org/repo",
 				}
@@ -102,7 +117,9 @@ func Test_gitea_CreateRepository(t *testing.T) {
 					Name:    "repo",
 					Private: false,
 				}
-				c.On("CreateOrgRepo", "org", createOpts).Return(r, nil, nil)
+				c.EXPECT().CreateOrgRepo("org", createOpts).
+					Times(1).
+					Return(r, nil, nil)
 			},
 			want: "http://gitea.com/org/repo",
 		},
@@ -111,9 +128,11 @@ func Test_gitea_CreateRepository(t *testing.T) {
 				Name:  "repo",
 				Owner: "username",
 			},
-			beforeFn: func(c *gtmocks.Client) {
+			beforeFn: func(c *gtmocks.MockClient) {
 				u := &gt.User{UserName: "username"}
-				c.On("GetMyUserInfo").Return(u, nil, nil)
+				c.EXPECT().GetMyUserInfo().
+					Times(1).
+					Return(u, nil, nil)
 				r := &gt.Repository{
 					CloneURL: "http://gitea.com/username/repo",
 				}
@@ -121,7 +140,9 @@ func Test_gitea_CreateRepository(t *testing.T) {
 					Name:    "repo",
 					Private: false,
 				}
-				c.On("CreateRepo", createOpts).Return(r, nil, nil)
+				c.EXPECT().CreateRepo(createOpts).
+					Times(1).
+					Return(r, nil, nil)
 			},
 			want: "http://gitea.com/username/repo",
 		},
@@ -131,9 +152,11 @@ func Test_gitea_CreateRepository(t *testing.T) {
 				Owner:   "username",
 				Private: true,
 			},
-			beforeFn: func(c *gtmocks.Client) {
+			beforeFn: func(c *gtmocks.MockClient) {
 				u := &gt.User{UserName: "username"}
-				c.On("GetMyUserInfo").Return(u, nil, nil)
+				c.EXPECT().GetMyUserInfo().
+					Times(1).
+					Return(u, nil, nil)
 				r := &gt.Repository{
 					CloneURL: "http://gitea.com/username/repo",
 				}
@@ -141,21 +164,22 @@ func Test_gitea_CreateRepository(t *testing.T) {
 					Name:    "repo",
 					Private: true,
 				}
-				c.On("CreateRepo", createOpts).Return(r, nil, nil)
+				c.EXPECT().CreateRepo(createOpts).
+					Times(1).
+					Return(r, nil, nil)
 			},
 			want: "http://gitea.com/username/repo",
 		},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			mockClient := &gtmocks.Client{}
+			mockClient := gtmocks.NewMockClient(gomock.NewController(t))
 			tt.beforeFn(mockClient)
 			g := &gitea{
 				client: mockClient,
 			}
 			got, err := g.CreateRepository(context.Background(), tt.opts)
 
-			mockClient.AssertExpectations(t)
 			if err != nil {
 				if tt.wantErr != "" {
 					assert.EqualError(t, err, tt.wantErr)
