@@ -102,6 +102,7 @@ $(OUT_DIR)/$(CLI_NAME).image: $(CLI_SRCS)
 
 .PHONY: lint
 lint: $(GOBIN)/golangci-lint tidy
+	@golangci-lint version
 	@echo linting go code...
 	@golangci-lint run --fix --timeout 6m
 
@@ -157,4 +158,3 @@ $(GOBIN)/golangci-lint:
 	@mkdir dist || true
 	@echo installing: golangci-lint
 	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(GOBIN) v1.45.2
-	@echo golangci-lint version `golangci-lint version`
