@@ -11,7 +11,9 @@ import (
 	gh "github.com/google/go-github/v35/github"
 )
 
-//go:generate mockery --dir github --all --output github/mocks --case snake
+//go:generate mockgen -destination=./github/mocks/repos.go -package=mocks -source=./github/repos.go Repositories
+//go:generate mockgen -destination=./github/mocks/users.go -package=mocks -source=./github/users.go Users
+
 type github struct {
 	opts         *ProviderOptions
 	Repositories g.Repositories
@@ -20,7 +22,7 @@ type github struct {
 
 func newGithub(opts *ProviderOptions) (Provider, error) {
 	var (
-		c *gh.Client
+		c   *gh.Client
 		err error
 	)
 
