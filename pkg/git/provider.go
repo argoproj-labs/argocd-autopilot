@@ -6,7 +6,7 @@ import (
 	"sort"
 )
 
-//go:generate mockery --name Provider --filename provider.go
+//go:generate mockgen -destination=./mocks/provider.go -package=mocks -source=./provider.go Provider
 
 type (
 	// Provider represents a git provider

@@ -23,7 +23,7 @@ import (
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 )
 
-//go:generate mockery --name Application --filename application.go
+//go:generate mockgen -destination=./mocks/application.go -package=mocks -source=./application.go Application
 
 const (
 	InstallationModeFlat   = "flat"

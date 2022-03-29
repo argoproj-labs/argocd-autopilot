@@ -14,8 +14,8 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/go-git/go-billy/v5/memfs"
 	billyUtils "github.com/go-git/go-billy/v5/util"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	v1 "k8s.io/api/core/v1"
 	kusttypes "sigs.k8s.io/kustomize/api/types"
 )
@@ -173,7 +173,7 @@ func Test_writeFile(t *testing.T) {
 	tests := map[string]struct {
 		args     args
 		assertFn func(t *testing.T, repofs fs.FS, exists bool, err error)
-		beforeFn func(repofs fs.FS) fs.FS
+		beforeFn func(t *testing.T, repofs fs.FS) fs.FS
 	}{
 		"On Root": {
 			args: args{
@@ -219,7 +219,7 @@ func Test_writeFile(t *testing.T) {
 				name: "test",
 				data: []byte("data2"),
 			},
-			beforeFn: func(repofs fs.FS) fs.FS {
+			beforeFn: func(t *testing.T, repofs fs.FS) fs.FS {
 				_ = billyUtils.WriteFile(repofs, "/foo/bar", []byte("data"), 0666)
 				return repofs
 			},
@@ -234,11 +234,17 @@ func Test_writeFile(t *testing.T) {
 				name: "test",
 				data: []byte("data2"),
 			},
-			beforeFn: func(_ fs.FS) fs.FS {
-				mfs := &fsmocks.FS{}
-				mfs.On("CheckExistsOrWrite", mock.Anything, mock.Anything).Return(false, errors.New("error"))
-				mfs.On("Root").Return("/")
-				mfs.On("Join", mock.Anything, mock.Anything).Return("/foo/bar")
+			beforeFn: func(t *testing.T, _ fs.FS) fs.FS {
+				mfs := fsmocks.NewMockFS(gomock.NewController(t))
+				mfs.EXPECT().CheckExistsOrWrite(gomock.Any(), gomock.Any()).
+					Times(1).
+					Return(false, errors.New("error"))
+				mfs.EXPECT().Root().
+					Times(1).
+					Return("/")
+				mfs.EXPECT().Join(gomock.Any(), gomock.Any()).
+					Times(1).
+					Return("/foo/bar")
 				return mfs
 			},
 			assertFn: func(t *testing.T, _ fs.FS, _ bool, ret error) {
@@ -256,7 +262,7 @@ func Test_writeFile(t *testing.T) {
 			}
 
 			if tt.beforeFn != nil {
-				repofs = tt.beforeFn(repofs)
+				repofs = tt.beforeFn(t, repofs)
 			}
 
 			got, err := writeFile(repofs, tt.args.path, tt.args.name, tt.args.data)

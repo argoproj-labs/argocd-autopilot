@@ -28,8 +28,9 @@ import (
 	"github.com/spf13/viper"
 )
 
-//go:generate mockery --dir gogit --all --output gogit/mocks --case snake
-//go:generate mockery --name Repository --filename repository.go
+//go:generate mockgen -destination=./mocks/repository.go -package=mocks -source=./repository.go Repository
+//go:generate mockgen -destination=./gogit/mocks/repository.go -package=mocks -source=./gogit/repo.go Repository
+//go:generate mockgen -destination=./gogit/mocks/worktree.go -package=mocks -source=./gogit/worktree.go Worktree
 
 type (
 	// Repository represents a git repository

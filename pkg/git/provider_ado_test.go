@@ -4,23 +4,24 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"testing"
+
 	adoMock "github.com/argoproj-labs/argocd-autopilot/pkg/git/ado/mocks"
+	"github.com/golang/mock/gomock"
 	ado "github.com/microsoft/azure-devops-go-api/azuredevops/git"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"testing"
 )
 
 func Test_adoGit_CreateRepository(t *testing.T) {
 	remoteURL := "https://dev.azure.com/SUB/PROJECT/_git/REPO"
-	emptyFunc := func(client *adoMock.AdoClient, url *adoMock.AdoUrl) {}
+	emptyFunc := func(client *adoMock.MockAdoClient, url *adoMock.MockAdoUrl) {}
 	type args struct {
 		ctx  context.Context
 		opts *CreateRepoOptions
 	}
 	tests := []struct {
 		name       string
-		mockClient func(client *adoMock.AdoClient, url *adoMock.AdoUrl)
+		mockClient func(client *adoMock.MockAdoClient, url *adoMock.MockAdoUrl)
 		args       args
 		want       string
 		wantErr    assert.ErrorAssertionFunc
@@ -34,11 +35,13 @@ func Test_adoGit_CreateRepository(t *testing.T) {
 		}, want: "", wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
 			return true
 		}},
-		{name: "Failure creating repo", mockClient: func(client *adoMock.AdoClient, url *adoMock.AdoUrl) {
-			client.On("CreateRepository", context.TODO(),
-				mock.AnythingOfType("CreateRepositoryArgs")).
+		{name: "Failure creating repo", mockClient: func(client *adoMock.MockAdoClient, url *adoMock.MockAdoUrl) {
+			client.EXPECT().CreateRepository(context.TODO(), gomock.AssignableToTypeOf(ado.CreateRepositoryArgs{})).
+				Times(1).
 				Return(nil, errors.New("ah an error"))
-			url.On("GetProjectName").Return("blah")
+			url.EXPECT().GetProjectName().
+				Times(1).
+				Return("blah")
 		}, args: args{
 			ctx: context.TODO(),
 			opts: &CreateRepoOptions{
@@ -48,23 +51,27 @@ func Test_adoGit_CreateRepository(t *testing.T) {
 		}, want: "", wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
 			return true
 		}},
-		{name: "Success creating repo", mockClient: func(client *adoMock.AdoClient, url *adoMock.AdoUrl) {
-			url.On("GetProjectName").Return("PROJECT")
-			client.On("CreateRepository", context.TODO(), mock.AnythingOfType("CreateRepositoryArgs")).Return(&ado.GitRepository{
-				Links:            nil,
-				DefaultBranch:    nil,
-				Id:               nil,
-				IsFork:           nil,
-				Name:             nil,
-				ParentRepository: nil,
-				Project:          nil,
-				RemoteUrl:        &remoteURL,
-				Size:             nil,
-				SshUrl:           nil,
-				Url:              nil,
-				ValidRemoteUrls:  nil,
-				WebUrl:           nil,
-			}, nil)
+		{name: "Success creating repo", mockClient: func(client *adoMock.MockAdoClient, url *adoMock.MockAdoUrl) {
+			url.EXPECT().GetProjectName().
+				Times(1).
+				Return("PROJECT")
+			client.EXPECT().CreateRepository(context.TODO(), gomock.AssignableToTypeOf(ado.CreateRepositoryArgs{})).
+				Times(1).
+				Return(&ado.GitRepository{
+					Links:            nil,
+					DefaultBranch:    nil,
+					Id:               nil,
+					IsFork:           nil,
+					Name:             nil,
+					ParentRepository: nil,
+					Project:          nil,
+					RemoteUrl:        &remoteURL,
+					Size:             nil,
+					SshUrl:           nil,
+					Url:              nil,
+					ValidRemoteUrls:  nil,
+					WebUrl:           nil,
+				}, nil)
 		}, args: args{
 			ctx: context.TODO(),
 			opts: &CreateRepoOptions{
@@ -77,8 +84,9 @@ func Test_adoGit_CreateRepository(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockClient := &adoMock.AdoClient{}
-			mockUrl := &adoMock.AdoUrl{}
+			ctrl := gomock.NewController(t)
+			mockClient := adoMock.NewMockAdoClient(ctrl)
+			mockUrl := adoMock.NewMockAdoUrl(ctrl)
 			tt.mockClient(mockClient, mockUrl)
 			g := &adoGit{
 				adoClient: mockClient,
