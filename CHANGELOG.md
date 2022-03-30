@@ -1,5 +1,15 @@
 # Changelog:
 
+# v0.3.1
+
+### Changes
+* Added `SECURITY.md` file. [#253](https://github.com/argoproj-labs/argocd-autopilot/issues/253)
+* Updated `golangci-lint` to `v1.45.2`. [#256](https://github.com/argoproj-labs/argocd-autopilot/pull/256)
+* Moved from `mockery` tool to `mockgen`. [#256](https://github.com/argoproj-labs/argocd-autopilot/pull/256)
+* Added `snyk` security scan in CI and Release pipelines. [#256](https://github.com/argoproj-labs/argocd-autopilot/pull/256)
+* Bumped `github.com/argoproj/argo-cd` dependency to `v2.3.2`. [#256](https://github.com/argoproj-labs/argocd-autopilot/pull/256)
+
+
 # v0.3.0
 
 ### Security Fixes
