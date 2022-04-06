@@ -20,6 +20,7 @@ import (
 	gg "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/storage"
@@ -63,9 +64,11 @@ type (
 		url              string
 		revision         string
 		path             string
+		provider         Provider
 	}
 
 	PushOptions struct {
+		Provider       string
 		AddGlobPattern string
 		CommitMsg      string
 		Progress       io.Writer
@@ -75,6 +78,7 @@ type (
 		gogit.Repository
 		auth     Auth
 		progress io.Writer
+		provider Provider
 	}
 )
 
@@ -169,7 +173,7 @@ func AddFlags(cmd *cobra.Command, opts *AddFlagsOptions) *CloneOptions {
 	return co
 }
 
-func (o *CloneOptions) Parse() {
+func (o *CloneOptions) Parse() error {
 	var (
 		host    string
 		orgRepo string
@@ -182,6 +186,14 @@ func (o *CloneOptions) Parse() {
 	if o.Auth.Username == "" {
 		o.Auth.Username = store.Default.GitHubUsername
 	}
+
+	provider, err := getProvider(o.Provider, host, &o.Auth)
+	if err != nil {
+		return err
+	}
+
+	o.provider = provider
+	return nil
 }
 
 func (o *CloneOptions) GetRepo(ctx context.Context) (Repository, fs.FS, error) {
@@ -249,7 +261,7 @@ func (r *repo) Persist(ctx context.Context, opts *PushOptions) (string, error) {
 		progress = r.progress
 	}
 
-	h, err := r.commit(opts)
+	h, err := r.commit(ctx, opts)
 	if err != nil {
 		return "", err
 	}
@@ -283,16 +295,12 @@ func (r *repo) CurrentBranch() (string, error) {
 	return ref.Name().Short(), nil
 }
 
-func (r *repo) commit(opts *PushOptions) (*plumbing.Hash, error) {
+func (r *repo) commit(ctx context.Context, opts *PushOptions) (*plumbing.Hash, error) {
 	var h plumbing.Hash
 
-	cfg, err := r.ConfigScoped(config.SystemScope)
+	author, err := r.getAuthor(ctx, opts.Provider)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get gitconfig. Error: %w", err)
-	}
-
-	if cfg.User.Name == "" || cfg.User.Email == "" {
-		return nil, fmt.Errorf("failed to commit. Please make sure your gitconfig contains a name and an email")
+		return nil, err
 	}
 
 	w, err := worktree(r)
@@ -312,12 +320,42 @@ func (r *repo) commit(opts *PushOptions) (*plumbing.Hash, error) {
 		}
 	}
 
-	h, err = w.Commit(opts.CommitMsg, &gg.CommitOptions{All: true})
+	h, err = w.Commit(opts.CommitMsg, &gg.CommitOptions{
+		All:    true,
+		Author: author,
+	})
 	if err != nil {
 		return nil, err
 	}
 
 	return &h, nil
+}
+
+func (r *repo) getAuthor(ctx context.Context, providerType string) (*object.Signature, error) {
+	username, email, err := r.provider.GetAuthor(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get commiter data. Error: %w", err)
+	}
+
+	if username == "" || email == "" {
+		cfg, err := r.ConfigScoped(config.SystemScope)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get gitconfig. Error: %w", err)
+		}
+
+		username = cfg.User.Name
+		email = cfg.User.Email
+	}
+
+	if username == "" || email == "" {
+		return nil, fmt.Errorf("failed to get author data. Please make sure your gitconfig contains a name and an email")
+	}
+
+	return &object.Signature{
+		Name:  username,
+		Email: email,
+		When:  time.Now(),
+	}, nil
 }
 
 var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
@@ -367,7 +405,12 @@ var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 		return nil, err
 	}
 
-	repo := &repo{Repository: r, auth: opts.Auth, progress: progress}
+	repo := &repo{
+		Repository: r,
+		auth:       opts.Auth,
+		progress:   progress,
+		provider:   opts.provider,
+	}
 
 	if opts.revision != "" {
 		if opts.CloneForWrite {
@@ -392,12 +435,15 @@ var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 }
 
 var createRepo = func(ctx context.Context, opts *CloneOptions) (string, error) {
-	host, orgRepo, _, _, _, _, _ := util.ParseGitUrl(opts.Repo)
-	providerType := opts.Provider
+	_, orgRepo, _, _, _, _, _ := util.ParseGitUrl(opts.Repo)
+	return opts.provider.CreateRepository(ctx, orgRepo)
+}
+
+func getProvider(providerType, host string, auth *Auth) (Provider, error) {
 	if providerType == "" {
 		u, err := url.Parse(host)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 
 		if strings.Contains(u.Hostname(), AzureHostName) {
@@ -405,31 +451,15 @@ var createRepo = func(ctx context.Context, opts *CloneOptions) (string, error) {
 		} else {
 			providerType = strings.TrimSuffix(u.Hostname(), ".com")
 		}
-		log.G(ctx).Warnf("--provider not specified, assuming provider from url: %s", providerType)
+
+		log.G().Warnf("--provider not specified, assuming provider from url: %s", providerType)
 	}
 
-	p, err := newProvider(&ProviderOptions{
+	return newProvider(&ProviderOptions{
 		Type: providerType,
-		Auth: &opts.Auth,
+		Auth: auth,
 		Host: host,
 	})
-	if err != nil {
-		return "", fmt.Errorf("failed to create the repository, you can try to manually create it before trying again: %w", err)
-	}
-
-	switch providerType {
-	case Azure:
-		return p.CreateRepository(ctx, &CreateRepoOptions{
-			Owner: "",
-			Name:  orgRepo,
-		})
-	default:
-		repoOptions, err := getDefaultRepoOptions(orgRepo)
-		if err != nil {
-			return "", nil
-		}
-		return p.CreateRepository(ctx, repoOptions)
-	}
 }
 
 func getDefaultRepoOptions(orgRepo string) (*CreateRepoOptions, error) {
@@ -458,7 +488,12 @@ var initRepo = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 		progress = os.Stderr
 	}
 
-	r := &repo{Repository: ggr, auth: opts.Auth, progress: progress}
+	r := &repo{
+		Repository: ggr,
+		auth:       opts.Auth,
+		progress:   progress,
+		provider:   opts.provider,
+	}
 	if err = r.addRemote("origin", opts.url); err != nil {
 		return nil, err
 	}
@@ -557,7 +592,7 @@ func (r *repo) addRemote(name, url string) error {
 }
 
 func (r *repo) initBranch(ctx context.Context, branchName string) error {
-	_, err := r.commit(&PushOptions{
+	_, err := r.commit(ctx, &PushOptions{
 		CommitMsg: "initial commit",
 	})
 

@@ -15,16 +15,13 @@ import (
 
 func Test_gitea_CreateRepository(t *testing.T) {
 	tests := map[string]struct {
-		opts     *CreateRepoOptions
+		orgRepo  string
 		beforeFn func(*gtmocks.MockClient)
 		want     string
 		wantErr  string
 	}{
 		"Should fail if credentials are wrong": {
-			opts: &CreateRepoOptions{
-				Name:  "repo",
-				Owner: "username",
-			},
+			orgRepo: "username/repo",
 			beforeFn: func(c *gtmocks.MockClient) {
 				res := &gt.Response{
 					Response: &http.Response{
@@ -38,10 +35,7 @@ func Test_gitea_CreateRepository(t *testing.T) {
 			wantErr: "authentication failed, make sure credentials are correct: some error",
 		},
 		"Should fail if can't get user info": {
-			opts: &CreateRepoOptions{
-				Name:  "repo",
-				Owner: "username",
-			},
+			orgRepo: "username/repo",
 			beforeFn: func(c *gtmocks.MockClient) {
 				res := &gt.Response{
 					Response: &http.Response{},
@@ -53,10 +47,7 @@ func Test_gitea_CreateRepository(t *testing.T) {
 			wantErr: "some error",
 		},
 		"Should fail if owner is not found": {
-			opts: &CreateRepoOptions{
-				Name:  "repo",
-				Owner: "org",
-			},
+			orgRepo: "org/repo",
 			beforeFn: func(c *gtmocks.MockClient) {
 				u := &gt.User{UserName: "username"}
 				c.EXPECT().GetMyUserInfo().
@@ -64,7 +55,7 @@ func Test_gitea_CreateRepository(t *testing.T) {
 					Return(u, nil, nil)
 				createOpts := gt.CreateRepoOption{
 					Name:    "repo",
-					Private: false,
+					Private: true,
 				}
 				res := &gt.Response{
 					Response: &http.Response{
@@ -78,10 +69,7 @@ func Test_gitea_CreateRepository(t *testing.T) {
 			wantErr: "owner org not found: some error",
 		},
 		"Should fail repo creation fails": {
-			opts: &CreateRepoOptions{
-				Name:  "repo",
-				Owner: "username",
-			},
+			orgRepo: "username/repo",
 			beforeFn: func(c *gtmocks.MockClient) {
 				u := &gt.User{UserName: "username"}
 				c.EXPECT().GetMyUserInfo().
@@ -89,7 +77,7 @@ func Test_gitea_CreateRepository(t *testing.T) {
 					Return(u, nil, nil)
 				createOpts := gt.CreateRepoOption{
 					Name:    "repo",
-					Private: false,
+					Private: true,
 				}
 				res := &gt.Response{
 					Response: &http.Response{},
@@ -100,58 +88,8 @@ func Test_gitea_CreateRepository(t *testing.T) {
 			},
 			wantErr: "some error",
 		},
-		"Should create a simple org/repo repository": {
-			opts: &CreateRepoOptions{
-				Name:  "repo",
-				Owner: "org",
-			},
-			beforeFn: func(c *gtmocks.MockClient) {
-				u := &gt.User{UserName: "username"}
-				c.EXPECT().GetMyUserInfo().
-					Times(1).
-					Return(u, nil, nil)
-				r := &gt.Repository{
-					CloneURL: "http://gitea.com/org/repo",
-				}
-				createOpts := gt.CreateRepoOption{
-					Name:    "repo",
-					Private: false,
-				}
-				c.EXPECT().CreateOrgRepo("org", createOpts).
-					Times(1).
-					Return(r, nil, nil)
-			},
-			want: "http://gitea.com/org/repo",
-		},
-		"Should create a simple username/repo repository": {
-			opts: &CreateRepoOptions{
-				Name:  "repo",
-				Owner: "username",
-			},
-			beforeFn: func(c *gtmocks.MockClient) {
-				u := &gt.User{UserName: "username"}
-				c.EXPECT().GetMyUserInfo().
-					Times(1).
-					Return(u, nil, nil)
-				r := &gt.Repository{
-					CloneURL: "http://gitea.com/username/repo",
-				}
-				createOpts := gt.CreateRepoOption{
-					Name:    "repo",
-					Private: false,
-				}
-				c.EXPECT().CreateRepo(createOpts).
-					Times(1).
-					Return(r, nil, nil)
-			},
-			want: "http://gitea.com/username/repo",
-		},
 		"Should create a private repository": {
-			opts: &CreateRepoOptions{
-				Name:    "repo",
-				Owner:   "username",
-				Private: true,
-			},
+			orgRepo: "username/repo",
 			beforeFn: func(c *gtmocks.MockClient) {
 				u := &gt.User{UserName: "username"}
 				c.EXPECT().GetMyUserInfo().
@@ -178,7 +116,7 @@ func Test_gitea_CreateRepository(t *testing.T) {
 			g := &gitea{
 				client: mockClient,
 			}
-			got, err := g.CreateRepository(context.Background(), tt.opts)
+			got, err := g.CreateRepository(context.Background(), tt.orgRepo)
 
 			if err != nil {
 				if tt.wantErr != "" {

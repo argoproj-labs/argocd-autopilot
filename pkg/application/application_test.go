@@ -11,6 +11,7 @@ import (
 	fsmocks "github.com/argoproj-labs/argocd-autopilot/pkg/fs/mocks"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/kube"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
+
 	"github.com/ghodss/yaml"
 	"github.com/go-git/go-billy/v5/memfs"
 	billyUtils "github.com/go-git/go-billy/v5/util"
@@ -219,7 +220,7 @@ func Test_writeFile(t *testing.T) {
 				name: "test",
 				data: []byte("data2"),
 			},
-			beforeFn: func(t *testing.T, repofs fs.FS) fs.FS {
+			beforeFn: func(_ *testing.T, repofs fs.FS) fs.FS {
 				_ = billyUtils.WriteFile(repofs, "/foo/bar", []byte("data"), 0666)
 				return repofs
 			},

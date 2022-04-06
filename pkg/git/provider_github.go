@@ -52,13 +52,14 @@ func newGithub(opts *ProviderOptions) (Provider, error) {
 	return g, nil
 }
 
-func (g *github) CreateRepository(ctx context.Context, opts *CreateRepoOptions) (string, error) {
-	authUser, res, err := g.Users.Get(ctx, "") // get authenticated user details
+func (g *github) CreateRepository(ctx context.Context, orgRepo string) (string, error) {
+	opts, err := getDefaultRepoOptions(orgRepo)
 	if err != nil {
-		if res.StatusCode == 401 {
-			return "", ErrAuthenticationFailed(err)
-		}
+		return "", nil
+	}
 
+	authUser, err := g.getAuthenticatedUser(ctx)
+	if err != nil {
 		return "", err
 	}
 
@@ -84,4 +85,28 @@ func (g *github) CreateRepository(ctx context.Context, opts *CreateRepoOptions) 
 	}
 
 	return *r.CloneURL, err
+}
+
+func (g *github) GetAuthor(ctx context.Context) (username, email string, err error) {
+	authUser, err := g.getAuthenticatedUser(ctx)
+	if err != nil {
+		return
+	}
+
+	username = *authUser.Name
+	email = *authUser.Email
+	return
+}
+
+func (g *github) getAuthenticatedUser(ctx context.Context) (*gh.User, error) {
+	authUser, res, err := g.Users.Get(ctx, "")
+	if err != nil {
+		if res.StatusCode == 401 {
+			return nil, ErrAuthenticationFailed(err)
+		}
+
+		return nil, err
+	}
+
+	return authUser, nil
 }
