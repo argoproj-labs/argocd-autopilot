@@ -140,7 +140,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 
 	<BIN> repo bootstrap --repo https://github.com/example/repo/path/to/installation_root
 `),
-		PreRun: func(_ *cobra.Command, _ []string) { cloneOpts.Parse() },
+		PreRunE: func(_ *cobra.Command, _ []string) error { return cloneOpts.Parse() },
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return RunRepoBootstrap(cmd.Context(), &RepoBootstrapOptions{
 				AppSpecifier:     appSpecifier,
@@ -332,7 +332,7 @@ func NewRepoUninstallCommand() *cobra.Command {
 
 	<BIN> repo uninstall --repo https://github.com/example/repo --force
 `),
-		PreRun: func(_ *cobra.Command, _ []string) { cloneOpts.Parse() },
+		PreRunE: func(_ *cobra.Command, _ []string) error { return cloneOpts.Parse() },
 		RunE: func(cmd *cobra.Command, args []string) error {
 			kubeContextName, err := cmd.Flags().GetString("context")
 			if err != nil {

@@ -308,8 +308,8 @@ func TestRunAppCreate(t *testing.T) {
 				KubeFactory: f,
 			}
 
-			opts.CloneOpts.Parse()
-			opts.AppsCloneOpts.Parse()
+			_ = opts.CloneOpts.Parse()
+			_ = opts.AppsCloneOpts.Parse()
 			if err := RunAppCreate(context.Background(), opts); err != nil {
 				if tt.wantErr != "" {
 					assert.EqualError(t, err, tt.wantErr)

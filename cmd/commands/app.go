@@ -116,9 +116,16 @@ func NewAppCreateCommand() *cobra.Command {
 
   <BIN> app create <new_app_name> --app github.com/some_org/some_repo/manifests --project project_name --wait-timeout 2m --context my_context 
 `),
-		PreRun: func(_ *cobra.Command, _ []string) {
-			cloneOpts.Parse()
-			appsCloneOpts.Parse()
+		PreRunE: func(_ *cobra.Command, _ []string) error {
+			if err := cloneOpts.Parse(); err != nil {
+				return err
+			}
+
+			if err := appsCloneOpts.Parse(); err != nil {
+				return err
+			}
+
+			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -278,7 +285,11 @@ var setAppOptsDefaults = func(ctx context.Context, repofs fs.FS, opts *AppCreate
 			Auth: opts.CloneOpts.Auth,
 			FS:   fs.Create(memfs.New()),
 		}
-		cloneOpts.Parse()
+		err = cloneOpts.Parse()
+		if err != nil {
+			return err
+		}
+
 		_, fsys, err = getRepo(ctx, cloneOpts)
 		if err != nil {
 			return err
@@ -337,7 +348,7 @@ func NewAppListCommand() *cobra.Command {
 
 	<BIN> app list <project_name>
 `),
-		PreRun: func(_ *cobra.Command, _ []string) { cloneOpts.Parse() },
+		PreRunE: func(_ *cobra.Command, _ []string) error { return cloneOpts.Parse() },
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			if len(args) < 1 {
@@ -427,7 +438,7 @@ func NewAppDeleteCommand() *cobra.Command {
 
 	<BIN> app delete <app_name> --project <project_name>
 `),
-		PreRun: func(_ *cobra.Command, _ []string) { cloneOpts.Parse() },
+		PreRunE: func(_ *cobra.Command, _ []string) error { return cloneOpts.Parse() },
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			if len(args) < 1 {

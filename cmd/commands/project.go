@@ -107,7 +107,7 @@ func NewProjectCreateCommand() *cobra.Command {
 
 	<BIN> project create <PROJECT_NAME>
 `),
-		PreRun: func(_ *cobra.Command, _ []string) { cloneOpts.Parse() },
+		PreRunE: func(_ *cobra.Command, _ []string) error { return cloneOpts.Parse() },
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			if len(args) < 1 {
@@ -382,7 +382,7 @@ func NewProjectListCommand() *cobra.Command {
 
 	<BIN> project list
 `),
-		PreRun: func(_ *cobra.Command, _ []string) { cloneOpts.Parse() },
+		PreRunE: func(_ *cobra.Command, _ []string) error { return cloneOpts.Parse() },
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return RunProjectList(cmd.Context(), &ProjectListOptions{
 				CloneOpts: cloneOpts,
@@ -458,7 +458,7 @@ func NewProjectDeleteCommand() *cobra.Command {
 	
 	<BIN> project delete <project_name>
 `),
-		PreRun: func(_ *cobra.Command, _ []string) { cloneOpts.Parse() },
+		PreRunE: func(_ *cobra.Command, _ []string) error { return cloneOpts.Parse() },
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			if len(args) < 1 {

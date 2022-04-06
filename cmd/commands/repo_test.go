@@ -225,7 +225,7 @@ func Test_buildBootstrapManifests(t *testing.T) {
 
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
-			tt.args.cloneOpts.Parse()
+			_ = tt.args.cloneOpts.Parse()
 
 			b, ret := buildBootstrapManifests(
 				tt.args.namespace,
@@ -748,7 +748,7 @@ func TestRunRepoUninstall(t *testing.T) {
 				KubeFactory: f,
 				FastExit:    true,
 			}
-			opts.CloneOptions.Parse()
+			_ = opts.CloneOptions.Parse()
 			err := RunRepoUninstall(context.Background(), opts)
 			if err != nil {
 				if tt.wantErr != "" {
