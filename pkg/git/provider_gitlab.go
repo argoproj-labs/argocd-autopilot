@@ -92,7 +92,7 @@ func (g *gitlab) GetAuthor(_ context.Context) (username, email string, err error
 		return
 	}
 
-	username = authUser.Name
+	username = authUser.Username
 	email = authUser.Email
 	return
 }

@@ -93,7 +93,7 @@ func (g *github) GetAuthor(ctx context.Context) (username, email string, err err
 		return
 	}
 
-	username = *authUser.Name
+	username = *authUser.Login
 	email = *authUser.Email
 	return
 }

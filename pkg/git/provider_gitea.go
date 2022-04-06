@@ -77,7 +77,7 @@ func (g *gitea) GetAuthor(_ context.Context) (username, email string, err error)
 		return
 	}
 
-	username = authUser.FullName
+	username = authUser.UserName
 	email = authUser.Email
 	return
 }
