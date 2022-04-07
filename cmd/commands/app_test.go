@@ -17,13 +17,13 @@ import (
 	gitmocks "github.com/argoproj-labs/argocd-autopilot/pkg/git/mocks"
 	kubemocks "github.com/argoproj-labs/argocd-autopilot/pkg/kube/mocks"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
-	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
-	"github.com/golang/mock/gomock"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/go-git/go-billy/v5/memfs"
 	billyUtils "github.com/go-git/go-billy/v5/util"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestRunAppCreate(t *testing.T) {

@@ -9,12 +9,12 @@ import (
 
 	"github.com/argoproj-labs/argocd-autopilot/pkg/fs/mocks"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
-	"github.com/golang/mock/gomock"
 
 	"github.com/ghodss/yaml"
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
 	billyUtils "github.com/go-git/go-billy/v5/util"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

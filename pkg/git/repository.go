@@ -61,6 +61,7 @@ type (
 		CreateIfNotExist bool
 		CloneForWrite    bool
 		UpsertBranch     bool
+	
 		url              string
 		revision         string
 		path             string
@@ -297,7 +298,7 @@ func (r *repo) CurrentBranch() (string, error) {
 func (r *repo) commit(ctx context.Context, opts *PushOptions) (*plumbing.Hash, error) {
 	var h plumbing.Hash
 
-	author, err := r.getAuthor(ctx, opts.Provider)
+	author, err := r.getAuthor(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -330,24 +331,24 @@ func (r *repo) commit(ctx context.Context, opts *PushOptions) (*plumbing.Hash, e
 	return &h, nil
 }
 
-func (r *repo) getAuthor(ctx context.Context, providerType string) (*object.Signature, error) {
-	username, email, err := r.provider.GetAuthor(ctx)
+func (r *repo) getAuthor(ctx context.Context) (*object.Signature, error) {
+	cfg, err := r.ConfigScoped(config.SystemScope)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get commiter data. Error: %w", err)
+		return nil, fmt.Errorf("failed to get gitconfig: %w", err)
 	}
 
+	username := cfg.User.Name
+	email := cfg.User.Email
+
 	if username == "" || email == "" {
-		cfg, err := r.ConfigScoped(config.SystemScope)
+		username, email, err = r.provider.GetAuthor(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get gitconfig. Error: %w", err)
+			return nil, fmt.Errorf("failed to get author information: %w", err)
 		}
 
-		username = cfg.User.Name
-		email = cfg.User.Email
-	}
-
-	if username == "" || email == "" {
-		return nil, fmt.Errorf("failed to get author data. Please make sure your gitconfig contains a name and an email")
+		if username == "" || email == "" {
+			return nil, fmt.Errorf("missing required author information in git config, make sure your git config contains a 'user.name' and 'user.email'")
+		}
 	}
 
 	return &object.Signature{

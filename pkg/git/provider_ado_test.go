@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	adoMock "github.com/argoproj-labs/argocd-autopilot/pkg/git/ado/mocks"
+
 	"github.com/golang/mock/gomock"
 	ado "github.com/microsoft/azure-devops-go-api/azuredevops/git"
 	"github.com/stretchr/testify/assert"

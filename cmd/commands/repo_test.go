@@ -14,6 +14,7 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/kube"
 	kubemocks "github.com/argoproj-labs/argocd-autopilot/pkg/kube/mocks"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
+
 	argocdcommon "github.com/argoproj/argo-cd/v2/common"
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/ghodss/yaml"

@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	gtmocks "github.com/argoproj-labs/argocd-autopilot/pkg/git/gitea/mocks"
-	"github.com/golang/mock/gomock"
 
 	gt "code.gitea.io/sdk/gitea"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 

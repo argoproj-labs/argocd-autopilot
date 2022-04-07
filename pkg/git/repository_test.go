@@ -1280,9 +1280,21 @@ func Test_repo_commit(t *testing.T) {
 	}{
 		"Success": {
 			branchName: "",
-			beforeFn: func(_ *mocks.MockRepository, wt *mocks.MockWorktree, _ *mockProvider) {
+			beforeFn: func(r *mocks.MockRepository, wt *mocks.MockWorktree, _ *mockProvider) {
 				hash := plumbing.NewHash("3992c4")
+				config := &config.Config{
+					User: struct {
+						Name  string
+						Email string
+					}{
+						Name:  "user",
+						Email: "email",
+					},
+				}
 
+				r.EXPECT().ConfigScoped(gomock.Any()).
+					Times(1).
+					Return(config, nil)
 				wt.EXPECT().Commit("test", gomock.Any()).
 					Times(1).
 					Return(hash, nil)
@@ -1293,16 +1305,29 @@ func Test_repo_commit(t *testing.T) {
 		},
 		"Error - getAuthor fails": {
 			branchName: "test",
-			beforeFn: func(_ *mocks.MockRepository, wt *mocks.MockWorktree, p *mockProvider) {
+			beforeFn: func(r *mocks.MockRepository, wt *mocks.MockWorktree, p *mockProvider) {
 				p.getAuthor = func() (string, string, error) {
 					return "", "", fmt.Errorf("some error")
 				}
+				config := &config.Config{
+					User: struct {
+						Name  string
+						Email string
+					}{
+						Name:  "",
+						Email: "",
+					},
+				}
+
+				r.EXPECT().ConfigScoped(gomock.Any()).
+					Times(1).
+					Return(config, nil)
 				wt.EXPECT().Commit(gomock.Any(), gomock.Any()).
 					Times(0)
 			},
-			wantErr: "failed to get commiter data. Error: some error",
+			wantErr: "failed to get author information: some error",
 		},
-		"Error - no gitconfig name and email": {
+		"Error - no name and email": {
 			branchName: "test",
 			beforeFn: func(r *mocks.MockRepository, wt *mocks.MockWorktree, p *mockProvider) {
 				p.getAuthor = func() (string, string, error) {
@@ -1324,29 +1349,38 @@ func Test_repo_commit(t *testing.T) {
 				wt.EXPECT().Commit(gomock.Any(), gomock.Any()).
 					Times(0)
 			},
-			wantErr: "failed to get author data. Please make sure your gitconfig contains a name and an email",
+			wantErr: "missing required author information in git config, make sure your git config contains a 'user.name' and 'user.email'",
 		},
 		"Error - ConfigScope fails": {
 			branchName: "test",
-			beforeFn: func(r *mocks.MockRepository, wt *mocks.MockWorktree, p *mockProvider) {
-				p.getAuthor = func() (string, string, error) {
-					return "", "", nil
-				}
+			beforeFn: func(r *mocks.MockRepository, wt *mocks.MockWorktree, _ *mockProvider) {
 				r.EXPECT().ConfigScoped(gomock.Any()).
 					Times(1).
 					Return(nil, fmt.Errorf("test Config error"))
 				wt.EXPECT().Commit(gomock.Any(), gomock.Any()).
 					Times(0)
 			},
-			wantErr: "failed to get gitconfig. Error: test Config error",
+			wantErr: "failed to get gitconfig: test Config error",
 		},
 		"Error - AddGlob fails": {
 			branchName: "test",
-			beforeFn: func(_ *mocks.MockRepository, wt *mocks.MockWorktree, _ *mockProvider) {
+			beforeFn: func(r *mocks.MockRepository, wt *mocks.MockWorktree, _ *mockProvider) {
+				config := &config.Config{
+					User: struct {
+						Name  string
+						Email string
+					}{
+						Name:  "name",
+						Email: "email",
+					},
+				}
+
+				r.EXPECT().ConfigScoped(gomock.Any()).
+					Times(1).
+					Return(config, nil)
 				wt.EXPECT().AddGlob(gomock.Any()).
 					Times(1).
 					Return(fmt.Errorf("add glob error"))
-
 				wt.EXPECT().Commit(gomock.Any(), gomock.Any()).
 					Times(0)
 			},
@@ -1354,7 +1388,20 @@ func Test_repo_commit(t *testing.T) {
 		},
 		"Error - Commit fails": {
 			branchName: "test",
-			beforeFn: func(_ *mocks.MockRepository, wt *mocks.MockWorktree, _ *mockProvider) {
+			beforeFn: func(r *mocks.MockRepository, wt *mocks.MockWorktree, _ *mockProvider) {
+				config := &config.Config{
+					User: struct {
+						Name  string
+						Email string
+					}{
+						Name:  "name",
+						Email: "email",
+					},
+				}
+
+				r.EXPECT().ConfigScoped(gomock.Any()).
+					Times(1).
+					Return(config, nil)
 				wt.EXPECT().AddGlob(gomock.Any()).
 					Times(1).
 					Return(nil)
