@@ -280,7 +280,6 @@ var setAppOptsDefaults = func(ctx context.Context, repofs fs.FS, opts *AppCreate
 			FS:   fs.Create(memfs.New()),
 		}
 		cloneOpts.Parse()
-
 		_, fsys, err = getRepo(ctx, cloneOpts)
 		if err != nil {
 			return err
