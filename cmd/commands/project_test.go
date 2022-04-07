@@ -112,7 +112,7 @@ func TestRunProjectCreate(t *testing.T) {
 			getInstallationNamespace: func(_ fs.FS) (string, error) {
 				return "namespace", nil
 			},
-			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
+			assertFn: func(t *testing.T, _ git.Repository, repofs fs.FS) {
 				exists := repofs.ExistsOrDie("projects/project.yaml")
 				assert.True(t, exists)
 			},
@@ -559,7 +559,7 @@ func TestRunProjectDelete(t *testing.T) {
 				}).Return("revision", nil)
 				return mockRepo, fs.Create(memfs), nil
 			},
-			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
+			assertFn: func(t *testing.T, _ git.Repository, repofs fs.FS) {
 				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app1")))
 			},
 		},
@@ -576,7 +576,7 @@ func TestRunProjectDelete(t *testing.T) {
 				}).Return("revision", nil)
 				return mockRepo, fs.Create(memfs), nil
 			},
-			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
+			assertFn: func(t *testing.T, _ git.Repository, repofs fs.FS) {
 				assert.True(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app1", store.Default.OverlaysDir)))
 				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app1", store.Default.OverlaysDir, "project")))
 			},
@@ -593,7 +593,7 @@ func TestRunProjectDelete(t *testing.T) {
 				}).Return("revision", nil)
 				return mockRepo, fs.Create(memfs), nil
 			},
-			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
+			assertFn: func(t *testing.T, _ git.Repository, repofs fs.FS) {
 				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app1")))
 			},
 		},
@@ -614,7 +614,7 @@ func TestRunProjectDelete(t *testing.T) {
 				}).Return("revision", nil)
 				return mockRepo, fs.Create(memfs), nil
 			},
-			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
+			assertFn: func(t *testing.T, _ git.Repository, repofs fs.FS) {
 				assert.True(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app1", store.Default.OverlaysDir)))
 				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app1", store.Default.OverlaysDir, "project")))
 				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app2")))

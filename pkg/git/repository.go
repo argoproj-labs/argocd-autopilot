@@ -173,7 +173,7 @@ func AddFlags(cmd *cobra.Command, opts *AddFlagsOptions) *CloneOptions {
 	return co
 }
 
-func (o *CloneOptions) Parse() error {
+func (o *CloneOptions) Parse() {
 	var (
 		host    string
 		orgRepo string
@@ -186,14 +186,6 @@ func (o *CloneOptions) Parse() error {
 	if o.Auth.Username == "" {
 		o.Auth.Username = store.Default.GitHubUsername
 	}
-
-	provider, err := getProvider(o.Provider, host, &o.Auth)
-	if err != nil {
-		return err
-	}
-
-	o.provider = provider
-	return nil
 }
 
 func (o *CloneOptions) GetRepo(ctx context.Context) (Repository, fs.FS, error) {
@@ -204,6 +196,13 @@ func (o *CloneOptions) GetRepo(ctx context.Context) (Repository, fs.FS, error) {
 	if o.url == "" {
 		return nil, nil, ErrNoParse
 	}
+
+	provider, err := getProvider(o.Provider, o.url, &o.Auth)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	o.provider = provider
 
 	r, err := clone(ctx, o)
 	if err != nil {
@@ -439,9 +438,9 @@ var createRepo = func(ctx context.Context, opts *CloneOptions) (string, error) {
 	return opts.provider.CreateRepository(ctx, orgRepo)
 }
 
-func getProvider(providerType, host string, auth *Auth) (Provider, error) {
+func getProvider(providerType, repoUrl string, auth *Auth) (Provider, error) {
 	if providerType == "" {
-		u, err := url.Parse(host)
+		u, err := url.Parse(repoUrl)
 		if err != nil {
 			return nil, err
 		}
@@ -458,7 +457,7 @@ func getProvider(providerType, host string, auth *Auth) (Provider, error) {
 	return newProvider(&ProviderOptions{
 		Type: providerType,
 		Auth: auth,
-		Host: host,
+		Host: repoUrl,
 	})
 }
 

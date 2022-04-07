@@ -263,7 +263,7 @@ func Test_initRepo(t *testing.T) {
 			mockRepo.EXPECT().ConfigScoped(gomock.Any()).Return(cfg, nil).AnyTimes()
 			mockWt.EXPECT().AddGlob(gomock.Any()).Return(tt.retErr).AnyTimes()
 
-			_ = tt.opts.Parse()
+			tt.opts.Parse()
 			tt.opts.provider = mockProvider
 			got, err := initRepo(context.Background(), tt.opts)
 			if (err != nil) != tt.wantErr {
@@ -465,7 +465,7 @@ func Test_clone(t *testing.T) {
 			}
 
 			if tt.opts != nil {
-				_ = tt.opts.Parse()
+				tt.opts.Parse()
 			}
 
 			if tt.checkoutRef != nil {
@@ -619,7 +619,7 @@ func TestGetRepo(t *testing.T) {
 			createRepo = tt.createRepoFn
 			initRepo = tt.initRepoFn
 			if tt.opts != nil {
-				_ = tt.opts.Parse()
+				tt.opts.Parse()
 			}
 
 			r, fs, err := tt.opts.GetRepo(context.Background())
@@ -1342,7 +1342,7 @@ func Test_repo_commit(t *testing.T) {
 		},
 		"Error - AddGlob fails": {
 			branchName: "test",
-			beforeFn: func(r *mocks.MockRepository, wt *mocks.MockWorktree, _ *mockProvider) {
+			beforeFn: func(_ *mocks.MockRepository, wt *mocks.MockWorktree, _ *mockProvider) {
 				wt.EXPECT().AddGlob(gomock.Any()).
 					Times(1).
 					Return(fmt.Errorf("add glob error"))
@@ -1354,7 +1354,7 @@ func Test_repo_commit(t *testing.T) {
 		},
 		"Error - Commit fails": {
 			branchName: "test",
-			beforeFn: func(r *mocks.MockRepository, wt *mocks.MockWorktree, _ *mockProvider) {
+			beforeFn: func(_ *mocks.MockRepository, wt *mocks.MockWorktree, _ *mockProvider) {
 				wt.EXPECT().AddGlob(gomock.Any()).
 					Times(1).
 					Return(nil)

@@ -225,7 +225,7 @@ func Test_buildBootstrapManifests(t *testing.T) {
 
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
-			_ = tt.args.cloneOpts.Parse()
+			tt.args.cloneOpts.Parse()
 
 			b, ret := buildBootstrapManifests(
 				tt.args.namespace,
@@ -516,7 +516,7 @@ func Test_deleteClusterResources(t *testing.T) {
 					}).Return(nil)
 				}
 			},
-			assertFn: func(t *testing.T, f kube.Factory, err error) {
+			assertFn: func(t *testing.T, _ kube.Factory, err error) {
 				assert.Nil(t, err)
 			},
 		},
@@ -533,7 +533,7 @@ func Test_deleteClusterResources(t *testing.T) {
 					}).Return(errors.New("some error"))
 				}
 			},
-			assertFn: func(t *testing.T, f kube.Factory, err error) {
+			assertFn: func(t *testing.T, _ kube.Factory, err error) {
 				assert.EqualError(t, err, "failed deleting argocd-autopilot resources: some error")
 			},
 		},
@@ -556,7 +556,7 @@ func Test_deleteClusterResources(t *testing.T) {
 					},
 				}).Return(errors.New("some error"))
 			},
-			assertFn: func(t *testing.T, f kube.Factory, err error) {
+			assertFn: func(t *testing.T, _ kube.Factory, err error) {
 				assert.EqualError(t, err, "failed deleting Argo-CD resources: some error")
 			},
 		},
@@ -748,7 +748,7 @@ func TestRunRepoUninstall(t *testing.T) {
 				KubeFactory: f,
 				FastExit:    true,
 			}
-			_ = opts.CloneOptions.Parse()
+			opts.CloneOptions.Parse()
 			err := RunRepoUninstall(context.Background(), opts)
 			if err != nil {
 				if tt.wantErr != "" {
