@@ -14,6 +14,7 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/kube"
 	kubemocks "github.com/argoproj-labs/argocd-autopilot/pkg/kube/mocks"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
+
 	argocdcommon "github.com/argoproj/argo-cd/v2/common"
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/ghodss/yaml"
@@ -516,7 +517,7 @@ func Test_deleteClusterResources(t *testing.T) {
 					}).Return(nil)
 				}
 			},
-			assertFn: func(t *testing.T, f kube.Factory, err error) {
+			assertFn: func(t *testing.T, _ kube.Factory, err error) {
 				assert.Nil(t, err)
 			},
 		},
@@ -533,7 +534,7 @@ func Test_deleteClusterResources(t *testing.T) {
 					}).Return(errors.New("some error"))
 				}
 			},
-			assertFn: func(t *testing.T, f kube.Factory, err error) {
+			assertFn: func(t *testing.T, _ kube.Factory, err error) {
 				assert.EqualError(t, err, "failed deleting argocd-autopilot resources: some error")
 			},
 		},
@@ -556,7 +557,7 @@ func Test_deleteClusterResources(t *testing.T) {
 					},
 				}).Return(errors.New("some error"))
 			},
-			assertFn: func(t *testing.T, f kube.Factory, err error) {
+			assertFn: func(t *testing.T, _ kube.Factory, err error) {
 				assert.EqualError(t, err, "failed deleting Argo-CD resources: some error")
 			},
 		},

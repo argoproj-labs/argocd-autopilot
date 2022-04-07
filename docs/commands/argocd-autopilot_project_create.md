@@ -38,7 +38,8 @@ argocd-autopilot project create [PROJECT] [flags]
       --cluster-resources                  Indicates if cluster level resources should be managed. The setting is used only if list of managed namespaces is not empty.
       --config string                      Path to Argo CD config (default "/home/user/.config/argocd/config")
       --core                               If set to true then CLI talks directly to Kubernetes instead of talking to Argo CD API server
-      --dest-kube-context string           The default destination kubernetes context for applications in this project
+      --dest-kube-context string           The default destination kubernetes context for applications in this project (will be ignored if --dest-kube-server is supplied)
+      --dest-server string                 The default destination kubernetes server for applications in this project
       --dry-run                            If true, print manifests instead of applying them to the cluster (nothing will be commited to git)
       --exec-command string                Command to run to provide client credentials to the cluster. You may need to build a custom ArgoCD image to ensure the command is available at runtime.
       --exec-command-api-version string    Preferred input version of the ExecInfo for the --exec-command executable
@@ -55,6 +56,7 @@ argocd-autopilot project create [PROJECT] [flags]
       --in-cluster                         Indicates Argo CD resides inside this cluster and should connect using the internal k8s hostname (kubernetes.default.svc)
       --insecure                           Skip server certificate and domain verification
       --label stringArray                  Set metadata labels (e.g. --label key=value)
+      --labels stringToString              Optional labels that will be set on the Application resource. (e.g. "app.kubernetes.io/managed-by={{ placeholder }}" (default [])
       --name string                        Overwrite the cluster name
       --plaintext                          Disable TLS
       --port-forward                       Connect to a random argocd-server port using port forwarding

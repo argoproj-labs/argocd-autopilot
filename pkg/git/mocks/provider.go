@@ -8,7 +8,6 @@ import (
 	context "context"
 	reflect "reflect"
 
-	git "github.com/argoproj-labs/argocd-autopilot/pkg/git"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -36,16 +35,32 @@ func (m *MockProvider) EXPECT() *MockProviderMockRecorder {
 }
 
 // CreateRepository mocks base method.
-func (m *MockProvider) CreateRepository(ctx context.Context, opts *git.CreateRepoOptions) (string, error) {
+func (m *MockProvider) CreateRepository(ctx context.Context, orgRepo string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateRepository", ctx, opts)
+	ret := m.ctrl.Call(m, "CreateRepository", ctx, orgRepo)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateRepository indicates an expected call of CreateRepository.
-func (mr *MockProviderMockRecorder) CreateRepository(ctx, opts interface{}) *gomock.Call {
+func (mr *MockProviderMockRecorder) CreateRepository(ctx, orgRepo interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRepository", reflect.TypeOf((*MockProvider)(nil).CreateRepository), ctx, opts)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRepository", reflect.TypeOf((*MockProvider)(nil).CreateRepository), ctx, orgRepo)
+}
+
+// GetAuthor mocks base method.
+func (m *MockProvider) GetAuthor(ctx context.Context) (string, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAuthor", ctx)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetAuthor indicates an expected call of GetAuthor.
+func (mr *MockProviderMockRecorder) GetAuthor(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAuthor", reflect.TypeOf((*MockProvider)(nil).GetAuthor), ctx)
 }

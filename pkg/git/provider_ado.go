@@ -60,24 +60,30 @@ func newAdo(opts *ProviderOptions) (Provider, error) {
 	}, nil
 }
 
-func (g *adoGit) CreateRepository(ctx context.Context, opts *CreateRepoOptions) (string, error) {
-	if opts.Name == "" {
+func (g *adoGit) CreateRepository(ctx context.Context, orgRepo string) (string, error) {
+	if orgRepo == "" {
 		return "", fmt.Errorf("name needs to be provided to create an azure devops repository. "+
-			"name: '%s'", opts.Name)
+			"name: '%s'", orgRepo)
 	}
-	gitRepoToCreate := &ado.GitRepositoryCreateOptions{
-		Name: &opts.Name,
-	}
+
 	project := g.adoUrl.GetProjectName()
 	createRepositoryArgs := ado.CreateRepositoryArgs{
-		GitRepositoryToCreate: gitRepoToCreate,
-		Project:               &project,
+		GitRepositoryToCreate: &ado.GitRepositoryCreateOptions{
+			Name: &orgRepo,
+		},
+		Project: &project,
 	}
 	repository, err := g.adoClient.CreateRepository(ctx, createRepositoryArgs)
 	if err != nil {
 		return "", err
 	}
+
 	return *repository.RemoteUrl, nil
+}
+
+func (g *adoGit) GetAuthor(ctx context.Context) (username, email string, err error) {
+	// empty implementation - will fall back on getting values from global gitconfig file
+	return
 }
 
 func (a *adoGitUrl) GetProjectName() string {

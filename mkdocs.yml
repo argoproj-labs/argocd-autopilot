@@ -26,6 +26,7 @@ nav:
   - User Guide:
     - Getting Started: Getting-Started.md
     - Application Specifier: App-Specifier.md
+    - Labels: Labels.md
     - Command Reference: commands/argocd-autopilot.md
   - Development: Development.md
   - Roadmap: Roadmap.md

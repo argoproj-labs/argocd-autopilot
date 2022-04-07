@@ -7,26 +7,22 @@ import (
 	"testing"
 
 	"github.com/argoproj-labs/argocd-autopilot/pkg/git/github/mocks"
-	"github.com/golang/mock/gomock"
 
+	"github.com/golang/mock/gomock"
 	gh "github.com/google/go-github/v35/github"
 	"github.com/stretchr/testify/assert"
 )
 
 func Test_github_CreateRepository(t *testing.T) {
 	tests := map[string]struct {
-		opts     *CreateRepoOptions
+		orgRepo  string
 		beforeFn func(*mocks.MockRepositories, *mocks.MockUsers)
 		want     string
 		wantErr  string
 	}{
 		"Error getting user": {
-			opts: &CreateRepoOptions{
-				Owner:   "owner",
-				Name:    "name",
-				Private: false,
-			},
-			beforeFn: func(mr *mocks.MockRepositories, mu *mocks.MockUsers) {
+			orgRepo: "owner/name",
+			beforeFn: func(_ *mocks.MockRepositories, mu *mocks.MockUsers) {
 				mu.EXPECT().Get(context.Background(), "").
 					Times(1).
 					Return(nil, &gh.Response{Response: &http.Response{
@@ -36,11 +32,7 @@ func Test_github_CreateRepository(t *testing.T) {
 			wantErr: "Some user error",
 		},
 		"Error creating repo": {
-			opts: &CreateRepoOptions{
-				Owner:   "owner",
-				Name:    "name",
-				Private: false,
-			},
+			orgRepo: "owner/name",
 			beforeFn: func(mr *mocks.MockRepositories, mu *mocks.MockUsers) {
 				mu.EXPECT().Get(context.Background(), "").
 					Times(1).
@@ -50,7 +42,7 @@ func Test_github_CreateRepository(t *testing.T) {
 
 				mr.EXPECT().Create(context.Background(), "", &gh.Repository{
 					Name:    gh.String("name"),
-					Private: gh.Bool(false),
+					Private: gh.Bool(true),
 				}).
 					Times(1).
 					Return(nil, &gh.Response{Response: &http.Response{
@@ -60,11 +52,7 @@ func Test_github_CreateRepository(t *testing.T) {
 			wantErr: "Some repo error",
 		},
 		"Creates with empty org": {
-			opts: &CreateRepoOptions{
-				Owner:   "owner",
-				Name:    "name",
-				Private: false,
-			},
+			orgRepo: "owner/name",
 			beforeFn: func(mr *mocks.MockRepositories, mu *mocks.MockUsers) {
 				mu.EXPECT().Get(context.Background(), "").
 					Times(1).
@@ -74,7 +62,7 @@ func Test_github_CreateRepository(t *testing.T) {
 
 				mr.EXPECT().Create(context.Background(), "", &gh.Repository{
 					Name:    gh.String("name"),
-					Private: gh.Bool(false),
+					Private: gh.Bool(true),
 				}).
 					Times(1).
 					Return(&gh.Repository{
@@ -86,11 +74,7 @@ func Test_github_CreateRepository(t *testing.T) {
 			want: "https://github.com/owner/repo",
 		},
 		"Creates with org": {
-			opts: &CreateRepoOptions{
-				Owner:   "org",
-				Name:    "name",
-				Private: false,
-			},
+			orgRepo: "org/name",
 			beforeFn: func(mr *mocks.MockRepositories, mu *mocks.MockUsers) {
 				mu.EXPECT().Get(context.Background(), "").
 					Times(1).
@@ -100,7 +84,7 @@ func Test_github_CreateRepository(t *testing.T) {
 
 				mr.EXPECT().Create(context.Background(), "org", &gh.Repository{
 					Name:    gh.String("name"),
-					Private: gh.Bool(false),
+					Private: gh.Bool(true),
 				}).
 					Times(1).
 					Return(&gh.Repository{
@@ -112,11 +96,7 @@ func Test_github_CreateRepository(t *testing.T) {
 			want: "https://github.com/org/repo",
 		},
 		"Error when no cloneURL": {
-			opts: &CreateRepoOptions{
-				Owner:   "org",
-				Name:    "name",
-				Private: false,
-			},
+			orgRepo: "org/name",
 			beforeFn: func(mr *mocks.MockRepositories, mu *mocks.MockUsers) {
 				mu.EXPECT().Get(context.Background(), "").
 					Times(1).
@@ -126,7 +106,7 @@ func Test_github_CreateRepository(t *testing.T) {
 
 				mr.EXPECT().Create(context.Background(), "org", &gh.Repository{
 					Name:    gh.String("name"),
-					Private: gh.Bool(false),
+					Private: gh.Bool(true),
 				}).
 					Times(1).
 					Return(&gh.Repository{}, &gh.Response{Response: &http.Response{StatusCode: 200}}, nil)
@@ -147,7 +127,7 @@ func Test_github_CreateRepository(t *testing.T) {
 				Repositories: mockRepo,
 				Users:        mockUsers,
 			}
-			got, err := g.CreateRepository(ctx, tt.opts)
+			got, err := g.CreateRepository(ctx, tt.orgRepo)
 			if tt.wantErr != "" {
 				assert.EqualError(t, err, tt.wantErr)
 				return

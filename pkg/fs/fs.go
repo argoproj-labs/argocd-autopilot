@@ -144,7 +144,7 @@ func (fs *fsimpl) ReadJson(filename string, o interface{}) error {
 }
 
 func (fs *fsimpl) WriteJson(filename string, o interface{}) error {
-	data, err := json.Marshal(o)
+	data, err := json.MarshalIndent(o, "", "  ")
 	if err != nil {
 		return err
 	}

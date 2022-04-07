@@ -7,24 +7,21 @@ import (
 	"testing"
 
 	glmocks "github.com/argoproj-labs/argocd-autopilot/pkg/git/gitlab/mocks"
-	"github.com/golang/mock/gomock"
-	gl "github.com/xanzy/go-gitlab"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	gl "github.com/xanzy/go-gitlab"
 )
 
 func Test_gitlab_CreateRepository(t *testing.T) {
 	tests := map[string]struct {
-		opts     *CreateRepoOptions
+		orgRepo  string
 		beforeFn func(*glmocks.MockGitlabClient)
 		want     string
 		wantErr  string
 	}{
 		"Fails if credentials are wrong": {
-			opts: &CreateRepoOptions{
-				Name:  "projectName",
-				Owner: "username",
-			},
+			orgRepo: "username/projectName",
 			beforeFn: func(c *glmocks.MockGitlabClient) {
 				res := &gl.Response{
 					Response: &http.Response{
@@ -38,10 +35,7 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 			wantErr: "authentication failed, make sure credentials are correct: some error",
 		},
 		"Fails if can't find current user": {
-			opts: &CreateRepoOptions{
-				Name:  "projectName",
-				Owner: "username",
-			},
+			orgRepo: "username/projectName",
 			beforeFn: func(c *glmocks.MockGitlabClient) {
 				res := &gl.Response{
 					Response: &http.Response{},
@@ -53,10 +47,7 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 			wantErr: "some error",
 		},
 		"Fails if can't find group": {
-			opts: &CreateRepoOptions{
-				Name:  "projectName",
-				Owner: "org",
-			},
+			orgRepo: "org/projectName",
 			beforeFn: func(c *glmocks.MockGitlabClient) {
 				u := &gl.User{Username: "username"}
 				g := []*gl.Group{{FullPath: "anotherOrg", ID: 1}}
@@ -74,15 +65,12 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 			wantErr: "group org not found",
 		},
 		"Fails if can't create project": {
-			opts: &CreateRepoOptions{
-				Name:  "projectName",
-				Owner: "username",
-			},
+			orgRepo: "username/projectName",
 			beforeFn: func(c *glmocks.MockGitlabClient) {
 				u := &gl.User{Username: "username"}
 				createOpts := gl.CreateProjectOptions{
 					Name:       gl.String("projectName"),
-					Visibility: gl.Visibility(gl.PublicVisibility),
+					Visibility: gl.Visibility(gl.PrivateVisibility),
 				}
 				res := &gl.Response{
 					Response: &http.Response{},
@@ -99,16 +87,13 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 			wantErr: "failed creating the project projectName under username: some error",
 		},
 		"Creates project under user": {
-			opts: &CreateRepoOptions{
-				Name:  "projectName",
-				Owner: "username",
-			},
+			orgRepo: "username/projectName",
 			beforeFn: func(c *glmocks.MockGitlabClient) {
 				u := &gl.User{Username: "username"}
 				p := &gl.Project{WebURL: "http://gitlab.com/username/projectName"}
 				createOpts := gl.CreateProjectOptions{
 					Name:       gl.String("projectName"),
-					Visibility: gl.Visibility(gl.PublicVisibility),
+					Visibility: gl.Visibility(gl.PrivateVisibility),
 				}
 
 				c.EXPECT().CurrentUser().
@@ -121,10 +106,7 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 			want: "http://gitlab.com/username/projectName",
 		},
 		"Creates project under group": {
-			opts: &CreateRepoOptions{
-				Name:  "projectName",
-				Owner: "org",
-			},
+			orgRepo: "org/projectName",
 			beforeFn: func(c *glmocks.MockGitlabClient) {
 				u := &gl.User{Username: "username"}
 				c.EXPECT().CurrentUser().Return(u, nil, nil)
@@ -132,7 +114,7 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 				g := []*gl.Group{{FullPath: "org", ID: 1}}
 				createOpts := gl.CreateProjectOptions{
 					Name:        gl.String("projectName"),
-					Visibility:  gl.Visibility(gl.PublicVisibility),
+					Visibility:  gl.Visibility(gl.PrivateVisibility),
 					NamespaceID: gl.Int(1),
 				}
 
@@ -150,10 +132,7 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 			want: "http://gitlab.com/org/projectName",
 		},
 		"Creates project under sub group": {
-			opts: &CreateRepoOptions{
-				Name:  "projectName",
-				Owner: "org/subOrg",
-			},
+			orgRepo: "org/subOrg/projectName",
 			beforeFn: func(c *glmocks.MockGitlabClient) {
 				u := &gl.User{Username: "username"}
 				c.EXPECT().CurrentUser().Return(u, nil, nil)
@@ -161,7 +140,7 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 				g := []*gl.Group{{FullPath: "org/subOrg", ID: 1}}
 				createOpts := gl.CreateProjectOptions{
 					Name:        gl.String("projectName"),
-					Visibility:  gl.Visibility(gl.PublicVisibility),
+					Visibility:  gl.Visibility(gl.PrivateVisibility),
 					NamespaceID: gl.Int(1),
 				}
 
@@ -179,11 +158,7 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 			want: "http://gitlab.com/org/subOrg/projectName",
 		},
 		"Creates private project": {
-			opts: &CreateRepoOptions{
-				Name:    "projectName",
-				Owner:   "username",
-				Private: true,
-			},
+			orgRepo: "username/projectName",
 			beforeFn: func(c *glmocks.MockGitlabClient) {
 				u := &gl.User{Username: "username"}
 				p := &gl.Project{WebURL: "http://gitlab.com/username/projectName"}
@@ -205,16 +180,13 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 			want: "http://gitlab.com/username/projectName",
 		},
 		"Fails when no WebURL": {
-			opts: &CreateRepoOptions{
-				Name:  "projectName",
-				Owner: "username",
-			},
+			orgRepo: "username/projectName",
 			beforeFn: func(c *glmocks.MockGitlabClient) {
 				u := &gl.User{Username: "username"}
 				p := &gl.Project{WebURL: ""}
 				createOpts := gl.CreateProjectOptions{
 					Name:       gl.String("projectName"),
-					Visibility: gl.Visibility(gl.PublicVisibility),
+					Visibility: gl.Visibility(gl.PrivateVisibility),
 				}
 				res := &gl.Response{
 					Response: &http.Response{},
@@ -237,7 +209,7 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 			g := &gitlab{
 				client: mockClient,
 			}
-			got, err := g.CreateRepository(context.Background(), tt.opts)
+			got, err := g.CreateRepository(context.Background(), tt.orgRepo)
 
 			if err != nil {
 				if tt.wantErr != "" {

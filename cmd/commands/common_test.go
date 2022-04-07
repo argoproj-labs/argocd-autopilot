@@ -9,10 +9,10 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/git"
 	gitmocks "github.com/argoproj-labs/argocd-autopilot/pkg/git/mocks"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
-	"github.com/golang/mock/gomock"
 
 	"github.com/go-git/go-billy/v5/memfs"
 	billyUtils "github.com/go-git/go-billy/v5/util"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 

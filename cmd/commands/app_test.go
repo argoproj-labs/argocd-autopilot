@@ -17,13 +17,13 @@ import (
 	gitmocks "github.com/argoproj-labs/argocd-autopilot/pkg/git/mocks"
 	kubemocks "github.com/argoproj-labs/argocd-autopilot/pkg/kube/mocks"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
-	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
-	"github.com/golang/mock/gomock"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/go-git/go-billy/v5/memfs"
 	billyUtils "github.com/go-git/go-billy/v5/util"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestRunAppCreate(t *testing.T) {
@@ -473,7 +473,7 @@ func TestRunAppDelete(t *testing.T) {
 					Return("revision", nil)
 				return mockRepo, fs.Create(memfs), nil
 			},
-			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
+			assertFn: func(t *testing.T, _ git.Repository, repofs fs.FS) {
 				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app")))
 			},
 		},
@@ -528,7 +528,7 @@ func TestRunAppDelete(t *testing.T) {
 					Return("revision", nil)
 				return mockRepo, fs.Create(memfs), nil
 			},
-			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
+			assertFn: func(t *testing.T, _ git.Repository, repofs fs.FS) {
 				assert.True(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir)))
 				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project")))
 			},
@@ -547,7 +547,7 @@ func TestRunAppDelete(t *testing.T) {
 					Return("revision", nil)
 				return mockRepo, fs.Create(memfs), nil
 			},
-			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
+			assertFn: func(t *testing.T, _ git.Repository, repofs fs.FS) {
 				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app")))
 			},
 		},
@@ -566,7 +566,7 @@ func TestRunAppDelete(t *testing.T) {
 					Return("revision", nil)
 				return mockRepo, fs.Create(memfs), nil
 			},
-			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
+			assertFn: func(t *testing.T, _ git.Repository, repofs fs.FS) {
 				assert.True(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app")))
 				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app", "project")))
 			},
@@ -585,7 +585,7 @@ func TestRunAppDelete(t *testing.T) {
 					Return("revision", nil)
 				return mockRepo, fs.Create(memfs), nil
 			},
-			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
+			assertFn: func(t *testing.T, _ git.Repository, repofs fs.FS) {
 				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app")))
 			},
 		},
@@ -604,7 +604,7 @@ func TestRunAppDelete(t *testing.T) {
 					Return("", fmt.Errorf("some error"))
 				return mockRepo, fs.Create(memfs), nil
 			},
-			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
+			assertFn: func(t *testing.T, _ git.Repository, repofs fs.FS) {
 				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app")))
 			},
 		},
