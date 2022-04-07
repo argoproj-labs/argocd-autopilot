@@ -1303,6 +1303,31 @@ func Test_repo_commit(t *testing.T) {
 					Return(nil)
 			},
 		},
+		"Success - author info from provider": {
+			branchName: "",
+			beforeFn: func(r *mocks.MockRepository, wt *mocks.MockWorktree, _ *mockProvider) {
+				hash := plumbing.NewHash("3992c4")
+				config := &config.Config{
+					User: struct {
+						Name  string
+						Email string
+					}{
+						Name:  "",
+						Email: "",
+					},
+				}
+
+				r.EXPECT().ConfigScoped(gomock.Any()).
+					Times(1).
+					Return(config, nil)
+				wt.EXPECT().Commit("test", gomock.Any()).
+					Times(1).
+					Return(hash, nil)
+				wt.EXPECT().AddGlob(gomock.Any()).
+					Times(1).
+					Return(nil)
+			},
+		},
 		"Error - getAuthor fails": {
 			branchName: "test",
 			beforeFn: func(r *mocks.MockRepository, wt *mocks.MockWorktree, p *mockProvider) {
