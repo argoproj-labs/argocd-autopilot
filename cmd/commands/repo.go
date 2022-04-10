@@ -281,6 +281,7 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 		Username:   "admin",
 		Password:   passwd,
 		KubeConfig: opts.KubeConfig,
+		KubeContext: opts.KubeContextName,
 		Insecure:   opts.Insecure,
 	})
 	if err != nil {
