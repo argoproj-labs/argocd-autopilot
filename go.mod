@@ -216,17 +216,18 @@ require (
 	k8s.io/kube-aggregator v0.23.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20211115234752-e816edb12b65 // indirect
 	k8s.io/kubernetes v1.23.1 // indirect
-	k8s.io/utils v0.0.0-20210930125809-cb0fa318a74b // indirect
+	k8s.io/utils v0.0.0-20211116205334-6203023598ed // indirect
 	layeh.com/gopher-json v0.0.0-20190114024228-97fed8db8427 // indirect
 	sigs.k8s.io/controller-runtime v0.11.0 // indirect
 	sigs.k8s.io/json v0.0.0-20211020170558-c049b76a60c6 // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.2.0 // indirect
+	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
 replace (
 	// https://github.com/argoproj/argo-cd/issues/8829
 	github.com/argoproj/argo-cd/v2 => github.com/argoproj/argo-cd/v2 v2.0.0-20220407135446-5c2391f71fe0
+	github.com/argoproj/notifications-engine => github.com/argoproj/notifications-engine v0.3.1-0.20220322174744-ac18ca10234c // indirect
 
 	// https://github.com/golang/go/issues/33546#issuecomment-519656923
 	github.com/go-check/check => github.com/go-check/check v0.0.0-20180628173108-788fd7840127
@@ -237,13 +238,12 @@ replace (
 	github.com/improbable-eng/grpc-web => github.com/improbable-eng/grpc-web v0.0.0-20181111100011-16092bd1d58a
 
 	google.golang.org/grpc => google.golang.org/grpc v1.15.0
-
-	k8s.io/api => k8s.io/api v0.23.1
+	k8s.io/api => k8s.io/api v0.23.3
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.23.1
-	k8s.io/apimachinery => k8s.io/apimachinery v0.23.1
+	k8s.io/apimachinery => k8s.io/apimachinery v0.23.3
 	k8s.io/apiserver => k8s.io/apiserver v0.23.1
 	k8s.io/cli-runtime => k8s.io/cli-runtime v0.23.1
-	k8s.io/client-go => k8s.io/client-go v0.23.1
+	k8s.io/client-go => k8s.io/client-go v0.23.3
 	k8s.io/cloud-provider => k8s.io/cloud-provider v0.23.1
 	k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.23.1
 	k8s.io/code-generator => k8s.io/code-generator v0.23.1
