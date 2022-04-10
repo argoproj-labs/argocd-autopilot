@@ -3,9 +3,12 @@
 * Updated `app create` to include `--labels` flag
 * format `config.json` and `config_dir.json` for readability
 * extract committer username and email from token, as a fallback from git config data
+* fixed azure repo bootstrap failure [#267](https://github.com/argoproj-labs/argocd-autopilot/issues/267)
+* send `--kube-context` to `argocd login` command
 
 ### Contributors:
 - Noam Gal ([@noam-codefresh](https://github.com/noam-codefresh))
+- Elad Laor ([@elad-codefresh](https://github.com/elad-codefresh))
 
 ## Installation:
 
