@@ -55,6 +55,7 @@ argocd-autopilot project create [PROJECT] [flags]
       --http-retry-max int                 Maximum number of retries to establish http connection to Argo CD server
       --in-cluster                         Indicates Argo CD resides inside this cluster and should connect using the internal k8s hostname (kubernetes.default.svc)
       --insecure                           Skip server certificate and domain verification
+      --kube-context string                Directs the command to the given kube-context
       --label stringArray                  Set metadata labels (e.g. --label key=value)
       --labels stringToString              Optional labels that will be set on the Application resource. (e.g. "app.kubernetes.io/managed-by={{ placeholder }}" (default [])
       --name string                        Overwrite the cluster name
