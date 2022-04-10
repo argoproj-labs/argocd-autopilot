@@ -20,10 +20,10 @@ require (
 	github.com/spf13/viper v1.10.1
 	github.com/stretchr/testify v1.7.1
 	github.com/xanzy/go-gitlab v0.60.0
-	k8s.io/api v0.23.1
-	k8s.io/apimachinery v0.23.1
+	k8s.io/api v0.23.3
+	k8s.io/apimachinery v0.23.3
 	k8s.io/cli-runtime v0.23.1
-	k8s.io/client-go v0.23.1
+	k8s.io/client-go v0.23.3
 	k8s.io/kubectl v0.23.1
 	sigs.k8s.io/kustomize/api v0.11.4
 	sigs.k8s.io/kustomize/kyaml v0.13.6
@@ -54,7 +54,7 @@ require (
 	github.com/alicebob/gopher-json v0.0.0-20200520072559-a9ecdc9d1d3a // indirect
 	github.com/alicebob/miniredis/v2 v2.14.2 // indirect
 	github.com/antonmedv/expr v1.8.9 // indirect
-	github.com/argoproj/notifications-engine v0.3.1-0.20220127183449-91deed20b998 // indirect
+	github.com/argoproj/notifications-engine v0.3.1-0.20220322174744-ac18ca10234c // indirect
 	github.com/argoproj/pkg v0.11.1-0.20211203175135-36c59d8fafe0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -225,6 +225,9 @@ require (
 )
 
 replace (
+	// https://github.com/argoproj/argo-cd/issues/8829
+	github.com/argoproj/argo-cd/v2 => github.com/argoproj/argo-cd/v2 v2.0.0-20220407135446-5c2391f71fe0
+
 	// https://github.com/golang/go/issues/33546#issuecomment-519656923
 	github.com/go-check/check => github.com/go-check/check v0.0.0-20180628173108-788fd7840127
 
