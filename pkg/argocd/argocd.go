@@ -114,7 +114,7 @@ func Login(opts *LoginOptions) error {
 		"--kube-context",
 		opts.KubeContext,
 	}
-	// TODO: it gets here with empty. should send with valid, check, and then just send args...
+
 	if opts.KubeConfig != "" {
 		origKubeConfig := os.Getenv("KUBECONFIG")
 		defer func() { os.Setenv("KUBECONFIG", origKubeConfig) }()
