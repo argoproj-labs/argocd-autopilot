@@ -126,6 +126,9 @@ steps:
         - name: build
           on:
             - success
+        - name: codegen
+          on:
+            - success
 
   push_dev:
     stage: Push Dev
