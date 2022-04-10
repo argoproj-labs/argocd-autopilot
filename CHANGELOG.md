@@ -1,5 +1,15 @@
 # Changelog:
 
+# v0.3.2
+
+### Changes
+* Updated `project create` to include `--labels` flag
+* Updated `app create` to include `--labels` flag
+* format `config.json` and `config_dir.json` for readability
+* extract committer username and email from token, as a fallback from git config data
+* fixed azure repo bootstrap failure [#267](https://github.com/argoproj-labs/argocd-autopilot/issues/267)
+* send `--kube-context` to `argocd login` command
+
 # v0.3.1
 
 ### Changes

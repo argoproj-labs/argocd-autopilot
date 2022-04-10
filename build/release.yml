@@ -61,14 +61,14 @@ steps:
   
   codegen:
     <<: *deps
-    stage: Release
+    stage: Test
     title: check codegen
     commands:
     - make codegen
     - make check-worktree
     when:
       steps:
-      - name: download_modules
+      - name: lint
         on:
         - success
 
@@ -80,7 +80,7 @@ steps:
     - make test
     when:
       steps:
-      - name: lint
+      - name: codegen
         on:
         - success
 
@@ -128,6 +128,9 @@ steps:
     when:
       steps:
       - name: build
+        on:
+        - success
+      - name: codegen
         on:
         - success
 
