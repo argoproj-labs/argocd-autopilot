@@ -507,27 +507,27 @@ func fixResourcesPaths(k *kusttypes.Kustomization, newKustDir string) error {
 var generateManifests = func(k *kusttypes.Kustomization) ([]byte, error) {
 	td, err := ioutil.TempDir(".", "auto-pilot")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed creating temp dir: %w", err)
 	}
 	defer os.RemoveAll(td)
 
 	absTd, err := filepath.Abs(td)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed getting abs path for \"%s\": %w", td, err)
 	}
 
 	if err = fixResourcesPaths(k, absTd); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed fixing resources paths: %w", err)
 	}
 
 	kyaml, err := yaml.Marshal(k)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed marshaling yaml: %w", err)
 	}
 
 	kustomizationPath := filepath.Join(td, "kustomization.yaml")
 	if err = ioutil.WriteFile(kustomizationPath, kyaml, 0400); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed writing file to \"%s\": %w", kustomizationPath, err)
 	}
 
 	log.G().WithFields(log.Fields{
@@ -541,7 +541,7 @@ var generateManifests = func(k *kusttypes.Kustomization) ([]byte, error) {
 	fs := filesys.MakeFsOnDisk()
 	res, err := kust.Run(fs, td)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed running kustomization: %w", err)
 	}
 
 	return res.AsYaml()
