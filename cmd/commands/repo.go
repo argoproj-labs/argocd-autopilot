@@ -19,8 +19,8 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 
-	appset "github.com/argoproj/applicationset/api/v1alpha1"
 	argocdcommon "github.com/argoproj/argo-cd/v2/common"
+	appset "github.com/argoproj/argo-cd/v2/pkg/apis/applicationset/v1alpha1"
 	argocdsettings "github.com/argoproj/argo-cd/v2/util/settings"
 	"github.com/ghodss/yaml"
 	"github.com/go-git/go-billy/v5/memfs"
@@ -277,12 +277,12 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 
 	log.G(ctx).Infof("running argocd login to initialize argocd config")
 	err = argocdLogin(&argocd.LoginOptions{
-		Namespace:  opts.Namespace,
-		Username:   "admin",
-		Password:   passwd,
-		KubeConfig: opts.KubeConfig,
+		Namespace:   opts.Namespace,
+		Username:    "admin",
+		Password:    passwd,
+		KubeConfig:  opts.KubeConfig,
 		KubeContext: opts.KubeContextName,
-		Insecure:   opts.Insecure,
+		Insecure:    opts.Insecure,
 	})
 	if err != nil {
 		return err

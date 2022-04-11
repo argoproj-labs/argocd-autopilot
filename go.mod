@@ -4,8 +4,7 @@ go 1.17
 
 require (
 	code.gitea.io/sdk/gitea v0.15.1
-	github.com/argoproj/applicationset v0.4.1
-	github.com/argoproj/argo-cd/v2 v2.3.3
+	github.com/argoproj/argo-cd/v2 v2.0.0-20220407135446-5c2391f71fe0
 	github.com/argoproj/gitops-engine v0.6.2
 	github.com/briandowns/spinner v1.18.1
 	github.com/ghodss/yaml v1.0.0
@@ -225,10 +224,6 @@ require (
 )
 
 replace (
-	// https://github.com/argoproj/argo-cd/issues/8829
-	github.com/argoproj/argo-cd/v2 => github.com/argoproj/argo-cd/v2 v2.0.0-20220407135446-5c2391f71fe0
-	github.com/argoproj/notifications-engine => github.com/argoproj/notifications-engine v0.3.1-0.20220322174744-ac18ca10234c // indirect
-
 	// https://github.com/golang/go/issues/33546#issuecomment-519656923
 	github.com/go-check/check => github.com/go-check/check v0.0.0-20180628173108-788fd7840127
 
@@ -238,12 +233,14 @@ replace (
 	github.com/improbable-eng/grpc-web => github.com/improbable-eng/grpc-web v0.0.0-20181111100011-16092bd1d58a
 
 	google.golang.org/grpc => google.golang.org/grpc v1.15.0
-	k8s.io/api => k8s.io/api v0.23.3
+
+	// https://github.com/kubernetes/kubernetes/issues/79384#issuecomment-505627280
+	k8s.io/api => k8s.io/api v0.23.1
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.23.1
-	k8s.io/apimachinery => k8s.io/apimachinery v0.23.3
+	k8s.io/apimachinery => k8s.io/apimachinery v0.23.1
 	k8s.io/apiserver => k8s.io/apiserver v0.23.1
 	k8s.io/cli-runtime => k8s.io/cli-runtime v0.23.1
-	k8s.io/client-go => k8s.io/client-go v0.23.3
+	k8s.io/client-go => k8s.io/client-go v0.23.1
 	k8s.io/cloud-provider => k8s.io/cloud-provider v0.23.1
 	k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.23.1
 	k8s.io/code-generator => k8s.io/code-generator v0.23.1
