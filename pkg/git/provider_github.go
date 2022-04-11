@@ -11,7 +11,9 @@ import (
 	gh "github.com/google/go-github/v35/github"
 )
 
-//go:generate mockery --dir github --all --output github/mocks --case snake
+//go:generate mockgen -destination=./github/mocks/repos.go -package=mocks -source=./github/repos.go Repositories
+//go:generate mockgen -destination=./github/mocks/users.go -package=mocks -source=./github/users.go Users
+
 type github struct {
 	opts         *ProviderOptions
 	Repositories g.Repositories
@@ -20,7 +22,7 @@ type github struct {
 
 func newGithub(opts *ProviderOptions) (Provider, error) {
 	var (
-		c *gh.Client
+		c   *gh.Client
 		err error
 	)
 
@@ -50,13 +52,14 @@ func newGithub(opts *ProviderOptions) (Provider, error) {
 	return g, nil
 }
 
-func (g *github) CreateRepository(ctx context.Context, opts *CreateRepoOptions) (string, error) {
-	authUser, res, err := g.Users.Get(ctx, "") // get authenticated user details
+func (g *github) CreateRepository(ctx context.Context, orgRepo string) (string, error) {
+	opts, err := getDefaultRepoOptions(orgRepo)
 	if err != nil {
-		if res.StatusCode == 401 {
-			return "", ErrAuthenticationFailed(err)
-		}
+		return "", nil
+	}
 
+	authUser, err := g.getAuthenticatedUser(ctx)
+	if err != nil {
 		return "", err
 	}
 
@@ -82,4 +85,28 @@ func (g *github) CreateRepository(ctx context.Context, opts *CreateRepoOptions) 
 	}
 
 	return *r.CloneURL, err
+}
+
+func (g *github) GetAuthor(ctx context.Context) (username, email string, err error) {
+	authUser, err := g.getAuthenticatedUser(ctx)
+	if err != nil {
+		return
+	}
+
+	username = *authUser.Login
+	email = *authUser.Email
+	return
+}
+
+func (g *github) getAuthenticatedUser(ctx context.Context) (*gh.User, error) {
+	authUser, res, err := g.Users.Get(ctx, "")
+	if err != nil {
+		if res.StatusCode == 401 {
+			return nil, ErrAuthenticationFailed(err)
+		}
+
+		return nil, err
+	}
+
+	return authUser, nil
 }

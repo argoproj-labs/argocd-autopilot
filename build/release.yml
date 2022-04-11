@@ -61,14 +61,14 @@ steps:
   
   codegen:
     <<: *deps
-    stage: Release
+    stage: Test
     title: check codegen
     commands:
     - make codegen
     - make check-worktree
     when:
       steps:
-      - name: download_modules
+      - name: lint
         on:
         - success
 
@@ -80,7 +80,7 @@ steps:
     - make test
     when:
       steps:
-      - name: lint
+      - name: codegen
         on:
         - success
 
@@ -97,7 +97,7 @@ steps:
       - name: test
         on:
         - success
-  
+
   build:
     stage: Build
     title: build docker image
@@ -109,6 +109,28 @@ steps:
     when:
       steps:
       - name: check_version
+        on:
+        - success
+
+  scan-image:
+    stage: Build
+    title: scan docker image
+    image: quay.io/codefresh/snyk-cli:latest
+    shell: bash
+    environment:
+    - SNYK_TOKEN=${{SNYK_TOKEN}}
+    - LOCAL_IMAGE_REF=${{IMAGE_NAME}}:${{CF_BRANCH_TAG_NORMALIZED_LOWER_CASE}}
+    commands:
+    - |
+      snyk test --severity-threshold=${{SNYK_SEVERITY_THRESHOLD}} || fail=1
+      snyk container test --severity-threshold=${{SNYK_SEVERITY_THRESHOLD}} --file=Dockerfile ${LOCAL_IMAGE_REF}
+      if [ "$fail" == "1" ]; then exit 1; fi
+    when:
+      steps:
+      - name: build
+        on:
+        - success
+      - name: codegen
         on:
         - success
 
@@ -153,7 +175,7 @@ steps:
       - name: lint
         on:
         - success
-  
+
   create_release:
     <<: *deps
     stage: Release

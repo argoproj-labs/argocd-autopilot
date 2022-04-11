@@ -1,14 +1,13 @@
 version: '1.0'
 mode: parallel
 
-stages: 
-- Prepare
-- Test
-- Build
-- Push Dev
+stages:
+  - Prepare
+  - Test
+  - Build
+  - Push Dev
 
 steps:
-  
   main_clone:
     stage: Prepare
     title: clone repository
@@ -22,66 +21,66 @@ steps:
     title: prepare-env & download modules
     image: quay.io/codefresh/golang-ci-helper:latest
     commands:
-    - cf_export GO111MODULE=on
-    - cf_export GOCACHE=/codefresh/volume/gocache # change gopath to codefresh shared volume
-    - cf_export GOPATH=/codefresh/volume/gopath
-    - cf_export PATH=$PATH:/codefresh/volume/gopath/bin
+      - cf_export GO111MODULE=on
+      - cf_export GOCACHE=/codefresh/volume/gocache # change gopath to codefresh shared volume
+      - cf_export GOPATH=/codefresh/volume/gopath
+      - cf_export PATH=$PATH:/codefresh/volume/gopath/bin
     when:
       steps:
-      - name: main_clone
-        on:
-        - success
+        - name: main_clone
+          on:
+            - success
 
   download_modules:
     <<: *deps
     stage: Prepare
     title: download modules
     commands:
-    - go mod download -x
-    - make clean
+      - go mod download -x
+      - make clean
     when:
       steps:
-      - name: prepare_env_vars
-        on:
-        - success
+        - name: prepare_env_vars
+          on:
+            - success
 
   lint:
     <<: *deps
     stage: Test
     title: lint
     commands:
-    - make lint
-    - make check-worktree
+      - make lint
+      - make check-worktree
     when:
       steps:
-      - name: download_modules
-        on:
-        - success
+        - name: download_modules
+          on:
+            - success
 
   codegen:
     <<: *deps
     stage: Test
     title: check codegen
     commands:
-    - make codegen
-    - make check-worktree
+      - make codegen
+      - make check-worktree
     when:
       steps:
-      - name: download_modules
-        on:
-        - success
+        - name: lint
+          on:
+            - success
 
   test:
     <<: *deps
     stage: Test
     title: run tests
     commands:
-    - make test
+      - make test
     when:
       steps:
-      - name: lint
-        on:
-        - success
+        - name: codegen
+          on:
+            - success
 
   codecov-report:
     stage: Test
@@ -91,10 +90,10 @@ steps:
       codecov_integration: ${{CODECOV_INTEGRATION}}
     when:
       steps:
-      - name: test
-        on:
-        - success
-  
+        - name: test
+          on:
+            - success
+
   build:
     stage: Build
     title: build docker image
@@ -105,9 +104,31 @@ steps:
     disable_push: true
     when:
       steps:
-      - name: main_clone
-        on:
-        - success
+        - name: main_clone
+          on:
+            - success
+
+  scan-image:
+    stage: Build
+    title: scan docker image
+    image: quay.io/codefresh/snyk-cli:latest
+    shell: bash
+    environment:
+      - SNYK_TOKEN=${{SNYK_TOKEN}}
+      - LOCAL_IMAGE_REF=${{IMAGE_NAME}}:${{CF_BRANCH_TAG_NORMALIZED_LOWER_CASE}}
+    commands:
+      - |
+        snyk test --severity-threshold=${{SNYK_SEVERITY_THRESHOLD}} || fail=1
+        snyk container test --severity-threshold=${{SNYK_SEVERITY_THRESHOLD}} --file=Dockerfile ${LOCAL_IMAGE_REF}
+        if [ "$fail" == "1" ]; then exit 1; fi
+    when:
+      steps:
+        - name: build
+          on:
+            - success
+        - name: codegen
+          on:
+            - success
 
   push_dev:
     stage: Push Dev
@@ -115,15 +136,15 @@ steps:
     type: push
     candidate: ${{build}}
     tags:
-    - dev-${{CF_BRANCH_TAG_NORMALIZED}}
+      - dev-${{CF_BRANCH_TAG_NORMALIZED}}
     when:
       steps:
-      - name: build
-        on:
-        - success
+        - name: build
+          on:
+            - success
       branch:
-        ignore: [ "main" ]
+        ignore: ['main']
     scale:
       push_quay_dev:
         title: push to quay
-        registry: "${{REGISTRY_INTEGRATION_QUAY}}"
+        registry: '${{REGISTRY_INTEGRATION_QUAY}}'

@@ -1,5 +1,25 @@
 # Changelog:
 
+# v0.3.2
+
+### Changes
+* Updated `project create` to include `--labels` flag
+* Updated `app create` to include `--labels` flag
+* format `config.json` and `config_dir.json` for readability
+* extract committer username and email from token, as a fallback from git config data
+* fixed azure repo bootstrap failure [#267](https://github.com/argoproj-labs/argocd-autopilot/issues/267)
+* send `--kube-context` to `argocd login` command
+
+# v0.3.1
+
+### Changes
+* Added `SECURITY.md` file. [#253](https://github.com/argoproj-labs/argocd-autopilot/issues/253)
+* Updated `golangci-lint` to `v1.45.2`. [#256](https://github.com/argoproj-labs/argocd-autopilot/pull/256)
+* Moved from `mockery` tool to `mockgen`. [#256](https://github.com/argoproj-labs/argocd-autopilot/pull/256)
+* Added `snyk` security scan in CI and Release pipelines. [#256](https://github.com/argoproj-labs/argocd-autopilot/pull/256)
+* Bumped `github.com/argoproj/argo-cd` dependency to `v2.3.2`. [#256](https://github.com/argoproj-labs/argocd-autopilot/pull/256)
+
+
 # v0.3.0
 
 ### Security Fixes

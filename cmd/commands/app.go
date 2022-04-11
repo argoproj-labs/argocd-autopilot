@@ -178,6 +178,7 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 
 	if opts.AppsCloneOpts.Repo != "" {
 		if opts.AppsCloneOpts.Auth.Password == "" {
+			opts.AppsCloneOpts.Auth.Username = opts.CloneOpts.Auth.Username
 			opts.AppsCloneOpts.Auth.Password = opts.CloneOpts.Auth.Password
 		}
 

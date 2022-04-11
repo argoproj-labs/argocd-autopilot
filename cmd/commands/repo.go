@@ -281,6 +281,7 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 		Username:   "admin",
 		Password:   passwd,
 		KubeConfig: opts.KubeConfig,
+		KubeContext: opts.KubeContextName,
 		Insecure:   opts.Insecure,
 	})
 	if err != nil {
@@ -333,7 +334,7 @@ func NewRepoUninstallCommand() *cobra.Command {
 	<BIN> repo uninstall --repo https://github.com/example/repo --force
 `),
 		PreRun: func(_ *cobra.Command, _ []string) { cloneOpts.Parse() },
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			kubeContextName, err := cmd.Flags().GetString("context")
 			if err != nil {
 				return fmt.Errorf("failed to get kube context name: %w", err)

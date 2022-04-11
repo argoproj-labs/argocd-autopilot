@@ -6,14 +6,18 @@ import (
 	"sort"
 )
 
-//go:generate mockery --name Provider --filename provider.go
+//go:generate mockgen -destination=./mocks/provider.go -package=mocks -source=./provider.go Provider
 
 type (
 	// Provider represents a git provider
 	Provider interface {
 		// CreateRepository creates the repository in the remote provider and returns a
 		// clone url
-		CreateRepository(ctx context.Context, opts *CreateRepoOptions) (string, error)
+		CreateRepository(ctx context.Context, orgRepo string) (string, error)
+
+		// GetAuthor gets the authenticated user's name and email address, for making git commits.
+		// Returns empty strings if not implemented
+		GetAuthor(ctx context.Context) (username, email string, err error)
 	}
 
 	Auth struct {

@@ -14,8 +14,8 @@ import (
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
 	billyUtils "github.com/go-git/go-billy/v5/util"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -50,37 +50,39 @@ func TestCreate(t *testing.T) {
 
 func Test_fsimpl_Exists(t *testing.T) {
 	tests := map[string]struct {
-		fs       billy.Filesystem
-		beforeFn func(fs FS)
+		beforeFn func(*testing.T) billy.Filesystem
 		path     string
 		want     bool
 		wantErr  bool
 	}{
 		"Should exist": {
-			fs:   memfs.New(),
 			path: "/foo/noam/bar",
-			beforeFn: func(fs FS) {
+			beforeFn: func(_ *testing.T) billy.Filesystem {
+				fs := memfs.New()
 				f, err := fs.Create("/foo/noam/bar")
 				util.Die(err)
 				defer f.Close()
+				return fs
 			},
 			want:    true,
 			wantErr: false,
 		},
 		"Should not exist": {
-			fs:       memfs.New(),
-			path:     "/foo/noam/bar",
-			beforeFn: func(fs FS) {},
-			want:     false,
-			wantErr:  false,
+			path: "/foo/noam/bar",
+			beforeFn: func(_ *testing.T) billy.Filesystem {
+				return memfs.New()
+			},
+			want:    false,
+			wantErr: false,
 		},
 		"Should throw error": {
-			fs:   &mocks.FS{},
 			path: "invalid file path",
-			beforeFn: func(fs FS) {
-				f := fs.(*fsimpl)
-				m := f.Filesystem.(*mocks.FS)
-				m.On("Stat", mock.Anything).Return(nil, fmt.Errorf("error"))
+			beforeFn: func(t *testing.T) billy.Filesystem {
+				m := mocks.NewMockFS(gomock.NewController(t))
+				m.EXPECT().Stat("invalid file path").
+					Times(1).
+					Return(nil, fmt.Errorf("error"))
+				return m
 			},
 			want:    false,
 			wantErr: true,
@@ -88,8 +90,7 @@ func Test_fsimpl_Exists(t *testing.T) {
 	}
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
-			fs := &fsimpl{tt.fs}
-			tt.beforeFn(fs)
+			fs := &fsimpl{Filesystem: tt.beforeFn(t)}
 			got, err := fs.Exists(tt.path)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("fs.Exists() error = %v, wantErr %v", err, tt.wantErr)
@@ -111,46 +112,43 @@ func Test_fsimpl_CheckExistsOrWrite(t *testing.T) {
 		args     args
 		want     bool
 		wantErr  string
-		beforeFn func(m *mocks.FS)
+		beforeFn func(m *mocks.MockFS)
 	}{
 		"should exists": {
 			args: args{path: "/usr/bar", data: []byte{}},
 			want: true,
-			beforeFn: func(m *mocks.FS) {
-				m.On("Stat", "/usr/bar").Return(nil, nil)
+			beforeFn: func(m *mocks.MockFS) {
+				m.EXPECT().Stat("/usr/bar").
+					Times(1).
+					Return(nil, nil)
 			},
 		},
 		"should error on fail check": {
 			args:    args{path: "/usr/bar", data: []byte{}},
 			wantErr: "failed to check if file exists on repo at '/usr/bar': some error",
-			beforeFn: func(m *mocks.FS) {
-				m.On("Stat", "/usr/bar").Return(nil, fmt.Errorf("some error"))
-			},
-		},
-		"should write to file if not exists and write sucsseded": {
-			args: args{path: "/usr/bar", data: []byte{}},
-			want: false,
-			beforeFn: func(m *mocks.FS) {
-				mfile := &mocks.File{}
-				mfile.On("Write", mock.AnythingOfType("[]uint8")).Return(1, nil)
-				mfile.On("Close").Return(nil)
-				m.On("Stat", "/usr/bar").Return(nil, os.ErrNotExist)
-				m.On("OpenFile", "/usr/bar", mock.AnythingOfType("int"), mock.AnythingOfType("FileMode")).Return(mfile, nil)
+			beforeFn: func(m *mocks.MockFS) {
+				m.EXPECT().Stat("/usr/bar").
+					Times(1).
+					Return(nil, fmt.Errorf("some error"))
 			},
 		},
 		"should fail if WriteFile failed": {
 			args:    args{path: "/usr/bar", data: []byte{}},
 			want:    false,
 			wantErr: "failed to create file at '/usr/bar': " + os.ErrPermission.Error(),
-			beforeFn: func(m *mocks.FS) {
-				m.On("Stat", "/usr/bar").Return(nil, os.ErrNotExist)
-				m.On("OpenFile", "/usr/bar", mock.AnythingOfType("int"), mock.AnythingOfType("FileMode")).Return(nil, os.ErrPermission)
+			beforeFn: func(m *mocks.MockFS) {
+				m.EXPECT().Stat("/usr/bar").
+					Times(1).
+					Return(nil, os.ErrNotExist)
+				m.EXPECT().OpenFile("/usr/bar", gomock.Any(), gomock.Any()).
+					Times(1).
+					Return(nil, os.ErrPermission)
 			},
 		},
 	}
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
-			mockedFS := &mocks.FS{}
+			mockedFS := mocks.NewMockFS(gomock.NewController(t))
 			tt.beforeFn(mockedFS)
 			fs := Create(mockedFS)
 			got, err := fs.CheckExistsOrWrite(tt.args.path, tt.args.data)
@@ -177,20 +175,22 @@ func Test_fsimpl_ExistsOrDie(t *testing.T) {
 		path     string
 		want     bool
 		wantErr  bool
-		beforeFn func(m *mocks.FS)
+		beforeFn func(m *mocks.MockFS)
 	}{
 		"should exists if path exists": {
 			path:    "/usr/bar",
 			want:    true,
 			wantErr: false,
-			beforeFn: func(m *mocks.FS) {
-				m.On("Stat", mock.Anything).Return(nil, nil)
+			beforeFn: func(m *mocks.MockFS) {
+				m.EXPECT().Stat("/usr/bar").
+					Times(1).
+					Return(nil, nil)
 			},
 		},
 	}
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
-			mock := &mocks.FS{}
+			mock := mocks.NewMockFS(gomock.NewController(t))
 			fs := Create(mock)
 			tt.beforeFn(mock)
 			if got := fs.ExistsOrDie(tt.path); got != tt.want {

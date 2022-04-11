@@ -60,6 +60,7 @@ argocd-autopilot application create [APP_NAME] [flags]
   -h, --help                       help for create
       --installation-mode string   One of: normal|flat. If flat, will commit the application manifests (after running kustomize build), otherwise will commit the kustomization.yaml (default "normal")
       --kubeconfig string          Path to the kubeconfig file to use for CLI requests.
+      --labels stringToString      Optional labels that will be set on the Application resource. (e.g. "{{ placeholder }}=my-org" (default [])
   -n, --namespace string           If present, the namespace scope for this CLI request
   -p, --project string             Project name
       --repo string                Repository URL [GIT_REPO]

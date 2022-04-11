@@ -1,11 +1,14 @@
-### Security Fixes
-* Moved to using Argo-CD and ApplicationSet stable versions (currently: argocd-v2.3.1 and applicationset-v0.4.1). [#247](https://github.com/argoproj-labs/argocd-autopilot/pull/247)
-
 ### Changes
-* Removed dependency on `argoproj-labs/applicationset` and moved to install it from https://github.com/argoproj/argo-cd/tree/master/manifests/addons/applicationset. [#247](https://github.com/argoproj-labs/argocd-autopilot/pull/247)
+* Updated `project create` to include `--labels` flag
+* Updated `app create` to include `--labels` flag
+* format `config.json` and `config_dir.json` for readability
+* extract committer username and email from token, as a fallback from git config data
+* fixed azure repo bootstrap failure [#267](https://github.com/argoproj-labs/argocd-autopilot/issues/267)
+* send `--kube-context` to `argocd login` command
 
 ### Contributors:
-- Roi Kramer ([@roi-codefresh](https://github.com/roi-codefresh))
+- Noam Gal ([@noam-codefresh](https://github.com/noam-codefresh))
+- Elad Laor ([@elad-codefresh](https://github.com/elad-codefresh))
 
 ## Installation:
 
@@ -44,7 +47,7 @@ argocd-autopilot version
 ### Linux and WSL (using curl):
 ```bash
 # download and extract the binary
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.3.0/argocd-autopilot-linux-amd64.tar.gz | tar zx
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.3.2/argocd-autopilot-linux-amd64.tar.gz | tar zx
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
@@ -56,7 +59,7 @@ argocd-autopilot version
 ### Mac (using curl):
 ```bash
 # download and extract the binary
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.3.0/argocd-autopilot-darwin-amd64.tar.gz | tar zx
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.3.2/argocd-autopilot-darwin-amd64.tar.gz | tar zx
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
@@ -71,5 +74,5 @@ When using the Docker image, you have to provide the `.kube` and `.gitconfig` di
 docker run \
   -v ~/.kube:/home/autopilot/.kube \
   -v ~/.gitconfig:/home/autopilot/.gitconfig \
-  -it quay.io/argoprojlabs/argocd-autopilot:v0.3.0 <cmd> <flags>
+  -it quay.io/argoprojlabs/argocd-autopilot:v0.3.2 <cmd> <flags>
 ```

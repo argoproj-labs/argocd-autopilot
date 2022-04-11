@@ -5,12 +5,13 @@ go 1.17
 require (
 	code.gitea.io/sdk/gitea v0.15.1
 	github.com/argoproj/applicationset v0.4.1
-	github.com/argoproj/argo-cd/v2 v2.3.1
-	github.com/argoproj/gitops-engine v0.6.0
+	github.com/argoproj/argo-cd/v2 v2.3.3
+	github.com/argoproj/gitops-engine v0.6.2
 	github.com/briandowns/spinner v1.18.1
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-git/go-billy/v5 v5.3.1
 	github.com/go-git/go-git/v5 v5.4.2
+	github.com/golang/mock v1.6.0
 	github.com/google/go-github/v35 v35.3.0
 	github.com/microsoft/azure-devops-go-api/azuredevops v1.0.0-b5
 	github.com/sirupsen/logrus v1.8.1
@@ -19,13 +20,13 @@ require (
 	github.com/spf13/viper v1.10.1
 	github.com/stretchr/testify v1.7.1
 	github.com/xanzy/go-gitlab v0.60.0
-	k8s.io/api v0.23.1
-	k8s.io/apimachinery v0.23.1
+	k8s.io/api v0.23.3
+	k8s.io/apimachinery v0.23.3
 	k8s.io/cli-runtime v0.23.1
-	k8s.io/client-go v0.23.1
+	k8s.io/client-go v0.23.3
 	k8s.io/kubectl v0.23.1
-	sigs.k8s.io/kustomize/api v0.11.2
-	sigs.k8s.io/kustomize/kyaml v0.13.3
+	sigs.k8s.io/kustomize/api v0.11.4
+	sigs.k8s.io/kustomize/kyaml v0.13.6
 )
 
 require (
@@ -53,7 +54,7 @@ require (
 	github.com/alicebob/gopher-json v0.0.0-20200520072559-a9ecdc9d1d3a // indirect
 	github.com/alicebob/miniredis/v2 v2.14.2 // indirect
 	github.com/antonmedv/expr v1.8.9 // indirect
-	github.com/argoproj/notifications-engine v0.3.1-0.20220127183449-91deed20b998 // indirect
+	github.com/argoproj/notifications-engine v0.3.1-0.20220322174744-ac18ca10234c // indirect
 	github.com/argoproj/pkg v0.11.1-0.20211203175135-36c59d8fafe0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -170,10 +171,9 @@ require (
 	github.com/skratchdot/open-golang v0.0.0-20160302144031-75fb7ed4208c // indirect
 	github.com/slack-go/slack v0.10.1 // indirect
 	github.com/soheilhy/cmux v0.1.5 // indirect
-	github.com/spf13/afero v1.6.0 // indirect
+	github.com/spf13/afero v1.8.0 // indirect
 	github.com/spf13/cast v1.4.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
-	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/subosito/gotenv v1.2.0 // indirect
 	github.com/vmihailenco/go-tinylfu v0.2.1 // indirect
 	github.com/vmihailenco/msgpack/v5 v5.3.4 // indirect
@@ -184,13 +184,13 @@ require (
 	github.com/yuin/gopher-lua v0.0.0-20200816102855-ee81675732da // indirect
 	go.mongodb.org/mongo-driver v1.1.2 // indirect
 	go.starlark.net v0.0.0-20200306205701-8dd3e2ee1dd5 // indirect
-	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5 // indirect
+	golang.org/x/crypto v0.0.0-20220112180741-5e0467b6c7ce // indirect
 	golang.org/x/exp v0.0.0-20210901193431-a062eea981d2 // indirect
 	golang.org/x/net v0.0.0-20211209124913-491a49abca63 // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
-	golang.org/x/sys v0.0.0-20211210111614-af8b64212486 // indirect
-	golang.org/x/term v0.0.0-20210615171337-6886f2dfbf5b // indirect
+	golang.org/x/sys v0.0.0-20220114195835-da31bd327af9 // indirect
+	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac // indirect
 	gomodules.xyz/envconfig v1.3.1-0.20190308184047-426f31af0d45 // indirect
@@ -203,7 +203,7 @@ require (
 	gopkg.in/go-playground/webhooks.v5 v5.11.0 // indirect
 	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	gopkg.in/ini.v1 v1.66.2 // indirect
+	gopkg.in/ini.v1 v1.66.3 // indirect
 	gopkg.in/square/go-jose.v2 v2.2.2 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
@@ -216,15 +216,19 @@ require (
 	k8s.io/kube-aggregator v0.23.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20211115234752-e816edb12b65 // indirect
 	k8s.io/kubernetes v1.23.1 // indirect
-	k8s.io/utils v0.0.0-20210930125809-cb0fa318a74b // indirect
+	k8s.io/utils v0.0.0-20211116205334-6203023598ed // indirect
 	layeh.com/gopher-json v0.0.0-20190114024228-97fed8db8427 // indirect
 	sigs.k8s.io/controller-runtime v0.11.0 // indirect
 	sigs.k8s.io/json v0.0.0-20211020170558-c049b76a60c6 // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.2.0 // indirect
+	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
 replace (
+	// https://github.com/argoproj/argo-cd/issues/8829
+	github.com/argoproj/argo-cd/v2 => github.com/argoproj/argo-cd/v2 v2.0.0-20220407135446-5c2391f71fe0
+	github.com/argoproj/notifications-engine => github.com/argoproj/notifications-engine v0.3.1-0.20220322174744-ac18ca10234c // indirect
+
 	// https://github.com/golang/go/issues/33546#issuecomment-519656923
 	github.com/go-check/check => github.com/go-check/check v0.0.0-20180628173108-788fd7840127
 
@@ -234,13 +238,12 @@ replace (
 	github.com/improbable-eng/grpc-web => github.com/improbable-eng/grpc-web v0.0.0-20181111100011-16092bd1d58a
 
 	google.golang.org/grpc => google.golang.org/grpc v1.15.0
-
-	k8s.io/api => k8s.io/api v0.23.1
+	k8s.io/api => k8s.io/api v0.23.3
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.23.1
-	k8s.io/apimachinery => k8s.io/apimachinery v0.23.1
+	k8s.io/apimachinery => k8s.io/apimachinery v0.23.3
 	k8s.io/apiserver => k8s.io/apiserver v0.23.1
 	k8s.io/cli-runtime => k8s.io/cli-runtime v0.23.1
-	k8s.io/client-go => k8s.io/client-go v0.23.1
+	k8s.io/client-go => k8s.io/client-go v0.23.3
 	k8s.io/cloud-provider => k8s.io/cloud-provider v0.23.1
 	k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.23.1
 	k8s.io/code-generator => k8s.io/code-generator v0.23.1

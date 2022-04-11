@@ -21,8 +21,8 @@ import (
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/go-git/go-billy/v5/memfs"
 	billyUtils "github.com/go-git/go-billy/v5/util"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -34,22 +34,21 @@ func TestRunAppCreate(t *testing.T) {
 		setAppOptsDefaultsErr    error
 		parseAppErr              error
 		createFilesErr           error
-		beforeFn                 func(f *kubemocks.Factory)
-		prepareRepo              func() (git.Repository, fs.FS, error)
+		beforeFn                 func(f *kubemocks.MockFactory)
+		prepareRepo              func(*testing.T) (git.Repository, fs.FS, error)
 		getRepo                  func(*testing.T, *git.CloneOptions) (git.Repository, fs.FS, error)
 		getInstallationNamespace func(repofs fs.FS) (string, error)
-		assertFn                 func(*testing.T, git.Repository, git.Repository)
 	}{
 		"Should fail when clone fails": {
 			wantErr: "some error",
-			prepareRepo: func() (git.Repository, fs.FS, error) {
+			prepareRepo: func(t *testing.T) (git.Repository, fs.FS, error) {
 				return nil, nil, fmt.Errorf("some error")
 			},
 		},
 		"Should fail if srcClone fails": {
 			appsRepo: "https://github.com/owner/other_name",
 			wantErr:  "some error",
-			prepareRepo: func() (git.Repository, fs.FS, error) {
+			prepareRepo: func(t *testing.T) (git.Repository, fs.FS, error) {
 				return nil, nil, nil
 			},
 			getRepo: func(_ *testing.T, _ *git.CloneOptions) (git.Repository, fs.FS, error) {
@@ -59,7 +58,7 @@ func TestRunAppCreate(t *testing.T) {
 		"Should use cloneOpts password for srcCloneOpts, if required": {
 			appsRepo: "https://github.com/owner/other_name/path?ref=branch",
 			wantErr:  "some error",
-			prepareRepo: func() (git.Repository, fs.FS, error) {
+			prepareRepo: func(t *testing.T) (git.Repository, fs.FS, error) {
 				return nil, nil, nil
 			},
 			getRepo: func(t *testing.T, opts *git.CloneOptions) (git.Repository, fs.FS, error) {
@@ -72,14 +71,14 @@ func TestRunAppCreate(t *testing.T) {
 		},
 		"Should fail if setAppOptsDefaults fails": {
 			wantErr: "some error",
-			prepareRepo: func() (git.Repository, fs.FS, error) {
+			prepareRepo: func(t *testing.T) (git.Repository, fs.FS, error) {
 				return nil, nil, nil
 			},
 			setAppOptsDefaultsErr: fmt.Errorf("some error"),
 		},
 		"Should fail if app parse fails": {
 			wantErr: "failed to parse application from flags: some error",
-			prepareRepo: func() (git.Repository, fs.FS, error) {
+			prepareRepo: func(t *testing.T) (git.Repository, fs.FS, error) {
 				return nil, nil, nil
 			},
 			parseAppErr: errors.New("some error"),
@@ -87,62 +86,68 @@ func TestRunAppCreate(t *testing.T) {
 		"Should fail if app already exist in project": {
 			wantErr:        fmt.Errorf("application 'app' already exists in project 'project': %w", application.ErrAppAlreadyInstalledOnProject).Error(),
 			createFilesErr: application.ErrAppAlreadyInstalledOnProject,
-			prepareRepo: func() (git.Repository, fs.FS, error) {
+			prepareRepo: func(t *testing.T) (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
 				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project"), 0666)
-				mockRepo := &gitmocks.Repository{}
+				mockRepo := gitmocks.NewMockRepository(gomock.NewController(t))
 				return mockRepo, fs.Create(memfs), nil
 			},
 		},
 		"Should fail if file creation fails": {
 			wantErr:        "some error",
 			createFilesErr: errors.New("some error"),
-			prepareRepo: func() (git.Repository, fs.FS, error) {
+			prepareRepo: func(t *testing.T) (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
 				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project"), 0666)
-				mockRepo := &gitmocks.Repository{}
+				mockRepo := gitmocks.NewMockRepository(gomock.NewController(t))
 				return mockRepo, fs.Create(memfs), nil
 			},
 		},
 		"Should fail if commiting to appsRepo fails": {
 			appsRepo: "https://github.com/owner/other_name",
 			wantErr:  "failed to push to apps repo: some error",
-			prepareRepo: func() (git.Repository, fs.FS, error) {
+			prepareRepo: func(t *testing.T) (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
 				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project"), 0666)
-				mockRepo := &gitmocks.Repository{}
+				mockRepo := gitmocks.NewMockRepository(gomock.NewController(t))
 				return mockRepo, fs.Create(memfs), nil
 			},
 			getRepo: func(_ *testing.T, _ *git.CloneOptions) (git.Repository, fs.FS, error) {
-				mockRepo := &gitmocks.Repository{}
-				mockRepo.On("Persist", mock.Anything, &git.PushOptions{
+				mockRepo := gitmocks.NewMockRepository(gomock.NewController(t))
+				mockRepo.EXPECT().Persist(gomock.Any(), &git.PushOptions{
 					CommitMsg: "installed app 'app' on project 'project' installation-path: '/'",
-				}).Return("", fmt.Errorf("some error"))
+				}).
+					Times(1).
+					Return("", fmt.Errorf("some error"))
 				return mockRepo, fs.Create(memfs.New()), nil
 			},
 		},
 		"Should fail if commiting to gitops repo fails": {
 			wantErr: "failed to push to gitops repo: some error",
-			prepareRepo: func() (git.Repository, fs.FS, error) {
+			prepareRepo: func(t *testing.T) (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
 				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project"), 0666)
-				mockRepo := &gitmocks.Repository{}
-				mockRepo.On("Persist", mock.Anything, &git.PushOptions{
+				mockRepo := gitmocks.NewMockRepository(gomock.NewController(t))
+				mockRepo.EXPECT().Persist(gomock.Any(), &git.PushOptions{
 					CommitMsg: "installed app 'app' on project 'project' installation-path: '/'",
-				}).Return("", fmt.Errorf("some error"))
+				}).
+					Times(1).
+					Return("", fmt.Errorf("some error"))
 				return mockRepo, fs.Create(memfs), nil
 			},
 		},
 		"Should fail if getInstallationNamespace fails": {
 			timeout: 1,
 			wantErr: "failed to get application namespace: some error",
-			prepareRepo: func() (git.Repository, fs.FS, error) {
+			prepareRepo: func(t *testing.T) (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
 				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project"), 0666)
-				mockRepo := &gitmocks.Repository{}
-				mockRepo.On("Persist", mock.Anything, &git.PushOptions{
+				mockRepo := gitmocks.NewMockRepository(gomock.NewController(t))
+				mockRepo.EXPECT().Persist(gomock.Any(), &git.PushOptions{
 					CommitMsg: "installed app 'app' on project 'project' installation-path: '/'",
-				}).Return("revision", nil)
+				}).
+					Times(1).
+					Return("revision", nil)
 				return mockRepo, fs.Create(memfs), nil
 			},
 			getInstallationNamespace: func(repofs fs.FS) (string, error) {
@@ -152,16 +157,20 @@ func TestRunAppCreate(t *testing.T) {
 		"Should fail if waiting fails": {
 			timeout: 1,
 			wantErr: "failed waiting for application to sync: some error",
-			beforeFn: func(f *kubemocks.Factory) {
-				f.On("Wait", mock.Anything, mock.Anything).Return(errors.New("some error"))
+			beforeFn: func(f *kubemocks.MockFactory) {
+				f.EXPECT().Wait(gomock.Any(), gomock.Any()).
+					Times(1).
+					Return(errors.New("some error"))
 			},
-			prepareRepo: func() (git.Repository, fs.FS, error) {
+			prepareRepo: func(t *testing.T) (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
 				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project"), 0666)
-				mockRepo := &gitmocks.Repository{}
-				mockRepo.On("Persist", mock.Anything, &git.PushOptions{
+				mockRepo := gitmocks.NewMockRepository(gomock.NewController(t))
+				mockRepo.EXPECT().Persist(gomock.Any(), &git.PushOptions{
 					CommitMsg: "installed app 'app' on project 'project' installation-path: '/'",
-				}).Return("revision", nil)
+				}).
+					Times(1).
+					Return("revision", nil)
 				return mockRepo, fs.Create(memfs), nil
 			},
 			getInstallationNamespace: func(repofs fs.FS) (string, error) {
@@ -171,63 +180,61 @@ func TestRunAppCreate(t *testing.T) {
 		"Should Persist to both repos, if required": {
 			appsRepo: "https://github.com/owner/other_name",
 			wantErr:  "failed to push to gitops repo: some error",
-			prepareRepo: func() (git.Repository, fs.FS, error) {
+			prepareRepo: func(t *testing.T) (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
 				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project"), 0666)
-				mockRepo := &gitmocks.Repository{}
-				mockRepo.On("Persist", mock.Anything, &git.PushOptions{
+				mockRepo := gitmocks.NewMockRepository(gomock.NewController(t))
+				mockRepo.EXPECT().Persist(gomock.Any(), &git.PushOptions{
 					CommitMsg: "installed app 'app' on project 'project' installation-path: '/'",
-				}).Return("revision", nil)
+				}).
+					Times(1).
+					Return("revision", nil)
 				return mockRepo, fs.Create(memfs), nil
 			},
-			getRepo: func(_ *testing.T, _ *git.CloneOptions) (git.Repository, fs.FS, error) {
-				mockRepo := &gitmocks.Repository{}
-				mockRepo.On("Persist", mock.Anything, &git.PushOptions{
+			getRepo: func(t *testing.T, _ *git.CloneOptions) (git.Repository, fs.FS, error) {
+				mockRepo := gitmocks.NewMockRepository(gomock.NewController(t))
+				mockRepo.EXPECT().Persist(gomock.Any(), &git.PushOptions{
 					CommitMsg: "installed app 'app' on project 'project' installation-path: '/'",
-				}).Return("revision", nil)
+				}).
+					Times(1).
+					Return("revision", nil)
 				return mockRepo, fs.Create(memfs.New()), nil
-			},
-			assertFn: func(t *testing.T, gitopsRepo git.Repository, appsRepo git.Repository) {
-				gitopsRepo.(*gitmocks.Repository).AssertExpectations(t)
-				appsRepo.(*gitmocks.Repository).AssertExpectations(t)
 			},
 		},
 		"Should Persist to a single repo, if required": {
 			wantErr: "failed to push to gitops repo: some error",
-			prepareRepo: func() (git.Repository, fs.FS, error) {
+			prepareRepo: func(t *testing.T) (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
 				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project"), 0666)
-				mockRepo := &gitmocks.Repository{}
-				mockRepo.On("Persist", mock.Anything, &git.PushOptions{
+				mockRepo := gitmocks.NewMockRepository(gomock.NewController(t))
+				mockRepo.EXPECT().Persist(gomock.Any(), &git.PushOptions{
 					CommitMsg: "installed app 'app' on project 'project' installation-path: '/'",
-				}).Return("revision", nil)
+				}).
+					Times(1).
+					Return("revision", nil)
 				return mockRepo, fs.Create(memfs), nil
-			},
-			assertFn: func(t *testing.T, gitopsRepo git.Repository, appsRepo git.Repository) {
-				assert.Nil(t, appsRepo)
-				gitopsRepo.(*gitmocks.Repository).AssertExpectations(t)
 			},
 		},
 		"Should wait succesfully and complete": {
 			timeout: 1,
-			beforeFn: func(f *kubemocks.Factory) {
-				f.On("Wait", mock.Anything, mock.Anything).Return(nil)
+			beforeFn: func(f *kubemocks.MockFactory) {
+				f.EXPECT().Wait(gomock.Any(), gomock.Any()).
+					Times(1).
+					Return(nil)
 			},
-			prepareRepo: func() (git.Repository, fs.FS, error) {
+			prepareRepo: func(t *testing.T) (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
 				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project"), 0666)
-				mockRepo := &gitmocks.Repository{}
-				mockRepo.On("Persist", mock.Anything, &git.PushOptions{
+				mockRepo := gitmocks.NewMockRepository(gomock.NewController(t))
+				mockRepo.EXPECT().Persist(gomock.Any(), &git.PushOptions{
 					CommitMsg: "installed app 'app' on project 'project' installation-path: '/'",
-				}).Return("revision", nil)
+				}).
+					Times(1).
+					Return("revision", nil)
 				return mockRepo, fs.Create(memfs), nil
 			},
 			getInstallationNamespace: func(repofs fs.FS) (string, error) {
 				return "namespace", nil
-			},
-			assertFn: func(t *testing.T, gitopsRepo git.Repository, appsRepo git.Repository) {
-				assert.Nil(t, appsRepo)
-				gitopsRepo.(*gitmocks.Repository).AssertExpectations(t)
 			},
 		},
 	}
@@ -246,7 +253,8 @@ func TestRunAppCreate(t *testing.T) {
 				appsRepo   git.Repository
 			)
 
-			f := &kubemocks.Factory{}
+			ctrl := gomock.NewController(t)
+			f := kubemocks.NewMockFactory(ctrl)
 			if tt.beforeFn != nil {
 				tt.beforeFn(f)
 			}
@@ -255,7 +263,7 @@ func TestRunAppCreate(t *testing.T) {
 					repofs fs.FS
 					err    error
 				)
-				gitopsRepo, repofs, err = tt.prepareRepo()
+				gitopsRepo, repofs, err = tt.prepareRepo(t)
 				return gitopsRepo, repofs, err
 			}
 			getRepo = func(_ context.Context, cloneOpts *git.CloneOptions) (git.Repository, fs.FS, error) {
@@ -274,9 +282,9 @@ func TestRunAppCreate(t *testing.T) {
 					return nil, tt.parseAppErr
 				}
 
-				app := &appmocks.Application{}
-				app.On("Name").Return("app")
-				app.On("CreateFiles", mock.Anything, mock.Anything, "project").Return(tt.createFilesErr)
+				app := appmocks.NewMockApplication(ctrl)
+				app.EXPECT().Name().Return("app").AnyTimes()
+				app.EXPECT().CreateFiles(gomock.Any(), gomock.Any(), "project").Return(tt.createFilesErr).AnyTimes()
 				return app, nil
 			}
 			getInstallationNamespace = tt.getInstallationNamespace
@@ -311,10 +319,6 @@ func TestRunAppCreate(t *testing.T) {
 
 				return
 			}
-
-			if tt.assertFn != nil {
-				tt.assertFn(t, gitopsRepo, appsRepo)
-			}
 		})
 	}
 }
@@ -341,8 +345,8 @@ func Test_getCommitMsg(t *testing.T) {
 	}
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
-			m := &fsmocks.FS{}
-			m.On("Root").Return(tt.root)
+			m := fsmocks.NewMockFS(gomock.NewController(t))
+			m.EXPECT().Root().Return(tt.root).AnyTimes()
 			opts := &AppCreateOptions{
 				ProjectName: tt.projectName,
 				AppOpts: &application.CreateOptions{
@@ -421,19 +425,19 @@ func TestRunAppDelete(t *testing.T) {
 		projectName string
 		global      bool
 		wantErr     string
-		prepareRepo func() (git.Repository, fs.FS, error)
+		prepareRepo func(*testing.T) (git.Repository, fs.FS, error)
 		assertFn    func(t *testing.T, repo git.Repository, repofs fs.FS)
 	}{
 		"Should fail when clone fails": {
 			wantErr: "some error",
-			prepareRepo: func() (git.Repository, fs.FS, error) {
+			prepareRepo: func(*testing.T) (git.Repository, fs.FS, error) {
 				return nil, nil, fmt.Errorf("some error")
 			},
 		},
 		"Should fail when app does not exist": {
 			appName: "app",
 			wantErr: "application 'app' not found",
-			prepareRepo: func() (git.Repository, fs.FS, error) {
+			prepareRepo: func(*testing.T) (git.Repository, fs.FS, error) {
 				return nil, fs.Create(memfs.New()), nil
 			},
 		},
@@ -441,32 +445,35 @@ func TestRunAppDelete(t *testing.T) {
 			appName: "app",
 			global:  true,
 			wantErr: fmt.Sprintf("failed to delete directory '%s': some error", filepath.Join(store.Default.AppsDir, "app")),
-			prepareRepo: func() (git.Repository, fs.FS, error) {
-				mfs := &fsmocks.FS{}
-				mfs.On("Join", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(func(elem ...string) string {
-					return strings.Join(elem, "/")
-				})
+			prepareRepo: func(t *testing.T) (git.Repository, fs.FS, error) {
+				mfs := fsmocks.NewMockFS(gomock.NewController(t))
 				path := filepath.Join(store.Default.AppsDir, "app")
-				mfs.On("ExistsOrDie", path).Return(true)
-				mfs.On("Remove", path).Return(fmt.Errorf("some error"))
-				mfs.On("Stat", path).Return(nil, fmt.Errorf("some error"))
+				mfs.EXPECT().Join(gomock.Any()).
+					Times(1).
+					DoAndReturn(func(elem ...string) string {
+						return strings.Join(elem, "/")
+					})
+				mfs.EXPECT().ExistsOrDie(path).Return(true)
+				mfs.EXPECT().Remove(path).Return(fmt.Errorf("some error"))
+				mfs.EXPECT().Stat(path).Return(nil, fmt.Errorf("some error"))
 				return nil, mfs, nil
 			},
 		},
 		"Should remove entire app directory when global flag is set": {
 			appName: "app",
 			global:  true,
-			prepareRepo: func() (git.Repository, fs.FS, error) {
+			prepareRepo: func(t *testing.T) (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
 				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project"), 0666)
-				mockRepo := &gitmocks.Repository{}
-				mockRepo.On("Persist", mock.Anything, &git.PushOptions{
+				mockRepo := gitmocks.NewMockRepository(gomock.NewController(t))
+				mockRepo.EXPECT().Persist(gomock.Any(), &git.PushOptions{
 					CommitMsg: "Deleted app 'app'",
-				}).Return("revision", nil)
+				}).
+					Times(1).
+					Return("revision", nil)
 				return mockRepo, fs.Create(memfs), nil
 			},
-			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
-				repo.(*gitmocks.Repository).AssertExpectations(t)
+			assertFn: func(t *testing.T, _ git.Repository, repofs fs.FS) {
 				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app")))
 			},
 		},
@@ -474,7 +481,7 @@ func TestRunAppDelete(t *testing.T) {
 			appName:     "app",
 			projectName: "project",
 			wantErr:     "application 'app' not found in project 'project'",
-			prepareRepo: func() (git.Repository, fs.FS, error) {
+			prepareRepo: func(*testing.T) (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
 				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project2"), 0666)
 				return nil, fs.Create(memfs), nil
@@ -484,33 +491,44 @@ func TestRunAppDelete(t *testing.T) {
 			appName:     "app",
 			projectName: "project",
 			wantErr:     fmt.Sprintf("failed to read overlays directory '%s': some error", filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir)),
-			prepareRepo: func() (git.Repository, fs.FS, error) {
-				mfs := &fsmocks.FS{}
-				mfs.On("Join", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(func(elem ...string) string {
-					return strings.Join(elem, "/")
-				})
-				mfs.On("ExistsOrDie", filepath.Join(store.Default.AppsDir, "app")).Return(true)
-				mfs.On("ExistsOrDie", filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir)).Return(true)
-				mfs.On("ExistsOrDie", filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project")).Return(true)
-				mfs.On("ReadDir", filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir)).Return(nil, fmt.Errorf("some error"))
+			prepareRepo: func(t *testing.T) (git.Repository, fs.FS, error) {
+				mfs := fsmocks.NewMockFS(gomock.NewController(t))
+				mfs.EXPECT().Join(gomock.Any()).
+					Times(3).
+					DoAndReturn(func(elem ...string) string {
+						return strings.Join(elem, "/")
+					})
+				mfs.EXPECT().ExistsOrDie(filepath.Join(store.Default.AppsDir, "app")).
+					Times(1).
+					Return(true)
+				mfs.EXPECT().ExistsOrDie(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir)).
+					Times(1).
+					Return(true)
+				mfs.EXPECT().ExistsOrDie(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project")).
+					Times(1).
+					Return(true)
+				mfs.EXPECT().ReadDir(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir)).
+					Times(1).
+					Return(nil, fmt.Errorf("some error"))
 				return nil, mfs, nil
 			},
 		},
 		"Should delete only overlay directory of a kustApp, if there are more overlays": {
 			appName:     "app",
 			projectName: "project",
-			prepareRepo: func() (git.Repository, fs.FS, error) {
+			prepareRepo: func(t *testing.T) (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
 				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project"), 0666)
 				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project2"), 0666)
-				mockRepo := &gitmocks.Repository{}
-				mockRepo.On("Persist", mock.Anything, &git.PushOptions{
+				mockRepo := gitmocks.NewMockRepository(gomock.NewController(t))
+				mockRepo.EXPECT().Persist(gomock.Any(), &git.PushOptions{
 					CommitMsg: "Deleted app 'app' from project 'project'",
-				}).Return("revision", nil)
+				}).
+					Times(1).
+					Return("revision", nil)
 				return mockRepo, fs.Create(memfs), nil
 			},
-			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
-				repo.(*gitmocks.Repository).AssertExpectations(t)
+			assertFn: func(t *testing.T, _ git.Repository, repofs fs.FS) {
 				assert.True(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir)))
 				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project")))
 			},
@@ -518,35 +536,37 @@ func TestRunAppDelete(t *testing.T) {
 		"Should delete entire app directory of a kustApp, if there are no more overlays": {
 			appName:     "app",
 			projectName: "project",
-			prepareRepo: func() (git.Repository, fs.FS, error) {
+			prepareRepo: func(t *testing.T) (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
 				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project"), 0666)
-				mockRepo := &gitmocks.Repository{}
-				mockRepo.On("Persist", mock.Anything, &git.PushOptions{
+				mockRepo := gitmocks.NewMockRepository(gomock.NewController(t))
+				mockRepo.EXPECT().Persist(gomock.Any(), &git.PushOptions{
 					CommitMsg: "Deleted app 'app'",
-				}).Return("revision", nil)
+				}).
+					Times(1).
+					Return("revision", nil)
 				return mockRepo, fs.Create(memfs), nil
 			},
-			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
-				repo.(*gitmocks.Repository).AssertExpectations(t)
+			assertFn: func(t *testing.T, _ git.Repository, repofs fs.FS) {
 				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app")))
 			},
 		},
 		"Should delete only project directory of a dirApp, if there are more projects": {
 			appName:     "app",
 			projectName: "project",
-			prepareRepo: func() (git.Repository, fs.FS, error) {
+			prepareRepo: func(t *testing.T) (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
 				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", "project"), 0666)
 				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", "project2"), 0666)
-				mockRepo := &gitmocks.Repository{}
-				mockRepo.On("Persist", mock.Anything, &git.PushOptions{
+				mockRepo := gitmocks.NewMockRepository(gomock.NewController(t))
+				mockRepo.EXPECT().Persist(gomock.Any(), &git.PushOptions{
 					CommitMsg: "Deleted app 'app' from project 'project'",
-				}).Return("revision", nil)
+				}).
+					Times(1).
+					Return("revision", nil)
 				return mockRepo, fs.Create(memfs), nil
 			},
-			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
-				repo.(*gitmocks.Repository).AssertExpectations(t)
+			assertFn: func(t *testing.T, _ git.Repository, repofs fs.FS) {
 				assert.True(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app")))
 				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app", "project")))
 			},
@@ -554,17 +574,18 @@ func TestRunAppDelete(t *testing.T) {
 		"Should delete entire app directory of a dirApp": {
 			appName:     "app",
 			projectName: "project",
-			prepareRepo: func() (git.Repository, fs.FS, error) {
+			prepareRepo: func(*testing.T) (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
 				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", "project"), 0666)
-				mockRepo := &gitmocks.Repository{}
-				mockRepo.On("Persist", mock.Anything, &git.PushOptions{
+				mockRepo := gitmocks.NewMockRepository(gomock.NewController(t))
+				mockRepo.EXPECT().Persist(gomock.Any(), &git.PushOptions{
 					CommitMsg: "Deleted app 'app'",
-				}).Return("revision", nil)
+				}).
+					Times(1).
+					Return("revision", nil)
 				return mockRepo, fs.Create(memfs), nil
 			},
-			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
-				repo.(*gitmocks.Repository).AssertExpectations(t)
+			assertFn: func(t *testing.T, _ git.Repository, repofs fs.FS) {
 				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app")))
 			},
 		},
@@ -572,17 +593,18 @@ func TestRunAppDelete(t *testing.T) {
 			appName: "app",
 			global:  true,
 			wantErr: "failed to push to repo: some error",
-			prepareRepo: func() (git.Repository, fs.FS, error) {
+			prepareRepo: func(t *testing.T) (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
 				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project"), 0666)
-				mockRepo := &gitmocks.Repository{}
-				mockRepo.On("Persist", mock.Anything, &git.PushOptions{
+				mockRepo := gitmocks.NewMockRepository(gomock.NewController(t))
+				mockRepo.EXPECT().Persist(gomock.Any(), &git.PushOptions{
 					CommitMsg: "Deleted app 'app'",
-				}).Return("", fmt.Errorf("some error"))
+				}).
+					Times(1).
+					Return("", fmt.Errorf("some error"))
 				return mockRepo, fs.Create(memfs), nil
 			},
-			assertFn: func(t *testing.T, repo git.Repository, repofs fs.FS) {
-				repo.(*gitmocks.Repository).AssertExpectations(t)
+			assertFn: func(t *testing.T, _ git.Repository, repofs fs.FS) {
 				assert.False(t, repofs.ExistsOrDie(filepath.Join(store.Default.AppsDir, "app")))
 			},
 		},
@@ -598,7 +620,7 @@ func TestRunAppDelete(t *testing.T) {
 
 			prepareRepo = func(_ context.Context, _ *git.CloneOptions, _ string) (git.Repository, fs.FS, error) {
 				var err error
-				repo, repofs, err = tt.prepareRepo()
+				repo, repofs, err = tt.prepareRepo(t)
 				return repo, repofs, err
 			}
 			opts := &AppDeleteOptions{

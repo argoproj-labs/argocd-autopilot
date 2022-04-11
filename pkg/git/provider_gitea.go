@@ -7,7 +7,7 @@ import (
 	gt "code.gitea.io/sdk/gitea"
 )
 
-//go:generate mockery --name Client --output gitea/mocks --case snake
+//go:generate mockgen -destination=./gitea/mocks/client.go -package=mocks -source=./provider_gitea.go Client
 
 type (
 	Client interface {
@@ -34,13 +34,14 @@ func newGitea(opts *ProviderOptions) (Provider, error) {
 	return g, nil
 }
 
-func (g *gitea) CreateRepository(_ context.Context, opts *CreateRepoOptions) (string, error) {
-	authUser, res, err := g.client.GetMyUserInfo()
+func (g *gitea) CreateRepository(ctx context.Context, orgRepo string) (string, error) {
+	opts, err := getDefaultRepoOptions(orgRepo)
 	if err != nil {
-		if res.StatusCode == 401 {
-			return "", ErrAuthenticationFailed(err)
-		}
+		return "", nil
+	}
 
+	authUser, err := g.getAuthenticatedUser()
+	if err != nil {
 		return "", err
 	}
 
@@ -49,7 +50,10 @@ func (g *gitea) CreateRepository(_ context.Context, opts *CreateRepoOptions) (st
 		Private: opts.Private,
 	}
 
-	var r *gt.Repository
+	var (
+		r   *gt.Repository
+		res *gt.Response
+	)
 	if authUser.UserName != opts.Owner {
 		r, res, err = g.client.CreateOrgRepo(opts.Owner, createOpts)
 	} else {
@@ -65,4 +69,28 @@ func (g *gitea) CreateRepository(_ context.Context, opts *CreateRepoOptions) (st
 	}
 
 	return r.CloneURL, nil
+}
+
+func (g *gitea) GetAuthor(_ context.Context) (username, email string, err error) {
+	authUser, err := g.getAuthenticatedUser()
+	if err != nil {
+		return
+	}
+
+	username = authUser.UserName
+	email = authUser.Email
+	return
+}
+
+func (g *gitea) getAuthenticatedUser() (*gt.User, error) {
+	authUser, res, err := g.client.GetMyUserInfo()
+	if err != nil {
+		if res.StatusCode == 401 {
+			return nil, ErrAuthenticationFailed(err)
+		}
+
+		return nil, err
+	}
+
+	return authUser, nil
 }

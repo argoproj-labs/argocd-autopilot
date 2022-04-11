@@ -3,14 +3,16 @@ package git
 import (
 	"context"
 	"fmt"
-	"github.com/microsoft/azure-devops-go-api/azuredevops"
-	ado "github.com/microsoft/azure-devops-go-api/azuredevops/git"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/microsoft/azure-devops-go-api/azuredevops"
+	ado "github.com/microsoft/azure-devops-go-api/azuredevops/git"
 )
 
-//go:generate mockery --name Ado* --output ado/mocks --case snake
+//go:generate mockgen -destination=./ado/mocks/ado.go -package=mocks -source=./provider_ado.go AdoClient,AdoUrl
+
 type (
 	AdoClient interface {
 		CreateRepository(context.Context, ado.CreateRepositoryArgs) (*ado.GitRepository, error)
@@ -58,24 +60,30 @@ func newAdo(opts *ProviderOptions) (Provider, error) {
 	}, nil
 }
 
-func (g *adoGit) CreateRepository(ctx context.Context, opts *CreateRepoOptions) (string, error) {
-	if opts.Name == "" {
+func (g *adoGit) CreateRepository(ctx context.Context, orgRepo string) (string, error) {
+	if orgRepo == "" {
 		return "", fmt.Errorf("name needs to be provided to create an azure devops repository. "+
-			"name: '%s'", opts.Name)
+			"name: '%s'", orgRepo)
 	}
-	gitRepoToCreate := &ado.GitRepositoryCreateOptions{
-		Name: &opts.Name,
-	}
+
 	project := g.adoUrl.GetProjectName()
 	createRepositoryArgs := ado.CreateRepositoryArgs{
-		GitRepositoryToCreate: gitRepoToCreate,
-		Project:               &project,
+		GitRepositoryToCreate: &ado.GitRepositoryCreateOptions{
+			Name: &orgRepo,
+		},
+		Project: &project,
 	}
 	repository, err := g.adoClient.CreateRepository(ctx, createRepositoryArgs)
 	if err != nil {
 		return "", err
 	}
+
 	return *repository.RemoteUrl, nil
+}
+
+func (g *adoGit) GetAuthor(ctx context.Context) (username, email string, err error) {
+	// empty implementation - will fall back on getting values from global gitconfig file
+	return
 }
 
 func (a *adoGitUrl) GetProjectName() string {

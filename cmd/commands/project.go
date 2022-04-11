@@ -32,6 +32,7 @@ type (
 	ProjectCreateOptions struct {
 		CloneOpts       *git.CloneOptions
 		ProjectName     string
+		DestKubeServer  string
 		DestKubeContext string
 		DryRun          bool
 		AddCmd          argocd.AddClusterCmd
@@ -80,9 +81,11 @@ func NewProjectCommand() *cobra.Command {
 
 func NewProjectCreateCommand() *cobra.Command {
 	var (
+		kubeServer  string
 		kubeContext string
 		dryRun      bool
 		addCmd      argocd.AddClusterCmd
+		labels      map[string]string
 		cloneOpts   *git.CloneOptions
 	)
 
@@ -114,15 +117,19 @@ func NewProjectCreateCommand() *cobra.Command {
 			return RunProjectCreate(ctx, &ProjectCreateOptions{
 				CloneOpts:       cloneOpts,
 				ProjectName:     args[0],
+				DestKubeServer:  kubeServer,
 				DestKubeContext: kubeContext,
 				DryRun:          dryRun,
 				AddCmd:          addCmd,
+				Labels:          labels,
 			})
 		},
 	}
 
-	cmd.Flags().StringVar(&kubeContext, "dest-kube-context", "", "The default destination kubernetes context for applications in this project")
+	cmd.Flags().StringVar(&kubeServer, "dest-server", "", "The default destination kubernetes server for applications in this project")
+	cmd.Flags().StringVar(&kubeContext, "dest-kube-context", "", "The default destination kubernetes context for applications in this project (will be ignored if --dest-kube-server is supplied)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "If true, print manifests instead of applying them to the cluster (nothing will be commited to git)")
+	cmd.Flags().StringToStringVar(&labels, "labels", nil, "Optional labels that will be set on the Application resource. (e.g. \"app.kubernetes.io/managed-by={{ placeholder }}\"")
 
 	cloneOpts = git.AddFlags(cmd, &git.AddFlagsOptions{
 		FS:            memfs.New(),
@@ -157,11 +164,13 @@ func RunProjectCreate(ctx context.Context, opts *ProjectCreateOptions) error {
 
 	log.G(ctx).Debug("repository is ok")
 
-	destServer := store.Default.DestServer
-	if opts.DestKubeContext != "" {
-		destServer, err = util.KubeContextToServer(opts.DestKubeContext)
-		if err != nil {
-			return err
+	if opts.DestKubeServer == "" {
+		opts.DestKubeServer = store.Default.DestServer
+		if opts.DestKubeContext != "" {
+			opts.DestKubeServer, err = util.KubeContextToServer(opts.DestKubeContext)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -171,7 +180,7 @@ func RunProjectCreate(ctx context.Context, opts *ProjectCreateOptions) error {
 		RepoURL:            opts.CloneOpts.URL(),
 		Revision:           opts.CloneOpts.Revision(),
 		InstallationPath:   opts.CloneOpts.Path(),
-		DefaultDestServer:  destServer,
+		DefaultDestServer:  opts.DestKubeServer,
 		DefaultDestContext: opts.DestKubeContext,
 		Labels:             opts.Labels,
 	})

@@ -7,7 +7,7 @@ import (
 	gl "github.com/xanzy/go-gitlab"
 )
 
-//go:generate mockery --name GitlabClient --output gitlab/mocks --case snake
+//go:generate mockgen -destination=./gitlab/mocks/client.go -package=mocks -source=./provider_gitlab.go GitlabClient
 
 type (
 	GitlabClient interface {
@@ -46,13 +46,14 @@ func newGitlab(opts *ProviderOptions) (Provider, error) {
 	return g, nil
 }
 
-func (g *gitlab) CreateRepository(_ context.Context, opts *CreateRepoOptions) (string, error) {
-	authUser, res, err := g.client.CurrentUser()
+func (g *gitlab) CreateRepository(ctx context.Context, orgRepo string) (string, error) {
+	opts, err := getDefaultRepoOptions(orgRepo)
 	if err != nil {
-		if res.StatusCode == 401 {
-			return "", ErrAuthenticationFailed(err)
-		}
+		return "", nil
+	}
 
+	authUser, err := g.getAuthenticatedUser()
+	if err != nil {
 		return "", err
 	}
 
@@ -83,6 +84,30 @@ func (g *gitlab) CreateRepository(_ context.Context, opts *CreateRepoOptions) (s
 	}
 
 	return p.WebURL, err
+}
+
+func (g *gitlab) GetAuthor(_ context.Context) (username, email string, err error) {
+	authUser, err := g.getAuthenticatedUser()
+	if err != nil {
+		return
+	}
+
+	username = authUser.Username
+	email = authUser.Email
+	return
+}
+
+func (g *gitlab) getAuthenticatedUser() (*gl.User, error) {
+	authUser, res, err := g.client.CurrentUser()
+	if err != nil {
+		if res.StatusCode == 401 {
+			return nil, ErrAuthenticationFailed(err)
+		}
+
+		return nil, err
+	}
+
+	return authUser, nil
 }
 
 func (g *gitlab) getGroupIdByName(groupName string) (int, error) {

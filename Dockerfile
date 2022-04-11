@@ -40,7 +40,7 @@ RUN make local DEV_MODE=false
 ### Run
 FROM alpine:3.15 as autopilot
 
-WORKDIR /go/src/github.com/argoproj-labs/argocd-autopilot
+WORKDIR /home/autopilot
 
 RUN apk -U add --no-cache git
 
@@ -50,6 +50,7 @@ COPY --from=base /etc/passwd /etc/passwd
 COPY --from=base /etc/group /etc/group
 COPY --chown=autopilot:autopilot --from=autopilot-build /go/src/github.com/argoproj-labs/argocd-autopilot/dist/* /usr/local/bin/argocd-autopilot
 
+RUN chown -R autopilot:autopilot /home/autopilot
 USER autopilot:autopilot
 
 ENTRYPOINT [ "argocd-autopilot" ]

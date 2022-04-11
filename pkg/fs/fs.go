@@ -13,7 +13,7 @@ import (
 	billyUtils "github.com/go-git/go-billy/v5/util"
 )
 
-//go:generate mockery --name FS --filename fs.go
+//go:generate mockgen -destination=./mocks/fs.go -package=mocks -source=./fs.go FS
 
 type FS interface {
 	billy.Filesystem
@@ -144,7 +144,7 @@ func (fs *fsimpl) ReadJson(filename string, o interface{}) error {
 }
 
 func (fs *fsimpl) WriteJson(filename string, o interface{}) error {
-	data, err := json.Marshal(o)
+	data, err := json.MarshalIndent(o, "", "  ")
 	if err != nil {
 		return err
 	}

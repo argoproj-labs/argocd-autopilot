@@ -18,14 +18,15 @@ import (
 	argocdcommon "github.com/argoproj/argo-cd/v2/common"
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/ghodss/yaml"
-	"github.com/go-git/go-billy/v5/memfs"
-	billyUtils "github.com/go-git/go-billy/v5/util"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
+	"github.com/golang/mock/gomock"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	kusttypes "sigs.k8s.io/kustomize/api/types"
+
+	"github.com/go-git/go-billy/v5/memfs"
+	billyUtils "github.com/go-git/go-billy/v5/util"
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_setBootstrapOptsDefaults(t *testing.T) {
@@ -244,7 +245,7 @@ func TestRunRepoBootstrap(t *testing.T) {
 	exitCalled := false
 	tests := map[string]struct {
 		opts     *RepoBootstrapOptions
-		beforeFn func(*gitmocks.Repository, *kubemocks.Factory)
+		beforeFn func(*gitmocks.MockRepository, *kubemocks.MockFactory)
 		assertFn func(*testing.T, fs.FS, error)
 	}{
 		"DryRun": {
@@ -257,7 +258,7 @@ func TestRunRepoBootstrap(t *testing.T) {
 					Auth: git.Auth{Password: "test"},
 				},
 			},
-			beforeFn: func(*gitmocks.Repository, *kubemocks.Factory) {},
+			beforeFn: func(*gitmocks.MockRepository, *kubemocks.MockFactory) {},
 			assertFn: func(t *testing.T, _ fs.FS, ret error) {
 				assert.NoError(t, ret)
 				assert.True(t, exitCalled)
@@ -272,7 +273,7 @@ func TestRunRepoBootstrap(t *testing.T) {
 					Auth: git.Auth{Password: "test"},
 				},
 			},
-			beforeFn: func(r *gitmocks.Repository, f *kubemocks.Factory) {
+			beforeFn: func(r *gitmocks.MockRepository, f *kubemocks.MockFactory) {
 				mockCS := fake.NewSimpleClientset(&v1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "argocd-initial-admin-secret",
@@ -282,10 +283,12 @@ func TestRunRepoBootstrap(t *testing.T) {
 						"password": []byte("foo"),
 					},
 				})
-				r.On("Persist", mock.Anything, mock.Anything).Return("revision", nil)
-				f.On("Apply", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-				f.On("Wait", mock.Anything, mock.Anything).Return(nil)
-				f.On("KubernetesClientSetOrDie").Return(mockCS)
+				r.EXPECT().Persist(gomock.Any(), gomock.Any()).Return("revision", nil)
+				f.EXPECT().Apply(gomock.Any(), gomock.Any()).
+					Times(2).
+					Return(nil)
+				f.EXPECT().Wait(gomock.Any(), gomock.Any()).Return(nil)
+				f.EXPECT().KubernetesClientSetOrDie().Return(mockCS)
 			},
 			assertFn: func(t *testing.T, repofs fs.FS, ret error) {
 				assert.NoError(t, ret)
@@ -328,7 +331,7 @@ func TestRunRepoBootstrap(t *testing.T) {
 					Auth: git.Auth{Password: "test"},
 				},
 			},
-			beforeFn: func(r *gitmocks.Repository, f *kubemocks.Factory) {
+			beforeFn: func(r *gitmocks.MockRepository, f *kubemocks.MockFactory) {
 				mockCS := fake.NewSimpleClientset(&v1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "argocd-initial-admin-secret",
@@ -338,10 +341,12 @@ func TestRunRepoBootstrap(t *testing.T) {
 						"password": []byte("foo"),
 					},
 				})
-				r.On("Persist", mock.Anything, &git.PushOptions{CommitMsg: "Autopilot Bootstrap"}).Return("revision", nil)
-				f.On("Apply", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-				f.On("Wait", mock.Anything, mock.Anything).Return(nil)
-				f.On("KubernetesClientSetOrDie").Return(mockCS)
+				r.EXPECT().Persist(gomock.Any(), &git.PushOptions{CommitMsg: "Autopilot Bootstrap"}).Return("revision", nil)
+				f.EXPECT().Apply(gomock.Any(), gomock.Any()).
+					Times(2).
+					Return(nil)
+				f.EXPECT().Wait(gomock.Any(), gomock.Any()).Return(nil)
+				f.EXPECT().KubernetesClientSetOrDie().Return(mockCS)
 			},
 			assertFn: func(t *testing.T, repofs fs.FS, ret error) {
 				assert.NoError(t, ret)
@@ -390,9 +395,10 @@ func TestRunRepoBootstrap(t *testing.T) {
 
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
-			r := &gitmocks.Repository{}
+			ctrl := gomock.NewController(t)
+			r := gitmocks.NewMockRepository(ctrl)
+			f := kubemocks.NewMockFactory(ctrl)
 			repofs := fs.Create(memfs.New())
-			f := &kubemocks.Factory{}
 			exitCalled = false
 
 			tt.beforeFn(r, f)
@@ -403,8 +409,6 @@ func TestRunRepoBootstrap(t *testing.T) {
 
 			err := RunRepoBootstrap(context.Background(), tt.opts)
 			tt.assertFn(t, repofs, err)
-			r.AssertExpectations(t)
-			f.AssertExpectations(t)
 		})
 	}
 }
@@ -417,16 +421,19 @@ func Test_setUninstallOptsDefaults(t *testing.T) {
 	}{
 		"Should not change anything, if all options are set": {
 			opts: RepoUninstallOptions{
-				Namespace: "namespace",
+				Namespace:       "namespace",
+				KubeContextName: "test",
 			},
 			want: &RepoUninstallOptions{
-				Namespace: "namespace",
+				Namespace:       "namespace",
+				KubeContextName: "test",
 			},
 		},
 		"Should set default argocd namespace, if it is not set": {
 			opts: RepoUninstallOptions{},
 			want: &RepoUninstallOptions{
-				Namespace: store.Default.ArgoCDNamespace,
+				Namespace:       store.Default.ArgoCDNamespace,
+				KubeContextName: "test",
 			},
 		},
 	}
@@ -434,8 +441,8 @@ func Test_setUninstallOptsDefaults(t *testing.T) {
 	defer func() { currentKubeContext = origCurrentKubeContext }()
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			if tt.currentKubeContext != nil {
-				currentKubeContext = tt.currentKubeContext
+			currentKubeContext = func() (string, error) {
+				return "test", nil
 			}
 
 			got, _ := setUninstallOptsDefaults(tt.opts)
@@ -479,13 +486,11 @@ func Test_deleteGitOpsFiles(t *testing.T) {
 
 func Test_deleteClusterResources(t *testing.T) {
 	tests := map[string]struct {
-		beforeFn func() kube.Factory
+		beforeFn func(*kubemocks.MockFactory)
 		assertFn func(*testing.T, kube.Factory, error)
 	}{
 		"Should delete all resources": {
-			beforeFn: func() kube.Factory {
-				mf := &kubemocks.Factory{}
-
+			beforeFn: func(mf *kubemocks.MockFactory) {
 				labelSelectors := []string{
 					store.Default.LabelKeyAppManagedBy + "=" + store.Default.LabelValueManagedBy,
 					argocdcommon.LabelKeyAppInstance + "=" + store.Default.ArgoCDName,
@@ -494,11 +499,11 @@ func Test_deleteClusterResources(t *testing.T) {
 				}
 
 				for _, labelSelector := range labelSelectors {
-					mf.On("Delete", mock.Anything, &kube.DeleteOptions{
+					mf.EXPECT().Delete(gomock.Any(), &kube.DeleteOptions{
 						LabelSelector: labelSelector,
 						ResourceTypes: []string{"applications", "secrets"},
 					}).Return(nil)
-					mf.On("Delete", mock.Anything, &kube.DeleteOptions{
+					mf.EXPECT().Delete(gomock.Any(), &kube.DeleteOptions{
 						LabelSelector: labelSelector,
 						ResourceTypes: []string{
 							"all",
@@ -511,45 +516,35 @@ func Test_deleteClusterResources(t *testing.T) {
 						},
 					}).Return(nil)
 				}
-
-				return mf
 			},
-			assertFn: func(t *testing.T, f kube.Factory, err error) {
+			assertFn: func(t *testing.T, _ kube.Factory, err error) {
 				assert.Nil(t, err)
-				f.(*kubemocks.Factory).AssertExpectations(t)
 			},
 		},
 		"Should fail if failed to delete argocd-autopilot resources": {
-			beforeFn: func() kube.Factory {
-				mf := &kubemocks.Factory{}
-
+			beforeFn: func(mf *kubemocks.MockFactory) {
 				labelSelectors := []string{
 					store.Default.LabelKeyAppManagedBy + "=" + store.Default.LabelValueManagedBy,
 				}
 
 				for _, labelSelector := range labelSelectors {
-					mf.On("Delete", mock.Anything, &kube.DeleteOptions{
+					mf.EXPECT().Delete(gomock.Any(), &kube.DeleteOptions{
 						LabelSelector: labelSelector,
 						ResourceTypes: []string{"applications", "secrets"},
 					}).Return(errors.New("some error"))
 				}
-
-				return mf
 			},
-			assertFn: func(t *testing.T, f kube.Factory, err error) {
+			assertFn: func(t *testing.T, _ kube.Factory, err error) {
 				assert.EqualError(t, err, "failed deleting argocd-autopilot resources: some error")
-				f.(*kubemocks.Factory).AssertExpectations(t)
 			},
 		},
 		"Should fail if failed to delete Argo-CD resources": {
-			beforeFn: func() kube.Factory {
-				mf := &kubemocks.Factory{}
-
-				mf.On("Delete", mock.Anything, &kube.DeleteOptions{
+			beforeFn: func(mf *kubemocks.MockFactory) {
+				mf.EXPECT().Delete(gomock.Any(), &kube.DeleteOptions{
 					LabelSelector: store.Default.LabelKeyAppManagedBy + "=" + store.Default.LabelValueManagedBy,
 					ResourceTypes: []string{"applications", "secrets"},
 				}).Return(nil)
-				mf.On("Delete", mock.Anything, &kube.DeleteOptions{
+				mf.EXPECT().Delete(gomock.Any(), &kube.DeleteOptions{
 					LabelSelector: store.Default.LabelKeyAppManagedBy + "=" + store.Default.LabelValueManagedBy,
 					ResourceTypes: []string{
 						"all",
@@ -561,18 +556,16 @@ func Test_deleteClusterResources(t *testing.T) {
 						"roles",
 					},
 				}).Return(errors.New("some error"))
-
-				return mf
 			},
-			assertFn: func(t *testing.T, f kube.Factory, err error) {
+			assertFn: func(t *testing.T, _ kube.Factory, err error) {
 				assert.EqualError(t, err, "failed deleting Argo-CD resources: some error")
-				f.(*kubemocks.Factory).AssertExpectations(t)
 			},
 		},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			f := tt.beforeFn()
+			f := kubemocks.NewMockFactory(gomock.NewController(t))
+			tt.beforeFn(f)
 			err := deleteClusterResources(context.Background(), &deleteClusterResourcesOptions{
 				KubeFactory: f,
 				Timeout:     0,
@@ -588,7 +581,7 @@ func TestRunRepoUninstall(t *testing.T) {
 		currentKubeContextErr error
 		getRepoErr            error
 		wantErr               string
-		beforeFn              func(*gitmocks.Repository, *kubemocks.Factory)
+		beforeFn              func(*gitmocks.MockRepository, *kubemocks.MockFactory)
 	}{
 		"Should fail if getCurrentKubeContext fails": {
 			currentKubeContextErr: errors.New("some error"),
@@ -600,28 +593,33 @@ func TestRunRepoUninstall(t *testing.T) {
 		},
 		"Should fail if Persist fails": {
 			wantErr: "some error",
-			beforeFn: func(r *gitmocks.Repository, _ *kubemocks.Factory) {
-				r.On("Persist", mock.Anything, &git.PushOptions{CommitMsg: "Autopilot Uninstall"}).Return("", errors.New("some error"))
+			beforeFn: func(r *gitmocks.MockRepository, _ *kubemocks.MockFactory) {
+				r.EXPECT().Persist(gomock.Any(), &git.PushOptions{CommitMsg: "Autopilot Uninstall"}).
+					Return("", errors.New("some error"))
 			},
 		},
 		"Should fail if Wait fails": {
 			wantErr: "some error",
-			beforeFn: func(r *gitmocks.Repository, f *kubemocks.Factory) {
-				r.On("Persist", mock.Anything, &git.PushOptions{CommitMsg: "Autopilot Uninstall"}).Return("revision", nil)
-				f.On("Wait", mock.Anything, mock.Anything).Return(errors.New("some error"))
+			beforeFn: func(r *gitmocks.MockRepository, f *kubemocks.MockFactory) {
+				r.EXPECT().Persist(gomock.Any(), &git.PushOptions{CommitMsg: "Autopilot Uninstall"}).
+					Return("revision", nil)
+				f.EXPECT().Wait(gomock.Any(), gomock.Any()).Return(errors.New("some error"))
 			},
 		},
 		"Should fail if deleteClusterResources fails": {
 			wantErr: "failed deleting argocd-autopilot resources: some error",
-			beforeFn: func(r *gitmocks.Repository, f *kubemocks.Factory) {
-				r.On("Persist", mock.Anything, &git.PushOptions{CommitMsg: "Autopilot Uninstall"}).Return("revision", nil)
-				f.On("Wait", mock.Anything, mock.Anything).Return(nil)
-				f.On("Delete", mock.Anything, &kube.DeleteOptions{
+			beforeFn: func(r *gitmocks.MockRepository, f *kubemocks.MockFactory) {
+				r.EXPECT().Persist(gomock.Any(), &git.PushOptions{CommitMsg: "Autopilot Uninstall"}).
+					Return("revision", nil)
+				f.EXPECT().Wait(gomock.Any(), gomock.Any()).
+					Return(nil)
+				f.EXPECT().Delete(gomock.Any(), &kube.DeleteOptions{
 					LabelSelector:   store.Default.LabelKeyAppManagedBy + "=" + store.Default.LabelValueManagedBy,
 					ResourceTypes:   []string{"applications", "secrets"},
 					WaitForDeletion: false,
-				}).Return(errors.New("some error"))
-				f.On("Delete", mock.Anything, &kube.DeleteOptions{
+				}).
+					Return(errors.New("some error"))
+				f.EXPECT().Delete(gomock.Any(), &kube.DeleteOptions{
 					LabelSelector: store.Default.LabelKeyAppManagedBy + "=" + store.Default.LabelValueManagedBy,
 					ResourceTypes: []string{
 						"all",
@@ -632,15 +630,19 @@ func TestRunRepoUninstall(t *testing.T) {
 						"rolebindings",
 						"roles",
 					}, WaitForDeletion: false,
-				}).Return(errors.New("some error"))
+				}).
+					Times(0)
 			},
 		},
 		"Should fail if 2nd Persist fails": {
 			wantErr: "some error",
-			beforeFn: func(r *gitmocks.Repository, f *kubemocks.Factory) {
-				r.On("Persist", mock.Anything, &git.PushOptions{CommitMsg: "Autopilot Uninstall"}).Return("revision", nil)
-				r.On("Persist", mock.Anything, &git.PushOptions{CommitMsg: "Autopilot Uninstall, deleted leftovers"}).Return("", errors.New("some error"))
-				f.On("Wait", mock.Anything, mock.Anything).Return(nil)
+			beforeFn: func(r *gitmocks.MockRepository, f *kubemocks.MockFactory) {
+				r.EXPECT().Persist(gomock.Any(), &git.PushOptions{CommitMsg: "Autopilot Uninstall"}).
+					Return("revision", nil)
+				r.EXPECT().Persist(gomock.Any(), &git.PushOptions{CommitMsg: "Autopilot Uninstall, deleted leftovers"}).
+					Return("", errors.New("some error"))
+				f.EXPECT().Wait(gomock.Any(), gomock.Any()).
+					Return(nil)
 
 				labelSelectors := []string{
 					store.Default.LabelKeyAppManagedBy + "=" + store.Default.LabelValueManagedBy,
@@ -650,11 +652,12 @@ func TestRunRepoUninstall(t *testing.T) {
 				}
 
 				for _, labelSelector := range labelSelectors {
-					f.On("Delete", mock.Anything, &kube.DeleteOptions{
+					f.EXPECT().Delete(gomock.Any(), &kube.DeleteOptions{
 						LabelSelector: labelSelector,
 						ResourceTypes: []string{"applications", "secrets"},
-					}).Return(nil)
-					f.On("Delete", mock.Anything, &kube.DeleteOptions{
+					}).
+						Return(nil)
+					f.EXPECT().Delete(gomock.Any(), &kube.DeleteOptions{
 						LabelSelector: labelSelector,
 						ResourceTypes: []string{
 							"all",
@@ -665,15 +668,19 @@ func TestRunRepoUninstall(t *testing.T) {
 							"rolebindings",
 							"roles",
 						},
-					}).Return(nil)
+					}).
+						Return(nil)
 				}
 			},
 		},
 		"Should succeed if no errors": {
-			beforeFn: func(r *gitmocks.Repository, f *kubemocks.Factory) {
-				r.On("Persist", mock.Anything, &git.PushOptions{CommitMsg: "Autopilot Uninstall"}).Return("revision", nil)
-				r.On("Persist", mock.Anything, &git.PushOptions{CommitMsg: "Autopilot Uninstall, deleted leftovers"}).Return("", nil)
-				f.On("Wait", mock.Anything, mock.Anything).Return(nil)
+			beforeFn: func(r *gitmocks.MockRepository, f *kubemocks.MockFactory) {
+				r.EXPECT().Persist(gomock.Any(), &git.PushOptions{CommitMsg: "Autopilot Uninstall"}).
+					Return("revision", nil)
+				r.EXPECT().Persist(gomock.Any(), &git.PushOptions{CommitMsg: "Autopilot Uninstall, deleted leftovers"}).
+					Return("", nil)
+				f.EXPECT().Wait(gomock.Any(), gomock.Any()).
+					Return(nil)
 
 				labelSelectors := []string{
 					store.Default.LabelKeyAppManagedBy + "=" + store.Default.LabelValueManagedBy,
@@ -683,12 +690,13 @@ func TestRunRepoUninstall(t *testing.T) {
 				}
 
 				for _, labelSelector := range labelSelectors {
-					f.On("Delete", mock.Anything, &kube.DeleteOptions{
+					f.EXPECT().Delete(gomock.Any(), &kube.DeleteOptions{
 						LabelSelector: labelSelector,
 						ResourceTypes: []string{"applications", "secrets"},
-					}).Return(nil)
+					}).
+						Return(nil)
 
-					f.On("Delete", mock.Anything, &kube.DeleteOptions{
+					f.EXPECT().Delete(gomock.Any(), &kube.DeleteOptions{
 						LabelSelector: labelSelector,
 						ResourceTypes: []string{
 							"all",
@@ -699,7 +707,8 @@ func TestRunRepoUninstall(t *testing.T) {
 							"rolebindings",
 							"roles",
 						},
-					}).Return(nil)
+					}).
+						Return(nil)
 				}
 			},
 		},
@@ -709,9 +718,10 @@ func TestRunRepoUninstall(t *testing.T) {
 	defer func() { getRepo, currentKubeContext = origGetRepo, origCurrentKubeContext }()
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			r := &gitmocks.Repository{}
+			ctrl := gomock.NewController(t)
+			r := gitmocks.NewMockRepository(ctrl)
 			repofs := fs.Create(memfs.New())
-			f := &kubemocks.Factory{}
+			f := kubemocks.NewMockFactory(ctrl)
 
 			if tt.beforeFn != nil {
 				tt.beforeFn(r, f)
@@ -750,9 +760,6 @@ func TestRunRepoUninstall(t *testing.T) {
 
 				return
 			}
-
-			r.AssertExpectations(t)
-			f.AssertExpectations(t)
 		})
 	}
 }
