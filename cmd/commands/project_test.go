@@ -20,7 +20,7 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
-	appset "github.com/argoproj/argo-cd/v2/pkg/apis/applicationset/v1alpha1"
+  appset "github.com/argoproj/applicationset/api/v1alpha1"
 	"github.com/ghodss/yaml"
 	"github.com/golang/mock/gomock"
 
