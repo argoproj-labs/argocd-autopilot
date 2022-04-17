@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	code.gitea.io/sdk/gitea v0.15.1
-	github.com/argoproj/argo-cd/v2 v2.3.3
+	github.com/argoproj/argo-cd/v2 v2.0.0-20220417054759-7a7945841949
 	github.com/argoproj/gitops-engine v0.6.2
 	github.com/briandowns/spinner v1.18.1
 	github.com/ghodss/yaml v1.0.0
