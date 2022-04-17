@@ -111,8 +111,6 @@ func Login(opts *LoginOptions) error {
 		opts.Password,
 		"--name",
 		"autopilot",
-		"--kube-context",
-		opts.KubeContext,
 	}
 
 	if opts.KubeConfig != "" {
