@@ -115,6 +115,8 @@ func AddFlags(cmd *cobra.Command) *CreateOptions {
 	cmd.Flags().StringVar(&opts.InstallationMode, "installation-mode", InstallationModeNormal, "One of: normal|flat. "+
 		"If flat, will commit the application manifests (after running kustomize build), otherwise will commit the kustomization.yaml")
 	cmd.Flags().StringToStringVar(&opts.Labels, "labels", nil, "Optional labels that will be set on the Application resource. (e.g. \"{{ placeholder }}=my-org\"")
+	cmd.Flags().StringVar(&opts.Include, "include", "", "glob to specify include files, e.g: _____")
+	cmd.Flags().StringVar(&opts.Include, "exclude", "", "glob to specify exclude files, e.g: _____")
 
 	return opts
 }
