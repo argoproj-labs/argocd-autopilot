@@ -1,5 +1,9 @@
 # Changelog:
 
+# v0.3.5
+### Changes
+* adding flags for include/exclude files for app create
+
 # v0.3.4
 ### bumping version to fix release (no code changes)
 

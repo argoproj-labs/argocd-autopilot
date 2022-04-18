@@ -1,7 +1,9 @@
 ### Changes
-* bumping version to fix release (no code changes)
+* adding flags for include/exclude files for app create
 
 ### Contributors:
+- Noam Gal ([@noam-codefresh](https://github.com/noam-codefresh))
+- Elad Laor ([@elad-codefresh](https://github.com/elad-codefresh))
 
 ## Installation:
 
