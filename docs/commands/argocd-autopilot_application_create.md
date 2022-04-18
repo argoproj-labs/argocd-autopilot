@@ -55,9 +55,11 @@ argocd-autopilot application create [APP_NAME] [flags]
       --context string             The name of the kubeconfig context to use
       --dest-namespace string      K8s target namespace (overrides the namespace specified in the kustomization.yaml)
       --dest-server string         K8s cluster URL (e.g. https://kubernetes.default.svc) (default "https://kubernetes.default.svc")
+      --exclude string             Optional glob for files to exclude
   -t, --git-token string           Your git provider api token [GIT_TOKEN]
   -u, --git-user string            Your git provider user name [GIT_USER] (not required in GitHub)
   -h, --help                       help for create
+      --include string             Optional glob for files to include
       --installation-mode string   One of: normal|flat. If flat, will commit the application manifests (after running kustomize build), otherwise will commit the kustomization.yaml (default "normal")
       --kubeconfig string          Path to the kubeconfig file to use for CLI requests.
       --labels stringToString      Optional labels that will be set on the Application resource. (e.g. "{{ placeholder }}=my-org" (default [])
