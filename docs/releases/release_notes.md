@@ -1,11 +1,7 @@
 ### Changes
-* importing argoproj/applicationset separately 
-* bumping argo-cd version to v2.3.3
-* removed `kube-context` from being sent to `argocd login` command
+* bumping version to fix release (no code changes)
 
 ### Contributors:
-- Noam Gal ([@noam-codefresh](https://github.com/noam-codefresh))
-- Elad Laor ([@elad-codefresh](https://github.com/elad-codefresh))
 
 ## Installation:
 
@@ -44,7 +40,7 @@ argocd-autopilot version
 ### Linux and WSL (using curl):
 ```bash
 # download and extract the binary
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.3.3/argocd-autopilot-linux-amd64.tar.gz | tar zx
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.3.4/argocd-autopilot-linux-amd64.tar.gz | tar zx
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
@@ -56,7 +52,7 @@ argocd-autopilot version
 ### Mac (using curl):
 ```bash
 # download and extract the binary
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.3.3/argocd-autopilot-darwin-amd64.tar.gz | tar zx
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.3.4/argocd-autopilot-darwin-amd64.tar.gz | tar zx
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
@@ -71,5 +67,5 @@ When using the Docker image, you have to provide the `.kube` and `.gitconfig` di
 docker run \
   -v ~/.kube:/home/autopilot/.kube \
   -v ~/.gitconfig:/home/autopilot/.gitconfig \
-  -it quay.io/argoprojlabs/argocd-autopilot:v0.3.3 <cmd> <flags>
+  -it quay.io/argoprojlabs/argocd-autopilot:v0.3.4 <cmd> <flags>
 ```

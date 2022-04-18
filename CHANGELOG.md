@@ -1,11 +1,13 @@
 # Changelog:
 
+# v0.3.4
+### bumping version to fix release (no code changes)
+
 # v0.3.3
 ### Changes
 * importing argoproj/applicationset separately 
 * bumping argo-cd version to v2.3.3
 * removed `kube-context` from being sent to `argocd login` command
-
 
 # v0.3.2
 
