@@ -1,10 +1,7 @@
 ### Changes
-* Updated `project create` to include `--labels` flag
-* Updated `app create` to include `--labels` flag
-* format `config.json` and `config_dir.json` for readability
-* extract committer username and email from token, as a fallback from git config data
-* fixed azure repo bootstrap failure [#267](https://github.com/argoproj-labs/argocd-autopilot/issues/267)
-* send `--kube-context` to `argocd login` command
+* importing argoproj/applicationset separately 
+* bumping argo-cd version to v2.3.3
+* removed `kube-context` from being sent to `argocd login` command
 
 ### Contributors:
 - Noam Gal ([@noam-codefresh](https://github.com/noam-codefresh))
@@ -47,7 +44,7 @@ argocd-autopilot version
 ### Linux and WSL (using curl):
 ```bash
 # download and extract the binary
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.3.2/argocd-autopilot-linux-amd64.tar.gz | tar zx
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.3.3/argocd-autopilot-linux-amd64.tar.gz | tar zx
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
@@ -59,7 +56,7 @@ argocd-autopilot version
 ### Mac (using curl):
 ```bash
 # download and extract the binary
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.3.2/argocd-autopilot-darwin-amd64.tar.gz | tar zx
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.3.3/argocd-autopilot-darwin-amd64.tar.gz | tar zx
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
@@ -74,5 +71,5 @@ When using the Docker image, you have to provide the `.kube` and `.gitconfig` di
 docker run \
   -v ~/.kube:/home/autopilot/.kube \
   -v ~/.gitconfig:/home/autopilot/.gitconfig \
-  -it quay.io/argoprojlabs/argocd-autopilot:v0.3.2 <cmd> <flags>
+  -it quay.io/argoprojlabs/argocd-autopilot:v0.3.3 <cmd> <flags>
 ```
