@@ -283,7 +283,7 @@ func newKustApp(o *CreateOptions, projectName, repoURL, targetRevision, repoRoot
 
 	if o.DestNamespace != "" && o.DestNamespace != "default" {
 		app.overlay.Namespace = o.DestNamespace
-		app.namespace = kube.GenerateNamespace(o.DestNamespace)
+		app.namespace = kube.GenerateNamespace(o.DestNamespace, nil)
 	}
 
 	app.config = &Config{
@@ -448,7 +448,7 @@ func (app *dirApp) CreateFiles(repofs fs.FS, appsfs fs.FS, projectName string) e
 	}
 
 	if app.opts.DestNamespace != "" && app.opts.DestNamespace != "default" {
-		if err = createNamespaceManifest(repofs, clusterName, kube.GenerateNamespace(app.opts.DestNamespace)); err != nil {
+		if err = createNamespaceManifest(repofs, clusterName, kube.GenerateNamespace(app.opts.DestNamespace, nil)); err != nil {
 			return err
 		}
 	}

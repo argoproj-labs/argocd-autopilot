@@ -360,7 +360,7 @@ func Test_kustCreateFiles(t *testing.T) {
 							DestServer: store.Default.DestServer,
 						},
 					},
-					namespace: kube.GenerateNamespace("foo"),
+					namespace: kube.GenerateNamespace("foo", nil),
 				}
 				repofs := bootstrapMockFS()
 				return app, repofs, repofs, "project"

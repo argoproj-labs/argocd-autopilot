@@ -59,6 +59,7 @@ type (
 		CloneOptions        *git.CloneOptions
 		ArgoCDLabels        map[string]string
 		BootstrapAppsLabels map[string]string
+		NamespaceLabels     map[string]string
 	}
 
 	RepoUninstallOptions struct {
@@ -115,6 +116,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 		installationMode string
 		cloneOpts        *git.CloneOptions
 		f                kube.Factory
+		namespaceLabels  map[string]string
 	)
 
 	cmd := &cobra.Command{
@@ -154,6 +156,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 				Timeout:          util.MustParseDuration(cmd.Flag("request-timeout").Value.String()),
 				KubeFactory:      f,
 				CloneOptions:     cloneOpts,
+				NamespaceLabels:  namespaceLabels,
 			})
 		},
 	}
@@ -162,6 +165,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "If true, print manifests instead of applying them to the cluster (nothing will be commited to git)")
 	cmd.Flags().BoolVar(&hidePassword, "hide-password", false, "If true, will not print initial argo cd password")
 	cmd.Flags().BoolVar(&insecure, "insecure", false, "Run Argo-CD server without TLS")
+	cmd.Flags().StringToStringVar(&namespaceLabels, "namespace-labels", nil, "Optional labels that will be set on the namespace resource. (e.g. \"app.kubernetes.io/managed-by={{ placeholder }}\"")
 	cmd.Flags().StringVar(&installationMode, "installation-mode", "normal", "One of: normal|flat. "+
 		"If flat, will commit the bootstrap manifests, otherwise will commit the bootstrap kustomization.yaml")
 
@@ -197,6 +201,7 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 		opts.CloneOptions,
 		opts.ArgoCDLabels,
 		opts.BootstrapAppsLabels,
+		opts.NamespaceLabels,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to build bootstrap manifests: %w", err)
@@ -522,7 +527,7 @@ func getBootstrapAppSpecifier(insecure bool) string {
 	return store.Get().InstallationManifestsURL
 }
 
-func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.CloneOptions, argocdLabels map[string]string, bootstrapAppsLabels map[string]string) (*bootstrapManifests, error) {
+func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.CloneOptions, argocdLabels map[string]string, bootstrapAppsLabels map[string]string, namespaceLabels map[string]string) (*bootstrapManifests, error) {
 	var err error
 	manifests := &bootstrapManifests{}
 
@@ -610,7 +615,7 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 	}
 
 	if namespace != "" && namespace != "default" {
-		ns := kube.GenerateNamespace(namespace)
+		ns := kube.GenerateNamespace(namespace, namespaceLabels)
 		manifests.namespace, err = yaml.Marshal(ns)
 		if err != nil {
 			return nil, err
