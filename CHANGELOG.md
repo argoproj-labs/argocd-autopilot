@@ -1,5 +1,9 @@
 # Changelog:
 
+# v0.3.6
+* fixed extracting email from github token
+* support labels for bootstrap namespace
+
 # v0.3.5
 ### Changes
 * adding flags for include/exclude files for app create
