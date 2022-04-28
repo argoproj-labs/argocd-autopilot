@@ -140,6 +140,10 @@ func CurrentContext() (string, error) {
 }
 
 func GenerateNamespace(namespace string, labels map[string]string) *corev1.Namespace {
+	if labels == nil {
+		labels = map[string]string{}
+	}
+
 	namespaceObj := &corev1.Namespace{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
@@ -150,14 +154,8 @@ func GenerateNamespace(namespace string, labels map[string]string) *corev1.Names
 			Annotations: map[string]string{
 				"argocd.argoproj.io/sync-options": "Prune=false",
 			},
-			Labels: map[string]string{},
+			Labels: labels,
 		},
-	}
-	
-	if len(labels) > 0 {
-		for k, v := range labels {
-			namespaceObj.ObjectMeta.Labels[k] = v
-		}
 	}
 
 	return namespaceObj
