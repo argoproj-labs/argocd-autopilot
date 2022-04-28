@@ -125,7 +125,7 @@ func (g *github) getAuthenticatedUser(ctx context.Context) (*gh.User, error) {
 
 func (g *github) getEmail(ctx context.Context) string {
 	emails, _, err := g.Users.ListEmails(ctx, &gh.ListOptions{
-		Page: 0,
+		Page:    0,
 		PerPage: 10,
 	})
 	if err != nil {
