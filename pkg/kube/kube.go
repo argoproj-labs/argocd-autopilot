@@ -139,8 +139,12 @@ func CurrentContext() (string, error) {
 	return conf.CurrentContext, nil
 }
 
-func GenerateNamespace(namespace string) *corev1.Namespace {
-	return &corev1.Namespace{
+func GenerateNamespace(namespace string, labels map[string]string) *corev1.Namespace {
+	if labels == nil {
+		labels = map[string]string{}
+	}
+
+	namespaceObj := &corev1.Namespace{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
 			Kind:       "Namespace",
@@ -150,8 +154,11 @@ func GenerateNamespace(namespace string) *corev1.Namespace {
 			Annotations: map[string]string{
 				"argocd.argoproj.io/sync-options": "Prune=false",
 			},
+			Labels: labels,
 		},
 	}
+
+	return namespaceObj
 }
 
 func (f *factory) KubernetesClientSetOrDie() kubernetes.Interface {

@@ -234,6 +234,7 @@ func Test_buildBootstrapManifests(t *testing.T) {
 				tt.args.cloneOpts,
 				tt.args.argoCDLabels,
 				tt.args.bootstrapAppsLabels,
+				nil,
 			)
 
 			tt.assertFn(t, b, ret)
