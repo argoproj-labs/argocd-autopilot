@@ -13,7 +13,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	github "github.com/google/go-github/v35/github"
+	github "github.com/google/go-github/v43/github"
 )
 
 // MockRepositories is a mock of Repositories interface.
@@ -88,9 +88,9 @@ func (mr *MockRepositoriesMockRecorder) AddCollaborator(arg0, arg1, arg2, arg3, 
 }
 
 // CompareCommits mocks base method.
-func (m *MockRepositories) CompareCommits(arg0 context.Context, arg1, arg2, arg3, arg4 string) (*github.CommitsComparison, *github.Response, error) {
+func (m *MockRepositories) CompareCommits(arg0 context.Context, arg1, arg2, arg3, arg4 string, arg5 *github.ListOptions) (*github.CommitsComparison, *github.Response, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CompareCommits", arg0, arg1, arg2, arg3, arg4)
+	ret := m.ctrl.Call(m, "CompareCommits", arg0, arg1, arg2, arg3, arg4, arg5)
 	ret0, _ := ret[0].(*github.CommitsComparison)
 	ret1, _ := ret[1].(*github.Response)
 	ret2, _ := ret[2].(error)
@@ -98,9 +98,9 @@ func (m *MockRepositories) CompareCommits(arg0 context.Context, arg1, arg2, arg3
 }
 
 // CompareCommits indicates an expected call of CompareCommits.
-func (mr *MockRepositoriesMockRecorder) CompareCommits(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+func (mr *MockRepositoriesMockRecorder) CompareCommits(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompareCommits", reflect.TypeOf((*MockRepositories)(nil).CompareCommits), arg0, arg1, arg2, arg3, arg4)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompareCommits", reflect.TypeOf((*MockRepositories)(nil).CompareCommits), arg0, arg1, arg2, arg3, arg4, arg5)
 }
 
 // CompareCommitsRaw mocks base method.
@@ -778,9 +778,9 @@ func (mr *MockRepositoriesMockRecorder) GetArchiveLink(arg0, arg1, arg2, arg3, a
 }
 
 // GetBranch mocks base method.
-func (m *MockRepositories) GetBranch(arg0 context.Context, arg1, arg2, arg3 string) (*github.Branch, *github.Response, error) {
+func (m *MockRepositories) GetBranch(arg0 context.Context, arg1, arg2, arg3 string, arg4 bool) (*github.Branch, *github.Response, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetBranch", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "GetBranch", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(*github.Branch)
 	ret1, _ := ret[1].(*github.Response)
 	ret2, _ := ret[2].(error)
@@ -788,9 +788,9 @@ func (m *MockRepositories) GetBranch(arg0 context.Context, arg1, arg2, arg3 stri
 }
 
 // GetBranch indicates an expected call of GetBranch.
-func (mr *MockRepositoriesMockRecorder) GetBranch(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockRepositoriesMockRecorder) GetBranch(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBranch", reflect.TypeOf((*MockRepositories)(nil).GetBranch), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBranch", reflect.TypeOf((*MockRepositories)(nil).GetBranch), arg0, arg1, arg2, arg3, arg4)
 }
 
 // GetBranchProtection mocks base method.
@@ -874,9 +874,9 @@ func (mr *MockRepositoriesMockRecorder) GetComment(arg0, arg1, arg2, arg3 interf
 }
 
 // GetCommit mocks base method.
-func (m *MockRepositories) GetCommit(arg0 context.Context, arg1, arg2, arg3 string) (*github.RepositoryCommit, *github.Response, error) {
+func (m *MockRepositories) GetCommit(arg0 context.Context, arg1, arg2, arg3 string, arg4 *github.ListOptions) (*github.RepositoryCommit, *github.Response, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetCommit", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "GetCommit", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(*github.RepositoryCommit)
 	ret1, _ := ret[1].(*github.Response)
 	ret2, _ := ret[2].(error)
@@ -884,9 +884,9 @@ func (m *MockRepositories) GetCommit(arg0 context.Context, arg1, arg2, arg3 stri
 }
 
 // GetCommit indicates an expected call of GetCommit.
-func (mr *MockRepositoriesMockRecorder) GetCommit(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockRepositoriesMockRecorder) GetCommit(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCommit", reflect.TypeOf((*MockRepositories)(nil).GetCommit), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCommit", reflect.TypeOf((*MockRepositories)(nil).GetCommit), arg0, arg1, arg2, arg3, arg4)
 }
 
 // GetCommitRaw mocks base method.
@@ -1563,9 +1563,9 @@ func (mr *MockRepositoriesMockRecorder) ListDeployments(arg0, arg1, arg2, arg3 i
 }
 
 // ListEnvironments mocks base method.
-func (m *MockRepositories) ListEnvironments(arg0 context.Context, arg1, arg2 string) (*github.EnvResponse, *github.Response, error) {
+func (m *MockRepositories) ListEnvironments(arg0 context.Context, arg1, arg2 string, arg3 *github.EnvironmentListOptions) (*github.EnvResponse, *github.Response, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListEnvironments", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "ListEnvironments", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(*github.EnvResponse)
 	ret1, _ := ret[1].(*github.Response)
 	ret2, _ := ret[2].(error)
@@ -1573,9 +1573,9 @@ func (m *MockRepositories) ListEnvironments(arg0 context.Context, arg1, arg2 str
 }
 
 // ListEnvironments indicates an expected call of ListEnvironments.
-func (mr *MockRepositoriesMockRecorder) ListEnvironments(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockRepositoriesMockRecorder) ListEnvironments(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListEnvironments", reflect.TypeOf((*MockRepositories)(nil).ListEnvironments), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListEnvironments", reflect.TypeOf((*MockRepositories)(nil).ListEnvironments), arg0, arg1, arg2, arg3)
 }
 
 // ListForks mocks base method.

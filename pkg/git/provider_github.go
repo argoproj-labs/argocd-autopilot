@@ -8,7 +8,7 @@ import (
 
 	g "github.com/argoproj-labs/argocd-autopilot/pkg/git/github"
 
-	gh "github.com/google/go-github/v35/github"
+	gh "github.com/google/go-github/v43/github"
 )
 
 //go:generate mockgen -destination=./github/mocks/repos.go -package=mocks -source=./github/repos.go Repositories
@@ -93,8 +93,20 @@ func (g *github) GetAuthor(ctx context.Context) (username, email string, err err
 		return
 	}
 
-	username = *authUser.Login
-	email = *authUser.Email
+	username = authUser.GetName()
+	if username == "" {
+		username = authUser.GetLogin()
+	}
+
+	email = authUser.GetEmail()
+	if email == "" {
+		email = g.getEmail(ctx)
+	}
+
+	if email == "" {
+		email = authUser.GetLogin()
+	}
+
 	return
 }
 
@@ -109,4 +121,36 @@ func (g *github) getAuthenticatedUser(ctx context.Context) (*gh.User, error) {
 	}
 
 	return authUser, nil
+}
+
+func (g *github) getEmail(ctx context.Context) string {
+	emails, _, err := g.Users.ListEmails(ctx, &gh.ListOptions{
+		Page: 0,
+		PerPage: 10,
+	})
+	if err != nil {
+		return ""
+	}
+
+	var email *gh.UserEmail
+	for _, e := range emails {
+		if e.GetVisibility() != "public" {
+			continue
+		}
+
+		if e.GetPrimary() && e.GetVerified() {
+			email = e
+			break
+		}
+
+		if e.GetPrimary() {
+			email = e
+		}
+
+		if e.GetVerified() && email != nil && !email.GetPrimary() {
+			email = e
+		}
+	}
+
+	return email.GetEmail()
 }
