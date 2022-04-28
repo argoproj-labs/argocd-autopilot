@@ -147,7 +147,7 @@ func (g *github) getEmail(ctx context.Context) string {
 			email = e
 		}
 
-		if e.GetVerified() && email != nil && !email.GetPrimary() {
+		if e.GetVerified() && !email.GetPrimary() {
 			email = e
 		}
 	}
