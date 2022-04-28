@@ -4,10 +4,10 @@ package github
 
 import (
 	"context"
-	"github.com/google/go-github/v35/github"
+	"github.com/google/go-github/v43/github"
 )
 
-// Users is an interface generated for "github.com/google/go-github/v35/github.UsersService".
+// Users is an interface generated for "github.com/google/go-github/v43/github.UsersService".
 type Users interface {
 	AcceptInvitation(context.Context, int64) (*github.Response, error)
 	AddEmails(context.Context, []string) ([]*github.UserEmail, *github.Response, error)

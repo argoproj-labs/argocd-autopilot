@@ -9,7 +9,7 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/git/github/mocks"
 
 	"github.com/golang/mock/gomock"
-	gh "github.com/google/go-github/v35/github"
+	gh "github.com/google/go-github/v43/github"
 	"github.com/stretchr/testify/assert"
 )
 
