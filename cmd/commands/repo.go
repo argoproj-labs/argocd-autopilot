@@ -165,7 +165,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "If true, print manifests instead of applying them to the cluster (nothing will be commited to git)")
 	cmd.Flags().BoolVar(&hidePassword, "hide-password", false, "If true, will not print initial argo cd password")
 	cmd.Flags().BoolVar(&insecure, "insecure", false, "Run Argo-CD server without TLS")
-	cmd.Flags().StringToStringVar(&namespaceLabels, "namespace-labels", nil, "Optional labels that will be set on the namespace resource. (e.g. \"app.kubernetes.io/managed-by={{ placeholder }}\"")
+	cmd.Flags().StringToStringVar(&namespaceLabels, "namespace-labels", nil, "Optional labels that will be set on the namespace resource. (e.g. \"key1=value1,key2=value2\"")
 	cmd.Flags().StringVar(&installationMode, "installation-mode", "normal", "One of: normal|flat. "+
 		"If flat, will commit the bootstrap manifests, otherwise will commit the bootstrap kustomization.yaml")
 
