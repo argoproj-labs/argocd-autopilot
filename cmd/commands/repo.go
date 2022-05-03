@@ -54,6 +54,7 @@ type (
 		DryRun              bool
 		HidePassword        bool
 		Insecure            bool
+		FromRepo            bool
 		Timeout             time.Duration
 		KubeFactory         kube.Factory
 		CloneOptions        *git.CloneOptions
@@ -113,6 +114,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 		dryRun           bool
 		hidePassword     bool
 		insecure         bool
+		fromRepo         bool
 		installationMode string
 		cloneOpts        *git.CloneOptions
 		f                kube.Factory
@@ -144,7 +146,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 `),
 		PreRun: func(_ *cobra.Command, _ []string) { cloneOpts.Parse() },
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_, err := RunRepoBootstrap(cmd.Context(), &RepoBootstrapOptions{
+			return RunRepoBootstrap(cmd.Context(), &RepoBootstrapOptions{
 				AppSpecifier:     appSpecifier,
 				InstallationMode: installationMode,
 				Namespace:        cmd.Flag("namespace").Value.String(),
@@ -153,18 +155,19 @@ func NewRepoBootstrapCommand() *cobra.Command {
 				DryRun:           dryRun,
 				HidePassword:     hidePassword,
 				Insecure:         insecure,
+				FromRepo:         fromRepo,
 				Timeout:          util.MustParseDuration(cmd.Flag("request-timeout").Value.String()),
 				KubeFactory:      f,
 				CloneOptions:     cloneOpts,
 				NamespaceLabels:  namespaceLabels,
 			})
-			return err
 		},
 	}
 
 	cmd.Flags().StringVar(&appSpecifier, "app", "", "The application specifier (e.g. github.com/argoproj-labs/argocd-autopilot/manifests?ref=v0.2.5), overrides the default installation argo-cd manifests")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "If true, print manifests instead of applying them to the cluster (nothing will be commited to git)")
 	cmd.Flags().BoolVar(&hidePassword, "hide-password", false, "If true, will not print initial argo cd password")
+	cmd.Flags().BoolVar(&fromRepo, "from-repo", false, "Installs argo-cd and associates it with an existing repo. Used for recovery after cluster failure")
 	cmd.Flags().BoolVar(&insecure, "insecure", false, "Run Argo-CD server without TLS")
 	cmd.Flags().StringToStringVar(&namespaceLabels, "namespace-labels", nil, "Optional labels that will be set on the namespace resource. (e.g. \"key1=value1,key2=value2\"")
 	cmd.Flags().StringVar(&installationMode, "installation-mode", "normal", "One of: normal|flat. "+
@@ -182,12 +185,11 @@ func NewRepoBootstrapCommand() *cobra.Command {
 	return cmd
 }
 
-// bootstraps a repository. returns true if a repository already existed with the proper dirs
-func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) (bool, error) {
+func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 	var err error
 
 	if opts, err = setBootstrapOptsDefaults(*opts); err != nil {
-		return false, err
+		return err
 	}
 
 	log.G(ctx).WithFields(log.Fields{
@@ -206,7 +208,7 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) (bool, er
 		opts.NamespaceLabels,
 	)
 	if err != nil {
-		return false, fmt.Errorf("failed to build bootstrap manifests: %w", err)
+		return fmt.Errorf("failed to build bootstrap manifests: %w", err)
 	}
 
 	// Dry Run check
@@ -220,7 +222,7 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) (bool, er
 			manifests.rootApp,
 		))
 		exit(0)
-		return false, nil
+		return nil
 	}
 
 	log.G(ctx).Infof("cloning repo: %s", opts.CloneOptions.URL())
@@ -228,26 +230,31 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) (bool, er
 	// clone GitOps repo
 	r, repofs, err := getRepo(ctx, opts.CloneOptions)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	log.G(ctx).Infof("using revision: \"%s\", installation path: \"%s\"", opts.CloneOptions.Revision(), opts.CloneOptions.Path())
-	exists := doesRepoDirExists(repofs)
-	if exists {
-		log.G(ctx).Info("bootstrap/project directory exists in repo, performing cluster recovery from existing repo")
+	if !opts.FromRepo {
+		if err = validateRepo(repofs); err != nil {
+			return err
+		}
+
+		log.G(ctx).Debug("repository is ok")
+	} else {
+		log.G(ctx).Info("performing recovery from existing repo")
 	}
 
 	// apply built manifest to k8s cluster
 	log.G(ctx).Infof("using context: \"%s\", namespace: \"%s\"", opts.KubeContextName, opts.Namespace)
 	log.G(ctx).Infof("applying bootstrap manifests to cluster...")
 	if err = opts.KubeFactory.Apply(ctx, util.JoinManifests(manifests.namespace, manifests.applyManifests, manifests.repoCreds)); err != nil {
-		return exists, fmt.Errorf("failed to apply bootstrap manifests to cluster: %w", err)
+		return fmt.Errorf("failed to apply bootstrap manifests to cluster: %w", err)
 	}
 
-	if !exists {
+	if !opts.FromRepo {
 		// write argocd manifests to repo
 		if err = writeManifestsToRepo(repofs, manifests, opts.InstallationMode, opts.Namespace); err != nil {
-			return false, fmt.Errorf("failed to write manifests to repo: %w", err)
+			return fmt.Errorf("failed to write manifests to repo: %w", err)
 		}
 	}
 
@@ -256,33 +263,33 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) (bool, er
 
 	if err = waitClusterReady(ctx, opts.KubeFactory, opts.Timeout, opts.Namespace); err != nil {
 		stop()
-		return exists, err
+		return err
 	}
 
 	stop()
 
-	if !exists {
+	if !opts.FromRepo {
 		// push results to repo
 		log.G(ctx).Infof("pushing bootstrap manifests to repo")
 		commitMsg := "Autopilot Bootstrap"
 		if opts.CloneOptions.Path() != "" {
 			commitMsg = "Autopilot Bootstrap at " + opts.CloneOptions.Path()
 		}
-	
+
 		if _, err = r.Persist(ctx, &git.PushOptions{CommitMsg: commitMsg}); err != nil {
-			return false, err
+			return err
 		}
 	}
 
 	// apply "Argo-CD" Application that references "bootstrap/argo-cd"
 	log.G(ctx).Infof("applying argo-cd bootstrap application")
 	if err = opts.KubeFactory.Apply(ctx, manifests.bootstrapApp); err != nil {
-		return exists, err
+		return err
 	}
 
 	passwd, err := getInitialPassword(ctx, opts.KubeFactory, opts.Namespace)
 	if err != nil {
-		return exists, err
+		return err
 	}
 
 	log.G(ctx).Infof("running argocd login to initialize argocd config")
@@ -295,7 +302,7 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) (bool, er
 		Insecure:    opts.Insecure,
 	})
 	if err != nil {
-		return exists, err
+		return err
 	}
 
 	if !opts.HidePassword {
@@ -304,7 +311,7 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) (bool, er
 		log.G(ctx).Infof("run:\n\n    kubectl port-forward -n %s svc/argocd-server 8080:80\n\n", opts.Namespace)
 	}
 
-	return exists, nil
+	return nil
 }
 
 func NewRepoUninstallCommand() *cobra.Command {
@@ -464,15 +471,15 @@ func setBootstrapOptsDefaults(opts RepoBootstrapOptions) (*RepoBootstrapOptions,
 	return &opts, nil
 }
 
-func doesRepoDirExists(repofs fs.FS) bool {
+func validateRepo(repofs fs.FS) error {
 	folders := []string{store.Default.BootsrtrapDir, store.Default.ProjectsDir}
 	for _, folder := range folders {
 		if repofs.ExistsOrDie(folder) {
-			return true
+			return fmt.Errorf("folder %s already exist in: %s", folder, repofs.Join(repofs.Root(), folder))
 		}
 	}
 
-	return false
+	return nil
 }
 
 func waitClusterReady(ctx context.Context, f kube.Factory, timeout time.Duration, namespace string) error {
