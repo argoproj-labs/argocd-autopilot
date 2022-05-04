@@ -37,7 +37,6 @@ argocd-autopilot repo bootstrap [flags]
       --app string                        The application specifier (e.g. github.com/argoproj-labs/argocd-autopilot/manifests?ref=v0.2.5), overrides the default installation argo-cd manifests
       --context string                    The name of the kubeconfig context to use
       --dry-run                           If true, print manifests instead of applying them to the cluster (nothing will be commited to git)
-      --from-repo                         Installs argo-cd and associates it with an existing repo. Used for recovery after cluster failure
   -t, --git-token string                  Your git provider api token [GIT_TOKEN]
   -u, --git-user string                   Your git provider user name [GIT_USER] (not required in GitHub)
   -h, --help                              help for bootstrap
@@ -48,6 +47,7 @@ argocd-autopilot repo bootstrap [flags]
   -n, --namespace string                  If present, the namespace scope for this CLI request
       --namespace-labels stringToString   Optional labels that will be set on the namespace resource. (e.g. "key1=value1,key2=value2" (default [])
       --provider string                   The git provider, one of: azure|gitea|github|gitlab
+      --recover                           Installs argo-cd and associates it with an existing repo. Used for recovery after cluster failure. Use it with --app flag to provide the installation manifests from the existing repo ( e.g. github.com/git-user/repo-name/bootstrap/argo-cd ), otherwise it will be installed from the default installation manifests
       --repo string                       Repository URL [GIT_REPO]
       --request-timeout string            The length of time to wait before giving up on a single server request. Non-zero values should contain a corresponding time unit (e.g. 1s, 2m, 3h). A value of zero means don't timeout requests. (default "0")
   -b, --upsert-branch                     If true will try to checkout the specified branch and create it if it doesn't exist

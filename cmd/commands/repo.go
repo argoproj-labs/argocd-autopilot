@@ -54,7 +54,7 @@ type (
 		DryRun              bool
 		HidePassword        bool
 		Insecure            bool
-		FromRepo            bool
+		Recover             bool
 		Timeout             time.Duration
 		KubeFactory         kube.Factory
 		CloneOptions        *git.CloneOptions
@@ -114,7 +114,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 		dryRun           bool
 		hidePassword     bool
 		insecure         bool
-		fromRepo         bool
+		recover          bool
 		installationMode string
 		cloneOpts        *git.CloneOptions
 		f                kube.Factory
@@ -155,7 +155,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 				DryRun:           dryRun,
 				HidePassword:     hidePassword,
 				Insecure:         insecure,
-				FromRepo:         fromRepo,
+				Recover:          recover,
 				Timeout:          util.MustParseDuration(cmd.Flag("request-timeout").Value.String()),
 				KubeFactory:      f,
 				CloneOptions:     cloneOpts,
@@ -167,7 +167,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 	cmd.Flags().StringVar(&appSpecifier, "app", "", "The application specifier (e.g. github.com/argoproj-labs/argocd-autopilot/manifests?ref=v0.2.5), overrides the default installation argo-cd manifests")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "If true, print manifests instead of applying them to the cluster (nothing will be commited to git)")
 	cmd.Flags().BoolVar(&hidePassword, "hide-password", false, "If true, will not print initial argo cd password")
-	cmd.Flags().BoolVar(&fromRepo, "from-repo", false, "Installs argo-cd and associates it with an existing repo. Used for recovery after cluster failure")
+	cmd.Flags().BoolVar(&recover, "recover", false, "Installs argo-cd and associates it with an existing repo. Used for recovery after cluster failure. Use it with --app flag to provide the installation manifests from the existing repo ( e.g. github.com/git-user/repo-name/bootstrap/argo-cd ), otherwise it will be installed from the default installation manifests")
 	cmd.Flags().BoolVar(&insecure, "insecure", false, "Run Argo-CD server without TLS")
 	cmd.Flags().StringToStringVar(&namespaceLabels, "namespace-labels", nil, "Optional labels that will be set on the namespace resource. (e.g. \"key1=value1,key2=value2\"")
 	cmd.Flags().StringVar(&installationMode, "installation-mode", "normal", "One of: normal|flat. "+
@@ -234,7 +234,7 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 	}
 
 	log.G(ctx).Infof("using revision: \"%s\", installation path: \"%s\"", opts.CloneOptions.Revision(), opts.CloneOptions.Path())
-	if !opts.FromRepo {
+	if !opts.Recover {
 		if err = validateRepo(repofs); err != nil {
 			return err
 		}
@@ -251,7 +251,7 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 		return fmt.Errorf("failed to apply bootstrap manifests to cluster: %w", err)
 	}
 
-	if !opts.FromRepo {
+	if !opts.Recover {
 		// write argocd manifests to repo
 		if err = writeManifestsToRepo(repofs, manifests, opts.InstallationMode, opts.Namespace); err != nil {
 			return fmt.Errorf("failed to write manifests to repo: %w", err)
@@ -268,7 +268,7 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 
 	stop()
 
-	if !opts.FromRepo {
+	if !opts.Recover {
 		// push results to repo
 		log.G(ctx).Infof("pushing bootstrap manifests to repo")
 		commitMsg := "Autopilot Bootstrap"
