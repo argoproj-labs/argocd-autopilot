@@ -477,10 +477,8 @@ func validateRepo(repofs fs.FS, recover bool) error {
 			} else {
 				return fmt.Errorf("folder %s already exist in: %s", folder, repofs.Join(repofs.Root(), folder))
 			}
-		} else {
-			if recover {
-				return fmt.Errorf("recovery failed: invalid repository, %s directory is missing in %s", folder, repofs.Root())
-			}
+		} else if recover {
+			return fmt.Errorf("recovery failed: invalid repository, %s directory is missing in %s", folder, repofs.Root())
 		}
 	}
 
