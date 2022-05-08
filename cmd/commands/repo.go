@@ -234,15 +234,17 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 	}
 
 	log.G(ctx).Infof("using revision: \"%s\", installation path: \"%s\"", opts.CloneOptions.Revision(), opts.CloneOptions.Path())
-	if !opts.Recover {
-		if err = validateRepo(repofs); err != nil {
-			return err
-		}
-
-		log.G(ctx).Debug("repository is ok")
-	} else {
+	err = validateRepo(repofs)
+	
+	if err != nil && opts.Recover {
 		log.G(ctx).Info("performing recovery from existing repo")
+	} else if err != nil {
+		return err
+	} else if err == nil && opts.Recover {
+		return fmt.Errorf("recovery failed: invalid repository, bootstrap/project directory is missing")
 	}
+	
+	log.G(ctx).Debug("repository is ok")
 
 	// apply built manifest to k8s cluster
 	log.G(ctx).Infof("using context: \"%s\", namespace: \"%s\"", opts.KubeContextName, opts.Namespace)
