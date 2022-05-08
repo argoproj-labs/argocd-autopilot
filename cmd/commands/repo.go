@@ -167,7 +167,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 	cmd.Flags().StringVar(&appSpecifier, "app", "", "The application specifier (e.g. github.com/argoproj-labs/argocd-autopilot/manifests?ref=v0.2.5), overrides the default installation argo-cd manifests")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "If true, print manifests instead of applying them to the cluster (nothing will be commited to git)")
 	cmd.Flags().BoolVar(&hidePassword, "hide-password", false, "If true, will not print initial argo cd password")
-	cmd.Flags().BoolVar(&recover, "recover", false, "Installs argo-cd and associates it with an existing repo. Used for recovery after cluster failure. Use it with --app flag to provide the installation manifests from the existing repo ( e.g. github.com/git-user/repo-name/bootstrap/argo-cd ), otherwise it will be installed from the default installation manifests")
+	cmd.Flags().BoolVar(&recover, "recover", false, "Installs Argo-CD on a cluster without pushing installation manifests to the git repository. This is meant to be used together with --app flag to use the same Argo-CD manifests that exists in the git repository (e.g. --app https://github.com/git-user/repo-name/bootstrap/argo-cd)")
 	cmd.Flags().BoolVar(&insecure, "insecure", false, "Run Argo-CD server without TLS")
 	cmd.Flags().StringToStringVar(&namespaceLabels, "namespace-labels", nil, "Optional labels that will be set on the namespace resource. (e.g. \"key1=value1,key2=value2\"")
 	cmd.Flags().StringVar(&installationMode, "installation-mode", "normal", "One of: normal|flat. "+
