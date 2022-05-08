@@ -225,10 +225,21 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 		return nil
 	}
 
-	r, repofs, err := prepareRepoForBootstrap(ctx, opts)
+	log.G(ctx).Infof("cloning repo: %s", opts.CloneOptions.URL())
+
+	// clone GitOps repo
+	r, repofs, err := getRepo(ctx, opts.CloneOptions)
 	if err != nil {
 		return err
 	}
+
+	log.G(ctx).Infof("using revision: \"%s\", installation path: \"%s\"", opts.CloneOptions.Revision(), opts.CloneOptions.Path())
+	err = validateRepo(repofs, opts.Recover)
+	if err != nil{
+		return err
+	} 
+	
+	log.G(ctx).Debug("repository is ok")
 
 	// apply built manifest to k8s cluster
 	log.G(ctx).Infof("using context: \"%s\", namespace: \"%s\"", opts.KubeContextName, opts.Namespace)
@@ -457,36 +468,19 @@ func setBootstrapOptsDefaults(opts RepoBootstrapOptions) (*RepoBootstrapOptions,
 	return &opts, nil
 }
 
-func prepareRepoForBootstrap(ctx context.Context, opts *RepoBootstrapOptions) (git.Repository, fs.FS, error) {
-	log.G(ctx).Infof("cloning repo: %s", opts.CloneOptions.URL())
-
-	// clone GitOps repo
-	r, repofs, err := getRepo(ctx, opts.CloneOptions)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	log.G(ctx).Infof("using revision: \"%s\", installation path: \"%s\"", opts.CloneOptions.Revision(), opts.CloneOptions.Path())
-	err = validateRepo(repofs)
-	
-	if err != nil && opts.Recover {
-		log.G(ctx).Info("performing recovery from existing repo")
-	} else if err != nil {
-		return nil, nil, err
-	} else if err == nil && opts.Recover {
-		return nil, nil, fmt.Errorf("recovery failed: invalid repository, bootstrap/project directory is missing")
-	}
-	
-	log.G(ctx).Debug("repository is ok")
-
-	return r, repofs, nil
-}
-
-func validateRepo(repofs fs.FS) error {
+func validateRepo(repofs fs.FS, recover bool) error {
 	folders := []string{store.Default.BootsrtrapDir, store.Default.ProjectsDir}
 	for _, folder := range folders {
 		if repofs.ExistsOrDie(folder) {
-			return fmt.Errorf("folder %s already exist in: %s", folder, repofs.Join(repofs.Root(), folder))
+			if recover {
+				continue
+			} else {
+				return fmt.Errorf("folder %s already exist in: %s", folder, repofs.Join(repofs.Root(), folder))
+			}
+		} else {
+			if recover {
+				return fmt.Errorf("recovery failed: invalid repository, %s directory is missing in %s", folder, repofs.Root())
+			}
 		}
 	}
 

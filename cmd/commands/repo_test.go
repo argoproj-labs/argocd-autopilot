@@ -128,7 +128,7 @@ func Test_validateRepo(t *testing.T) {
 				tt.preFn(t, repofs)
 			}
 
-			if err := validateRepo(repofs); err != nil {
+			if err := validateRepo(repofs, false); err != nil {
 				if tt.wantErr != "" {
 					assert.EqualError(t, err, tt.wantErr)
 				} else {
