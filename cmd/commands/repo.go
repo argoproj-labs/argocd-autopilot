@@ -237,8 +237,8 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 	err = validateRepo(repofs, opts.Recover)
 	if err != nil{
 		return err
-	} 
-	
+	}
+
 	log.G(ctx).Debug("repository is ok")
 
 	// apply built manifest to k8s cluster
