@@ -425,7 +425,7 @@ func TestRunRepoBootstrapRecovery(t *testing.T) {
 			opts: &RepoBootstrapOptions{
 				InstallationMode: installationModeNormal,
 				Namespace:        "bar",
-				Recover: true,
+				Recover:          true,
 				CloneOptions: &git.CloneOptions{
 					Repo: "https://github.com/foo/bar/installation1?ref=main",
 					Auth: git.Auth{Password: "test"},
@@ -441,6 +441,7 @@ func TestRunRepoBootstrapRecovery(t *testing.T) {
 						"password": []byte("foo"),
 					},
 				})
+				r.EXPECT().Persist(gomock.Any(), &git.PushOptions{}).Times(0)
 				f.EXPECT().Apply(gomock.Any(), gomock.Any()).
 					Times(2).
 					Return(nil)
