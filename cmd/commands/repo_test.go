@@ -471,16 +471,9 @@ func TestRunRepoBootstrapRecovery(t *testing.T) {
 			r := gitmocks.NewMockRepository(ctrl)
 			f := kubemocks.NewMockFactory(ctrl)
 			repofs := fs.Create(memfs.New())
-			repofs.MkdirAll("bootstrap", 0666)
-			repofs.MkdirAll("projects", 0666)
-			repofs.Create(repofs.Join(
-				store.Default.BootsrtrapDir,
-				"README.md",
-			))
-			repofs.Create(repofs.Join(
-				store.Default.ProjectsDir,
-				"README.md",
-			))
+			_ = repofs.MkdirAll("bootstrap", 0666)
+			_ = repofs.MkdirAll("projects", 0666)
+
 			exitCalled = false
 
 			tt.beforeFn(r, f)
