@@ -441,7 +441,7 @@ func TestRunRepoBootstrapRecovery(t *testing.T) {
 						"password": []byte("foo"),
 					},
 				})
-				r.EXPECT().Persist(gomock.Any(), &git.PushOptions{}).Times(0)
+				r.EXPECT().Persist(gomock.Any(), &git.PushOptions{CommitMsg: "Autopilot Bootstrap"}).Times(0)
 				f.EXPECT().Apply(gomock.Any(), gomock.Any()).
 					Times(2).
 					Return(nil)
