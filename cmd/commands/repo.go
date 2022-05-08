@@ -54,6 +54,7 @@ type (
 		DryRun              bool
 		HidePassword        bool
 		Insecure            bool
+		Recover             bool
 		Timeout             time.Duration
 		KubeFactory         kube.Factory
 		CloneOptions        *git.CloneOptions
@@ -113,6 +114,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 		dryRun           bool
 		hidePassword     bool
 		insecure         bool
+		recover          bool
 		installationMode string
 		cloneOpts        *git.CloneOptions
 		f                kube.Factory
@@ -153,6 +155,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 				DryRun:           dryRun,
 				HidePassword:     hidePassword,
 				Insecure:         insecure,
+				Recover:          recover,
 				Timeout:          util.MustParseDuration(cmd.Flag("request-timeout").Value.String()),
 				KubeFactory:      f,
 				CloneOptions:     cloneOpts,
@@ -164,6 +167,7 @@ func NewRepoBootstrapCommand() *cobra.Command {
 	cmd.Flags().StringVar(&appSpecifier, "app", "", "The application specifier (e.g. github.com/argoproj-labs/argocd-autopilot/manifests?ref=v0.2.5), overrides the default installation argo-cd manifests")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "If true, print manifests instead of applying them to the cluster (nothing will be commited to git)")
 	cmd.Flags().BoolVar(&hidePassword, "hide-password", false, "If true, will not print initial argo cd password")
+	cmd.Flags().BoolVar(&recover, "recover", false, "Installs Argo-CD on a cluster without pushing installation manifests to the git repository. This is meant to be used together with --app flag to use the same Argo-CD manifests that exists in the git repository (e.g. --app https://github.com/git-user/repo-name/bootstrap/argo-cd)")
 	cmd.Flags().BoolVar(&insecure, "insecure", false, "Run Argo-CD server without TLS")
 	cmd.Flags().StringToStringVar(&namespaceLabels, "namespace-labels", nil, "Optional labels that will be set on the namespace resource. (e.g. \"key1=value1,key2=value2\"")
 	cmd.Flags().StringVar(&installationMode, "installation-mode", "normal", "One of: normal|flat. "+
@@ -230,7 +234,8 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 	}
 
 	log.G(ctx).Infof("using revision: \"%s\", installation path: \"%s\"", opts.CloneOptions.Revision(), opts.CloneOptions.Path())
-	if err = validateRepo(repofs); err != nil {
+	err = validateRepo(repofs, opts.Recover)
+	if err != nil{
 		return err
 	}
 
@@ -243,9 +248,11 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 		return fmt.Errorf("failed to apply bootstrap manifests to cluster: %w", err)
 	}
 
-	// write argocd manifests to repo
-	if err = writeManifestsToRepo(repofs, manifests, opts.InstallationMode, opts.Namespace); err != nil {
-		return fmt.Errorf("failed to write manifests to repo: %w", err)
+	if !opts.Recover {
+		// write argocd manifests to repo
+		if err = writeManifestsToRepo(repofs, manifests, opts.InstallationMode, opts.Namespace); err != nil {
+			return fmt.Errorf("failed to write manifests to repo: %w", err)
+		}
 	}
 
 	// wait for argocd to be ready before applying argocd-apps
@@ -258,15 +265,17 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 
 	stop()
 
-	// push results to repo
-	log.G(ctx).Infof("pushing bootstrap manifests to repo")
-	commitMsg := "Autopilot Bootstrap"
-	if opts.CloneOptions.Path() != "" {
-		commitMsg = "Autopilot Bootstrap at " + opts.CloneOptions.Path()
-	}
+	if !opts.Recover {
+		// push results to repo
+		log.G(ctx).Infof("pushing bootstrap manifests to repo")
+		commitMsg := "Autopilot Bootstrap"
+		if opts.CloneOptions.Path() != "" {
+			commitMsg = "Autopilot Bootstrap at " + opts.CloneOptions.Path()
+		}
 
-	if _, err = r.Persist(ctx, &git.PushOptions{CommitMsg: commitMsg}); err != nil {
-		return err
+		if _, err = r.Persist(ctx, &git.PushOptions{CommitMsg: commitMsg}); err != nil {
+			return err
+		}
 	}
 
 	// apply "Argo-CD" Application that references "bootstrap/argo-cd"
@@ -459,11 +468,17 @@ func setBootstrapOptsDefaults(opts RepoBootstrapOptions) (*RepoBootstrapOptions,
 	return &opts, nil
 }
 
-func validateRepo(repofs fs.FS) error {
+func validateRepo(repofs fs.FS, recover bool) error {
 	folders := []string{store.Default.BootsrtrapDir, store.Default.ProjectsDir}
 	for _, folder := range folders {
 		if repofs.ExistsOrDie(folder) {
-			return fmt.Errorf("folder %s already exist in: %s", folder, repofs.Join(repofs.Root(), folder))
+			if recover {
+				continue
+			} else {
+				return fmt.Errorf("folder %s already exist in: %s", folder, repofs.Join(repofs.Root(), folder))
+			}
+		} else if recover {
+			return fmt.Errorf("recovery failed: invalid repository, %s directory is missing in %s", folder, repofs.Root())
 		}
 	}
 
