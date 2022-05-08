@@ -414,6 +414,87 @@ func TestRunRepoBootstrap(t *testing.T) {
 	}
 }
 
+func TestRunRepoBootstrapRecovery(t *testing.T) {
+	exitCalled := false
+	tests := map[string]struct {
+		opts     *RepoBootstrapOptions
+		beforeFn func(*gitmocks.MockRepository, *kubemocks.MockFactory)
+		assertFn func(*testing.T, fs.FS, error)
+	}{
+		"Recovery installation": {
+			opts: &RepoBootstrapOptions{
+				InstallationMode: installationModeNormal,
+				Namespace:        "bar",
+				Recover: true,
+				CloneOptions: &git.CloneOptions{
+					Repo: "https://github.com/foo/bar/installation1?ref=main",
+					Auth: git.Auth{Password: "test"},
+				},
+			},
+			beforeFn: func(r *gitmocks.MockRepository, f *kubemocks.MockFactory) {
+				mockCS := fake.NewSimpleClientset(&v1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "argocd-initial-admin-secret",
+						Namespace: "bar",
+					},
+					Data: map[string][]byte{
+						"password": []byte("foo"),
+					},
+				})
+				f.EXPECT().Apply(gomock.Any(), gomock.Any()).
+					Times(2).
+					Return(nil)
+				f.EXPECT().Wait(gomock.Any(), gomock.Any()).Return(nil)
+				f.EXPECT().KubernetesClientSetOrDie().Return(mockCS)
+			},
+			assertFn: func(t *testing.T, repofs fs.FS, ret error) {
+				assert.NoError(t, ret)
+				assert.False(t, exitCalled)
+			},
+		},
+	}
+
+	origExit, origGetRepo, origRunKustomizeBuild, origArgoLogin := exit, getRepo, runKustomizeBuild, argocdLogin
+	defer func() {
+		exit = origExit
+		getRepo = origGetRepo
+		runKustomizeBuild = origRunKustomizeBuild
+		argocdLogin = origArgoLogin
+	}()
+	exit = func(_ int) { exitCalled = true }
+	runKustomizeBuild = func(k *kusttypes.Kustomization) ([]byte, error) { return []byte("test"), nil }
+	argocdLogin = func(opts *argocd.LoginOptions) error { return nil }
+
+	for tname, tt := range tests {
+		t.Run(tname, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			r := gitmocks.NewMockRepository(ctrl)
+			f := kubemocks.NewMockFactory(ctrl)
+			repofs := fs.Create(memfs.New())
+			repofs.MkdirAll("bootstrap", 0666)
+			repofs.MkdirAll("projects", 0666)
+			repofs.Create(repofs.Join(
+				store.Default.BootsrtrapDir,
+				"README.md",
+			))
+			repofs.Create(repofs.Join(
+				store.Default.ProjectsDir,
+				"README.md",
+			))
+			exitCalled = false
+
+			tt.beforeFn(r, f)
+			tt.opts.KubeFactory = f
+			getRepo = func(_ context.Context, _ *git.CloneOptions) (git.Repository, fs.FS, error) {
+				return r, repofs, nil
+			}
+
+			err := RunRepoBootstrap(context.Background(), tt.opts)
+			tt.assertFn(t, repofs, err)
+		})
+	}
+}
+
 func Test_setUninstallOptsDefaults(t *testing.T) {
 	tests := map[string]struct {
 		opts               RepoUninstallOptions
