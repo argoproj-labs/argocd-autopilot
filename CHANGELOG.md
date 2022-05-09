@@ -1,5 +1,9 @@
 # Changelog:
 
+# v0.3.7
+* docs: fix edit url to use main branch (#300)
+* adding --recover flag to bootstrap command for installing from an existing repo
+
 # v0.3.6
 * fixed extracting email from github token
 * support labels for bootstrap namespace

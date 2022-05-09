@@ -68,6 +68,14 @@ Execute the port forward command, and browse to http://localhost:8080. Log in us
 
 ![Step 1](assets/getting_started_1.png)
 
+### Recovering Argo-cd from an existing repository
+```
+argocd-autopilot repo bootstrap --recover \
+  --app "github.com/git-user/repo-name/bootstrap" #optional
+```
+
+In case of a cluster failure, you can recover argo-cd from an existing repository using `--recover` flag. You can optionally use it with `--app` flag to specify the path to the existing argo-cd manifests.
+
 ### Running Applications:
 * autopilot-bootstrap - References the `bootstrap` directory in the GitOps repository, and manages the other 2 applications
 * argo-cd - References the `bootstrap/argo-cd` folder, and manages the Argo CD deployment itself (including Argo CD ApplicationSet)
