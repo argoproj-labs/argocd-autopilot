@@ -1,9 +1,9 @@
 ### Changes
-* fixed extracting email from github token
-* support labels for bootstrap namespace
+* docs: fix edit url to use main branch (#300)
+* adding --recover flag to bootstrap command for installing from an existing repo
 
 ### Contributors:
-- Noam Gal ([@noam-codefresh](https://github.com/noam-codefresh))
+- TAKAHASHI Shuuji ([@shuuji3](https://github.com/shuuji3))
 - Rotem Cohen ([@rotem-codefresh](https://github.com/rotem-codefresh))
 
 ## Installation:
@@ -43,7 +43,7 @@ argocd-autopilot version
 ### Linux and WSL (using curl):
 ```bash
 # download and extract the binary
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.3.6/argocd-autopilot-linux-amd64.tar.gz | tar zx
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.3.7/argocd-autopilot-linux-amd64.tar.gz | tar zx
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
@@ -55,7 +55,7 @@ argocd-autopilot version
 ### Mac (using curl):
 ```bash
 # download and extract the binary
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.3.6/argocd-autopilot-darwin-amd64.tar.gz | tar zx
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.3.7/argocd-autopilot-darwin-amd64.tar.gz | tar zx
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
@@ -70,5 +70,5 @@ When using the Docker image, you have to provide the `.kube` and `.gitconfig` di
 docker run \
   -v ~/.kube:/home/autopilot/.kube \
   -v ~/.gitconfig:/home/autopilot/.gitconfig \
-  -it quay.io/argoprojlabs/argocd-autopilot:v0.3.6 <cmd> <flags>
+  -it quay.io/argoprojlabs/argocd-autopilot:v0.3.7 <cmd> <flags>
 ```
