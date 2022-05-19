@@ -151,8 +151,8 @@ github.com/appscode/go v0.0.0-20190808133642-1d4ef1f1c1e0/go.mod h1:iy07dV61Z7QQ
 github.com/argoproj/applicationset v0.4.1 h1:PzTn77TK7XQB3CdpCDPbwU4pQgip0x4qvuJQ8XiBk5E=
 github.com/argoproj/applicationset v0.4.1/go.mod h1:cJZ7CWG80kBII4QNalyAvSr8eVifo8jKkyXoVl9qXaA=
 github.com/argoproj/argo-cd/v2 v2.3.0-rc5.0.20220225234205-31676e2aea6f/go.mod h1:PQw/102hk/8LmuMy0daLH1SIFYq3f95cUya+3NZP3xg=
-github.com/argoproj/argo-cd/v2 v2.3.3 h1:SE1Cb8MDqP5T2iUtyL9bwpKYIvpGkVUsgzKCAqZZ5Vc=
-github.com/argoproj/argo-cd/v2 v2.3.3/go.mod h1:EuPH0/rLe/FdHGwQ/EVucspMnF3v4qd7da6N6CG+oJA=
+github.com/argoproj/argo-cd/v2 v2.3.4 h1:mj+snMMf9LoHWMH3rLCkBWSRETv1Sq8lxuuyLxH+76A=
+github.com/argoproj/argo-cd/v2 v2.3.4/go.mod h1:EuPH0/rLe/FdHGwQ/EVucspMnF3v4qd7da6N6CG+oJA=
 github.com/argoproj/gitops-engine v0.6.0/go.mod h1:pRgVpLW7pZqf7n3COJ7UcDepk4cI61LAcJd64Q3Jq/c=
 github.com/argoproj/gitops-engine v0.6.2 h1:hM+pQeplCeIPAvfAmr1f91+ykxqaU0GAzuxVujqlKHM=
 github.com/argoproj/gitops-engine v0.6.2/go.mod h1:pRgVpLW7pZqf7n3COJ7UcDepk4cI61LAcJd64Q3Jq/c=
