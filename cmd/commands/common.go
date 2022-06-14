@@ -135,6 +135,13 @@ func createApp(opts *createAppOptions) ([]byte, error) {
 						"/status",
 					},
 				},
+				{
+					Group: "apps",
+					Kind:  "Deployment",
+					JSONPointers: []string{
+						"/spec",
+					},
+				},
 			},
 		},
 	}
