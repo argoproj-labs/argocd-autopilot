@@ -138,6 +138,7 @@ func createApp(opts *createAppOptions) ([]byte, error) {
 				{
 					Group: "apps",
 					Kind:  "Deployment",
+					Name: "cap-app-proxy",
 					JSONPointers: []string{
 						"/spec",
 					},
