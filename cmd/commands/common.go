@@ -135,14 +135,6 @@ func createApp(opts *createAppOptions) ([]byte, error) {
 						"/status",
 					},
 				},
-				{
-					Group: "apps",
-					Kind:  "Deployment",
-					Name: "cap-app-proxy",
-					JSONPointers: []string{
-						"/spec",
-					},
-				},
 			},
 		},
 	}
@@ -250,6 +242,14 @@ func createAppSet(o *createAppSetOptions) ([]byte, error) {
 							Kind:  "Application",
 							JSONPointers: []string{
 								"/status",
+							},
+						},
+						{
+							Group: "apps",
+							Kind:  "Deployment",
+							Name: "cap-app-proxy",
+							JSONPointers: []string{
+								"/spec",
 							},
 						},
 					},
