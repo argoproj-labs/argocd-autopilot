@@ -98,10 +98,11 @@ func NewProjectCreateCommand() *cobra.Command {
 
 		export GIT_TOKEN=<token>
 		export GIT_REPO=<repo_url>
+		export GIT_PROVIDER=<provider> # optional: autodetected by default
 
 # or with the flags:
 
-		--git-token <token> --repo <repo_url>
+		--git-token <token> --repo <repo_url> [--provider <provider>]
 
 # Create a new project
 
@@ -373,10 +374,11 @@ func NewProjectListCommand() *cobra.Command {
 
 		export GIT_TOKEN=<token>
 		export GIT_REPO=<repo_url>
+		export GIT_PROVIDER=<provider> # optional: autodetected by default
 
 # or with the flags:
 
-		--git-token <token> --repo <repo_url>
+		--git-token <token> --repo <repo_url> [--provider <provider>]"
 
 # Lists projects
 
@@ -449,10 +451,11 @@ func NewProjectDeleteCommand() *cobra.Command {
 	
 		export GIT_TOKEN=<token>
 		export GIT_REPO=<repo_url>
+		export GIT_PROVIDER=<provider> # optional: autodetected by default
 
 # or with the flags:
 	
-		--token <token> --repo <repo_url>
+		--token <token> --repo <repo_url> [--provider <provider>]
 		
 # Delete a project
 	

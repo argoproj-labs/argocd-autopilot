@@ -61,11 +61,11 @@ type (
 		CreateIfNotExist bool
 		CloneForWrite    bool
 		UpsertBranch     bool
-	
-		url              string
-		revision         string
-		path             string
-		provider         Provider
+
+		url      string
+		revision string
+		path     string
+		provider Provider
 	}
 
 	PushOptions struct {
@@ -152,15 +152,14 @@ func AddFlags(cmd *cobra.Command, opts *AddFlagsOptions) *CloneOptions {
 	util.Die(viper.BindEnv(opts.Prefix+"git-token", envPrefix+"GIT_TOKEN"))
 	util.Die(viper.BindEnv(opts.Prefix+"git-user", envPrefix+"GIT_USER"))
 	util.Die(viper.BindEnv(opts.Prefix+"repo", envPrefix+"GIT_REPO"))
+	util.Die(viper.BindEnv(opts.Prefix+"provider", envPrefix+"GIT_PROVIDER"))
 
 	if opts.Prefix == "" {
 		cmd.Flag("git-token").Shorthand = "t"
 		cmd.Flag("git-user").Shorthand = "u"
 	}
 
-	if opts.CreateIfNotExist {
-		cmd.PersistentFlags().StringVar(&co.Provider, opts.Prefix+"provider", "", fmt.Sprintf("The git provider, one of: %v", strings.Join(Providers(), "|")))
-	}
+	cmd.PersistentFlags().StringVar(&co.Provider, opts.Prefix+"provider", "", fmt.Sprintf("The git provider, one of: %v", strings.Join(Providers(), "|")))
 
 	if opts.CloneForWrite {
 		cmd.PersistentFlags().BoolVarP(&co.UpsertBranch, opts.Prefix+"upsert-branch", "b", false, "If true will try to checkout the specified branch and create it if it doesn't exist")

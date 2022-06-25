@@ -88,10 +88,11 @@ func NewAppCreateCommand() *cobra.Command {
 
 		export GIT_TOKEN=<token>
 		export GIT_REPO=<repo_url>
+		export GIT_PROVIDER=<provider> # optional: autodetected by default
 
 # or with the flags:
 
-		--git-token <token> --repo <repo_url>
+		--git-token <token> --repo <repo_url> [--provider <provider>]
 
 # using the --type flag (kustomize|dir) is optional. If it is ommitted, <BIN> will clone
 # the --app repository, and infer the type automatically.
@@ -329,12 +330,13 @@ func NewAppListCommand() *cobra.Command {
 
 		export GIT_TOKEN=<token>
 		export GIT_REPO=<repo_url>
+		export GIT_PROVIDER=<provider> # optional: autodetected by default
 
 # or with the flags:
 
-		--git-token <token> --repo <repo_url>
+		--git-token <token> --repo <repo_url> [--provider <provider>]
 
-# Get list of installed applications in a specifc project
+# Get list of installed applications in a specific project
 
 	<BIN> app list <project_name>
 `),
@@ -419,10 +421,11 @@ func NewAppDeleteCommand() *cobra.Command {
 
 		export GIT_TOKEN=<token>
 		export GIT_REPO=<repo_url>
+		export GIT_PROVIDER=<provider> # optional: autodetected by default
 
 # or with the flags:
 
-		--git-token <token> --repo <repo_url>
+		--git-token <token> --repo <repo_url> [--provider <provider>]
 
 # Get list of installed applications in a specifc project
 
