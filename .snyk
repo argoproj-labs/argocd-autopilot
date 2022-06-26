@@ -1,0 +1,7 @@
+# Snyk (https://snyk.io) policy file, patches or ignores known vulnerabilities.
+version: v1.22.2
+ignore:
+  SNYK-GOLANG-GITHUBCOMEMICKLEIGORESTFUL-2435653:
+    - "*":
+        reason: Ignore because there is no fix inside of latest version of github.com/argoproj/argo-cd
+        expires: 2022-10-13T17:33:45.004Z

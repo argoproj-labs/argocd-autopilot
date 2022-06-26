@@ -30,12 +30,12 @@ type (
 	}
 
 	LoginOptions struct {
-		Namespace  string
-		Username   string
-		Password   string
-		KubeConfig string
+		Namespace   string
+		Username    string
+		Password    string
+		KubeConfig  string
 		KubeContext string
-		Insecure   bool
+		Insecure    bool
 	}
 )
 
@@ -47,7 +47,7 @@ func AddClusterAddFlags(cmd *cobra.Command) (AddClusterCmd, error) {
 		return nil, err
 	}
 
-	fs, err := util.StealFlags(addcmd, []string{"logformat", "loglevel", "namespace"})
+	fs, err := util.StealFlags(addcmd, []string{"logformat", "loglevel", "namespace", "kube-context"})
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +124,6 @@ func Login(opts *LoginOptions) error {
 	if opts.Insecure {
 		args = append(args, "--plaintext")
 	}
-
 
 	root.SetArgs(args)
 	return root.Execute()
