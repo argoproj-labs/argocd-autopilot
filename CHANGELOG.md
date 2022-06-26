@@ -1,5 +1,13 @@
 # Changelog:
 
+# v0.3.8
+
+### Changes
+* Added Mac Silicon binary build target for release (#320)
+
+### Security Fixes
+* Fixed security issue by bumping argo-cd dependency to v2.4.1
+
 # v0.3.7
 * docs: fix edit url to use main branch (#300)
 * adding --recover flag to bootstrap command for installing from an existing repo
