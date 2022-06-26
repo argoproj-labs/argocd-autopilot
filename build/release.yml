@@ -161,6 +161,10 @@ steps:
         title: darwin_amd64
         environment:
          - TARGET=darwin-amd64
+      darwin_arm64:
+        title: darwin_arm64
+        environment:
+         - TARGET=darwin-arm64
     retry:
       maxAttempts: 3
       delay: 1
