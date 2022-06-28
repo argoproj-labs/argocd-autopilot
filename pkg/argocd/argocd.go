@@ -125,6 +125,10 @@ func Login(opts *LoginOptions) error {
 		args = append(args, "--plaintext")
 	}
 
+	if opts.KubeContext != "" {
+		args = append(args, "--kube-context", opts.KubeContext)
+	}
+
 	root.SetArgs(args)
 	return root.Execute()
 }
