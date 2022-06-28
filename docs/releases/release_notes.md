@@ -1,12 +1,8 @@
 ### Changes
-* Added Mac Silicon binary build target for release (#320)
-
-### Security Fixes
-* Fixed security issue by bumping argo-cd dependency to v2.4.1
+* Sending --kube-context flag to argocd login cmd in argocd pkg (#326)
 
 ### Contributors:
-- Stefan Hojer ([@hojerst](https://github.com/hojerst))
-- Roi Kramer ([@roi-codefresh](https://github.com/roi-codefresh))
+- Rotem Cohen ([@rotem-codefresh](https://github.com/rotem-codefresh))
 
 ## Installation:
 
