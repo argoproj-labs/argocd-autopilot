@@ -1,5 +1,10 @@
 # Changelog:
 
+# v0.3.9
+
+### Changes
+* Sending --kube-context flag to argocd login cmd in argocd pkg (#326)
+
 # v0.3.8
 
 ### Changes
