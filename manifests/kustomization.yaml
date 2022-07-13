@@ -1,5 +1,0 @@
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - https://raw.githubusercontent.com/argoproj/argo-cd/v2.0.1/manifests/install.yaml
-  - https://raw.githubusercontent.com/argoproj-labs/applicationset/v0.1.0/manifests/install.yaml

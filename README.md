@@ -15,19 +15,59 @@ Argo CD Autopilot saves operators time by:
 - Providing a clear structure for how applications are to be added and updated, all from git.
 - Creating a simple pattern for making updates to applications and promoting those changes across environments.
 - Enabling better disaster recovery by being able to bootstrap new clusters with all the applications previously installed.
-- Handles secrets for Argo CD to prevent them from spilling into plaintext git.
+- Handles secrets for Argo CD to prevent them from spilling into plaintext git. (Soon to come)
 
 The Argo-CD Autopilot is a tool which offers an opinionated way of installing Argo-CD and managing GitOps repositories.
 
 ## Installation
-### Mac
+### Using brew:
+```bash
+# install
+brew install argocd-autopilot
 
+# check the installation
+argocd-autopilot version
+```
+
+### Using scoop:
+```bash
+# update
+scoop update
+
+# install
+scoop install argocd-autopilot
+
+# check the installation
+argocd-autopilot version
+```
+
+### Using chocolatey:
+```bash
+# install
+choco install argocd-autopilot
+
+# check the installation
+argocd-autopilot version
+```
+
+### Linux AUR:
+```bash
+# install
+yay -S argocd-autopilot-bin
+# or
+sudo pacman -S argocd-autopilot-bin
+
+# check the installation
+argocd-autopilot version
+```
+
+### Linux and WSL (using curl):
 ```bash
 # get the latest version or change to a specific version
 VERSION=$(curl --silent "https://api.github.com/repos/argoproj-labs/argocd-autopilot/releases/latest" | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
 
 # download and extract the binary
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/$VERSION/argocd-autopilot-darwin-amd64.gz | tar zx
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/$VERSION/argocd-autopilot-linux-amd64.tar.gz | tar zx
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
@@ -36,47 +76,56 @@ mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
 argocd-autopilot version
 ```
 
-### Linux
+### Mac (using curl):
 ```bash
 # get the latest version or change to a specific version
 VERSION=$(curl --silent "https://api.github.com/repos/argoproj-labs/argocd-autopilot/releases/latest" | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
 
 # download and extract the binary
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/$VERSION/argocd-autopilot-linux-amd64.gz | tar zx
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/$VERSION/argocd-autopilot-darwin-amd64.tar.gz | tar zx
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
 
 # check the installation
 argocd-autopilot version
+```
+
+## Docker
+When using the Docker image, you have to provide the `.kube` and `.gitconfig` directories as mounts to the running container:
+```
+docker run \
+  -v ~/.kube:/home/autopilot/.kube \
+  -v ~/.gitconfig:/home/autopilot/.gitconfig \
+  -it quay.io/argoprojlabs/argocd-autopilot <cmd> <flags>
 ```
 
 ## Getting Started
 ```bash
-# Most of the commands need your git token, you can provide with --git-token to each command
-# or export it beforehand:
+# All of the commands need your git token with the --git-token flag,
+# or the GIT_TOKEN env variable:
 
     export GIT_TOKEN=<YOUR_TOKEN>
 
-# 1. Create a new git repository
-
-    argocd-autopilot repo create --owner <owner> --name <name>
-
-# At this point you can specify the gitops repo in each command with --repo
-# or you can export it as well:
+# The commands will also need your repo clone URL with the --repo flag,
+# or the GIT_REPO env variable:
 
     export GIT_REPO=<REPO_URL>
 
-# 2. Run the bootstrap installation on your current kubernetes context.
+# 1. Run the bootstrap installation on your current kubernetes context.
 # This will install argo-cd as well as the application-set controller.
 
     argocd-autopilot repo bootstrap
 
-# 3. Create your first project
+# Please note that this will automatically attempt to create a private repository,
+# if the clone URL references a non-existing one. If the repository already exists,
+# the command will just clone it.
+
+# 2. Create your first project
 
     argocd-autopilot project create my-project
 
-# 4. Install your first application on your project
+# 3. Install your first application on your project
 
     argocd-autopilot app create demoapp --app github.com/argoproj-labs/argocd-autopilot/examples/demo-app/ -p my-project
 ```
@@ -90,7 +139,7 @@ Head over to our [Getting Started](./docs/Getting-Started.md) guide for further 
 ## How it works
 The autopilot bootstrap command will deploy an Argo-CD manifest to a target k8s cluster, and will commit an Argo-CD Application manifest under a specific directory in your GitOps repository. This Application will manage the Argo-CD installation itself - so after running this command, you will have an Argo-CD deployment that manages itself through GitOps.
 
-From that point on, the use can create Projects and Applications that belong to them. Autopilot will commit the required manifests to the repository. Once committed, Argo-CD will do its magic and apply the Applications to the cluster.
+From that point on, the user can create Projects and Applications that belong to them. Autopilot will commit the required manifests to the repository. Once committed, Argo-CD will do its magic and apply the Applications to the cluster.
 
 An application can be added to a project from a public git repo + path, or from a directory in the local filesystem.
 

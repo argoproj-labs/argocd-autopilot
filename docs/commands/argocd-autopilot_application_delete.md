@@ -29,18 +29,13 @@ argocd-autopilot application delete [APP_NAME] [flags]
 ### Options
 
 ```
-  -g, --global   global
-  -h, --help     help for delete
-```
-
-### Options inherited from parent commands
-
-```
-  -t, --git-token string           Your git provider api token [GIT_TOKEN]
-      --installation-path string   The path where we of the installation files (defaults to the root of the repository [GIT_INSTALLATION_PATH]
-  -p, --project string             Project name
-      --repo string                Repository URL [GIT_REPO]
-      --revision string            Repository branch, tag or commit hash (defaults to HEAD)
+  -t, --git-token string   Your git provider api token [GIT_TOKEN]
+  -u, --git-user string    Your git provider user name [GIT_USER] (not required in GitHub)
+  -g, --global             global
+  -h, --help               help for delete
+  -p, --project string     Project name
+      --repo string        Repository URL [GIT_REPO]
+  -b, --upsert-branch      If true will try to checkout the specified branch and create it if it doesn't exist
 ```
 
 ### SEE ALSO

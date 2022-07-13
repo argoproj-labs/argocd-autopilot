@@ -1,18 +1,17 @@
 package commands
 
 import (
-	"github.com/argoproj/argocd-autopilot/pkg/store"
-	"github.com/argoproj/argocd-autopilot/pkg/util"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
 
 func NewRoot() *cobra.Command {
-	s := store.Get()
-
 	cmd := &cobra.Command{
-		Use: s.BinaryName,
+		Use: store.Get().BinaryName,
 		Short: util.Doc(`<BIN> is used for installing and managing argo-cd installations and argo-cd
 applications using gitops`),
 		Long: util.Doc(`<BIN> is used for installing and managing argo-cd installations and argo-cd

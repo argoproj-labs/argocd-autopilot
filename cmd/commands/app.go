@@ -5,40 +5,49 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
-	"reflect"
 	"text/tabwriter"
+	"time"
 
-	"github.com/argoproj/argocd-autopilot/pkg/application"
-	"github.com/argoproj/argocd-autopilot/pkg/fs"
-	"github.com/argoproj/argocd-autopilot/pkg/git"
-	"github.com/argoproj/argocd-autopilot/pkg/log"
-	"github.com/argoproj/argocd-autopilot/pkg/store"
-	"github.com/argoproj/argocd-autopilot/pkg/util"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/application"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/fs"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/git"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/kube"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/log"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
-	"github.com/ghodss/yaml"
+	"github.com/go-git/go-billy/v5/memfs"
+	"github.com/go-git/go-billy/v5/osfs"
 	billyUtils "github.com/go-git/go-billy/v5/util"
 	"github.com/spf13/cobra"
-	kusttypes "sigs.k8s.io/kustomize/api/types"
-)
-
-var (
-	ErrAppAlreadyInstalledOnProject = errors.New("application already installed on project")
-	ErrAppCollisionWithExistingBase = errors.New("an application with the same name and a different base already exists, consider choosing a different name")
 )
 
 type (
 	AppCreateOptions struct {
-		BaseOptions
-		AppOpts *application.CreateOptions
+		CloneOpts       *git.CloneOptions
+		AppsCloneOpts   *git.CloneOptions
+		ProjectName     string
+		KubeContextName string
+		AppOpts         *application.CreateOptions
+		KubeFactory     kube.Factory
+		Timeout         time.Duration
+		Labels          map[string]string
+		Include         string
+		Exclude         string
 	}
 
 	AppDeleteOptions struct {
-		BaseOptions
-		AppName string
-		Global  bool
+		CloneOpts   *git.CloneOptions
+		ProjectName string
+		AppName     string
+		Global      bool
+	}
+
+	AppListOptions struct {
+		CloneOpts   *git.CloneOptions
+		ProjectName string
 	}
 )
 
@@ -52,19 +61,22 @@ func NewAppCommand() *cobra.Command {
 			exit(1)
 		},
 	}
-	opts, err := addFlags(cmd)
-	die(err)
 
-	cmd.AddCommand(NewAppCreateCommand(opts))
-	cmd.AddCommand(NewAppListCommand(opts))
-	cmd.AddCommand(NewAppDeleteCommand(opts))
+	cmd.AddCommand(NewAppCreateCommand())
+	cmd.AddCommand(NewAppListCommand())
+	cmd.AddCommand(NewAppDeleteCommand())
 
 	return cmd
 }
 
-func NewAppCreateCommand(opts *BaseOptions) *cobra.Command {
+func NewAppCreateCommand() *cobra.Command {
 	var (
-		appOpts *application.CreateOptions
+		cloneOpts     *git.CloneOptions
+		appsCloneOpts *git.CloneOptions
+		appOpts       *application.CreateOptions
+		projectName   string
+		timeout       time.Duration
+		f             kube.Factory
 	)
 
 	cmd := &cobra.Command{
@@ -81,37 +93,161 @@ func NewAppCreateCommand(opts *BaseOptions) *cobra.Command {
 
 		--git-token <token> --repo <repo_url>
 
-# Create a new application from kustomization in a remote repository
+# using the --type flag (kustomize|dir) is optional. If it is ommitted, <BIN> will clone
+# the --app repository, and infer the type automatically.
 
-	<BIN> app create <new_app_name> --app github.com/some_org/some_repo/manifests?ref=v1.2.3 --project project_name
+# Create a new application from kustomization in a remote repository (will reference the HEAD revision)
+
+	<BIN> app create <new_app_name> --app github.com/some_org/some_repo/manifests --project project_name
+
+# Reference a specific git commit hash:
+
+  <BIN> app create <new_app_name> --app github.com/some_org/some_repo/manifests?sha=<commit_hash> --project project_name
+
+# Reference a specific git tag:
+
+  <BIN> app create <new_app_name> --app github.com/some_org/some_repo/manifests?tag=<tag_name> --project project_name
+
+# Reference a specific git branch:
+
+  <BIN> app create <new_app_name> --app github.com/some_org/some_repo/manifests?ref=<branch_name> --project project_name
+
+# Wait until the application is Synced in the cluster:
+
+  <BIN> app create <new_app_name> --app github.com/some_org/some_repo/manifests --project project_name --wait-timeout 2m --context my_context 
 `),
+		PreRun: func(_ *cobra.Command, _ []string) {
+			cloneOpts.Parse()
+			appsCloneOpts.Parse()
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			if len(args) < 1 {
-				log.G().Fatal("must enter application name")
+				log.G(ctx).Fatal("must enter application name")
 			}
 
 			appOpts.AppName = args[0]
-
-			return RunAppCreate(cmd.Context(), &AppCreateOptions{
-				BaseOptions: *opts,
-				AppOpts:     appOpts,
+			return RunAppCreate(ctx, &AppCreateOptions{
+				CloneOpts:       cloneOpts,
+				AppsCloneOpts:   appsCloneOpts,
+				ProjectName:     projectName,
+				KubeContextName: cmd.Flag("context").Value.String(),
+				AppOpts:         appOpts,
+				Timeout:         timeout,
+				KubeFactory:     f,
 			})
 		},
 	}
+
+	cmd.Flags().StringVarP(&projectName, "project", "p", "", "Project name")
+	cmd.Flags().DurationVar(&timeout, "wait-timeout", time.Duration(0), "If not '0s', will try to connect to the cluster and wait until the application is in 'Synced' status for the specified timeout period")
+	cloneOpts = git.AddFlags(cmd, &git.AddFlagsOptions{
+		FS:            memfs.New(),
+		CloneForWrite: true,
+	})
+	appsCloneOpts = git.AddFlags(cmd, &git.AddFlagsOptions{
+		FS:       memfs.New(),
+		Prefix:   "apps",
+		Optional: true,
+	})
 	appOpts = application.AddFlags(cmd)
+	f = kube.AddFlags(cmd.Flags())
 
 	die(cmd.MarkFlagRequired("app"))
+	die(cmd.MarkFlagRequired("project"))
 
 	return cmd
 }
 
 func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
-	r, repofs, err := prepareRepo(ctx, &opts.BaseOptions)
+	var (
+		appsRepo git.Repository
+		appsfs   fs.FS
+	)
+
+	log.G(ctx).WithFields(log.Fields{
+		"app-url":      opts.AppsCloneOpts.URL(),
+		"app-revision": opts.AppsCloneOpts.Revision(),
+		"app-path":     opts.AppsCloneOpts.Path(),
+	}).Debug("starting with options: ")
+
+	r, repofs, err := prepareRepo(ctx, opts.CloneOpts, opts.ProjectName)
 	if err != nil {
 		return err
 	}
 
-	if opts.AppOpts.DestServer == store.Default.DestServer {
+	if opts.AppsCloneOpts.Repo != "" {
+		if opts.AppsCloneOpts.Auth.Password == "" {
+			opts.AppsCloneOpts.Auth.Username = opts.CloneOpts.Auth.Username
+			opts.AppsCloneOpts.Auth.Password = opts.CloneOpts.Auth.Password
+		}
+
+		appsRepo, appsfs, err = getRepo(ctx, opts.AppsCloneOpts)
+		if err != nil {
+			return err
+		}
+	} else {
+		opts.AppsCloneOpts = opts.CloneOpts
+		appsRepo, appsfs = r, repofs
+	}
+
+	if err = setAppOptsDefaults(ctx, repofs, opts); err != nil {
+		return err
+	}
+
+	app, err := parseApp(opts.AppOpts, opts.ProjectName, opts.CloneOpts.URL(), opts.CloneOpts.Revision(), opts.CloneOpts.Path())
+	if err != nil {
+		return fmt.Errorf("failed to parse application from flags: %w", err)
+	}
+
+	if err = app.CreateFiles(repofs, appsfs, opts.ProjectName); err != nil {
+		if errors.Is(err, application.ErrAppAlreadyInstalledOnProject) {
+			return fmt.Errorf("application '%s' already exists in project '%s': %w", app.Name(), opts.ProjectName, err)
+		}
+
+		return err
+	}
+
+	if opts.AppsCloneOpts != opts.CloneOpts {
+		log.G(ctx).Info("committing changes to apps repo...")
+		if _, err = appsRepo.Persist(ctx, &git.PushOptions{CommitMsg: getCommitMsg(opts, appsfs)}); err != nil {
+			return fmt.Errorf("failed to push to apps repo: %w", err)
+		}
+	}
+
+	log.G(ctx).Info("committing changes to gitops repo...")
+	revision, err := r.Persist(ctx, &git.PushOptions{CommitMsg: getCommitMsg(opts, repofs)})
+	if err != nil {
+		return fmt.Errorf("failed to push to gitops repo: %w", err)
+	}
+
+	if opts.Timeout > 0 {
+		namespace, err := getInstallationNamespace(repofs)
+		if err != nil {
+			return fmt.Errorf("failed to get application namespace: %w", err)
+		}
+
+		log.G(ctx).WithField("timeout", opts.Timeout).Infof("waiting for '%s' to finish syncing", opts.AppOpts.AppName)
+		fullName := fmt.Sprintf("%s-%s", opts.ProjectName, opts.AppOpts.AppName)
+
+		// wait for argocd to be ready before applying argocd-apps
+		stop := util.WithSpinner(ctx, fmt.Sprintf("waiting for '%s' to be ready", fullName))
+		if err = waitAppSynced(ctx, opts.KubeFactory, opts.Timeout, fullName, namespace, revision, true); err != nil {
+			stop()
+			return fmt.Errorf("failed waiting for application to sync: %w", err)
+		}
+
+		stop()
+	}
+
+	log.G(ctx).Infof("installed application: %s", opts.AppOpts.AppName)
+	return nil
+}
+
+var setAppOptsDefaults = func(ctx context.Context, repofs fs.FS, opts *AppCreateOptions) error {
+	var err error
+
+	if opts.AppOpts.DestServer == store.Default.DestServer || opts.AppOpts.DestServer == "" {
 		opts.AppOpts.DestServer, err = getProjectDestServer(repofs, opts.ProjectName)
 		if err != nil {
 			return err
@@ -122,130 +258,52 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 		opts.AppOpts.DestNamespace = "default"
 	}
 
-	app, err := opts.AppOpts.Parse()
-	if err != nil {
-		return fmt.Errorf("failed to parse application from flags: %v", err)
+	if opts.AppOpts.Labels == nil {
+		opts.AppOpts.Labels = opts.Labels
 	}
 
-	if err = createApplicationFiles(repofs, app, opts.ProjectName); err != nil {
-		if errors.Is(err, ErrAppAlreadyInstalledOnProject) {
-			return fmt.Errorf("application '%s' already exists in project '%s': %w", app.Name(), opts.ProjectName, ErrAppAlreadyInstalledOnProject)
+	if opts.AppOpts.AppType != "" {
+		return nil
+	}
+
+	var fsys fs.FS
+	if _, err := os.Stat(opts.AppOpts.AppSpecifier); err == nil {
+		// local directory
+		fsys = fs.Create(osfs.New(opts.AppOpts.AppSpecifier))
+	} else {
+		host, orgRepo, p, _, _, suffix, _ := util.ParseGitUrl(opts.AppOpts.AppSpecifier)
+		url := host + orgRepo + suffix
+		log.G(ctx).Infof("cloning repo: '%s', to infer app type from path '%s'", url, p)
+		cloneOpts := &git.CloneOptions{
+			Repo: opts.AppOpts.AppSpecifier,
+			Auth: opts.CloneOpts.Auth,
+			FS:   fs.Create(memfs.New()),
 		}
-
-		return err
-	}
-
-	log.G().Info("committing changes to gitops repo...")
-	if err = r.Persist(ctx, &git.PushOptions{CommitMsg: getCommitMsg(opts, repofs)}); err != nil {
-		return fmt.Errorf("failed to push to repo: %w", err)
-	}
-
-	log.G().Infof("installed application: %s", opts.AppOpts.AppName)
-
-	return nil
-}
-
-func createApplicationFiles(repoFS fs.FS, app application.Application, projectName string) error {
-	basePath := repoFS.Join(store.Default.KustomizeDir, app.Name(), "base")
-	overlayPath := repoFS.Join(store.Default.KustomizeDir, app.Name(), "overlays", projectName)
-
-	// create Base
-	baseKustomizationPath := repoFS.Join(basePath, "kustomization.yaml")
-	baseKustomizationYAML, err := yaml.Marshal(app.Base())
-	if err != nil {
-		return fmt.Errorf("failed to marshal app base kustomization: %w", err)
-	}
-
-	if exists, err := writeApplicationFile(repoFS, baseKustomizationPath, "base", baseKustomizationYAML); err != nil {
-		return err
-	} else if exists {
-		// check if the bases are the same
-		log.G().Debug("application base with the same name exists, checking for collisions")
-		if collision, err := checkBaseCollision(repoFS, baseKustomizationPath, app.Base()); err != nil {
-			return err
-		} else if collision {
-			return ErrAppCollisionWithExistingBase
-		}
-	}
-
-	// create Overlay
-	overlayKustomizationPath := repoFS.Join(overlayPath, "kustomization.yaml")
-	overlayKustomizationYAML, err := yaml.Marshal(app.Overlay())
-	if err != nil {
-		return fmt.Errorf("failed to marshal app overlay kustomization: %w", err)
-	}
-
-	if exists, err := writeApplicationFile(repoFS, overlayKustomizationPath, "overlay", overlayKustomizationYAML); err != nil {
-		return err
-	} else if exists {
-		return ErrAppAlreadyInstalledOnProject
-	}
-
-	// get manifests - only used in flat installation mode
-	if app.Manifests() != nil {
-		manifestsPath := repoFS.Join(basePath, "install.yaml")
-		if _, err = writeApplicationFile(repoFS, manifestsPath, "manifests", app.Manifests()); err != nil {
-			return err
-		}
-	}
-
-	// if we override the namespace we also need to write the namespace manifests next to the overlay
-	if app.Namespace() != nil {
-		nsPath := repoFS.Join(overlayPath, "namespace.yaml")
-		nsYAML, err := yaml.Marshal(app.Namespace())
+		cloneOpts.Parse()
+		_, fsys, err = getRepo(ctx, cloneOpts)
 		if err != nil {
-			return fmt.Errorf("failed to marshal app overlay namespace: %w", err)
-		}
-
-		if _, err = writeApplicationFile(repoFS, nsPath, "application namespace", nsYAML); err != nil {
 			return err
 		}
 	}
 
-	configPath := repoFS.Join(overlayPath, "config.json")
-	config, err := json.Marshal(app.Config())
-	if err != nil {
-		return fmt.Errorf("failed to marshal app config.json: %w", err)
-	}
-
-	if _, err = writeApplicationFile(repoFS, configPath, "config", config); err != nil {
-		return err
-	}
+	opts.AppOpts.AppType = application.InferAppType(fsys)
+	log.G(ctx).Infof("inferred application type: %s", opts.AppOpts.AppType)
 
 	return nil
 }
 
-func checkBaseCollision(repoFS fs.FS, orgBasePath string, newBase *kusttypes.Kustomization) (bool, error) {
-	f, err := repoFS.Open(orgBasePath)
-	if err != nil {
-		return false, err
-	}
-
-	data, err := ioutil.ReadAll(f)
-	if err != nil {
-		return false, err
-	}
-
-	orgBase := &kusttypes.Kustomization{}
-	if err = yaml.Unmarshal(data, orgBase); err != nil {
-		return false, err
-	}
-
-	return !reflect.DeepEqual(orgBase, newBase), nil
+var parseApp = func(appOpts *application.CreateOptions, projectName, repoURL, targetRevision, repoRoot string) (application.Application, error) {
+	return appOpts.Parse(projectName, repoURL, targetRevision, repoRoot)
 }
 
-func writeApplicationFile(repoFS fs.FS, path, name string, data []byte) (bool, error) {
-	absPath := repoFS.Join(repoFS.Root(), path)
-	exists, err := repoFS.CheckExistsOrWrite(path, data)
-	if err != nil {
-		return false, fmt.Errorf("failed to create '%s' file at '%s': %w", name, absPath, err)
-	} else if exists {
-		log.G().Infof("'%s' file exists in '%s'", name, absPath)
-		return true, nil
+func getProjectDestServer(repofs fs.FS, projectName string) (string, error) {
+	path := repofs.Join(store.Default.ProjectsDir, projectName+".yaml")
+	p := &argocdv1alpha1.AppProject{}
+	if err := repofs.ReadYamls(path, p); err != nil {
+		return "", fmt.Errorf("failed to unmarshal project: %w", err)
 	}
 
-	log.G().Infof("created '%s' file at '%s'", name, absPath)
-	return false, nil
+	return p.Annotations[store.Default.DestServerAnnotation], nil
 }
 
 func getCommitMsg(opts *AppCreateOptions, repofs fs.FS) string {
@@ -257,26 +315,11 @@ func getCommitMsg(opts *AppCreateOptions, repofs fs.FS) string {
 	return commitMsg
 }
 
-var getProjectDestServer = func(repofs fs.FS, projectName string) (string, error) {
-	f, err := repofs.Open(repofs.Join(store.Default.ProjectsDir, projectName+".yaml"))
-	if err != nil {
-		return "", err
-	}
+func NewAppListCommand() *cobra.Command {
+	var (
+		cloneOpts *git.CloneOptions
+	)
 
-	d, err := ioutil.ReadAll(f)
-	if err != nil {
-		return "", fmt.Errorf("failed to read namespace file: %w", err)
-	}
-
-	p := &argocdv1alpha1.AppProject{}
-	if err = yaml.Unmarshal(d, p); err != nil {
-		return "", fmt.Errorf("failed to unmarshal project: %w", err)
-	}
-
-	return p.Annotations[store.Default.DestServerAnnotation], nil
-}
-
-func NewAppListCommand(opts *BaseOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list [PROJECT_NAME]",
 		Short: "List all applications in a project",
@@ -295,36 +338,44 @@ func NewAppListCommand(opts *BaseOptions) *cobra.Command {
 
 	<BIN> app list <project_name>
 `),
+		PreRun: func(_ *cobra.Command, _ []string) { cloneOpts.Parse() },
 		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			if len(args) < 1 {
-				log.G().Fatal("must enter a project name")
+				log.G(ctx).Fatal("must enter a project name")
 			}
-			opts.ProjectName = args[0]
 
-			return RunAppList(cmd.Context(), opts)
+			return RunAppList(ctx, &AppListOptions{
+				CloneOpts:   cloneOpts,
+				ProjectName: args[0],
+			})
 		},
 	}
+
+	cloneOpts = git.AddFlags(cmd, &git.AddFlagsOptions{
+		FS: memfs.New(),
+	})
 
 	return cmd
 }
 
-func RunAppList(ctx context.Context, opts *BaseOptions) error {
-	_, repofs, err := prepareRepo(ctx, opts)
+func RunAppList(ctx context.Context, opts *AppListOptions) error {
+	_, repofs, err := prepareRepo(ctx, opts.CloneOpts, opts.ProjectName)
 	if err != nil {
 		return err
 	}
 
-	// get all apps beneath kustomize <project>\overlayes
-	matches, err := billyUtils.Glob(repofs, repofs.Join(store.Default.KustomizeDir, "*", store.Default.OverlaysDir, opts.ProjectName))
+	// get all apps beneath apps/*/overlays/<project>
+	matches, err := billyUtils.Glob(repofs, repofs.Join(store.Default.AppsDir, "*", store.Default.OverlaysDir, opts.ProjectName))
 	if err != nil {
-		log.G().Fatalf("failed to run glob on %s", opts.ProjectName)
+		log.G(ctx).Fatalf("failed to run glob on %s", opts.ProjectName)
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	_, _ = fmt.Fprintf(w, "PROJECT\tNAME\tDEST_NAMESPACE\tDEST_SERVER\t\n")
 
-	for _, appName := range matches {
-		conf, err := getConfigFileFromPath(repofs, appName)
+	for _, appPath := range matches {
+		conf, err := getConfigFileFromPath(repofs, appPath)
 		if err != nil {
 			return err
 		}
@@ -336,31 +387,27 @@ func RunAppList(ctx context.Context, opts *BaseOptions) error {
 	return nil
 }
 
-func getConfigFileFromPath(fs fs.FS, appName string) (*application.Config, error) {
-	confFileName := fmt.Sprintf("%s/config.json", appName)
-	file, err := fs.Open(confFileName)
+func getConfigFileFromPath(repofs fs.FS, appPath string) (*application.Config, error) {
+	path := repofs.Join(appPath, "config.json")
+	b, err := repofs.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("%s not found", confFileName)
-	}
-
-	b, err := ioutil.ReadAll(file)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read file %s", confFileName)
+		return nil, fmt.Errorf("failed to read file '%s'", path)
 	}
 
 	conf := application.Config{}
 	err = json.Unmarshal(b, &conf)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal file %s", confFileName)
+		return nil, fmt.Errorf("failed to unmarshal file '%s'", path)
 	}
 
 	return &conf, nil
 }
 
-func NewAppDeleteCommand(opts *BaseOptions) *cobra.Command {
+func NewAppDeleteCommand() *cobra.Command {
 	var (
-		appName string
-		global  bool
+		cloneOpts   *git.CloneOptions
+		projectName string
+		global      bool
 	)
 
 	cmd := &cobra.Command{
@@ -381,37 +428,44 @@ func NewAppDeleteCommand(opts *BaseOptions) *cobra.Command {
 
 	<BIN> app delete <app_name> --project <project_name>
 `),
+		PreRun: func(_ *cobra.Command, _ []string) { cloneOpts.Parse() },
 		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			if len(args) < 1 {
-				log.G().Fatal("must enter application name")
+				log.G(ctx).Fatal("must enter application name")
 			}
 
-			appName = args[0]
-
-			if opts.ProjectName == "" && !global {
-				log.G().Fatal("must enter project name OR use '--global' flag")
+			if projectName == "" && !global {
+				log.G(ctx).Fatal("must enter project name OR use '--global' flag")
 			}
 
-			return RunAppDelete(cmd.Context(), &AppDeleteOptions{
-				BaseOptions: *opts,
-				AppName:     appName,
+			return RunAppDelete(ctx, &AppDeleteOptions{
+				CloneOpts:   cloneOpts,
+				ProjectName: projectName,
+				AppName:     args[0],
 				Global:      global,
 			})
 		},
 	}
 
+	cmd.Flags().StringVarP(&projectName, "project", "p", "", "Project name")
 	cmd.Flags().BoolVarP(&global, "global", "g", false, "global")
+
+	cloneOpts = git.AddFlags(cmd, &git.AddFlagsOptions{
+		FS:            memfs.New(),
+		CloneForWrite: true,
+	})
 
 	return cmd
 }
 
 func RunAppDelete(ctx context.Context, opts *AppDeleteOptions) error {
-	r, repofs, err := prepareRepo(ctx, &opts.BaseOptions)
+	r, repofs, err := prepareRepo(ctx, opts.CloneOpts, opts.ProjectName)
 	if err != nil {
 		return err
 	}
 
-	appDir := repofs.Join(store.Default.KustomizeDir, opts.AppName)
+	appDir := repofs.Join(store.Default.AppsDir, opts.AppName)
 	appExists := repofs.ExistsOrDie(appDir)
 	if !appExists {
 		return fmt.Errorf(util.Doc(fmt.Sprintf("application '%s' not found", opts.AppName)))
@@ -423,8 +477,13 @@ func RunAppDelete(ctx context.Context, opts *AppDeleteOptions) error {
 		dirToRemove = appDir
 	} else {
 		appOverlaysDir := repofs.Join(appDir, store.Default.OverlaysDir)
-		projectDir := repofs.Join(appOverlaysDir, opts.ProjectName)
-		overlayExists := repofs.ExistsOrDie(projectDir)
+		overlaysExists := repofs.ExistsOrDie(appOverlaysDir)
+		if !overlaysExists {
+			appOverlaysDir = appDir
+		}
+
+		appProjectDir := repofs.Join(appOverlaysDir, opts.ProjectName)
+		overlayExists := repofs.ExistsOrDie(appProjectDir)
 		if !overlayExists {
 			return fmt.Errorf(util.Doc(fmt.Sprintf("application '%s' not found in project '%s'", opts.AppName, opts.ProjectName)))
 		}
@@ -438,7 +497,7 @@ func RunAppDelete(ctx context.Context, opts *AppDeleteOptions) error {
 			dirToRemove = appDir
 		} else {
 			commitMsg += fmt.Sprintf(" from project '%s'", opts.ProjectName)
-			dirToRemove = projectDir
+			dirToRemove = appProjectDir
 		}
 	}
 
@@ -447,8 +506,8 @@ func RunAppDelete(ctx context.Context, opts *AppDeleteOptions) error {
 		return fmt.Errorf("failed to delete directory '%s': %w", dirToRemove, err)
 	}
 
-	log.G().Info("committing changes to gitops repo...")
-	if err = r.Persist(ctx, &git.PushOptions{CommitMsg: commitMsg}); err != nil {
+	log.G(ctx).Info("committing changes to gitops repo...")
+	if _, err = r.Persist(ctx, &git.PushOptions{CommitMsg: commitMsg}); err != nil {
 		return fmt.Errorf("failed to push to repo: %w", err)
 	}
 

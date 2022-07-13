@@ -54,7 +54,7 @@ func (l *logrusAdapter) AddPFlags(cmd *cobra.Command) {
 	format := flags.String("log-format", defaultFormatter, `set the log format: "text", "json" (defaults to text)`)
 
 	cmd.PersistentFlags().AddFlagSet(flags)
-	cmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+	cmd.PersistentPreRunE = func(_ *cobra.Command, _ []string) error {
 		switch *format {
 		case string(FormatterJSON), string(FormatterText):
 			l.c.Format = LogrusFormatter(*format)
@@ -65,8 +65,12 @@ func (l *logrusAdapter) AddPFlags(cmd *cobra.Command) {
 		cmdutil.LogFormat = *format
 		cmdutil.LogLevel = l.c.Level
 
-		return l.configure(flags)
+		return l.configure()
 	}
+}
+
+func (l *logrusAdapter) Configure() error {
+	return l.configure()
 }
 
 func (l *logrusAdapter) Printf(format string, args ...interface{}) {
@@ -89,7 +93,7 @@ func (l *logrusAdapter) WithError(err error) Logger {
 	return FromLogrus(l.Entry.WithError(err), l.c)
 }
 
-func (l *logrusAdapter) configure(f *pflag.FlagSet) error {
+func (l *logrusAdapter) configure() error {
 	var (
 		err  error
 		fmtr logrus.Formatter

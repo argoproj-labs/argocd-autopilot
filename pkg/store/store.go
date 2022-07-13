@@ -9,12 +9,12 @@ import (
 var s Store
 
 var (
-	binaryName                         = "argocd-autopilot"
-	version                            = "v99.99.99"
-	buildDate                          = ""
-	gitCommit                          = ""
-	installationManifestsURL           = "manifests"
-	installationManifestsNamespacedURL = "manifests/namespace-install"
+	binaryName                       = "argocd-autopilot"
+	version                          = "v99.99.99"
+	buildDate                        = ""
+	gitCommit                        = ""
+	installationManifestsURL         = "manifests/base"
+	installationManifestsInsecureURL = "manifests/insecure"
 )
 
 type Version struct {
@@ -27,45 +27,58 @@ type Version struct {
 }
 
 type Store struct {
-	BinaryName                         string
-	Version                            Version
-	InstallationManifestsURL           string
-	InstallationManifestsNamespacedURL string
+	BinaryName                       string
+	Version                          Version
+	InstallationManifestsURL         string
+	InstallationManifestsInsecureURL string
 }
 
 var Default = struct {
-	BootsrtrapDir        string
-	KustomizeDir         string
-	OverlaysDir          string
-	BaseDir              string
+	AppsDir              string
 	ArgoCDName           string
 	ArgoCDNamespace      string
+	BaseDir              string
 	BootsrtrapAppName    string
+	BootsrtrapDir        string
+	ClusterContextName   string
+	ClusterResourcesDir  string
+	DestServer           string
 	DummyName            string
+	DestServerAnnotation string
+	GitHubUsername       string
+	LabelKeyAppName      string
+	LabelKeyAppManagedBy string
+	LabelKeyAppPartOf    string
+	LabelValueManagedBy  string
+	OverlaysDir          string
 	ProjectsDir          string
-	ManagedBy            string
 	RootAppName          string
 	RepoCredsSecretName  string
-	GitUsername          string
+	ArgoCDApplicationSet string
 	WaitInterval         time.Duration
-	DestServer           string
-	DestServerAnnotation string
 }{
-	KustomizeDir:         "kustomize",
-	BootsrtrapDir:        "bootstrap",
-	OverlaysDir:          "overlays",
-	BaseDir:              "base",
+	AppsDir:              "apps",
 	ArgoCDName:           "argo-cd",
 	ArgoCDNamespace:      "argocd",
+	BaseDir:              "base",
 	BootsrtrapAppName:    "autopilot-bootstrap",
-	ProjectsDir:          "projects",
-	ManagedBy:            "argo-autopilot",
-	RootAppName:          "root",
-	RepoCredsSecretName:  "autopilot-secret",
-	GitUsername:          "username",
-	WaitInterval:         time.Second * 3,
+	BootsrtrapDir:        "bootstrap",
+	ClusterContextName:   "in-cluster",
+	ClusterResourcesDir:  "cluster-resources",
 	DestServer:           "https://kubernetes.default.svc",
 	DestServerAnnotation: "argocd-autopilot.argoproj-labs.io/default-dest-server",
+	DummyName:            "DUMMY",
+	GitHubUsername:       "username",
+	LabelKeyAppName:      "app.kubernetes.io/name",
+	LabelKeyAppManagedBy: "app.kubernetes.io/managed-by",
+	LabelKeyAppPartOf:    "app.kubernetes.io/part-of",
+	LabelValueManagedBy:  "argocd-autopilot",
+	OverlaysDir:          "overlays",
+	ProjectsDir:          "projects",
+	RootAppName:          "root",
+	RepoCredsSecretName:  "autopilot-secret",
+	ArgoCDApplicationSet: "argocd-applicationset",
+	WaitInterval:         time.Second * 3,
 }
 
 // Get returns the global store
@@ -77,7 +90,7 @@ func Get() *Store {
 func init() {
 	s.BinaryName = binaryName
 	s.InstallationManifestsURL = installationManifestsURL
-	s.InstallationManifestsNamespacedURL = installationManifestsNamespacedURL
+	s.InstallationManifestsInsecureURL = installationManifestsInsecureURL
 
 	initVersion()
 }

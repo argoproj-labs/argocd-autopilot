@@ -2,100 +2,85 @@ package commands
 
 import (
 	"context"
-	"fmt"
-	"reflect"
+	"errors"
 	"testing"
 
-	"github.com/argoproj/argocd-autopilot/pkg/fs"
-	fsmocks "github.com/argoproj/argocd-autopilot/pkg/fs/mocks"
-	"github.com/argoproj/argocd-autopilot/pkg/git"
-	gitmocks "github.com/argoproj/argocd-autopilot/pkg/git/mocks"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/fs"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/git"
+	gitmocks "github.com/argoproj-labs/argocd-autopilot/pkg/git/mocks"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
 
+	"github.com/go-git/go-billy/v5/memfs"
+	billyUtils "github.com/go-git/go-billy/v5/util"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestBaseOptions_prepareRepo(t *testing.T) {
+func Test_prepareRepo(t *testing.T) {
 	tests := map[string]struct {
 		projectName string
-		cloneErr    string
 		wantErr     string
-		beforeFn    func(m *fsmocks.FS)
+		getRepo     func(*testing.T) (git.Repository, fs.FS, error)
+		assertFn    func(*testing.T, git.Repository, fs.FS)
 	}{
 		"Should complete when no errors are returned": {
-			projectName: "",
-			cloneErr:    "",
-			wantErr:     "",
-			beforeFn: func(m *fsmocks.FS) {
-				m.On("Root").Return("/")
-				m.On("ExistsOrDie", "bootstrap").Return(true)
+			getRepo: func(t *testing.T) (git.Repository, fs.FS, error) {
+				repofs := fs.Create(memfs.New())
+				_ = repofs.MkdirAll(store.Default.BootsrtrapDir, 0666)
+				return gitmocks.NewMockRepository(gomock.NewController(t)), repofs, nil
+			},
+			assertFn: func(t *testing.T, r git.Repository, fs fs.FS) {
+				assert.NotNil(t, r)
+				assert.NotNil(t, fs)
 			},
 		},
 		"Should fail when clone fails": {
-			projectName: "project",
-			cloneErr:    "some error",
-			wantErr:     "Failed cloning the repository: some error",
-			beforeFn:    func(m *fsmocks.FS) {},
+			wantErr: "failed cloning the repository: some error",
+			getRepo: func(*testing.T) (git.Repository, fs.FS, error) {
+				return nil, nil, errors.New("some error")
+			},
 		},
 		"Should fail when there is no bootstrap at repo root": {
-			projectName: "",
-			cloneErr:    "",
-			wantErr:     "Bootstrap directory not found, please execute `repo bootstrap` command",
-			beforeFn: func(m *fsmocks.FS) {
-				m.On("Root").Return("/")
-				m.On("ExistsOrDie", "bootstrap").Return(false)
+			wantErr: "bootstrap directory not found, please execute `repo bootstrap` command",
+			getRepo: func(t *testing.T) (git.Repository, fs.FS, error) {
+				return gitmocks.NewMockRepository(gomock.NewController(t)), fs.Create(memfs.New()), nil
+			},
+			assertFn: func(t *testing.T, r git.Repository, fs fs.FS) {
+				assert.NotNil(t, r)
+				assert.NotNil(t, fs)
 			},
 		},
-		"Should fail when there is no bootstrap at instllation path": {
-			projectName: "",
-			cloneErr:    "",
-			wantErr:     "Bootstrap directory not found, please execute `repo bootstrap --installation-path /some/path` command",
-			beforeFn: func(m *fsmocks.FS) {
-				m.On("Root").Return("/some/path")
-				m.On("ExistsOrDie", "bootstrap").Return(false)
+		"Should validate project existence if a projectName is supplied": {
+			projectName: "project",
+			getRepo: func(t *testing.T) (git.Repository, fs.FS, error) {
+				repofs := fs.Create(memfs.New())
+				_ = repofs.MkdirAll(store.Default.BootsrtrapDir, 0666)
+				_ = billyUtils.WriteFile(repofs, repofs.Join(store.Default.ProjectsDir, "project.yaml"), []byte{}, 0666)
+				return gitmocks.NewMockRepository(gomock.NewController(t)), repofs, nil
 			},
-		},
-		"Should not validate project existence, if no projectName is supplied": {
-			projectName: "",
-			cloneErr:    "",
-			wantErr:     "",
-			beforeFn: func(m *fsmocks.FS) {
-				m.On("Root").Return("/")
-				m.On("ExistsOrDie", "bootstrap").Return(true)
+			assertFn: func(t *testing.T, r git.Repository, fs fs.FS) {
+				assert.NotNil(t, r)
+				assert.NotNil(t, fs)
 			},
 		},
 		"Should fail when project does not exist": {
 			projectName: "project",
-			cloneErr:    "",
 			wantErr:     "project 'project' not found, please execute `argocd-autopilot project create project`",
-			beforeFn: func(m *fsmocks.FS) {
-				m.On("Root").Return("/")
-				m.On("ExistsOrDie", "bootstrap").Return(true)
-				m.On("Join", "projects", "project.yaml").Return("projects/project.yaml")
-				m.On("ExistsOrDie", "projects/project.yaml").Return(false)
+			getRepo: func(t *testing.T) (git.Repository, fs.FS, error) {
+				repofs := fs.Create(memfs.New())
+				_ = repofs.MkdirAll(store.Default.BootsrtrapDir, 0666)
+				return gitmocks.NewMockRepository(gomock.NewController(t)), repofs, nil
 			},
 		},
 	}
-	origClone := clone
-	defer func() { clone = origClone }()
+	origGetRepo := getRepo
+	defer func() { getRepo = origGetRepo }()
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			mockRepo := &gitmocks.Repository{}
-			mockFS := &fsmocks.FS{}
-			tt.beforeFn(mockFS)
-			clone = func(_ context.Context, _ *git.CloneOptions, _ fs.FS) (git.Repository, fs.FS, error) {
-				var err error
-				if tt.cloneErr != "" {
-					err = fmt.Errorf(tt.cloneErr)
-				}
-
-				return mockRepo, mockFS, err
+			getRepo = func(_ context.Context, _ *git.CloneOptions) (git.Repository, fs.FS, error) {
+				return tt.getRepo(t)
 			}
-			o := &BaseOptions{
-				CloneOptions: &git.CloneOptions{},
-				FS:           nil,
-				ProjectName:  tt.projectName,
-			}
-			gotRepo, gotFS, err := prepareRepo(context.Background(), o)
+			r, fs, err := prepareRepo(context.Background(), &git.CloneOptions{}, tt.projectName)
 			if err != nil {
 				if tt.wantErr != "" {
 					assert.EqualError(t, err, tt.wantErr)
@@ -106,13 +91,7 @@ func TestBaseOptions_prepareRepo(t *testing.T) {
 				return
 			}
 
-			if !reflect.DeepEqual(gotRepo, mockRepo) {
-				t.Errorf("BaseOptions.clone() got = %v, want %v", gotRepo, mockRepo)
-			}
-
-			if !reflect.DeepEqual(gotFS, mockFS) {
-				t.Errorf("BaseOptions.clone() got1 = %v, want %v", gotFS, mockFS)
-			}
+			tt.assertFn(t, r, fs)
 		})
 	}
 }

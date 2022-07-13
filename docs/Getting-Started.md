@@ -1,6 +1,6 @@
 # Getting Started
 
-This guide assumes you are familiar with Argo CD and its basic concepts. See the [Argo CD documentation](https://argoproj.github.io/Argo CD/core_concepts/) for more information.
+This guide assumes you are familiar with Argo CD and its basic concepts. See the [Argo CD documentation](https://argoproj.github.io/argo-cd/core_concepts/) for more information.
 
 ## Before you Begin 
 ### Requirements
@@ -15,23 +15,38 @@ Make sure to have a [valid token](https://docs.github.com/en/github/authenticati
 export GIT_TOKEN=ghp_PcZ...IP0
 ```
 
-If you have already created your GitOps Repository, you can skip the following step
-### Create a new GitOps Repository
-```
-argocd-autopilot repo create --owner <owner> --name <name>
-```
-
 ### Export Clone URL
 You can use any clone URL to a valid git repo, provided that the token you supplied earlier will allow cloning from, and pushing to it.
+If the repository does not exist, bootstrapping it will also create it as a private repository.
 ```
 export GIT_REPO=https://github.com/owner/name
 ```
 
-#### Optional
+#### Using a Specific Installation Path
 If you want the autopilot-managed folder structure to reside under some sub-folder in your repository, you can also export the following env variable:
 ```
-export GIT_INSTALLATION_PATH=some/relative/path
+export GIT_REPO=https://github.com/owner/name/some/relative/path
 ```
+
+#### Using a Specific Branch
+If you want to use a specific branch for your GitOps repository operations, you can use the `ref` query parameter:
+```
+export GIT_REPO=https://github.com/owner/name?ref=gitops_branch
+```
+
+!!! note
+    When running commands that commit or write to the repository, the value of `ref` can only be a branch.
+
+
+!!! tip
+    When running commands that commit or write to the repository you may also specify the `-b`, this would create the branch specified in `ref` if it doesn't exist. 
+
+    Note that when doing so the new branch would be create from the default branch.
+
+
+#### Using a Specific git Provider
+You can add the `--provider` flag to the `repo bootstrap` command, to enforce using a specific provider when creating a new repository. If the value is not supplied, the code will attempt to infer it from the clone URL.  
+Autopilot currently support github, gitlab, azure devops, and gitea as SCM providers.
 
 All the following commands will use the variables you supplied in order to manage your GitOps repository.
 
@@ -53,6 +68,14 @@ Execute the port forward command, and browse to http://localhost:8080. Log in us
 
 ![Step 1](assets/getting_started_1.png)
 
+### Recovering Argo-cd from an existing repository
+```
+argocd-autopilot repo bootstrap --recover \
+  --app "github.com/git-user/repo-name/bootstrap" #optional
+```
+
+In case of a cluster failure, you can recover argo-cd from an existing repository using `--recover` flag. You can optionally use it with `--app` flag to specify the path to the existing argo-cd manifests.
+
 ### Running Applications:
 * autopilot-bootstrap - References the `bootstrap` directory in the GitOps repository, and manages the other 2 applications
 * argo-cd - References the `bootstrap/argo-cd` folder, and manages the Argo CD deployment itself (including Argo CD ApplicationSet)
@@ -62,7 +85,7 @@ Execute the port forward command, and browse to http://localhost:8080. Log in us
 Execute the following commands to create a `testing` project, and add a example application to it:
 ```
 argocd-autopilot project create testing
-argocd-autopilot app create hello-world --app github.com/argoproj-labs/argocd-autopilot/examples/demo-app/ -p testing
+argocd-autopilot app create hello-world --app github.com/argoproj-labs/argocd-autopilot/examples/demo-app/ -p testing --wait-timeout 2m
 ```
 <sub>* notice the trailing slash in the URL</sub>
 
@@ -73,3 +96,9 @@ After the application is created, and after Argo CD has finished its sync cycle,
 And the "hello-world" application will also be deployed to the cluster:
 
 ![Step 3](assets/getting_started_3.png)
+
+## Uninstall everything when done
+The following command will clear your entire GitOps Repository of related files, and your k8s cluster from any resources autopilot resources
+```
+argocd-autopilot repo uninstall
+```

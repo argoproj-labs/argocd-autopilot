@@ -3,10 +3,11 @@ package kube
 import (
 	"context"
 	"os"
+	"strings"
 	"time"
 
-	"github.com/argoproj/argocd-autopilot/pkg/log"
-	"github.com/argoproj/argocd-autopilot/pkg/util"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/log"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -15,12 +16,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/kubernetes"
+	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/kubectl/pkg/cmd/apply"
+	del "k8s.io/kubectl/pkg/cmd/delete"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 )
 
-//go:generate mockery -name Factory -filename kube.go
+//go:generate mockgen -destination=./mocks/kube.go -package=mocks -source=./kube.go Factory
 
 const (
 	defaultPollInterval = time.Second * 2
@@ -42,49 +45,75 @@ func WaitDeploymentReady(ctx context.Context, f Factory, ns, name string) (bool,
 	return d.Status.ReadyReplicas >= *d.Spec.Replicas, nil
 }
 
-type Factory interface {
-	// KubernetesClientSet returns a new kubernetes clientset or error
-	KubernetesClientSet() (kubernetes.Interface, error)
+type (
+	Factory interface {
+		// KubernetesClientSet returns a new kubernetes clientset or error
+		KubernetesClientSet() (kubernetes.Interface, error)
 
-	// KubernetesClientSetOrDie calls KubernetesClientSet() and panics if it returns an error
-	KubernetesClientSetOrDie() kubernetes.Interface
+		// KubernetesClientSetOrDie calls KubernetesClientSet() and panics if it returns an error
+		KubernetesClientSetOrDie() kubernetes.Interface
 
-	// Apply applies the provided manifests on the specified namespace
-	Apply(ctx context.Context, namespace string, manifests []byte) error
+		// ToRESTConfig returns a rest Config object or error
+		ToRESTConfig() (*restclient.Config, error)
 
-	// Wait waits for all of the provided `Resources` to be ready by calling
-	// the `WaitFunc` of each resource until all of them returns `true`
-	Wait(context.Context, *WaitOptions) error
-}
+		// Apply applies the provided manifests
+		Apply(ctx context.Context, manifests []byte) error
 
-type Resource struct {
-	Name      string
-	Namespace string
+		// Delete delets the resources by their type(s) and labelSelector
+		Delete(context.Context, *DeleteOptions) error
 
-	// WaitFunc will be called to check if the resources is ready. Should return (true, nil)
-	// if the resources is ready, (false, nil) if the resource is not ready yet, or (false, err)
-	// if some error occured (in that case the `Wait` will fail with that error).
+		// Wait waits for all of the provided `Resources` to be ready by calling
+		// the `WaitFunc` of each resource until all of them returns `true`
+		Wait(context.Context, *WaitOptions) error
+	}
+
 	WaitFunc func(ctx context.Context, f Factory, ns, name string) (bool, error)
-}
 
-type WaitOptions struct {
-	// Inverval the duration between each iteration of calling all of the resources' `WaitFunc`s.
-	Interval time.Duration
+	Resource struct {
+		Name      string
+		Namespace string
 
-	// Timeout the max time to wait for all of the resources to be ready. If not all of the
-	// resourecs are ready at time this will cause `Wait` to return an error.
-	Timeout time.Duration
+		// WaitFunc will be called to check if the resources is ready. Should return (true, nil)
+		// if the resources is ready, (false, nil) if the resource is not ready yet, or (false, err)
+		// if some error occured (in that case the `Wait` will fail with that error).
+		WaitFunc WaitFunc
+	}
 
-	// Resources the list of resources to wait for.
-	Resources []Resource
-}
+	DeleteOptions struct {
+		LabelSelector   string
+		ResourceTypes   []string
+		Timeout         time.Duration
+		WaitForDeletion bool
+	}
 
-type factory struct {
-	f cmdutil.Factory
-}
+	WaitOptions struct {
+		// Inverval the duration between each iteration of calling all of the resources' `WaitFunc`s.
+		Interval time.Duration
+
+		// Timeout the max time to wait for all of the resources to be ready. If not all of the
+		// resourecs are ready at time this will cause `Wait` to return an error.
+		Timeout time.Duration
+
+		// Resources the list of resources to wait for.
+		Resources []Resource
+	}
+
+	factory struct {
+		f cmdutil.Factory
+	}
+)
 
 func AddFlags(flags *pflag.FlagSet) Factory {
-	confFlags := genericclioptions.NewConfigFlags(true)
+	timeout := "0"
+	kubeConfig := ""
+	namespace := ""
+	context := ""
+	confFlags := &genericclioptions.ConfigFlags{
+		Timeout:    &timeout,
+		KubeConfig: &kubeConfig,
+		Namespace:  &namespace,
+		Context:    &context,
+	}
 	confFlags.AddFlags(flags)
 	mvFlags := cmdutil.NewMatchVersionFlags(confFlags)
 
@@ -110,8 +139,12 @@ func CurrentContext() (string, error) {
 	return conf.CurrentContext, nil
 }
 
-func GenerateNamespace(namespace string) *corev1.Namespace {
-	return &corev1.Namespace{
+func GenerateNamespace(namespace string, labels map[string]string) *corev1.Namespace {
+	if labels == nil {
+		labels = map[string]string{}
+	}
+
+	namespaceObj := &corev1.Namespace{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
 			Kind:       "Namespace",
@@ -121,8 +154,11 @@ func GenerateNamespace(namespace string) *corev1.Namespace {
 			Annotations: map[string]string{
 				"argocd.argoproj.io/sync-options": "Prune=false",
 			},
+			Labels: labels,
 		},
 	}
+
+	return namespaceObj
 }
 
 func (f *factory) KubernetesClientSetOrDie() kubernetes.Interface {
@@ -135,58 +171,81 @@ func (f *factory) KubernetesClientSet() (kubernetes.Interface, error) {
 	return f.f.KubernetesClientSet()
 }
 
-func (f *factory) Apply(ctx context.Context, namespace string, manifests []byte) error {
+func (f *factory) ToRESTConfig() (*restclient.Config, error) {
+	return f.f.ToRESTConfig()
+}
+
+func (f *factory) Apply(ctx context.Context, manifests []byte) error {
 	reader, buf, err := os.Pipe()
 	if err != nil {
 		return err
 	}
 
-	o := apply.NewApplyOptions(DefaultIOStreams())
+	cmd := apply.NewCmdApply("apply", f.f, DefaultIOStreams())
 
 	stdin := os.Stdin
 	os.Stdin = reader
 	defer func() { os.Stdin = stdin }()
 
+	run := cmd.Run
+	cmd.Run = nil
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		errc := make(chan error)
+		go func() {
+			if _, err = buf.Write(manifests); err != nil {
+				errc <- err
+			}
+			if err = buf.Close(); err != nil {
+				errc <- err
+			}
+			close(errc)
+		}()
+
+		run(cmd, args)
+
+		return <-errc
+	}
+	cmd.SilenceErrors = true
+	cmd.SilenceUsage = true
+
+	args := []string{"-f", "-", "--overwrite"}
+
+	cmd.SetArgs(args)
+
+	return cmd.ExecuteContext(ctx)
+}
+
+func (f *factory) Delete(ctx context.Context, opts *DeleteOptions) error {
+	timeout := defaultPollTimeout
+	if opts.Timeout > 0 {
+		timeout = opts.Timeout
+	}
+
+	o := &del.DeleteOptions{
+		IOStreams:           DefaultIOStreams(),
+		CascadingStrategy:   metav1.DeletePropagationForeground,
+		DeleteAllNamespaces: true,
+		IgnoreNotFound:      true,
+		LabelSelector:       opts.LabelSelector,
+		Timeout:             timeout,
+		WaitForDeletion:     opts.WaitForDeletion,
+	}
+
 	cmd := &cobra.Command{
-		RunE: func(cmd *cobra.Command, args []string) error {
-			o.DeleteFlags.FileNameFlags.Filenames = &[]string{"-"}
-			o.Overwrite = true
-
-			if err := o.Complete(f.f, cmd); err != nil {
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			args := strings.Join(opts.ResourceTypes, ",")
+			err := o.Complete(f.f, []string{args}, cmd)
+			if err != nil {
 				return err
 			}
 
-			// order matters
-			o.Namespace = namespace
-			if o.Namespace != "" {
-				o.EnforceNamespace = true
-			}
-
-			errc := make(chan error)
-			go func() {
-				if _, err = buf.Write(manifests); err != nil {
-					errc <- err
-				}
-				if err = buf.Close(); err != nil {
-					errc <- err
-				}
-				close(errc)
-			}()
-
-			if err = o.Run(); err != nil {
-				return err
-			}
-
-			return <-errc
+			return o.RunDelete(f.f)
 		},
 		SilenceErrors: true,
 		SilenceUsage:  true,
 	}
 
 	cmdutil.AddDryRunFlag(cmd)
-	cmdutil.AddServerSideApplyFlags(cmd)
-	cmdutil.AddValidateFlags(cmd)
-	cmdutil.AddFieldManagerFlagVar(cmd, &o.FieldManager, apply.FieldManagerClientSideApply)
 
 	cmd.SetArgs([]string{})
 

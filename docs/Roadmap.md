@@ -2,11 +2,9 @@
 
 ### Repo Upgrade and Uninstall
 * Support a clear flow to [upgrade](https://github.com/argoproj-labs/argocd-autopilot/issues/45) Argo CD
-* Support a clear flow to [uninstall](https://github.com/argoproj-labs/argocd-autopilot/issues/42) Argo CD
 
 ### App Upgrade and Delete
 * Support a clear flow to [upgrade](https://github.com/argoproj-labs/argocd-autopilot/issues/44) an app
-* Support a clear flow to delete an app
 
 ### Working with and Storing Secrets 
 * [Git token should also be maintained in a GitOps approach](https://github.com/argoproj-labs/argocd-autopilot/issues/25) 

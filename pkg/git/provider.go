@@ -2,20 +2,22 @@ package git
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"sort"
 )
 
-//go:generate mockery -name Provider -filename provider.go
+//go:generate mockgen -destination=./mocks/provider.go -package=mocks -source=./provider.go Provider
 
 type (
 	// Provider represents a git provider
 	Provider interface {
 		// CreateRepository creates the repository in the remote provider and returns a
 		// clone url
-		CreateRepository(ctx context.Context, opts *CreateRepoOptions) (string, error)
+		CreateRepository(ctx context.Context, orgRepo string) (string, error)
 
-		GetRepository(ctx context.Context, opts *GetRepoOptions) (string, error)
+		// GetAuthor gets the authenticated user's name and email address, for making git commits.
+		// Returns empty strings if not implemented
+		GetAuthor(ctx context.Context) (username, email string, err error)
 	}
 
 	Auth struct {
@@ -44,21 +46,26 @@ type (
 
 // Errors
 var (
-	ErrProviderNotSupported = errors.New("git provider not supported")
+	ErrProviderNotSupported = func(providerType string) error {
+		return fmt.Errorf("git provider '%s' not supported", providerType)
+	}
 	ErrAuthenticationFailed = func(err error) error {
-		return fmt.Errorf("authentication failed, make sure credetials are correct: %w", err)
+		return fmt.Errorf("authentication failed, make sure credentials are correct: %w", err)
 	}
 )
 
 var supportedProviders = map[string]func(*ProviderOptions) (Provider, error){
 	"github": newGithub,
+	"gitea":  newGitea,
+	"gitlab": newGitlab,
+	Azure:    newAdo,
 }
 
 // New creates a new git provider
-func NewProvider(opts *ProviderOptions) (Provider, error) {
+func newProvider(opts *ProviderOptions) (Provider, error) {
 	cons, exists := supportedProviders[opts.Type]
 	if !exists {
-		return nil, ErrProviderNotSupported
+		return nil, ErrProviderNotSupported(opts.Type)
 	}
 
 	return cons(opts)
@@ -70,5 +77,6 @@ func Providers() []string {
 		res = append(res, p)
 	}
 
+	sort.Strings(res) // must sort the providers by name, otherwise the codegen is not deterministic
 	return res
 }

@@ -17,40 +17,20 @@ steps:
     repo: ${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}
     revision: ${{CF_BRANCH}}
 
-  build_helper_image:
-    stage: Prepare
-    title: build tester image
-    type: build
-    image_name: helper
-    tag: ${{CF_BRANCH_TAG_NORMALIZED}}
-    dockerfile:
-      content: |-
-        FROM golang:1.16.3-alpine3.13
-        RUN apk -U add --no-cache ca-certificates git make gcc g++ curl bash openssl && update-ca-certificates
-        RUN curl -L https://github.com/cli/cli/releases/download/v1.9.2/gh_1.9.2_linux_amd64.tar.gz | tar zx && mv ./gh_1.9.2_linux_amd64/bin/gh /usr/local/bin
-        ENTRYPOINT [ "/bin/bash" ]
-    buildkit: true
-    disable_push: true
-    when:
-      steps:
-      - name: main_clone
-        on:
-        - success
-
   check_version: &deps
     stage: Prepare
     title: check version
-    image: ${{build_helper_image}}
+    image: quay.io/codefresh/golang-ci-helper:latest
     commands:
     - cf_export GO111MODULE=on
     - cf_export GOCACHE=/codefresh/volume/gocache # change gopath to codefresh shared volume
     - cf_export GOPATH=/codefresh/volume/gopath
-    - cf_export PATH=$PATH:/codefresh/volume/gopath/bin
+    - cf_export PATH=$PATH:/codefresh/volume/gopath/bin:/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin # must have brew in path for final brew step
     - (echo "${{CF_BRANCH}}" | grep -Eq '^v(\d+\.)?(\d+\.)?(\*|\d+)$') && echo on release branch || (echo not on release branch && exit 1)
     - (gh release view ${{CF_BRANCH}} --repo ${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}) && (echo release with the same name already exists && exit 1) || echo no release with the name ${{CF_BRANCH}}, we can continue!
     when:
       steps:
-      - name: build_helper_image
+      - name: main_clone
         on:
         - success
 
@@ -81,14 +61,14 @@ steps:
   
   codegen:
     <<: *deps
-    stage: Release
+    stage: Test
     title: check codegen
     commands:
     - make codegen
     - make check-worktree
     when:
       steps:
-      - name: download_modules
+      - name: lint
         on:
         - success
 
@@ -100,7 +80,7 @@ steps:
     - make test
     when:
       steps:
-      - name: lint
+      - name: codegen
         on:
         - success
 
@@ -117,7 +97,7 @@ steps:
       - name: test
         on:
         - success
-  
+
   build:
     stage: Build
     title: build docker image
@@ -129,6 +109,28 @@ steps:
     when:
       steps:
       - name: check_version
+        on:
+        - success
+
+  scan-image:
+    stage: Build
+    title: scan docker image
+    image: quay.io/codefresh/snyk-cli:latest
+    shell: bash
+    environment:
+    - SNYK_TOKEN=${{SNYK_TOKEN}}
+    - LOCAL_IMAGE_REF=${{IMAGE_NAME}}:${{CF_BRANCH_TAG_NORMALIZED_LOWER_CASE}}
+    commands:
+    - |
+      snyk test --severity-threshold=${{SNYK_SEVERITY_THRESHOLD}} || fail=1
+      snyk container test --severity-threshold=${{SNYK_SEVERITY_THRESHOLD}} --file=Dockerfile ${LOCAL_IMAGE_REF}
+      if [ "$fail" == "1" ]; then exit 1; fi
+    when:
+      steps:
+      - name: build
+        on:
+        - success
+      - name: codegen
         on:
         - success
 
@@ -151,10 +153,6 @@ steps:
         title: linux_s390x
         environment:
          - TARGET=linux-s390x
-      linux_ppc64le:
-        title: linux_ppc64le
-        environment:
-         - TARGET=linux-ppc64le
       windows_amd64:
         title: windows_amd64
         environment:
@@ -163,6 +161,13 @@ steps:
         title: darwin_amd64
         environment:
          - TARGET=darwin-amd64
+      darwin_arm64:
+        title: darwin_arm64
+        environment:
+         - TARGET=darwin-arm64
+    retry:
+      maxAttempts: 3
+      delay: 1
     when:
       steps:
       - name: test
@@ -174,7 +179,7 @@ steps:
       - name: lint
         on:
         - success
-  
+
   create_release:
     <<: *deps
     stage: Release
@@ -189,6 +194,22 @@ steps:
         on:
         - success
       - name: build
+        on:
+        - success
+
+  bump_brew_formula:
+    stage: Release
+    title: bump brew formula version
+    image: linuxbrew/brew:latest
+    environment:
+      - HOMEBREW_GITHUB_API_TOKEN=${{GITHUB_TOKEN}}
+    commands:
+      - git config --global user.email "cfci.bot@codefresh.io"
+      - git config --global user.name "cf-ci-bot"
+      - brew bump-formula-pr --strict --no-browse --tag ${{CF_BRANCH_TAG_NORMALIZED}} --revision ${{CF_REVISION}} --fork-org codefresh-io ${{CF_REPO_NAME}}
+    when:
+      steps:
+      - name: create_release
         on:
         - success
 

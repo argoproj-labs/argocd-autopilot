@@ -1,20 +1,19 @@
-VERSION=v0.1.6
+VERSION=v0.3.9
 OUT_DIR=dist
 
 CLI_NAME?=argocd-autopilot
 IMAGE_REPOSITORY?=quay.io
 IMAGE_NAMESPACE?=argoprojlabs
 
-INSTALLATION_MANIFESTS_URL="github.com/argoproj-labs/argocd-autopilot/manifests?ref=$(VERSION)"
-INSTALLATION_MANIFESTS_NAMESPACED_URL="github.com/argoproj-labs/argocd-autopilot/manifests/namespace-install?ref=$(VERSION)"
+INSTALLATION_MANIFESTS_URL="github.com/argoproj-labs/argocd-autopilot/manifests/base?ref=$(VERSION)"
+INSTALLATION_MANIFESTS_INSECURE_URL="github.com/argoproj-labs/argocd-autopilot/manifests/insecure?ref=$(VERSION)"
 
-DEV_INSTALLATION_MANIFESTS_URL="manifests/"
-DEV_INSTALLATION_MANIFESTS_NAMESPACED_URL="manifests/namespace-install"
+DEV_INSTALLATION_MANIFESTS_URL="manifests/base"
+DEV_INSTALLATION_MANIFESTS_INSECURE_URL="manifests/insecure"
 
 CLI_SRCS := $(shell find . -name '*.go')
 
 MKDOCS_DOCKER_IMAGE?=squidfunk/mkdocs-material:4.1.1
-PACKR_CMD=$(shell if [ "`which packr`" ]; then echo "packr"; else echo "go run github.com/gobuffalo/packr/packr"; fi)
 
 GIT_COMMIT=$(shell git rev-parse HEAD)
 BUILD_DATE=$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
@@ -56,34 +55,38 @@ bin-local: cli-local
 image: cli-image
 
 .PHONY: cli
-cli: $(OUT_DIR)/$(CLI_NAME)-linux-amd64.sha256 $(OUT_DIR)/$(CLI_NAME)-linux-arm64.sha256 $(OUT_DIR)/$(CLI_NAME)-linux-ppc64le.sha256 $(OUT_DIR)/$(CLI_NAME)-linux-s390x.sha256 $(OUT_DIR)/$(CLI_NAME)-darwin-amd64.sha256 $(OUT_DIR)/$(CLI_NAME)-windows-amd64.sha256
+cli: $(OUT_DIR)/$(CLI_NAME)-linux-amd64.sha256 $(OUT_DIR)/$(CLI_NAME)-linux-arm64.sha256 $(OUT_DIR)/$(CLI_NAME)-linux-ppc64le.sha256 $(OUT_DIR)/$(CLI_NAME)-linux-s390x.sha256 $(OUT_DIR)/$(CLI_NAME)-darwin-amd64.sha256 $(OUT_DIR)/$(CLI_NAME)-darwin-arm64.sha256 $(OUT_DIR)/$(CLI_NAME)-windows-amd64.sha256
 
 .PHONY: cli-local
 cli-local: $(OUT_DIR)/$(CLI_NAME)-$(shell go env GOOS)-$(shell go env GOARCH)
-	@cp $(OUT_DIR)/$(CLI_NAME)-$(shell go env GOOS)-$(shell go env GOARCH) /usr/local/bin/$(CLI_NAME)
+	@cp $(OUT_DIR)/$(CLI_NAME)-$(shell go env GOOS)-$(shell go env GOARCH) /usr/local/bin/$(CLI_NAME)-dev
+
+.PHONY: cli-package
+cli-package: $(OUT_DIR)/$(CLI_NAME)-$(shell go env GOOS)-$(shell go env GOARCH)
+	@cp $(OUT_DIR)/$(CLI_NAME)-$(shell go env GOOS)-$(shell go env GOARCH) $(OUT_DIR)/$(CLI_NAME)
 
 $(OUT_DIR)/$(CLI_NAME)-linux-amd64: GO_FLAGS='GOOS=linux GOARCH=amd64 CGO_ENABLED=0'
 $(OUT_DIR)/$(CLI_NAME)-darwin-amd64: GO_FLAGS='GOOS=darwin GOARCH=amd64 CGO_ENABLED=0'
+$(OUT_DIR)/$(CLI_NAME)-darwin-arm64: GO_FLAGS='GOOS=darwin GOARCH=arm64 CGO_ENABLED=0'
 $(OUT_DIR)/$(CLI_NAME)-windows-amd64: GO_FLAGS='GOOS=windows GOARCH=amd64 CGO_ENABLED=0'
 $(OUT_DIR)/$(CLI_NAME)-linux-arm64: GO_FLAGS='GOOS=linux GOARCH=arm64 CGO_ENABLED=0'
 $(OUT_DIR)/$(CLI_NAME)-linux-ppc64le: GO_FLAGS='GOOS=linux GOARCH=ppc64le CGO_ENABLED=0'
 $(OUT_DIR)/$(CLI_NAME)-linux-s390x: GO_FLAGS='GOOS=linux GOARCH=s390x CGO_ENABLED=0'
 
-$(OUT_DIR)/$(CLI_NAME)-%.gz:
+$(OUT_DIR)/$(CLI_NAME)-%.tar.gz:
 	@make $(OUT_DIR)/$(CLI_NAME)-$*
-	cd $(OUT_DIR) && tar -czvf $(CLI_NAME)-$*.gz $(CLI_NAME)-$* && cd ..
+	cd $(OUT_DIR) && tar -czvf $(CLI_NAME)-$*.tar.gz $(CLI_NAME)-$* && cd ..
 
 $(OUT_DIR)/$(CLI_NAME)-%.sha256:
-	@make $(OUT_DIR)/$(CLI_NAME)-$*.gz
-	openssl dgst -sha256 "$(OUT_DIR)/$(CLI_NAME)-$*.gz" | awk '{ print $$2 }' > "$(OUT_DIR)/$(CLI_NAME)-$*".sha256
+	@make $(OUT_DIR)/$(CLI_NAME)-$*.tar.gz
+	openssl dgst -sha256 "$(OUT_DIR)/$(CLI_NAME)-$*.tar.gz" | awk '{ print $$2 }' > "$(OUT_DIR)/$(CLI_NAME)-$*".sha256
 
-$(OUT_DIR)/$(CLI_NAME)-%: $(CLI_SRCS) $(GOBIN)/packr
+$(OUT_DIR)/$(CLI_NAME)-%: $(CLI_SRCS)
 	@GO_FLAGS=$(GO_FLAGS) \
 	BUILD_DATE=$(BUILD_DATE) \
 	BINARY_NAME=$(CLI_NAME) \
 	VERSION=$(VERSION) \
 	GIT_COMMIT=$(GIT_COMMIT) \
-	PACKR_CMD=$(PACKR_CMD) \
 	OUT_FILE=$(OUT_DIR)/$(CLI_NAME)-$* \
 	INSTALLATION_MANIFESTS_URL=$(INSTALLATION_MANIFESTS_URL) \
 	INSTALLATION_MANIFESTS_NAMESPACED_URL=$(INSTALLATION_MANIFESTS_NAMESPACED_URL) \
@@ -100,6 +103,7 @@ $(OUT_DIR)/$(CLI_NAME).image: $(CLI_SRCS)
 
 .PHONY: lint
 lint: $(GOBIN)/golangci-lint tidy
+	@golangci-lint version
 	@echo linting go code...
 	@golangci-lint run --fix --timeout 6m
 
@@ -108,7 +112,8 @@ test:
 	./hack/test.sh
 
 .PHONY: codegen
-codegen: $(GOBIN)/mockery
+codegen: $(GOBIN)/mockgen
+	rm -f docs/commands/*
 	go generate ./...
 
 .PHONY: pre-commit
@@ -146,31 +151,11 @@ tidy:
 check-worktree:
 	@./hack/check_worktree.sh
 
-$(GOBIN)/mockery:
-	@mkdir dist || true
-	@echo installing: mockery
-	@curl -L -o dist/mockery.tar.gz -- https://github.com/vektra/mockery/releases/download/v1.1.1/mockery_1.1.1_$(shell uname -s)_$(shell uname -m).tar.gz
-	@tar zxvf dist/mockery.tar.gz mockery
-	@chmod +x mockery
-	@mkdir -p $(GOBIN)
-	@mv mockery $(GOBIN)/mockery
-	@mockery -version
+$(GOBIN)/mockgen:
+	@go install github.com/golang/mock/mockgen@v1.6.0
+	@mockgen -version
 
 $(GOBIN)/golangci-lint:
 	@mkdir dist || true
 	@echo installing: golangci-lint
-	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(GOBIN) v1.36.0
-
-$(GOBIN)/interfacer: cwd=$(shell pwd)
-$(GOBIN)/interfacer:
-	@cd /tmp
-	@echo installing: interfacer
-	@GO111MODULE=on go get -v github.com/rjeczalik/interfaces/cmd/interfacer@v0.1.1
-	@cd ${cwd}
-
-$(GOBIN)/packr: cwd=$(shell pwd)
-$(GOBIN)/packr:
-	@cd /tmp
-	@echo installing: packr
-	@GO111MODULE=on go get -v github.com/gobuffalo/packr/packr@v1.30.1
-	@cd ${cwd}
+	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(GOBIN) v1.45.2

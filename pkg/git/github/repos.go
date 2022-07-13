@@ -4,19 +4,19 @@ package github
 
 import (
 	"context"
-	"github.com/google/go-github/v34/github"
+	"github.com/google/go-github/v43/github"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
 )
 
-// Repositories is an interface generated for "github.com/google/go-github/v34/github.RepositoriesService".
+// Repositories is an interface generated for "github.com/google/go-github/v43/github.RepositoriesService".
 type Repositories interface {
 	AddAdminEnforcement(context.Context, string, string, string) (*github.AdminEnforcement, *github.Response, error)
 	AddAppRestrictions(context.Context, string, string, string, []string) ([]*github.App, *github.Response, error)
 	AddCollaborator(context.Context, string, string, string, *github.RepositoryAddCollaboratorOptions) (*github.CollaboratorInvitation, *github.Response, error)
-	CompareCommits(context.Context, string, string, string, string) (*github.CommitsComparison, *github.Response, error)
+	CompareCommits(context.Context, string, string, string, string, *github.ListOptions) (*github.CommitsComparison, *github.Response, error)
 	CompareCommitsRaw(context.Context, string, string, string, string, github.RawOptions) (string, *github.Response, error)
 	Create(context.Context, string, *github.Repository) (*github.Repository, *github.Response, error)
 	CreateComment(context.Context, string, string, string, *github.RepositoryComment) (*github.RepositoryComment, *github.Response, error)
@@ -30,9 +30,11 @@ type Repositories interface {
 	CreateProject(context.Context, string, string, *github.ProjectOptions) (*github.Project, *github.Response, error)
 	CreateRelease(context.Context, string, string, *github.RepositoryRelease) (*github.RepositoryRelease, *github.Response, error)
 	CreateStatus(context.Context, string, string, string, *github.RepoStatus) (*github.RepoStatus, *github.Response, error)
+	CreateUpdateEnvironment(context.Context, string, string, string, *github.CreateUpdateEnvironment) (*github.Environment, *github.Response, error)
 	Delete(context.Context, string, string) (*github.Response, error)
 	DeleteComment(context.Context, string, string, int64) (*github.Response, error)
 	DeleteDeployment(context.Context, string, string, int64) (*github.Response, error)
+	DeleteEnvironment(context.Context, string, string, string) (*github.Response, error)
 	DeleteFile(context.Context, string, string, string, *github.RepositoryContentFileOptions) (*github.RepositoryContentResponse, *github.Response, error)
 	DeleteHook(context.Context, string, string, int64) (*github.Response, error)
 	DeleteInvitation(context.Context, string, string, int64) (*github.Response, error)
@@ -58,19 +60,20 @@ type Repositories interface {
 	Get(context.Context, string, string) (*github.Repository, *github.Response, error)
 	GetAdminEnforcement(context.Context, string, string, string) (*github.AdminEnforcement, *github.Response, error)
 	GetArchiveLink(context.Context, string, string, github.ArchiveFormat, *github.RepositoryContentGetOptions, bool) (*url.URL, *github.Response, error)
-	GetBranch(context.Context, string, string, string) (*github.Branch, *github.Response, error)
+	GetBranch(context.Context, string, string, string, bool) (*github.Branch, *github.Response, error)
 	GetBranchProtection(context.Context, string, string, string) (*github.Protection, *github.Response, error)
 	GetByID(context.Context, int64) (*github.Repository, *github.Response, error)
 	GetCodeOfConduct(context.Context, string, string) (*github.CodeOfConduct, *github.Response, error)
 	GetCombinedStatus(context.Context, string, string, string, *github.ListOptions) (*github.CombinedStatus, *github.Response, error)
 	GetComment(context.Context, string, string, int64) (*github.RepositoryComment, *github.Response, error)
-	GetCommit(context.Context, string, string, string) (*github.RepositoryCommit, *github.Response, error)
+	GetCommit(context.Context, string, string, string, *github.ListOptions) (*github.RepositoryCommit, *github.Response, error)
 	GetCommitRaw(context.Context, string, string, string, github.RawOptions) (string, *github.Response, error)
 	GetCommitSHA1(context.Context, string, string, string, string) (string, *github.Response, error)
 	GetCommunityHealthMetrics(context.Context, string, string) (*github.CommunityHealthMetrics, *github.Response, error)
 	GetContents(context.Context, string, string, string, *github.RepositoryContentGetOptions) (*github.RepositoryContent, []*github.RepositoryContent, *github.Response, error)
 	GetDeployment(context.Context, string, string, int64) (*github.Deployment, *github.Response, error)
 	GetDeploymentStatus(context.Context, string, string, int64, int64) (*github.DeploymentStatus, *github.Response, error)
+	GetEnvironment(context.Context, string, string, string) (*github.Environment, *github.Response, error)
 	GetHook(context.Context, string, string, int64) (*github.Hook, *github.Response, error)
 	GetKey(context.Context, string, string, int64) (*github.Key, *github.Response, error)
 	GetLatestPagesBuild(context.Context, string, string) (*github.PagesBuild, *github.Response, error)
@@ -106,6 +109,7 @@ type Repositories interface {
 	ListContributorsStats(context.Context, string, string) ([]*github.ContributorStats, *github.Response, error)
 	ListDeploymentStatuses(context.Context, string, string, int64, *github.ListOptions) ([]*github.DeploymentStatus, *github.Response, error)
 	ListDeployments(context.Context, string, string, *github.DeploymentsListOptions) ([]*github.Deployment, *github.Response, error)
+	ListEnvironments(context.Context, string, string, *github.EnvironmentListOptions) (*github.EnvResponse, *github.Response, error)
 	ListForks(context.Context, string, string, *github.RepositoryListForksOptions) ([]*github.Repository, *github.Response, error)
 	ListHooks(context.Context, string, string, *github.ListOptions) ([]*github.Hook, *github.Response, error)
 	ListInvitations(context.Context, string, string, *github.ListOptions) ([]*github.RepositoryInvitation, *github.Response, error)

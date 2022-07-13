@@ -1,5 +1,7 @@
 site_name: Argo-CD Autopilot
+site_url: https://argocd-autopilot.readthedocs.io
 repo_url: https://github.com/argoproj-labs/argocd-autopilot
+edit_uri: edit/main/docs/
 strict: true
 theme:
   name: material
@@ -21,8 +23,12 @@ markdown_extensions:
     permalink: true
 nav:
   - Introduction: index.md
-  - Getting Started: Getting-Started.md
   - Installation: Installation-Guide.md
+  - User Guide:
+    - Getting Started: Getting-Started.md
+    - Application Specifier: App-Specifier.md
+    - Labels: Labels.md
+    - Command Reference: commands/argocd-autopilot.md
   - Development: Development.md
   - Roadmap: Roadmap.md
   - Blogs: Blogs.md
