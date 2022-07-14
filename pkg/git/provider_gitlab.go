@@ -114,8 +114,16 @@ func (g *gitlab) GetAuthor(_ context.Context) (username, email string, err error
 		return
 	}
 
-	username = authUser.Username
+	username = authUser.Name
+	if username == "" {
+		username = authUser.Username
+	}
+
 	email = authUser.Email
+	if email == "" {
+		email = authUser.Username
+	}
+
 	return
 }
 
