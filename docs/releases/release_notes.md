@@ -1,8 +1,9 @@
 ### Changes
-* Sending --kube-context flag to argocd login cmd in argocd pkg (#326)
+* Fixed security issue by bumping argo-cd dependency to v2.4.6
+* added support for Bitbucket-server (on-prem only)
 
 ### Contributors:
-- Rotem Cohen ([@rotem-codefresh](https://github.com/rotem-codefresh))
+- Noam Gal ([@noam-codefresh](https://github.com/noam-codefresh))
 
 ## Installation:
 
@@ -41,7 +42,7 @@ argocd-autopilot version
 ### Linux and WSL (using curl):
 ```bash
 # download and extract the binary
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.3.9/argocd-autopilot-linux-amd64.tar.gz | tar zx
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.0/argocd-autopilot-linux-amd64.tar.gz | tar zx
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
@@ -53,7 +54,7 @@ argocd-autopilot version
 ### Mac (using curl):
 ```bash
 # download and extract the binary
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.3.9/argocd-autopilot-darwin-amd64.tar.gz | tar zx
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.0/argocd-autopilot-darwin-amd64.tar.gz | tar zx
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
@@ -68,5 +69,5 @@ When using the Docker image, you have to provide the `.kube` and `.gitconfig` di
 docker run \
   -v ~/.kube:/home/autopilot/.kube \
   -v ~/.gitconfig:/home/autopilot/.gitconfig \
-  -it quay.io/argoprojlabs/argocd-autopilot:v0.3.9 <cmd> <flags>
+  -it quay.io/argoprojlabs/argocd-autopilot:v0.4.0 <cmd> <flags>
 ```
