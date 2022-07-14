@@ -68,7 +68,7 @@ func Test_gitea_CreateRepository(t *testing.T) {
 			},
 			wantErr: "owner org not found: some error",
 		},
-		"Should fail repo creation fails": {
+		"Should fail if repo creation fails": {
 			orgRepo: "username/repo",
 			beforeFn: func(c *gtmocks.MockClient) {
 				u := &gt.User{UserName: "username"}

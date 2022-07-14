@@ -81,3 +81,19 @@ func (mr *MockClientMockRecorder) GetMyUserInfo() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMyUserInfo", reflect.TypeOf((*MockClient)(nil).GetMyUserInfo))
 }
+
+// GetRepo mocks base method.
+func (m *MockClient) GetRepo(owner, reponame string) (*gitea.Repository, *gitea.Response, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRepo", owner, reponame)
+	ret0, _ := ret[0].(*gitea.Repository)
+	ret1, _ := ret[1].(*gitea.Response)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetRepo indicates an expected call of GetRepo.
+func (mr *MockClientMockRecorder) GetRepo(owner, reponame interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRepo", reflect.TypeOf((*MockClient)(nil).GetRepo), owner, reponame)
+}

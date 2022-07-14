@@ -87,6 +87,24 @@ func (g *github) CreateRepository(ctx context.Context, orgRepo string) (string, 
 	return *r.CloneURL, err
 }
 
+func (g *github) GetDefaultBranch(ctx context.Context, orgRepo string) (string, error) {
+	opts, err := getDefaultRepoOptions(orgRepo)
+	if err != nil {
+		return "", nil
+	}
+
+	r, res, err := g.Repositories.Get(ctx, opts.Owner, opts.Name)
+	if err != nil {
+		if res.StatusCode == 404 {
+			return "", fmt.Errorf("owner %s not found: %w", opts.Owner, err)
+		}
+
+		return "", err
+	}
+
+	return *r.DefaultBranch, nil
+}
+
 func (g *github) GetAuthor(ctx context.Context) (username, email string, err error) {
 	authUser, err := g.getAuthenticatedUser(ctx)
 	if err != nil {

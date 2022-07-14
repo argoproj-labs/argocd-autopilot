@@ -13,6 +13,7 @@ type (
 	GitlabClient interface {
 		CurrentUser(options ...gl.RequestOptionFunc) (*gl.User, *gl.Response, error)
 		CreateProject(opt *gl.CreateProjectOptions, options ...gl.RequestOptionFunc) (*gl.Project, *gl.Response, error)
+		GetProject(pid interface{}, opt *gl.GetProjectOptions, options ...gl.RequestOptionFunc) (*gl.Project, *gl.Response, error) 
 		ListGroups(opt *gl.ListGroupsOptions, options ...gl.RequestOptionFunc) ([]*gl.Group, *gl.Response, error)
 	}
 
@@ -84,6 +85,24 @@ func (g *gitlab) CreateRepository(ctx context.Context, orgRepo string) (string, 
 	}
 
 	return p.WebURL, err
+}
+
+func (g *gitlab) GetDefaultBranch(ctx context.Context, orgRepo string) (string, error) {
+	opts, err := getDefaultRepoOptions(orgRepo)
+	if err != nil {
+		return "", nil
+	}
+
+	p, res, err := g.client.GetProject(orgRepo, &gl.GetProjectOptions{})
+	if err != nil {
+		if res.StatusCode == 404 {
+			return "", fmt.Errorf("owner %s not found: %w", opts.Owner, err)
+		}
+
+		return "", err
+	}
+
+	return p.DefaultBranch, nil
 }
 
 func (g *gitlab) GetAuthor(_ context.Context) (username, email string, err error) {

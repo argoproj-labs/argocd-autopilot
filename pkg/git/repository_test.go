@@ -29,11 +29,17 @@ import (
 type mockProvider struct {
 	createRepository func(orgRepo string) (string, error)
 
+	getDefaultBranch func(orgRepo string) (string, error)
+
 	getAuthor func() (string, string, error)
 }
 
 func (p *mockProvider) CreateRepository(_ context.Context, orgRepo string) (string, error) {
 	return p.createRepository(orgRepo)
+}
+
+func (p *mockProvider) GetDefaultBranch(_ context.Context, orgRepo string) (string, error) {
+	return p.getDefaultBranch(orgRepo)
 }
 
 func (p *mockProvider) GetAuthor(ctx context.Context) (username, email string, err error) {
@@ -1227,7 +1233,7 @@ func Test_createRepo(t *testing.T) {
 				provider: &mockProvider{func(orgRepo string) (string, error) {
 					assert.Equal(t, "owner/name", orgRepo)
 					return "https://github.com/owner/name.git", nil
-				}, nil},
+				}, nil, nil},
 			},
 			want: "https://github.com/owner/name.git",
 		},
@@ -1236,7 +1242,7 @@ func Test_createRepo(t *testing.T) {
 				Repo: "https://github.com/owner/name.git",
 				provider: &mockProvider{func(orgRepo string) (string, error) {
 					return "https://github.com/owner/name.git", nil
-				}, nil},
+				}, nil, nil},
 			},
 			want: "https://github.com/owner/name.git",
 		},
@@ -1246,7 +1252,7 @@ func Test_createRepo(t *testing.T) {
 				provider: &mockProvider{func(orgRepo string) (string, error) {
 					assert.Equal(t, "foo22/bar/fizz", orgRepo)
 					return "https://github.com/foo22/bar/fizz.git", nil
-				}, nil},
+				}, nil, nil},
 			},
 			want: "https://github.com/foo22/bar/fizz.git",
 		},

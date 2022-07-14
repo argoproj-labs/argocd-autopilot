@@ -21,6 +21,7 @@ import (
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/go-git/go-git/v5/plumbing/protocol/packp"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/storage"
@@ -32,6 +33,8 @@ import (
 //go:generate mockgen -destination=./mocks/repository.go -package=mocks -source=./repository.go Repository
 //go:generate mockgen -destination=./gogit/mocks/repository.go -package=mocks -source=./gogit/repo.go Repository
 //go:generate mockgen -destination=./gogit/mocks/worktree.go -package=mocks -source=./gogit/worktree.go Worktree
+
+//http://ec2-18-212-186-89.compute-1.amazonaws.com:7990/scm/~codefresh/ap-demo.git
 
 type (
 	// Repository represents a git repository
@@ -61,11 +64,11 @@ type (
 		CreateIfNotExist bool
 		CloneForWrite    bool
 		UpsertBranch     bool
-	
-		url              string
-		revision         string
-		path             string
-		provider         Provider
+
+		url      string
+		revision string
+		path     string
+		provider Provider
 	}
 
 	PushOptions struct {
@@ -119,7 +122,7 @@ var (
 		return r.Worktree()
 	}
 
-	defaultBranch = func() (string, error) {
+	defaultBranchFromConfig = func() (string, error) {
 		cfg, err := config.LoadConfig(config.GlobalScope)
 		if err != nil {
 			return "", fmt.Errorf("failed to load global git config: %w", err)
@@ -389,6 +392,10 @@ var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 
 	for try := 0; try < curPushRetries; try++ {
 		r, err = ggClone(ctx, memory.NewStorage(), opts.FS, cloneOpts)
+		if bitbucketServerNotFound(err) {
+			err = transport.ErrRepositoryNotFound
+		}
+
 		if err == nil || !errors.Is(err, transport.ErrRepositoryNotFound) {
 			break
 		}
@@ -478,9 +485,28 @@ func getDefaultRepoOptions(orgRepo string) (*CreateRepoOptions, error) {
 }
 
 var initRepo = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
+	_, orgRepo, _, _, _, _, _ := util.ParseGitUrl(opts.Repo)
+	defaultBranch, err := opts.provider.GetDefaultBranch(ctx, orgRepo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get default branch from provider. Error: %w", err)
+	}
+
+	if defaultBranch == "" {
+		defaultBranch, err = defaultBranchFromConfig()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get default branch from global config. Error: %w", err)
+		}
+	}
+
 	ggr, err := ggInitRepo(memory.NewStorage(), opts.FS)
 	if err != nil {
 		return nil, err
+	}
+
+	if defaultBranch != plumbing.Master.Short() {
+		if err = fixDefaultBranch(ggr, defaultBranch); err != nil {
+			return nil, fmt.Errorf("failed to set default branch in new repository. Error: %w", err)
+		}
 	}
 
 	progress := opts.Progress
@@ -498,7 +524,12 @@ var initRepo = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 		return nil, err
 	}
 
-	return r, r.initBranch(ctx, opts.revision)
+	branchName := opts.revision
+	if branchName == "" {
+		branchName = defaultBranch
+	}
+
+	return r, r.initBranch(ctx, branchName)
 }
 
 func (r *repo) checkoutBranch(branch string, upsertBranch bool) error {
@@ -600,14 +631,18 @@ func (r *repo) initBranch(ctx context.Context, branchName string) error {
 		return fmt.Errorf("failed to commit while trying to initialize the branch. Error: %w", err)
 	}
 
-	if branchName == "" {
-		branchName, err = defaultBranch()
-		if err != nil {
-			return err
+	b := plumbing.NewBranchReferenceName(branchName)
+	_, err = r.Reference(b, true)
+	create := false
+	if err != nil {
+		if err != plumbing.ErrReferenceNotFound {
+			return fmt.Errorf("failed to check if branch exist. Error: %w", err)
 		}
+
+		// error is ReferenceNotFound - we need to create the branch on checkout
+		create = true
 	}
 
-	b := plumbing.NewBranchReferenceName(branchName)
 	log.G(ctx).WithField("branch", b).Debug("checking out branch")
 
 	w, err := worktree(r)
@@ -617,7 +652,7 @@ func (r *repo) initBranch(ctx context.Context, branchName string) error {
 
 	return w.Checkout(&gg.CheckoutOptions{
 		Branch: b,
-		Create: true,
+		Create: create,
 	})
 }
 
@@ -630,4 +665,29 @@ func getAuth(auth Auth) transport.AuthMethod {
 		Username: auth.Username,
 		Password: auth.Password,
 	}
+}
+
+// a hack to handle case where bitbucket-server returns http 200 when repo not found
+// and go-git fails to understand it
+func bitbucketServerNotFound(err error) bool {
+	e, ok := err.(*packp.ErrUnexpectedData)
+	if !ok {
+		return false
+	}
+
+	return string(e.Data) == "ERR Repository not found\nThe requested repository does not exist, or you do not have permission to\naccess it."
+}
+
+func fixDefaultBranch(r gogit.Repository, defaultBranch string) error {
+	rInstance, ok := r.(*gg.Repository)
+	if !ok {
+		return errors.New("failed casting repo from go-git")
+	}
+
+	if err := rInstance.Storer.RemoveReference(plumbing.Master); err != nil {
+		return err
+	}
+
+	defRef := plumbing.NewSymbolicReference(plumbing.HEAD, plumbing.ReferenceName(defaultBranch))
+	return rInstance.Storer.SetReference(defRef)
 }
