@@ -140,40 +140,40 @@ func Test_gitea_GetDefaultBranch(t *testing.T) {
 			orgRepo: "invalid",
 			wantErr: "failed parsing organization and repo from 'invalid'",
 		},
-		// "Should fail if GetRepo fails with 401": {
-		// 	orgRepo: "owner/repo",
-		// 	wantErr: "some error",
-		// 	beforeFn: func(mc *gtmocks.MockClient) {
-		// 		res := &gt.Response{
-		// 			Response: &http.Response{
-		// 				StatusCode: 401,
-		// 			},
-		// 		}
-		// 		mc.EXPECT().GetRepo("owner", "repo").Times(1).Return(nil, res, errors.New("some error"))
-		// 	},
-		// },
-		// "Should fail if GetRepo fails with 404": {
-		// 	orgRepo: "owner/repo",
-		// 	wantErr: "owner owner not found: some error",
-		// 	beforeFn: func(mc *gtmocks.MockClient) {
-		// 		res := &gt.Response{
-		// 			Response: &http.Response{
-		// 				StatusCode: 404,
-		// 			},
-		// 		}
-		// 		mc.EXPECT().GetRepo("owner", "repo").Times(1).Return(nil, res, errors.New("some error"))
-		// 	},
-		// },
-		// "Should succeed with valid default branch": {
-		// 	orgRepo: "owner/repo",
-		// 	want:    "main",
-		// 	beforeFn: func(client *gtmocks.MockClient) {
-		// 		r := &gt.Repository{
-		// 			DefaultBranch: "main",
-		// 		}
-		// 		client.EXPECT().GetRepo("owner", "repo").Times(1).Return(r, nil, nil)
-		// 	},
-		// },
+		"Should fail if GetRepo fails with 401": {
+			orgRepo: "owner/repo",
+			wantErr: "some error",
+			beforeFn: func(mc *gtmocks.MockClient) {
+				res := &gt.Response{
+					Response: &http.Response{
+						StatusCode: 401,
+					},
+				}
+				mc.EXPECT().GetRepo("owner", "repo").Times(1).Return(nil, res, errors.New("some error"))
+			},
+		},
+		"Should fail if GetRepo fails with 404": {
+			orgRepo: "owner/repo",
+			wantErr: "owner owner not found: some error",
+			beforeFn: func(mc *gtmocks.MockClient) {
+				res := &gt.Response{
+					Response: &http.Response{
+						StatusCode: 404,
+					},
+				}
+				mc.EXPECT().GetRepo("owner", "repo").Times(1).Return(nil, res, errors.New("some error"))
+			},
+		},
+		"Should succeed with valid default branch": {
+			orgRepo: "owner/repo",
+			want:    "main",
+			beforeFn: func(client *gtmocks.MockClient) {
+				r := &gt.Repository{
+					DefaultBranch: "main",
+				}
+				client.EXPECT().GetRepo("owner", "repo").Times(1).Return(r, nil, nil)
+			},
+		},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
