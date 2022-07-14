@@ -28,7 +28,6 @@ import (
 
 func TestRunAppCreate(t *testing.T) {
 	tests := map[string]struct {
-		run                      bool
 		appsRepo                 string
 		timeout                  time.Duration
 		wantErr                  string
@@ -180,7 +179,6 @@ func TestRunAppCreate(t *testing.T) {
 		},
 		"Should Persist to both repos, if required": {
 			appsRepo: "https://github.com/owner/other_name",
-			wantErr:  "failed to push to gitops repo: some error",
 			prepareRepo: func(t *testing.T) (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
 				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project"), 0666)
@@ -203,7 +201,7 @@ func TestRunAppCreate(t *testing.T) {
 			},
 		},
 		"Should Persist to a single repo, if required": {
-			run:     true,			prepareRepo: func(t *testing.T) (git.Repository, fs.FS, error) {
+			prepareRepo: func(t *testing.T) (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
 				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project"), 0666)
 				mockRepo := gitmocks.NewMockRepository(gomock.NewController(t))
@@ -247,9 +245,6 @@ func TestRunAppCreate(t *testing.T) {
 		getInstallationNamespace = origGetInstallationNamespace
 	}()
 	for name, tt := range tests {
-		if !tt.run {
-			continue
-		}
 		t.Run(name, func(t *testing.T) {
 			var (
 				gitopsRepo git.Repository

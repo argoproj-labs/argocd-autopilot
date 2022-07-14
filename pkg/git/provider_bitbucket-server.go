@@ -14,10 +14,16 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 )
 
+//go:generate mockgen -destination=./bitbucket-server/mocks/httpClient.go -package=mocks -source=./provider_bitbucket-server.go HttpClient
+
 type (
+	HttpClient interface {
+		Do(req *http.Request) (*http.Response, error)
+	}
+
 	bitbucketServer struct {
 		baseURl string
-		c       *http.Client
+		c       HttpClient
 		opts    *ProviderOptions
 	}
 
@@ -28,21 +34,22 @@ type (
 		Public        bool   `json:"public"`
 	}
 
+	Link struct {
+		Name string `json:"name"`
+		Href string `json:"href"`
+	}
+
+	Links struct {
+		Clone []Link `json:"clone"`
+	}
+
 	repoResponse struct {
 		Slug          string `json:"slug"`
 		Name          string `json:"name"`
 		Id            int32  `json:"id"`
 		DefaultBranch string `json:"defaultBranch"`
 		Public        bool   `json:"public"`
-		Links         struct {
-			Clone []struct {
-				Name string `json:"name"`
-				Href string `json:"href"`
-			} `json:"clone"`
-			Self []struct {
-				Href string `json:"href"`
-			} `json:"self"`
-		} `json:"links"`
+		Links         Links  `json:"links"`
 	}
 
 	userResponse struct {
@@ -55,7 +62,9 @@ type (
 
 const BitbucketServer = "bitbucket-server"
 
-var orgRepoReg = regexp.MustCompile("scm/(~)?([^/]*)/([^/.]*)(.git)?")
+var (
+	orgRepoReg = regexp.MustCompile("^scm/(~)?([^/]*)/([^/.]*)(.git)?$")
+)
 
 func newBitbucketServer(opts *ProviderOptions) (Provider, error) {
 	host, _, _, _, _, _, _ := util.ParseGitUrl(opts.Host)
@@ -70,10 +79,14 @@ func newBitbucketServer(opts *ProviderOptions) (Provider, error) {
 }
 
 func (bbs *bitbucketServer) CreateRepository(ctx context.Context, orgRepo string) (string, error) {
-	noun, owner, name := splitOrgRepo(orgRepo)
+	noun, owner, name, err := splitOrgRepo(orgRepo)
+	if err != nil {
+		return "", err
+	}
+
 	path := fmt.Sprintf("/%s/%s/repos", noun, owner)
 	repo := &repoResponse{}
-	err := bbs.request(ctx, "POST", path, &createRepoBody{
+	err = bbs.request(ctx, "POST", path, &createRepoBody{
 		Name: name,
 		Scm:  "git",
 	}, repo)
@@ -81,22 +94,26 @@ func (bbs *bitbucketServer) CreateRepository(ctx context.Context, orgRepo string
 		return "", err
 	}
 
-	httpsCloneLink := bbs.opts.Host
-	host, _ := url.Parse(bbs.opts.Host)
+	host, _ := url.Parse(bbs.baseURl)
 	for _, link := range repo.Links.Clone {
 		if link.Name == host.Scheme {
-			httpsCloneLink = link.Href
+			return link.Href, nil
+
 		}
 	}
 
-	return httpsCloneLink, nil
+	return "", fmt.Errorf("created repo did not contain a valid %s clone url", host.Scheme)
 }
 
 func (bbs *bitbucketServer) GetDefaultBranch(ctx context.Context, orgRepo string) (string, error) {
-	noun, owner, name := splitOrgRepo(orgRepo)
+	noun, owner, name, err := splitOrgRepo(orgRepo)
+	if err != nil {
+		return "", err
+	}
+
 	path := fmt.Sprintf("/%s/%s/repos/%s", noun, owner, name)
 	repo := &repoResponse{}
-	err := bbs.request(ctx, "GET", path, nil, repo)
+	err = bbs.request(ctx, "GET", path, nil, repo)
 	if err != nil {
 		return "", err
 	}
@@ -175,8 +192,13 @@ func (bbs *bitbucketServer) request(ctx context.Context, method, path string, bo
 	return json.Unmarshal(data, res)
 }
 
-func splitOrgRepo(orgRepo string) (noun, owner, name string) {
+func splitOrgRepo(orgRepo string) (noun, owner, name string, err error) {
 	split := orgRepoReg.FindStringSubmatch(orgRepo)
+	if len(split) == 0 {
+		err = fmt.Errorf("invalid Bitbucket url \"%s\" - must be in the form of \"scm/[~]project-or-username/repo-name[.git]\"", orgRepo)
+		return
+	}
+
 	noun = "projects"
 	if split[1] == "~" {
 		noun = "users"

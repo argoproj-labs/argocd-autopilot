@@ -55,15 +55,15 @@ var (
 	ErrAuthenticationFailed = func(err error) error {
 		return fmt.Errorf("authentication failed, make sure credentials are correct: %w", err)
 	}
-)
 
-var supportedProviders = map[string]func(*ProviderOptions) (Provider, error){
-	BitbucketServer: newBitbucketServer,
-	"github":        newGithub,
-	"gitea":         newGitea,
-	"gitlab":        newGitlab,
-	Azure:           newAdo,
-}
+	supportedProviders = map[string]func(*ProviderOptions) (Provider, error){
+		BitbucketServer: newBitbucketServer,
+		"github":        newGithub,
+		"gitea":         newGitea,
+		"gitlab":        newGitlab,
+		Azure:           newAdo,
+	}
+)
 
 // New creates a new git provider
 func newProvider(opts *ProviderOptions) (Provider, error) {

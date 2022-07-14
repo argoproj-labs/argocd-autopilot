@@ -86,22 +86,20 @@ type (
 	}
 )
 
-// Errors
-var (
-	ErrNilOpts      = errors.New("options cannot be nil")
-	ErrNoParse      = errors.New("must call Parse before using CloneOptions")
-	ErrRepoNotFound = errors.New("git repository not found")
-	ErrNoRemotes    = errors.New("no remotes in repository")
-)
-
 // Defaults
 const (
 	pushRetries        = 3
 	failureBackoffTime = 3 * time.Second
 )
 
-// go-git functions (we mock those in tests)
+// Errors
 var (
+	ErrNilOpts      = errors.New("options cannot be nil")
+	ErrNoParse      = errors.New("must call Parse before using CloneOptions")
+	ErrRepoNotFound = errors.New("git repository not found")
+	ErrNoRemotes    = errors.New("no remotes in repository")
+
+	// go-git functions (we mock those in tests)
 	checkoutRef = func(r *repo, ref string) error {
 		return r.checkoutRef(ref)
 	}
@@ -353,7 +351,7 @@ func (r *repo) getConfigDefaultBranch() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to get gitconfig: %w", err)
 	}
-	
+
 	defaultBranch := cfg.Init.DefaultBranch
 	if defaultBranch == "" {
 		defaultBranch = "main"
