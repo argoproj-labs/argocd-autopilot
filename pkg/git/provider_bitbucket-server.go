@@ -27,6 +27,16 @@ type (
 		opts    *ProviderOptions
 	}
 
+	bbError struct {
+		Context       string `json:"context"`
+		Message       string `json:"message"`
+		ExceptionName string `json:"exceptionName"`
+	}
+
+	errorBody struct {
+		Errors []bbError `json:"errors"`
+	}
+
 	createRepoBody struct {
 		Name          string `json:"name"`
 		Scm           string `json:"scm"`
@@ -179,14 +189,20 @@ func (bbs *bitbucketServer) request(ctx context.Context, method, path string, bo
 	}
 	defer response.Body.Close()
 
-	statusOK := response.StatusCode >= 200 && response.StatusCode < 300
-	if !statusOK {
-		return errors.New(response.Status)
-	}
-
 	data, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return fmt.Errorf("failed to read from response body: %w", err)
+	}
+
+	statusOK := response.StatusCode >= 200 && response.StatusCode < 300
+	if !statusOK {
+		error := &errorBody{}
+		err = json.Unmarshal(data, error)
+		if err != nil {
+			return fmt.Errorf("failed unmarshalling error body \"%s\". error: %w", data, err)
+		}
+
+		return errors.New(error.Errors[0].Message)
 	}
 
 	return json.Unmarshal(data, res)
