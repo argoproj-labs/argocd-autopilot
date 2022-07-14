@@ -9,7 +9,9 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"path"
 	"regexp"
+	"strings"
 
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 )
@@ -22,7 +24,7 @@ type (
 	}
 
 	bitbucketServer struct {
-		baseURl string
+		baseUrl *url.URL
 		c       HttpClient
 		opts    *ProviderOptions
 	}
@@ -78,9 +80,14 @@ var (
 
 func newBitbucketServer(opts *ProviderOptions) (Provider, error) {
 	host, _, _, _, _, _, _ := util.ParseGitUrl(opts.Host)
+	baseUrl, err := url.Parse(host)
+	if err != nil {
+		return nil, err
+	}
+
 	httpClient := &http.Client{}
 	g := &bitbucketServer{
-		baseURl: host + "rest/api/1.0",
+		baseUrl: baseUrl,
 		c:       httpClient,
 		opts:    opts,
 	}
@@ -94,9 +101,9 @@ func (bbs *bitbucketServer) CreateRepository(ctx context.Context, orgRepo string
 		return "", err
 	}
 
-	path := fmt.Sprintf("/%s/%s/repos", noun, owner)
+	path := fmt.Sprintf("%s/%s/repos", noun, owner)
 	repo := &repoResponse{}
-	err = bbs.request(ctx, http.MethodPost, path, &createRepoBody{
+	_, err = bbs.request(ctx, http.MethodPost, path, &createRepoBody{
 		Name: name,
 		Scm:  "git",
 	}, repo)
@@ -104,15 +111,14 @@ func (bbs *bitbucketServer) CreateRepository(ctx context.Context, orgRepo string
 		return "", err
 	}
 
-	host, _ := url.Parse(bbs.baseURl)
 	for _, link := range repo.Links.Clone {
-		if link.Name == host.Scheme {
+		if link.Name == bbs.baseUrl.Scheme {
 			return link.Href, nil
 
 		}
 	}
 
-	return "", fmt.Errorf("created repo did not contain a valid %s clone url", host.Scheme)
+	return "", fmt.Errorf("created repo did not contain a valid %s clone url", bbs.baseUrl.Scheme)
 }
 
 func (bbs *bitbucketServer) GetDefaultBranch(ctx context.Context, orgRepo string) (string, error) {
@@ -121,9 +127,9 @@ func (bbs *bitbucketServer) GetDefaultBranch(ctx context.Context, orgRepo string
 		return "", err
 	}
 
-	path := fmt.Sprintf("/%s/%s/repos/%s", noun, owner, name)
+	path := fmt.Sprintf("%s/%s/repos/%s", noun, owner, name)
 	repo := &repoResponse{}
-	err = bbs.request(ctx, http.MethodGet, path, nil, repo)
+	_, err = bbs.request(ctx, http.MethodGet, path, nil, repo)
 	if err != nil {
 		return "", err
 	}
@@ -139,8 +145,15 @@ func (bbs *bitbucketServer) GetDefaultBranch(ctx context.Context, orgRepo string
 }
 
 func (bbs *bitbucketServer) GetAuthor(ctx context.Context) (username, email string, err error) {
-	user, err := bbs.getUser(ctx, bbs.opts.Auth.Username)
+	userSlug, err := bbs.whoAmI(ctx)
 	if err != nil {
+		err = fmt.Errorf("failed getting current user's slug: %w", err)
+		return
+	}
+
+	user, err := bbs.getUser(ctx, userSlug)
+	if err != nil {
+		err = fmt.Errorf("failed getting current user: %w", err)
 		return
 	}
 
@@ -157,41 +170,58 @@ func (bbs *bitbucketServer) GetAuthor(ctx context.Context) (username, email stri
 	return
 }
 
+func (bbs *bitbucketServer) whoAmI(ctx context.Context) (string, error) {
+	userSlug, err := bbs.request(ctx, http.MethodGet, "/plugins/servlet/applinks/whoami", nil, nil)
+	if err != nil {
+		return "", err
+	}
+
+	return userSlug, nil
+}
+
 func (bbs *bitbucketServer) getUser(ctx context.Context, userSlug string) (*userResponse, error) {
-	path := "/users/" + userSlug
+	path := "users/" + userSlug
 	user := &userResponse{}
-	err := bbs.request(ctx, http.MethodGet, path, nil, user)
+	_, err := bbs.request(ctx, http.MethodGet, path, nil, user)
 	return user, err
 }
 
-func (bbs *bitbucketServer) request(ctx context.Context, method, path string, body interface{}, res interface{}) error {
+func (bbs *bitbucketServer) request(ctx context.Context, method, urlPath string, body interface{}, res interface{}) (string, error) {
 	var err error
-	finalUrl := bbs.baseURl + path
+
+	urlClone := *bbs.baseUrl
+	restApiPath :=  "rest/api/1.0"
+	if strings.HasPrefix(urlPath, "/") {
+		// if the urlPath is absolute - do not add "rest/api/1.0" before it
+		restApiPath = ""
+	}
+
+	urlClone.Path = path.Join(urlClone.Path, restApiPath, urlPath)
 	bodyStr := []byte{}
 	if body != nil {
 		bodyStr, err = json.Marshal(body)
 		if err != nil {
-			return err
+			return "", err
 		}
 	}
 
-	request, err := http.NewRequestWithContext(ctx, method, finalUrl, bytes.NewBuffer(bodyStr))
+	request, err := http.NewRequestWithContext(ctx, method, urlClone.String(), bytes.NewBuffer(bodyStr))
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	request.SetBasicAuth(bbs.opts.Auth.Username, bbs.opts.Auth.Password)
+	request.Header.Set("Authorization", "Bearer "+bbs.opts.Auth.Password)
 	request.Header.Set("Accept", "application/json")
 	request.Header.Set("Content-Type", "application/json")
 	response, err := bbs.c.Do(request)
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer response.Body.Close()
 
 	data, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		return fmt.Errorf("failed to read from response body: %w", err)
+		return "", fmt.Errorf("failed to read from response body: %w", err)
 	}
 
 	statusOK := response.StatusCode >= 200 && response.StatusCode < 300
@@ -199,13 +229,20 @@ func (bbs *bitbucketServer) request(ctx context.Context, method, path string, bo
 		error := &errorBody{}
 		err = json.Unmarshal(data, error)
 		if err != nil {
-			return fmt.Errorf("failed unmarshalling error body \"%s\". error: %w", data, err)
+			return "", fmt.Errorf("failed unmarshalling error body \"%s\". error: %w", data, err)
 		}
 
-		return errors.New(error.Errors[0].Message)
+		return "", errors.New(error.Errors[0].Message)
 	}
 
-	return json.Unmarshal(data, res)
+	if res != nil {
+		err = json.Unmarshal(data, res)
+		if err != nil {
+			return "", fmt.Errorf("failed unmarshalling body \"%s\". error: %w", data, err)
+		}
+	}
+
+	return string(data), nil
 }
 
 func splitOrgRepo(orgRepo string) (noun, owner, name string, err error) {

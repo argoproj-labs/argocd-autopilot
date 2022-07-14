@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -14,11 +15,18 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var providerOptions = &ProviderOptions{
-	Auth: &Auth{
-		Username: "username",
-		Password: "password",
-	},
+var (
+	providerOptions = &ProviderOptions{
+		Auth: &Auth{
+			Username: "username",
+			Password: "password",
+		},
+	}
+)
+
+func baseUrl() *url.URL {
+	u, _ := url.Parse("https://some.server")
+	return u
 }
 
 func createBody(obj interface{}) io.ReadCloser {
@@ -48,7 +56,7 @@ func Test_bitbucketServer_CreateRepository(t *testing.T) {
 			orgRepo: "scm/project/repo.git",
 			wantErr: "created repo did not contain a valid https clone url",
 			beforeFn: func(_ *testing.T, c *mocks.MockHttpClient) {
-				c.EXPECT().Do(gomock.AssignableToTypeOf(&http.Request{})).Times(1).DoAndReturn(func(req *http.Request) (*http.Response, error) {
+				c.EXPECT().Do(gomock.AssignableToTypeOf(&http.Request{})).Times(1).DoAndReturn(func(_ *http.Request) (*http.Response, error) {
 					repo := &repoResponse{
 						Links: Links{
 							Clone: []Link{
@@ -74,7 +82,7 @@ func Test_bitbucketServer_CreateRepository(t *testing.T) {
 			beforeFn: func(t *testing.T, c *mocks.MockHttpClient) {
 				c.EXPECT().Do(gomock.AssignableToTypeOf(&http.Request{})).Times(1).DoAndReturn(func(req *http.Request) (*http.Response, error) {
 					assert.Equal(t, "POST", req.Method)
-					assert.Equal(t, "https://some.server/projects/project/repos", req.URL.String())
+					assert.Equal(t, "https://some.server/rest/api/1.0/projects/project/repos", req.URL.String())
 					repo := &repoResponse{
 						Links: Links{
 							Clone: []Link{
@@ -100,7 +108,7 @@ func Test_bitbucketServer_CreateRepository(t *testing.T) {
 			beforeFn: func(t *testing.T, c *mocks.MockHttpClient) {
 				c.EXPECT().Do(gomock.AssignableToTypeOf(&http.Request{})).Times(1).DoAndReturn(func(req *http.Request) (*http.Response, error) {
 					assert.Equal(t, "POST", req.Method)
-					assert.Equal(t, "https://some.server/users/user/repos", req.URL.String())
+					assert.Equal(t, "https://some.server/rest/api/1.0/users/user/repos", req.URL.String())
 					repo := &repoResponse{
 						Links: Links{
 							Clone: []Link{
@@ -131,7 +139,7 @@ func Test_bitbucketServer_CreateRepository(t *testing.T) {
 			}
 
 			bbs := &bitbucketServer{
-				baseURl: "https://some.server",
+				baseUrl: baseUrl(),
 				c:       mockClient,
 				opts:    providerOptions,
 			}
@@ -170,7 +178,7 @@ func Test_bitbucketServer_GetDefaultBranch(t *testing.T) {
 			beforeFn: func(_ *testing.T, c *mocks.MockHttpClient) {
 				c.EXPECT().Do(gomock.AssignableToTypeOf(&http.Request{})).Times(1).DoAndReturn(func(req *http.Request) (*http.Response, error) {
 					assert.Equal(t, "GET", req.Method)
-					assert.Equal(t, "https://some.server/projects/project/repos/repo", req.URL.String())
+					assert.Equal(t, "https://some.server/rest/api/1.0/projects/project/repos/repo", req.URL.String())
 					repo := &repoResponse{
 						DefaultBranch: "some-branch",
 					}
@@ -189,7 +197,7 @@ func Test_bitbucketServer_GetDefaultBranch(t *testing.T) {
 			beforeFn: func(_ *testing.T, c *mocks.MockHttpClient) {
 				c.EXPECT().Do(gomock.AssignableToTypeOf(&http.Request{})).Times(1).DoAndReturn(func(req *http.Request) (*http.Response, error) {
 					assert.Equal(t, "GET", req.Method)
-					assert.Equal(t, "https://some.server/users/user/repos/repo", req.URL.String())
+					assert.Equal(t, "https://some.server/rest/api/1.0/users/user/repos/repo", req.URL.String())
 					repo := &repoResponse{
 						DefaultBranch: "some-branch",
 					}
@@ -206,7 +214,7 @@ func Test_bitbucketServer_GetDefaultBranch(t *testing.T) {
 			orgRepo: "scm/project/repo.git",
 			want:    "master",
 			beforeFn: func(_ *testing.T, c *mocks.MockHttpClient) {
-				c.EXPECT().Do(gomock.AssignableToTypeOf(&http.Request{})).Times(1).DoAndReturn(func(req *http.Request) (*http.Response, error) {
+				c.EXPECT().Do(gomock.AssignableToTypeOf(&http.Request{})).Times(1).DoAndReturn(func(_ *http.Request) (*http.Response, error) {
 					repo := &repoResponse{}
 					body := createBody(repo)
 					res := &http.Response{
@@ -228,7 +236,7 @@ func Test_bitbucketServer_GetDefaultBranch(t *testing.T) {
 			}
 
 			bbs := &bitbucketServer{
-				baseURl: "https://some.server",
+				baseUrl: baseUrl(),
 				c:       mockClient,
 				opts:    providerOptions,
 			}
@@ -251,19 +259,43 @@ func Test_bitbucketServer_GetAuthor(t *testing.T) {
 		wantErr      string
 		beforeFn     func(t *testing.T, c *mocks.MockHttpClient)
 	}{
-		"Should fail if user GET fails": {
-			wantErr: "some error",
+		"Should fail if whoami GET fails": {
+			wantErr: "failed getting current user's slug: some error",
 			beforeFn: func(_ *testing.T, c *mocks.MockHttpClient) {
 				c.EXPECT().Do(gomock.AssignableToTypeOf(&http.Request{})).Times(1).Return(nil, errors.New("some error"))
+			},
+		},
+		"Should fail if user GET fails": {
+			wantErr: "failed getting current user: some error",
+			beforeFn: func(_ *testing.T, c *mocks.MockHttpClient) {
+				callFirst := c.EXPECT().Do(gomock.AssignableToTypeOf(&http.Request{})).Times(1).DoAndReturn(func(req *http.Request) (*http.Response, error) {
+					assert.Equal(t, "GET", req.Method)
+					assert.Equal(t, "https://some.server/plugins/servlet/applinks/whoami", req.URL.String())
+					res := &http.Response{
+						StatusCode: 200,
+						Body:       io.NopCloser(strings.NewReader(string("username"))),
+					}
+					return res, nil
+				})
+				c.EXPECT().Do(gomock.AssignableToTypeOf(&http.Request{})).Times(1).Return(nil, errors.New("some error")).After(callFirst)
 			},
 		},
 		"Should return displayName and emailAddress if available": {
 			wantUsername: "displayName",
 			wantEmail:    "username@email",
 			beforeFn: func(_ *testing.T, c *mocks.MockHttpClient) {
+				callFirst := c.EXPECT().Do(gomock.AssignableToTypeOf(&http.Request{})).Times(1).DoAndReturn(func(req *http.Request) (*http.Response, error) {
+					assert.Equal(t, "GET", req.Method)
+					assert.Equal(t, "https://some.server/plugins/servlet/applinks/whoami", req.URL.String())
+					res := &http.Response{
+						StatusCode: 200,
+						Body:       io.NopCloser(strings.NewReader(string("username"))),
+					}
+					return res, nil
+				})
 				c.EXPECT().Do(gomock.AssignableToTypeOf(&http.Request{})).Times(1).DoAndReturn(func(req *http.Request) (*http.Response, error) {
 					assert.Equal(t, "GET", req.Method)
-					assert.Equal(t, "https://some.server/users/username", req.URL.String())
+					assert.Equal(t, "https://some.server/rest/api/1.0/users/username", req.URL.String())
 					user := &userResponse{
 						DisplayName:  "displayName",
 						EmailAddress: "username@email",
@@ -273,16 +305,25 @@ func Test_bitbucketServer_GetAuthor(t *testing.T) {
 						Body:       createBody(user),
 					}
 					return res, nil
-				})
+				}).After(callFirst)
 			},
 		},
 		"Should return name and slug if no displayName and emailAddress": {
 			wantUsername: "name",
 			wantEmail:    "slug",
 			beforeFn: func(_ *testing.T, c *mocks.MockHttpClient) {
+				callFirst := c.EXPECT().Do(gomock.AssignableToTypeOf(&http.Request{})).Times(1).DoAndReturn(func(req *http.Request) (*http.Response, error) {
+					assert.Equal(t, "GET", req.Method)
+					assert.Equal(t, "https://some.server/plugins/servlet/applinks/whoami", req.URL.String())
+					res := &http.Response{
+						StatusCode: 200,
+						Body:       io.NopCloser(strings.NewReader(string("username"))),
+					}
+					return res, nil
+				})
 				c.EXPECT().Do(gomock.AssignableToTypeOf(&http.Request{})).Times(1).DoAndReturn(func(req *http.Request) (*http.Response, error) {
 					assert.Equal(t, "GET", req.Method)
-					assert.Equal(t, "https://some.server/users/username", req.URL.String())
+					assert.Equal(t, "https://some.server/rest/api/1.0/users/username", req.URL.String())
 					user := &userResponse{
 						Name: "name",
 						Slug: "slug",
@@ -292,7 +333,7 @@ func Test_bitbucketServer_GetAuthor(t *testing.T) {
 						Body:       createBody(user),
 					}
 					return res, nil
-				})
+				}).After(callFirst)
 			},
 		},
 	}
@@ -306,7 +347,7 @@ func Test_bitbucketServer_GetAuthor(t *testing.T) {
 			}
 
 			bbs := &bitbucketServer{
-				baseURl: "https://some.server",
+				baseUrl: baseUrl(),
 				c:       mockClient,
 				opts:    providerOptions,
 			}
