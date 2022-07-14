@@ -34,8 +34,6 @@ import (
 //go:generate mockgen -destination=./gogit/mocks/repository.go -package=mocks -source=./gogit/repo.go Repository
 //go:generate mockgen -destination=./gogit/mocks/worktree.go -package=mocks -source=./gogit/worktree.go Worktree
 
-//http://ec2-18-212-186-89.compute-1.amazonaws.com:7990/scm/~codefresh/ap-demo.git
-
 type (
 	// Repository represents a git repository
 	Repository interface {
