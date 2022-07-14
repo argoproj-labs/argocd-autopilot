@@ -55,7 +55,7 @@ func newGithub(opts *ProviderOptions) (Provider, error) {
 func (g *github) CreateRepository(ctx context.Context, orgRepo string) (string, error) {
 	opts, err := getDefaultRepoOptions(orgRepo)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	authUser, err := g.getAuthenticatedUser(ctx)
@@ -90,7 +90,7 @@ func (g *github) CreateRepository(ctx context.Context, orgRepo string) (string, 
 func (g *github) GetDefaultBranch(ctx context.Context, orgRepo string) (string, error) {
 	opts, err := getDefaultRepoOptions(orgRepo)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	r, res, err := g.Repositories.Get(ctx, opts.Owner, opts.Name)

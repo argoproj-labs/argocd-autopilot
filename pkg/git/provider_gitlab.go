@@ -50,7 +50,7 @@ func newGitlab(opts *ProviderOptions) (Provider, error) {
 func (g *gitlab) CreateRepository(ctx context.Context, orgRepo string) (string, error) {
 	opts, err := getDefaultRepoOptions(orgRepo)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	authUser, err := g.getAuthenticatedUser()
@@ -90,13 +90,13 @@ func (g *gitlab) CreateRepository(ctx context.Context, orgRepo string) (string, 
 func (g *gitlab) GetDefaultBranch(ctx context.Context, orgRepo string) (string, error) {
 	opts, err := getDefaultRepoOptions(orgRepo)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	p, res, err := g.client.GetProject(orgRepo, &gl.GetProjectOptions{})
 	if err != nil {
 		if res.StatusCode == 404 {
-			return "", fmt.Errorf("owner %s not found: %w", opts.Owner, err)
+			return "", fmt.Errorf("owner \"%s\" not found: %w", opts.Owner, err)
 		}
 
 		return "", err

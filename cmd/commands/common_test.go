@@ -81,13 +81,8 @@ func Test_prepareRepo(t *testing.T) {
 				return tt.getRepo(t)
 			}
 			r, fs, err := prepareRepo(context.Background(), &git.CloneOptions{}, tt.projectName)
-			if err != nil {
-				if tt.wantErr != "" {
-					assert.EqualError(t, err, tt.wantErr)
-				} else {
-					t.Errorf("prepare() error = %v", err)
-				}
-
+			if err != nil || tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
 				return
 			}
 

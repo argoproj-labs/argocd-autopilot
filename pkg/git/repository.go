@@ -121,19 +121,6 @@ var (
 	worktree = func(r gogit.Repository) (gogit.Worktree, error) {
 		return r.Worktree()
 	}
-
-	defaultBranchFromConfig = func() (string, error) {
-		cfg, err := config.LoadConfig(config.GlobalScope)
-		if err != nil {
-			return "", fmt.Errorf("failed to load global git config: %w", err)
-		}
-
-		if cfg.Init.DefaultBranch == "" {
-			return "main", nil
-		}
-
-		return cfg.Init.DefaultBranch, nil
-	}
 )
 
 func AddFlags(cmd *cobra.Command, opts *AddFlagsOptions) *CloneOptions {
@@ -361,6 +348,20 @@ func (r *repo) getAuthor(ctx context.Context) (*object.Signature, error) {
 	}, nil
 }
 
+func (r *repo) getConfigDefaultBranch() (string, error) {
+	cfg, err := r.ConfigScoped(config.SystemScope)
+	if err != nil {
+		return "", fmt.Errorf("failed to get gitconfig: %w", err)
+	}
+	
+	defaultBranch := cfg.Init.DefaultBranch
+	if defaultBranch == "" {
+		defaultBranch = "main"
+	}
+
+	return defaultBranch, nil
+}
+
 var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 	var (
 		err            error
@@ -485,28 +486,9 @@ func getDefaultRepoOptions(orgRepo string) (*CreateRepoOptions, error) {
 }
 
 var initRepo = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
-	_, orgRepo, _, _, _, _, _ := util.ParseGitUrl(opts.Repo)
-	defaultBranch, err := opts.provider.GetDefaultBranch(ctx, orgRepo)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get default branch from provider. Error: %w", err)
-	}
-
-	if defaultBranch == "" {
-		defaultBranch, err = defaultBranchFromConfig()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get default branch from global config. Error: %w", err)
-		}
-	}
-
 	ggr, err := ggInitRepo(memory.NewStorage(), opts.FS)
 	if err != nil {
 		return nil, err
-	}
-
-	if defaultBranch != plumbing.Master.Short() {
-		if err = fixDefaultBranch(ggr, defaultBranch); err != nil {
-			return nil, fmt.Errorf("failed to set default branch in new repository. Error: %w", err)
-		}
 	}
 
 	progress := opts.Progress
@@ -524,12 +506,40 @@ var initRepo = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 		return nil, err
 	}
 
+	defaultBranch, err := r.getDefaultBranch(ctx, opts.Repo)
+	if err != nil {
+		return nil, err
+	}
+
+	if defaultBranch != plumbing.Master.Short() {
+		if err = fixDefaultBranch(ggr, defaultBranch); err != nil {
+			return nil, fmt.Errorf("failed to set default branch in new repository. Error: %w", err)
+		}
+	}
+
 	branchName := opts.revision
 	if branchName == "" {
 		branchName = defaultBranch
 	}
 
 	return r, r.initBranch(ctx, branchName)
+}
+
+func (r *repo) getDefaultBranch(ctx context.Context, repo string) (string, error) {
+	_, orgRepo, _, _, _, _, _ := util.ParseGitUrl(repo)
+	defaultBranch, err := r.provider.GetDefaultBranch(ctx, orgRepo)
+	if err != nil {
+		return "", fmt.Errorf("failed to get default branch from provider. Error: %w", err)
+	}
+
+	if defaultBranch == "" {
+		defaultBranch, err = r.getConfigDefaultBranch()
+		if err != nil {
+			return "", fmt.Errorf("failed to get default branch from global config. Error: %w", err)
+		}
+	}
+
+	return defaultBranch, nil
 }
 
 func (r *repo) checkoutBranch(branch string, upsertBranch bool) error {
@@ -626,7 +636,6 @@ func (r *repo) initBranch(ctx context.Context, branchName string) error {
 	_, err := r.commit(ctx, &PushOptions{
 		CommitMsg: "initial commit",
 	})
-
 	if err != nil {
 		return fmt.Errorf("failed to commit while trying to initialize the branch. Error: %w", err)
 	}

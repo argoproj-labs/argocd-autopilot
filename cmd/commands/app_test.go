@@ -28,6 +28,7 @@ import (
 
 func TestRunAppCreate(t *testing.T) {
 	tests := map[string]struct {
+		run                      bool
 		appsRepo                 string
 		timeout                  time.Duration
 		wantErr                  string
@@ -202,8 +203,7 @@ func TestRunAppCreate(t *testing.T) {
 			},
 		},
 		"Should Persist to a single repo, if required": {
-			wantErr: "failed to push to gitops repo: some error",
-			prepareRepo: func(t *testing.T) (git.Repository, fs.FS, error) {
+			run:     true,			prepareRepo: func(t *testing.T) (git.Repository, fs.FS, error) {
 				memfs := memfs.New()
 				_ = memfs.MkdirAll(filepath.Join(store.Default.AppsDir, "app", store.Default.OverlaysDir, "project"), 0666)
 				mockRepo := gitmocks.NewMockRepository(gomock.NewController(t))
@@ -247,6 +247,9 @@ func TestRunAppCreate(t *testing.T) {
 		getInstallationNamespace = origGetInstallationNamespace
 	}()
 	for name, tt := range tests {
+		if !tt.run {
+			continue
+		}
 		t.Run(name, func(t *testing.T) {
 			var (
 				gitopsRepo git.Repository
@@ -310,14 +313,8 @@ func TestRunAppCreate(t *testing.T) {
 
 			opts.CloneOpts.Parse()
 			opts.AppsCloneOpts.Parse()
-			if err := RunAppCreate(context.Background(), opts); err != nil {
-				if tt.wantErr != "" {
-					assert.EqualError(t, err, tt.wantErr)
-				} else {
-					t.Errorf("RunAppCreate() error = %v", err)
-				}
-
-				return
+			if err := RunAppCreate(context.Background(), opts); err != nil || tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
 			}
 		})
 	}
@@ -402,13 +399,8 @@ func Test_getConfigFileFromPath(t *testing.T) {
 			}
 
 			got, err := getConfigFileFromPath(repofs, tt.appName)
-			if err != nil {
-				if tt.wantErr != "" {
-					assert.EqualError(t, err, tt.wantErr)
-				} else {
-					t.Errorf("getConfigFileFromPath() error = %v", err)
-				}
-
+			if err != nil || tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
 				return
 			}
 
@@ -628,13 +620,8 @@ func TestRunAppDelete(t *testing.T) {
 				AppName:     tt.appName,
 				Global:      tt.global,
 			}
-			if err := RunAppDelete(context.Background(), opts); err != nil {
-				if tt.wantErr != "" {
-					assert.EqualError(t, err, tt.wantErr)
-				} else {
-					t.Errorf("RunAppDelete() error = %v", err)
-				}
-
+			if err := RunAppDelete(context.Background(), opts); err != nil || tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
 				return
 			}
 
@@ -683,13 +670,8 @@ func Test_getProjectDestServer(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			repofs := tt.beforeFn()
 			got, err := getProjectDestServer(repofs, "project")
-			if err != nil {
-				if tt.wantErr != "" {
-					assert.EqualError(t, err, tt.wantErr)
-				} else {
-					t.Errorf("getProjectDestServer() error = %v", err)
-				}
-
+			if err != nil || tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
 				return
 			}
 
@@ -856,13 +838,8 @@ func Test_setAppOptsDefaults(t *testing.T) {
 				repofs = tt.beforeFn()
 			}
 
-			if err := setAppOptsDefaults(context.Background(), repofs, tt.opts); err != nil {
-				if tt.wantErr != "" {
-					assert.EqualError(t, err, tt.wantErr)
-				} else {
-					t.Errorf("setAppOptsDefaults() error = %v", err)
-				}
-
+			if err := setAppOptsDefaults(context.Background(), repofs, tt.opts); err != nil || tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
 				return
 			}
 

@@ -38,7 +38,7 @@ func newGitea(opts *ProviderOptions) (Provider, error) {
 func (g *gitea) CreateRepository(_ context.Context, orgRepo string) (string, error) {
 	opts, err := getDefaultRepoOptions(orgRepo)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	authUser, err := g.getAuthenticatedUser()
@@ -75,7 +75,7 @@ func (g *gitea) CreateRepository(_ context.Context, orgRepo string) (string, err
 func (g *gitea) GetDefaultBranch(_ context.Context, orgRepo string) (string, error) {
 	opts, err := getDefaultRepoOptions(orgRepo)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	r, res, err := g.client.GetRepo(opts.Owner, opts.Name)
