@@ -38,7 +38,7 @@ ENV GOBIN /go/bin
 RUN make local DEV_MODE=false
 
 ### Run
-FROM alpine:3.15 as autopilot
+FROM alpine:3.16 as autopilot
 
 WORKDIR /home/autopilot
 
