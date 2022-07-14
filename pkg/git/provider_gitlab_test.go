@@ -47,7 +47,7 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 		},
 		"Fails if can't find group": {
 			orgRepo: "org/projectName",
-			wantErr: "group org not found",
+			wantErr: "group \"org\" not found",
 			beforeFn: func(c *glmocks.MockGitlabClient) {
 				u := &gl.User{Username: "username"}
 				g := []*gl.Group{{FullPath: "anotherOrg", ID: 1}}
@@ -65,7 +65,7 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 		},
 		"Fails if can't create project": {
 			orgRepo: "username/projectName",
-			wantErr: "failed creating the project projectName under username: some error",
+			wantErr: "failed creating the project \"projectName\" under \"username\": some error",
 			beforeFn: func(c *glmocks.MockGitlabClient) {
 				u := &gl.User{Username: "username"}
 				createOpts := gl.CreateProjectOptions{
@@ -90,7 +90,7 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 			want:    "http://gitlab.com/username/projectName",
 			beforeFn: func(c *glmocks.MockGitlabClient) {
 				u := &gl.User{Username: "username"}
-				p := &gl.Project{WebURL: "http://gitlab.com/username/projectName"}
+				p := &gl.Project{HTTPURLToRepo: "http://gitlab.com/username/projectName"}
 				createOpts := gl.CreateProjectOptions{
 					Name:       gl.String("projectName"),
 					Visibility: gl.Visibility(gl.PrivateVisibility),
@@ -110,7 +110,7 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 			beforeFn: func(c *glmocks.MockGitlabClient) {
 				u := &gl.User{Username: "username"}
 				c.EXPECT().CurrentUser().Return(u, nil, nil)
-				p := &gl.Project{WebURL: "http://gitlab.com/org/projectName"}
+				p := &gl.Project{HTTPURLToRepo: "http://gitlab.com/org/projectName"}
 				g := []*gl.Group{{FullPath: "org", ID: 1}}
 				createOpts := gl.CreateProjectOptions{
 					Name:        gl.String("projectName"),
@@ -136,7 +136,7 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 			beforeFn: func(c *glmocks.MockGitlabClient) {
 				u := &gl.User{Username: "username"}
 				c.EXPECT().CurrentUser().Return(u, nil, nil)
-				p := &gl.Project{WebURL: "http://gitlab.com/org/subOrg/projectName"}
+				p := &gl.Project{HTTPURLToRepo: "http://gitlab.com/org/subOrg/projectName"}
 				g := []*gl.Group{{FullPath: "org/subOrg", ID: 1}}
 				createOpts := gl.CreateProjectOptions{
 					Name:        gl.String("projectName"),
@@ -161,7 +161,7 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 			want:    "http://gitlab.com/username/projectName",
 			beforeFn: func(c *glmocks.MockGitlabClient) {
 				u := &gl.User{Username: "username"}
-				p := &gl.Project{WebURL: "http://gitlab.com/username/projectName"}
+				p := &gl.Project{HTTPURLToRepo: "http://gitlab.com/username/projectName"}
 				createOpts := gl.CreateProjectOptions{
 					Name:       gl.String("projectName"),
 					Visibility: gl.Visibility(gl.PrivateVisibility),
@@ -178,12 +178,12 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 					Return(p, res, nil)
 			},
 		},
-		"Fails when no WebURL": {
+		"Fails when no HTTPURLToRepo": {
 			orgRepo: "username/projectName",
-			wantErr: "project url is empty",
+			wantErr: "clone url is empty",
 			beforeFn: func(c *glmocks.MockGitlabClient) {
 				u := &gl.User{Username: "username"}
-				p := &gl.Project{WebURL: ""}
+				p := &gl.Project{}
 				createOpts := gl.CreateProjectOptions{
 					Name:       gl.String("projectName"),
 					Visibility: gl.Visibility(gl.PrivateVisibility),
