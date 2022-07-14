@@ -128,14 +128,8 @@ func Test_validateRepo(t *testing.T) {
 				tt.preFn(t, repofs)
 			}
 
-			if err := validateRepo(repofs, false); err != nil {
-				if tt.wantErr != "" {
-					assert.EqualError(t, err, tt.wantErr)
-				} else {
-					t.Errorf("prepare() error = %v", err)
-				}
-
-				return
+			if err := validateRepo(repofs, false); err != nil || tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
 			}
 		})
 	}
@@ -826,15 +820,8 @@ func TestRunRepoUninstall(t *testing.T) {
 				FastExit:    true,
 			}
 			opts.CloneOptions.Parse()
-			err := RunRepoUninstall(context.Background(), opts)
-			if err != nil {
-				if tt.wantErr != "" {
-					assert.EqualError(t, err, tt.wantErr)
-				} else {
-					t.Errorf("RunRepoUninstall() error = %v", err)
-				}
-
-				return
+			if err := RunRepoUninstall(context.Background(), opts); err != nil || tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
 			}
 		})
 	}

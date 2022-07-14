@@ -64,3 +64,18 @@ func (mr *MockProviderMockRecorder) GetAuthor(ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAuthor", reflect.TypeOf((*MockProvider)(nil).GetAuthor), ctx)
 }
+
+// GetDefaultBranch mocks base method.
+func (m *MockProvider) GetDefaultBranch(ctx context.Context, orgRepo string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetDefaultBranch", ctx, orgRepo)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetDefaultBranch indicates an expected call of GetDefaultBranch.
+func (mr *MockProviderMockRecorder) GetDefaultBranch(ctx, orgRepo interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDefaultBranch", reflect.TypeOf((*MockProvider)(nil).GetDefaultBranch), ctx, orgRepo)
+}

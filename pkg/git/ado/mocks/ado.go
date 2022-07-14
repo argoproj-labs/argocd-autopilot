@@ -50,6 +50,21 @@ func (mr *MockAdoClientMockRecorder) CreateRepository(arg0, arg1 interface{}) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRepository", reflect.TypeOf((*MockAdoClient)(nil).CreateRepository), arg0, arg1)
 }
 
+// GetRepository mocks base method.
+func (m *MockAdoClient) GetRepository(arg0 context.Context, arg1 git.GetRepositoryArgs) (*git.GitRepository, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRepository", arg0, arg1)
+	ret0, _ := ret[0].(*git.GitRepository)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRepository indicates an expected call of GetRepository.
+func (mr *MockAdoClientMockRecorder) GetRepository(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRepository", reflect.TypeOf((*MockAdoClient)(nil).GetRepository), arg0, arg1)
+}
+
 // MockAdoUrl is a mock of AdoUrl interface.
 type MockAdoUrl struct {
 	ctrl     *gomock.Controller
