@@ -16,6 +16,7 @@ import (
 type (
 	AdoClient interface {
 		CreateRepository(context.Context, ado.CreateRepositoryArgs) (*ado.GitRepository, error)
+		GetRepository(context.Context, ado.GetRepositoryArgs) (*ado.GitRepository, error)
 	}
 
 	AdoUrl interface {
@@ -62,8 +63,7 @@ func newAdo(opts *ProviderOptions) (Provider, error) {
 
 func (g *adoGit) CreateRepository(ctx context.Context, orgRepo string) (string, error) {
 	if orgRepo == "" {
-		return "", fmt.Errorf("name needs to be provided to create an azure devops repository. "+
-			"name: '%s'", orgRepo)
+		return "", fmt.Errorf("name needs to be provided to create an azure devops repository. name: '%s'", orgRepo)
 	}
 
 	project := g.adoUrl.GetProjectName()
@@ -79,6 +79,19 @@ func (g *adoGit) CreateRepository(ctx context.Context, orgRepo string) (string, 
 	}
 
 	return *repository.RemoteUrl, nil
+}
+
+func (g *adoGit) GetDefaultBranch(ctx context.Context, orgRepo string) (string, error) {
+	project := g.adoUrl.GetProjectName()
+	r, err := g.adoClient.GetRepository(ctx, ado.GetRepositoryArgs{
+		RepositoryId: &orgRepo,
+		Project: &project,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return *r.DefaultBranch, nil
 }
 
 func (g *adoGit) GetAuthor(ctx context.Context) (username, email string, err error) {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 	gl "github.com/xanzy/go-gitlab"
 )
 
@@ -13,6 +14,7 @@ type (
 	GitlabClient interface {
 		CurrentUser(options ...gl.RequestOptionFunc) (*gl.User, *gl.Response, error)
 		CreateProject(opt *gl.CreateProjectOptions, options ...gl.RequestOptionFunc) (*gl.Project, *gl.Response, error)
+		GetProject(pid interface{}, opt *gl.GetProjectOptions, options ...gl.RequestOptionFunc) (*gl.Project, *gl.Response, error) 
 		ListGroups(opt *gl.ListGroupsOptions, options ...gl.RequestOptionFunc) ([]*gl.Group, *gl.Response, error)
 	}
 
@@ -29,11 +31,12 @@ type (
 )
 
 func newGitlab(opts *ProviderOptions) (Provider, error) {
-	c, err := gl.NewClient(opts.Auth.Password)
+	host, _, _, _, _, _, _ := util.ParseGitUrl(opts.Host)
+	c, err := gl.NewClient(opts.Auth.Password, gl.WithBaseURL(host))
 	if err != nil {
 		return nil, err
 	}
-
+	
 	g := &gitlab{
 		opts: opts,
 		client: &clientImpl{
@@ -49,7 +52,7 @@ func newGitlab(opts *ProviderOptions) (Provider, error) {
 func (g *gitlab) CreateRepository(ctx context.Context, orgRepo string) (string, error) {
 	opts, err := getDefaultRepoOptions(orgRepo)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	authUser, err := g.getAuthenticatedUser()
@@ -71,19 +74,38 @@ func (g *gitlab) CreateRepository(ctx context.Context, orgRepo string) (string, 
 		if err != nil {
 			return "", err
 		}
+
 		createOpts.NamespaceID = gl.Int(groupId)
 	}
 
 	p, _, err := g.client.CreateProject(&createOpts)
 	if err != nil {
-		return "", fmt.Errorf("failed creating the project %s under %s: %w", opts.Name, opts.Owner, err)
+		return "", fmt.Errorf("failed creating the project \"%s\" under \"%s\": %w", opts.Name, opts.Owner, err)
 	}
 
-	if p.WebURL == "" {
-		return "", fmt.Errorf("project url is empty")
+	if p.HTTPURLToRepo == "" {
+		return "", fmt.Errorf("clone url is empty")
 	}
 
-	return p.WebURL, err
+	return p.HTTPURLToRepo, err
+}
+
+func (g *gitlab) GetDefaultBranch(ctx context.Context, orgRepo string) (string, error) {
+	opts, err := getDefaultRepoOptions(orgRepo)
+	if err != nil {
+		return "", err
+	}
+
+	p, res, err := g.client.GetProject(orgRepo, &gl.GetProjectOptions{})
+	if err != nil {
+		if res.StatusCode == 404 {
+			return "", fmt.Errorf("owner \"%s\" not found: %w", opts.Owner, err)
+		}
+
+		return "", err
+	}
+
+	return p.DefaultBranch, nil
 }
 
 func (g *gitlab) GetAuthor(_ context.Context) (username, email string, err error) {
@@ -92,8 +114,16 @@ func (g *gitlab) GetAuthor(_ context.Context) (username, email string, err error
 		return
 	}
 
-	username = authUser.Username
+	username = authUser.Name
+	if username == "" {
+		username = authUser.Username
+	}
+
 	email = authUser.Email
+	if email == "" {
+		email = authUser.Username
+	}
+
 	return
 }
 
@@ -125,5 +155,5 @@ func (g *gitlab) getGroupIdByName(groupName string) (int, error) {
 		}
 	}
 
-	return 0, fmt.Errorf("group %s not found", groupName)
+	return 0, fmt.Errorf("group \"%s\" not found", groupName)
 }

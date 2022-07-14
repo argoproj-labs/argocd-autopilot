@@ -141,13 +141,8 @@ func TestRunProjectCreate(t *testing.T) {
 				return repo, repofs, err
 			}
 			getInstallationNamespace = tt.getInstallationNamespace
-			if err := RunProjectCreate(context.Background(), opts); tt.wantErr != "" {
-				if tt.wantErr != "" {
-					assert.EqualError(t, err, tt.wantErr)
-				} else {
-					t.Errorf("prepare() error = %v", err)
-				}
-
+			if err := RunProjectCreate(context.Background(), opts); err != nil || tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
 				return
 			}
 
@@ -283,13 +278,8 @@ func Test_getInstallationNamespace(t *testing.T) {
 		t.Run(ttName, func(t *testing.T) {
 			repofs := tt.beforeFn(t)
 			got, err := getInstallationNamespace(repofs)
-			if err != nil {
-				if tt.wantErr != "" {
-					assert.EqualError(t, err, tt.wantErr)
-				} else {
-					t.Errorf("getInstallationNamespace() error = %v", err)
-				}
-
+			if err != nil || tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
 				return
 			}
 
@@ -346,13 +336,8 @@ func Test_getProjectInfoFromFile(t *testing.T) {
 			}
 
 			got, _, err := getProjectInfoFromFile(repofs, tt.name)
-			if err != nil {
-				if tt.wantErr != "" {
-					assert.EqualError(t, err, tt.wantErr)
-				} else {
-					t.Errorf("getProjectInfoFromFile() error = %v", err)
-				}
-
+			if err != nil || tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
 				return
 			}
 
@@ -408,13 +393,8 @@ func TestRunProjectList(t *testing.T) {
 			prepareRepo = tt.prepareRepo
 			getProjectInfoFromFile = tt.getProjectInfoFromFile
 
-			if err := RunProjectList(context.Background(), tt.opts); tt.wantErr != "" {
-				if tt.wantErr != "" {
-					assert.EqualError(t, err, tt.wantErr)
-				} else {
-					t.Errorf("prepare() error = %v", err)
-				}
-
+			if err := RunProjectList(context.Background(), tt.opts); err != nil || tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
 				return
 			}
 
@@ -640,13 +620,8 @@ func TestRunProjectDelete(t *testing.T) {
 			opts := &ProjectDeleteOptions{
 				ProjectName: tt.projectName,
 			}
-			if err := RunProjectDelete(context.Background(), opts); err != nil {
-				if tt.wantErr != "" {
-					assert.EqualError(t, err, tt.wantErr)
-				} else {
-					t.Errorf("prepare() error = %v", err)
-				}
-
+			if err := RunProjectDelete(context.Background(), opts); err != nil || tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
 				return
 			}
 

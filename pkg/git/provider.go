@@ -15,6 +15,9 @@ type (
 		// clone url
 		CreateRepository(ctx context.Context, orgRepo string) (string, error)
 
+		// GetDefaultBranch returns the default branch of the repository
+		GetDefaultBranch(ctx context.Context, orgRepo string) (string, error)
+
 		// GetAuthor gets the authenticated user's name and email address, for making git commits.
 		// Returns empty strings if not implemented
 		GetAuthor(ctx context.Context) (username, email string, err error)
@@ -52,14 +55,15 @@ var (
 	ErrAuthenticationFailed = func(err error) error {
 		return fmt.Errorf("authentication failed, make sure credentials are correct: %w", err)
 	}
-)
 
-var supportedProviders = map[string]func(*ProviderOptions) (Provider, error){
-	"github": newGithub,
-	"gitea":  newGitea,
-	"gitlab": newGitlab,
-	Azure:    newAdo,
-}
+	supportedProviders = map[string]func(*ProviderOptions) (Provider, error){
+		BitbucketServer: newBitbucketServer,
+		"github":        newGithub,
+		"gitea":         newGitea,
+		"gitlab":        newGitlab,
+		Azure:           newAdo,
+	}
+)
 
 // New creates a new git provider
 func newProvider(opts *ProviderOptions) (Provider, error) {
