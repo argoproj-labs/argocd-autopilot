@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 	gl "github.com/xanzy/go-gitlab"
 )
 
@@ -30,11 +31,12 @@ type (
 )
 
 func newGitlab(opts *ProviderOptions) (Provider, error) {
-	c, err := gl.NewClient(opts.Auth.Password)
+	host, _, _, _, _, _, _ := util.ParseGitUrl(opts.Host)
+	c, err := gl.NewClient(opts.Auth.Password, gl.WithBaseURL(host))
 	if err != nil {
 		return nil, err
 	}
-
+	
 	g := &gitlab{
 		opts: opts,
 		client: &clientImpl{
@@ -72,19 +74,20 @@ func (g *gitlab) CreateRepository(ctx context.Context, orgRepo string) (string, 
 		if err != nil {
 			return "", err
 		}
+
 		createOpts.NamespaceID = gl.Int(groupId)
 	}
 
 	p, _, err := g.client.CreateProject(&createOpts)
 	if err != nil {
-		return "", fmt.Errorf("failed creating the project %s under %s: %w", opts.Name, opts.Owner, err)
+		return "", fmt.Errorf("failed creating the project \"%s\" under \"%s\": %w", opts.Name, opts.Owner, err)
 	}
 
-	if p.WebURL == "" {
-		return "", fmt.Errorf("project url is empty")
+	if p.HTTPURLToRepo == "" {
+		return "", fmt.Errorf("clone url is empty")
 	}
 
-	return p.WebURL, err
+	return p.HTTPURLToRepo, err
 }
 
 func (g *gitlab) GetDefaultBranch(ctx context.Context, orgRepo string) (string, error) {
@@ -144,5 +147,5 @@ func (g *gitlab) getGroupIdByName(groupName string) (int, error) {
 		}
 	}
 
-	return 0, fmt.Errorf("group %s not found", groupName)
+	return 0, fmt.Errorf("group \"%s\" not found", groupName)
 }

@@ -96,7 +96,7 @@ func (bbs *bitbucketServer) CreateRepository(ctx context.Context, orgRepo string
 
 	path := fmt.Sprintf("/%s/%s/repos", noun, owner)
 	repo := &repoResponse{}
-	err = bbs.request(ctx, "POST", path, &createRepoBody{
+	err = bbs.request(ctx, http.MethodPost, path, &createRepoBody{
 		Name: name,
 		Scm:  "git",
 	}, repo)
@@ -123,7 +123,7 @@ func (bbs *bitbucketServer) GetDefaultBranch(ctx context.Context, orgRepo string
 
 	path := fmt.Sprintf("/%s/%s/repos/%s", noun, owner, name)
 	repo := &repoResponse{}
-	err = bbs.request(ctx, "GET", path, nil, repo)
+	err = bbs.request(ctx, http.MethodGet, path, nil, repo)
 	if err != nil {
 		return "", err
 	}
@@ -160,7 +160,7 @@ func (bbs *bitbucketServer) GetAuthor(ctx context.Context) (username, email stri
 func (bbs *bitbucketServer) getUser(ctx context.Context, userSlug string) (*userResponse, error) {
 	path := "/users/" + userSlug
 	user := &userResponse{}
-	err := bbs.request(ctx, "GET", path, nil, user)
+	err := bbs.request(ctx, http.MethodGet, path, nil, user)
 	return user, err
 }
 
