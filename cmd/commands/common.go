@@ -215,9 +215,10 @@ func createAppSet(o *createAppSetOptions) ([]byte, error) {
 			Generators: o.generators,
 			Template: appset.ApplicationSetTemplate{
 				ApplicationSetTemplateMeta: appset.ApplicationSetTemplateMeta{
-					Namespace: o.appNamespace,
-					Name:      o.appName,
-					Labels:    o.appLabels,
+					Namespace:   o.appNamespace,
+					Name:        o.appName,
+					Labels:      o.appLabels,
+					Annotations: o.appAnnotations,
 				},
 				Spec: argocdv1alpha1.ApplicationSpec{
 					Project: o.appProject,
