@@ -26,7 +26,7 @@ steps:
     - cf_export GOCACHE=/codefresh/volume/gocache # change gopath to codefresh shared volume
     - cf_export GOPATH=/codefresh/volume/gopath
     - cf_export PATH=$PATH:/codefresh/volume/gopath/bin:/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin # must have brew in path for final brew step
-    - (echo "${{CF_BRANCH}}" | grep -Eq '^v(\d+\.)?(\d+\.)?(\*|\d+)$') && echo on release branch || (echo not on release branch && exit 1)
+    - (echo "${{CF_BRANCH}}" | grep -Eq '^release-v(\d+\.)?(\d+\.)?(\*|\d+)$') && echo on release branch || (echo not on release branch && exit 1)
     - (gh release view ${{CF_BRANCH}} --repo ${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}) && (echo release with the same name already exists && exit 1) || echo no release with the name ${{CF_BRANCH}}, we can continue!
     when:
       steps:
