@@ -38,7 +38,7 @@ if [ "$?" == "0" ]; then
         echo ""
     fi
 
-    echo "running: gh release create --repo $GIT_REPO -t $RELEASE_VER -F $FILE --target $GIT_BRANCH --prerelease=$PRERELEASE $GIT_BRANCH ./dist/*.tar.gz ./dist/*.sha256"
+    echo "running: gh release create --repo $GIT_REPO -t $RELEASE_VER -F $FILE --target $GIT_BRANCH --prerelease=$PRERELEASE $RELEASE_VER ./dist/*.tar.gz ./dist/*.sha256"
     
     if [ "$DRY_RUN" == "1" ]; then
         exit 0
