@@ -18,7 +18,7 @@ This guide is meant for developers who want to contribute or debug `argocd-autop
 5. When you're ready, push your changes to your fork and submit a PR.
 
 ### Releasing a New Version:
-1. Checkout to a release branch: `v0.X.X`
+1. Checkout to a release branch: `release-v0.X.X`
 2. Change the `VERSION` in the Makefile to match the new version
 3. Add what you need to `./docs/releases/release_notes.md`
 4. Create a new PR to the `main` branch
