@@ -254,10 +254,6 @@ func createAppSet(o *createAppSetOptions) ([]byte, error) {
 		},
 	}
 
-	if (o.appAnnotations != nil) {
-		appSet.Spec.Template.ApplicationSetTemplateMeta.Annotations = o.appAnnotations
-	}
-
 	return yaml.Marshal(appSet)
 }
 
