@@ -1,5 +1,10 @@
 # Changelog:
 
+# v0.4.0
+
+* Fixed security issue by bumping argo-cd dependency to v2.4.6
+* added support for Bitbucket-server (on-prem only)
+
 # v0.3.9
 
 ### Changes
