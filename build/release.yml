@@ -27,7 +27,9 @@ steps:
     - cf_export GOPATH=/codefresh/volume/gopath
     - cf_export PATH=$PATH:/codefresh/volume/gopath/bin:/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin # must have brew in path for final brew step
     - (echo "${{CF_BRANCH}}" | grep -Eq '^release-v(\d+\.)?(\d+\.)?(\*|\d+)$') && echo on release branch || (echo not on release branch && exit 1)
-    - (gh release view ${{CF_BRANCH}} --repo ${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}) && (echo release with the same name already exists && exit 1) || echo no release with the name ${{CF_BRANCH}}, we can continue!
+    - RELEASE_VER=$(echo ${{CF_BRANCH_TAG_NORMALIZED_LOWER_CASE}} | sed -E 's/^release-([^"]+).*/\1/')
+    - cf_export RELEASE_VER
+    - (gh release view ${RELEASE_VER} --repo ${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}) && (echo release with the same name already exists && exit 1) || echo no release with the name ${{CF_BRANCH}}, we can continue!
     when:
       steps:
       - name: main_clone
@@ -103,7 +105,7 @@ steps:
     title: build docker image
     type: build
     image_name: ${{IMAGE_NAME}}
-    tag: ${{CF_BRANCH_TAG_NORMALIZED}}
+    tag: ${{RELEASE_VER}}
     buildkit: true
     disable_push: true
     when:
@@ -119,7 +121,7 @@ steps:
     shell: bash
     environment:
     - SNYK_TOKEN=${{SNYK_TOKEN}}
-    - LOCAL_IMAGE_REF=${{IMAGE_NAME}}:${{CF_BRANCH_TAG_NORMALIZED_LOWER_CASE}}
+    - LOCAL_IMAGE_REF=${{IMAGE_NAME}}:${{RELEASE_VER}}
     commands:
     - |
       snyk test --severity-threshold=${{SNYK_SEVERITY_THRESHOLD}} || fail=1
@@ -206,7 +208,7 @@ steps:
     commands:
       - git config --global user.email "cfci.bot@codefresh.io"
       - git config --global user.name "cf-ci-bot"
-      - brew bump-formula-pr --strict --no-browse --tag ${{CF_BRANCH_TAG_NORMALIZED}} --revision ${{CF_REVISION}} --fork-org codefresh-io ${{CF_REPO_NAME}}
+      - brew bump-formula-pr --strict --no-browse --tag ${{RELEASE_VER}} --revision ${{CF_REVISION}} --fork-org codefresh-io ${{CF_REPO_NAME}}
     when:
       steps:
       - name: create_release
@@ -220,7 +222,7 @@ steps:
     candidate: ${{build}}
     tags:
     - latest
-    - ${{CF_BRANCH_TAG_NORMALIZED}}
+    - ${{RELEASE_VER}}
     when:
       steps:
       - name: build_binaries
