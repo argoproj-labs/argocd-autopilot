@@ -145,6 +145,30 @@ func Test_newKustApp(t *testing.T) {
 				}, a.config))
 			},
 		},
+		"Should have annotations in the resulting config.json": {
+			opts: &CreateOptions{
+				AppSpecifier: "app",
+				AppName:      "name",
+				Annotations: map[string]string{
+					"key": "value",
+				},
+			},
+			srcRepoURL:        "github.com/owner/repo",
+			srcTargetRevision: "branch",
+			projectName:       "project",
+			assertFn: func(t *testing.T, a *kustApp) {
+				assert.True(t, reflect.DeepEqual(&Config{
+					AppName:           "name",
+					UserGivenName:     "name",
+					SrcPath:           filepath.Join(store.Default.AppsDir, "name", store.Default.OverlaysDir, "project"),
+					SrcRepoURL:        "github.com/owner/repo",
+					SrcTargetRevision: "branch",
+					Annotations: map[string]string{
+						"key": "value",
+					},
+				}, a.config))
+			},
+		},
 	}
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {

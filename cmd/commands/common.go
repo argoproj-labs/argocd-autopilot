@@ -15,7 +15,7 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 
-  appset "github.com/argoproj/applicationset/api/v1alpha1"
+	appset "github.com/argoproj/applicationset/api/v1alpha1"
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/ghodss/yaml"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -178,6 +178,7 @@ type createAppSetOptions struct {
 	prune                       bool
 	preserveResourcesOnDeletion bool
 	appLabels                   map[string]string
+	appAnnotations              map[string]string
 	generators                  []appset.ApplicationSetGenerator
 }
 
@@ -251,6 +252,10 @@ func createAppSet(o *createAppSetOptions) ([]byte, error) {
 				PreserveResourcesOnDeletion: o.preserveResourcesOnDeletion,
 			},
 		},
+	}
+
+	if (o.appAnnotations != nil) {
+		appSet.Spec.Template.ApplicationSetTemplateMeta.Annotations = o.appAnnotations
 	}
 
 	return yaml.Marshal(appSet)

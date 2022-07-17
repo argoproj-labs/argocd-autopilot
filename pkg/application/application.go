@@ -61,6 +61,7 @@ type (
 		SrcRepoURL        string            `json:"srcRepoURL"`
 		SrcTargetRevision string            `json:"srcTargetRevision"`
 		Labels            map[string]string `json:"labels"`
+		Annotations       map[string]string `json:"annotations"`
 	}
 
 	ClusterResConfig struct {
@@ -76,6 +77,7 @@ type (
 		DestServer       string
 		InstallationMode string
 		Labels           map[string]string
+		Annotations      map[string]string
 		Exclude          string
 		Include          string
 	}
@@ -115,6 +117,7 @@ func AddFlags(cmd *cobra.Command) *CreateOptions {
 	cmd.Flags().StringVar(&opts.InstallationMode, "installation-mode", InstallationModeNormal, "One of: normal|flat. "+
 		"If flat, will commit the application manifests (after running kustomize build), otherwise will commit the kustomization.yaml")
 	cmd.Flags().StringToStringVar(&opts.Labels, "labels", nil, "Optional labels that will be set on the Application resource. (e.g. \"{{ placeholder }}=my-org\"")
+	cmd.Flags().StringToStringVar(&opts.Annotations, "annotations", nil, "Optional annotations that will be set on the Application resource. (e.g. \"{{ placeholder }}=my-org\"")
 	cmd.Flags().StringVar(&opts.Include, "include", "", "Optional glob for files to include")
 	cmd.Flags().StringVar(&opts.Exclude, "exclude", "", "Optional glob for files to exclude")
 
@@ -295,6 +298,7 @@ func newKustApp(o *CreateOptions, projectName, repoURL, targetRevision, repoRoot
 		SrcPath:           filepath.Join(repoRoot, store.Default.AppsDir, o.AppName, store.Default.OverlaysDir, projectName),
 		SrcTargetRevision: targetRevision,
 		Labels:            o.Labels,
+		Annotations:       o.Annotations,
 	}
 
 	return app, nil
@@ -423,6 +427,7 @@ func newDirApp(opts *CreateOptions) *dirApp {
 			SrcPath:           path,
 			SrcTargetRevision: gitRef,
 			Labels:            opts.Labels,
+			Annotations:       opts.Annotations,
 		},
 		Exclude: opts.Exclude,
 		Include: opts.Include,
