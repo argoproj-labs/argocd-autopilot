@@ -157,9 +157,6 @@ You can read more about it in the [official proposal doc](https://docs.google.co
 * When adding applications from a public repo, allow committing as either a kustomization that references the public repo, or as a "flat" manifest file containing all the required resources.
 * Use a different cluster from the one Argo-CD is running on, as a default cluster for a Project, or a target cluster for a specific Application.
 
-## Development Status
-Argo-CD autopilot is currently under active development. Some of the basic commands are not yet implemented, but we hope to complete most of them in the coming weeks.
-
 ## Slack Channel
 Join us in channel #argo-autopilot in CNCF slack workspace.
 
