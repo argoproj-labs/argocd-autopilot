@@ -34,6 +34,7 @@ type (
 		KubeFactory     kube.Factory
 		Timeout         time.Duration
 		Labels          map[string]string
+		Annotations     map[string]string
 		Include         string
 		Exclude         string
 	}
@@ -260,6 +261,10 @@ var setAppOptsDefaults = func(ctx context.Context, repofs fs.FS, opts *AppCreate
 
 	if opts.AppOpts.Labels == nil {
 		opts.AppOpts.Labels = opts.Labels
+	}
+	
+	if opts.AppOpts.Annotations == nil {
+		opts.AppOpts.Annotations = opts.Annotations
 	}
 
 	if opts.AppOpts.AppType != "" {

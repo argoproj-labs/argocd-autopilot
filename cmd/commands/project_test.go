@@ -19,8 +19,8 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 
+	appset "github.com/argoproj/applicationset/api/v1alpha1"
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
-  appset "github.com/argoproj/applicationset/api/v1alpha1"
 	"github.com/ghodss/yaml"
 	"github.com/golang/mock/gomock"
 
@@ -165,6 +165,7 @@ func Test_generateProjectManifests(t *testing.T) {
 		wantProject            string
 		wantContextName        string
 		wantLabels             map[string]string
+		wantAnnotations        map[string]string
 	}{
 		"should generate project and appset with correct values": {
 			o: &GenerateProjectOptions{
@@ -176,6 +177,9 @@ func Test_generateProjectManifests(t *testing.T) {
 				Revision:           "revision",
 				InstallationPath:   "some/path",
 				Labels: map[string]string{
+					"some-key": "some-value",
+				},
+				Annotations: map[string]string{
 					"some-key": "some-value",
 				},
 			},
@@ -190,6 +194,9 @@ func Test_generateProjectManifests(t *testing.T) {
 				"some-key":                         "some-value",
 				store.Default.LabelKeyAppManagedBy: store.Default.LabelValueManagedBy,
 				store.Default.LabelKeyAppName:      "{{ appName }}",
+			},
+			wantAnnotations: map[string]string{
+				"some-key":                         "some-value",
 			},
 		},
 	}
