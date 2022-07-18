@@ -48,28 +48,29 @@ argocd-autopilot application create [APP_NAME] [flags]
 ### Options
 
 ```
-      --app string                 The application specifier (e.g. github.com/argoproj/argo-workflows/manifests/cluster-install/?ref=v3.0.3)
-      --apps-git-token string      Your git provider api token [APPS_GIT_TOKEN]
-      --apps-git-user string       Your git provider user name [APPS_GIT_USER] (not required in GitHub)
-      --apps-repo string           Repository URL [APPS_GIT_REPO]
-      --context string             The name of the kubeconfig context to use
-      --dest-namespace string      K8s target namespace (overrides the namespace specified in the kustomization.yaml)
-      --dest-server string         K8s cluster URL (e.g. https://kubernetes.default.svc) (default "https://kubernetes.default.svc")
-      --exclude string             Optional glob for files to exclude
-  -t, --git-token string           Your git provider api token [GIT_TOKEN]
-  -u, --git-user string            Your git provider user name [GIT_USER] (not required in GitHub)
-  -h, --help                       help for create
-      --include string             Optional glob for files to include
-      --installation-mode string   One of: normal|flat. If flat, will commit the application manifests (after running kustomize build), otherwise will commit the kustomization.yaml (default "normal")
-      --kubeconfig string          Path to the kubeconfig file to use for CLI requests.
-      --labels stringToString      Optional labels that will be set on the Application resource. (e.g. "{{ placeholder }}=my-org" (default [])
-  -n, --namespace string           If present, the namespace scope for this CLI request
-  -p, --project string             Project name
-      --repo string                Repository URL [GIT_REPO]
-      --request-timeout string     The length of time to wait before giving up on a single server request. Non-zero values should contain a corresponding time unit (e.g. 1s, 2m, 3h). A value of zero means don't timeout requests. (default "0")
-      --type string                The application type (kustomize|dir)
-  -b, --upsert-branch              If true will try to checkout the specified branch and create it if it doesn't exist
-      --wait-timeout duration      If not '0s', will try to connect to the cluster and wait until the application is in 'Synced' status for the specified timeout period
+      --annotations stringToString   Optional annotations that will be set on the Application resource. (e.g. "{{ placeholder }}=my-org" (default [])
+      --app string                   The application specifier (e.g. github.com/argoproj/argo-workflows/manifests/cluster-install/?ref=v3.0.3)
+      --apps-git-token string        Your git provider api token [APPS_GIT_TOKEN]
+      --apps-git-user string         Your git provider user name [APPS_GIT_USER] (not required in GitHub)
+      --apps-repo string             Repository URL [APPS_GIT_REPO]
+      --context string               The name of the kubeconfig context to use
+      --dest-namespace string        K8s target namespace (overrides the namespace specified in the kustomization.yaml)
+      --dest-server string           K8s cluster URL (e.g. https://kubernetes.default.svc) (default "https://kubernetes.default.svc")
+      --exclude string               Optional glob for files to exclude
+  -t, --git-token string             Your git provider api token [GIT_TOKEN]
+  -u, --git-user string              Your git provider user name [GIT_USER] (not required in GitHub)
+  -h, --help                         help for create
+      --include string               Optional glob for files to include
+      --installation-mode string     One of: normal|flat. If flat, will commit the application manifests (after running kustomize build), otherwise will commit the kustomization.yaml (default "normal")
+      --kubeconfig string            Path to the kubeconfig file to use for CLI requests.
+      --labels stringToString        Optional labels that will be set on the Application resource. (e.g. "{{ placeholder }}=my-org" (default [])
+  -n, --namespace string             If present, the namespace scope for this CLI request
+  -p, --project string               Project name
+      --repo string                  Repository URL [GIT_REPO]
+      --request-timeout string       The length of time to wait before giving up on a single server request. Non-zero values should contain a corresponding time unit (e.g. 1s, 2m, 3h). A value of zero means don't timeout requests. (default "0")
+      --type string                  The application type (kustomize|dir)
+  -b, --upsert-branch                If true will try to checkout the specified branch and create it if it doesn't exist
+      --wait-timeout duration        If not '0s', will try to connect to the cluster and wait until the application is in 'Synced' status for the specified timeout period
 ```
 
 ### SEE ALSO
