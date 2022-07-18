@@ -28,8 +28,8 @@ steps:
     - cf_export PATH=$PATH:/codefresh/volume/gopath/bin:/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin # must have brew in path for final brew step
     - (echo "${{CF_BRANCH}}" | grep -Eq '^release-v(\d+\.)?(\d+\.)?(\*|\d+)$') && echo on release branch || (echo not on release branch && exit 1)
     - RELEASE_VER=$(echo ${{CF_BRANCH_TAG_NORMALIZED_LOWER_CASE}} | sed -E 's/^release-([^"]+).*/\1/')
-    - cf_export RELEASE_VER
-    - (gh release view ${RELEASE_VER} --repo ${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}) && (echo release with the same name already exists && exit 1) || echo no release with the name ${{CF_BRANCH}}, we can continue!
+    - cf_export RELEASE_VER=$RELEASE_VER
+    - (gh release view ${RELEASE_VER} --repo ${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}) && (echo release with the same name already exists && exit 1) || echo no release with the name ${RELEASE_VER}, we can continue!
     when:
       steps:
       - name: main_clone
