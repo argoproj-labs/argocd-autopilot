@@ -144,9 +144,7 @@ func AddFlags(cmd *cobra.Command, opts *AddFlagsOptions) *CloneOptions {
 		cmd.Flag("git-user").Shorthand = "u"
 	}
 
-	if opts.CreateIfNotExist {
-		cmd.PersistentFlags().StringVar(&co.Provider, opts.Prefix+"provider", "", fmt.Sprintf("The git provider, one of: %v", strings.Join(Providers(), "|")))
-	}
+	cmd.PersistentFlags().StringVar(&co.Provider, opts.Prefix+"provider", "", fmt.Sprintf("The git provider, one of: %v", strings.Join(Providers(), "|")))
 
 	if opts.CloneForWrite {
 		cmd.PersistentFlags().BoolVarP(&co.UpsertBranch, opts.Prefix+"upsert-branch", "b", false, "If true will try to checkout the specified branch and create it if it doesn't exist")
@@ -176,6 +174,8 @@ func (o *CloneOptions) Parse() {
 }
 
 func (o *CloneOptions) GetRepo(ctx context.Context) (Repository, fs.FS, error) {
+	var err error
+
 	if o == nil {
 		return nil, nil, ErrNilOpts
 	}
@@ -184,12 +184,10 @@ func (o *CloneOptions) GetRepo(ctx context.Context) (Repository, fs.FS, error) {
 		return nil, nil, ErrNoParse
 	}
 
-	provider, err := getProvider(o.Provider, o.url, &o.Auth)
+	o.provider, err = getProvider(o.Provider, o.url, &o.Auth)
 	if err != nil {
-		return nil, nil, err
+		log.G(ctx).Warn("failed initializing git provider: %s", err.Error())
 	}
-
-	o.provider = provider
 
 	r, err := clone(ctx, o)
 	if err != nil {
@@ -327,14 +325,18 @@ func (r *repo) getAuthor(ctx context.Context) (*object.Signature, error) {
 	email := cfg.User.Email
 
 	if username == "" || email == "" {
+		if r.provider != nil {
+			return nil, fmt.Errorf("can not get author information when git provider is not supplied: %w", err)
+		}
+
 		username, email, err = r.provider.GetAuthor(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get author information: %w", err)
 		}
+	}
 
-		if username == "" || email == "" {
-			return nil, fmt.Errorf("missing required author information in git config, make sure your git config contains a 'user.name' and 'user.email'")
-		}
+	if username == "" || email == "" {
+		return nil, fmt.Errorf("missing required author information in git config, make sure your git config contains a 'user.name' and 'user.email'")
 	}
 
 	return &object.Signature{
@@ -439,6 +441,10 @@ var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 }
 
 var createRepo = func(ctx context.Context, opts *CloneOptions) (string, error) {
+	if opts.provider == nil {
+		return "", errors.New("failed creating repository - no git provider supplied")
+	}
+
 	_, orgRepo, _, _, _, _, _ := util.ParseGitUrl(opts.Repo)
 	return opts.provider.CreateRepository(ctx, orgRepo)
 }

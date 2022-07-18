@@ -52,6 +52,7 @@ argocd-autopilot application create [APP_NAME] [flags]
       --app string                   The application specifier (e.g. github.com/argoproj/argo-workflows/manifests/cluster-install/?ref=v3.0.3)
       --apps-git-token string        Your git provider api token [APPS_GIT_TOKEN]
       --apps-git-user string         Your git provider user name [APPS_GIT_USER] (not required in GitHub)
+      --apps-provider string         The git provider, one of: azure|bitbucket-server|gitea|github|gitlab
       --apps-repo string             Repository URL [APPS_GIT_REPO]
       --context string               The name of the kubeconfig context to use
       --dest-namespace string        K8s target namespace (overrides the namespace specified in the kustomization.yaml)
@@ -66,6 +67,7 @@ argocd-autopilot application create [APP_NAME] [flags]
       --labels stringToString        Optional labels that will be set on the Application resource. (e.g. "{{ placeholder }}=my-org" (default [])
   -n, --namespace string             If present, the namespace scope for this CLI request
   -p, --project string               Project name
+      --provider string              The git provider, one of: azure|bitbucket-server|gitea|github|gitlab
       --repo string                  Repository URL [GIT_REPO]
       --request-timeout string       The length of time to wait before giving up on a single server request. Non-zero values should contain a corresponding time unit (e.g. 1s, 2m, 3h). A value of zero means don't timeout requests. (default "0")
       --type string                  The application type (kustomize|dir)

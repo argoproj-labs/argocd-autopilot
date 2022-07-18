@@ -47,6 +47,7 @@ argocd-autopilot repo uninstall [flags]
   -h, --help                     help for uninstall
       --kubeconfig string        Path to the kubeconfig file to use for CLI requests.
   -n, --namespace string         If present, the namespace scope for this CLI request
+      --provider string          The git provider, one of: azure|bitbucket-server|gitea|github|gitlab
       --repo string              Repository URL [GIT_REPO]
       --request-timeout string   The length of time to wait before giving up on a single server request. Non-zero values should contain a corresponding time unit (e.g. 1s, 2m, 3h). A value of zero means don't timeout requests. (default "0")
   -b, --upsert-branch            If true will try to checkout the specified branch and create it if it doesn't exist
