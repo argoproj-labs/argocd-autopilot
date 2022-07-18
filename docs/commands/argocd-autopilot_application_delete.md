@@ -34,7 +34,6 @@ argocd-autopilot application delete [APP_NAME] [flags]
   -g, --global             global
   -h, --help               help for delete
   -p, --project string     Project name
-      --provider string    The git provider, one of: azure|bitbucket-server|gitea|github|gitlab
       --repo string        Repository URL [GIT_REPO]
   -b, --upsert-branch      If true will try to checkout the specified branch and create it if it doesn't exist
 ```

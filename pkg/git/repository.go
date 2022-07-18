@@ -145,6 +145,9 @@ func AddFlags(cmd *cobra.Command, opts *AddFlagsOptions) *CloneOptions {
 	}
 
 	cmd.PersistentFlags().StringVar(&co.Provider, opts.Prefix+"provider", "", fmt.Sprintf("The git provider, one of: %v", strings.Join(Providers(), "|")))
+	if !opts.CreateIfNotExist {
+		util.Die(cmd.PersistentFlags().MarkHidden(opts.Prefix+"provider"))
+	}
 
 	if opts.CloneForWrite {
 		cmd.PersistentFlags().BoolVarP(&co.UpsertBranch, opts.Prefix+"upsert-branch", "b", false, "If true will try to checkout the specified branch and create it if it doesn't exist")

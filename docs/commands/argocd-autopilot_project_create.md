@@ -63,7 +63,6 @@ argocd-autopilot project create [PROJECT] [flags]
       --port-forward                       Connect to a random argocd-server port using port forwarding
       --port-forward-namespace string      Namespace name which should be used for port forwarding
       --project string                     project of the cluster
-      --provider string                    The git provider, one of: azure|bitbucket-server|gitea|github|gitlab
       --repo string                        Repository URL [GIT_REPO]
       --server string                      Argo CD server address
       --server-crt string                  Server certificate file
