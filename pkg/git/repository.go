@@ -324,11 +324,7 @@ func (r *repo) getAuthor(ctx context.Context) (*object.Signature, error) {
 	username := cfg.User.Name
 	email := cfg.User.Email
 
-	if username == "" || email == "" {
-		if r.provider == nil {
-			return nil, fmt.Errorf("can not get author information when git provider is not supplied: %w", err)
-		}
-
+	if (username == "" || email == "") && r.provider != nil {
 		username, email, err = r.provider.GetAuthor(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get author information: %w", err)
