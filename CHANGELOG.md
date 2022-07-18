@@ -1,5 +1,9 @@
 # Changelog:
 
+# v0.4.1
+
+* Added option for adding annotations on generated applications
+
 # v0.4.0
 
 * Fixed security issue by bumping argo-cd dependency to v2.4.6
