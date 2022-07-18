@@ -1,8 +1,8 @@
 ### Changes
-* Added option for adding annotations on generated applications
+* [fix] uninstall from bitbucket-server does not clean the repository [#347](https://github.com/argoproj-labs/argocd-autopilot/issues/347)
 
 ### Contributors:
-- Daniel Maizel ([@danielm-codefresh](https://github.com/danielm-codefresh))
+- Noam Gal ([@noam-codefresh](https://github.com/noam-codefresh))
 
 ## Installation:
 
@@ -41,7 +41,7 @@ argocd-autopilot version
 ### Linux and WSL (using curl):
 ```bash
 # download and extract the binary
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.1/argocd-autopilot-linux-amd64.tar.gz | tar zx
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.2/argocd-autopilot-linux-amd64.tar.gz | tar zx
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
@@ -53,7 +53,7 @@ argocd-autopilot version
 ### Mac (using curl):
 ```bash
 # download and extract the binary
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.1/argocd-autopilot-darwin-amd64.tar.gz | tar zx
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.2/argocd-autopilot-darwin-amd64.tar.gz | tar zx
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
@@ -68,5 +68,5 @@ When using the Docker image, you have to provide the `.kube` and `.gitconfig` di
 docker run \
   -v ~/.kube:/home/autopilot/.kube \
   -v ~/.gitconfig:/home/autopilot/.gitconfig \
-  -it quay.io/argoprojlabs/argocd-autopilot:v0.4.1 <cmd> <flags>
+  -it quay.io/argoprojlabs/argocd-autopilot:v0.4.2 <cmd> <flags>
 ```

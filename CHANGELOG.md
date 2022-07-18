@@ -1,5 +1,9 @@
 # Changelog:
 
+# v0.4.2
+
+* [fix] uninstall from bitbucket-server does not clean the repository [#347](https://github.com/argoproj-labs/argocd-autopilot/issues/347)
+
 # v0.4.1
 
 * Added option for adding annotations on generated applications
