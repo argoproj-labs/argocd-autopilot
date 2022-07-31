@@ -146,7 +146,7 @@ func AddFlags(cmd *cobra.Command, opts *AddFlagsOptions) *CloneOptions {
 
 	cmd.PersistentFlags().StringVar(&co.Provider, opts.Prefix+"provider", "", fmt.Sprintf("The git provider, one of: %v", strings.Join(Providers(), "|")))
 	if !opts.CreateIfNotExist {
-		util.Die(cmd.PersistentFlags().MarkHidden(opts.Prefix+"provider"))
+		util.Die(cmd.PersistentFlags().MarkHidden(opts.Prefix + "provider"))
 	}
 
 	if opts.CloneForWrite {
@@ -465,9 +465,9 @@ func getProvider(providerType, repoUrl string, auth *Auth) (Provider, error) {
 	}
 
 	return newProvider(&ProviderOptions{
-		Type: providerType,
-		Auth: auth,
-		Host: repoUrl,
+		Type:    providerType,
+		Auth:    auth,
+		RepoURL: repoUrl,
 	})
 }
 

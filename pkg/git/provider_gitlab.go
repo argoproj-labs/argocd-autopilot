@@ -31,7 +31,7 @@ type (
 )
 
 func newGitlab(opts *ProviderOptions) (Provider, error) {
-	host, _, _, _, _, _, _ := util.ParseGitUrl(opts.Host)
+	host, _, _, _, _, _, _ := util.ParseGitUrl(opts.RepoURL)
 	c, err := gl.NewClient(opts.Auth.Password, gl.WithBaseURL(host))
 	if err != nil {
 		return nil, err

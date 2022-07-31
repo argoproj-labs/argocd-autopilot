@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	g "github.com/argoproj-labs/argocd-autopilot/pkg/git/github"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 
 	gh "github.com/google/go-github/v43/github"
 )
@@ -34,8 +35,9 @@ func newGithub(opts *ProviderOptions) (Provider, error) {
 		}
 	}
 
-	if opts.Host != "" && !strings.Contains(opts.Host, "github.com") {
-		c, err = gh.NewEnterpriseClient(opts.Host, opts.Host, hc)
+	host, _, _, _, _, _, _ := util.ParseGitUrl(opts.RepoURL)
+	if !strings.Contains(host, "github.com") {
+		c, err = gh.NewEnterpriseClient(host, host, hc)
 		if err != nil {
 			return nil, err
 		}

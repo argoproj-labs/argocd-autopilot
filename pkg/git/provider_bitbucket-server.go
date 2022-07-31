@@ -23,7 +23,7 @@ type (
 	}
 
 	bitbucketServer struct {
-		baseUrl *url.URL
+		baseURL *url.URL
 		c       HttpClient
 		opts    *ProviderOptions
 	}
@@ -78,15 +78,15 @@ var (
 )
 
 func newBitbucketServer(opts *ProviderOptions) (Provider, error) {
-	host, _, _, _, _, _, _ := util.ParseGitUrl(opts.Host)
-	baseUrl, err := url.Parse(host)
+	host, _, _, _, _, _, _ := util.ParseGitUrl(opts.RepoURL)
+	baseURL, err := url.Parse(host)
 	if err != nil {
 		return nil, err
 	}
 
 	httpClient := &http.Client{}
 	g := &bitbucketServer{
-		baseUrl: baseUrl,
+		baseURL: baseURL,
 		c:       httpClient,
 		opts:    opts,
 	}
@@ -111,13 +111,13 @@ func (bbs *bitbucketServer) CreateRepository(ctx context.Context, orgRepo string
 	}
 
 	for _, link := range repo.Links.Clone {
-		if link.Name == bbs.baseUrl.Scheme {
+		if link.Name == bbs.baseURL.Scheme {
 			return link.Href, nil
 
 		}
 	}
 
-	return "", fmt.Errorf("created repo did not contain a valid %s clone url", bbs.baseUrl.Scheme)
+	return "", fmt.Errorf("created repo did not contain a valid %s clone url", bbs.baseURL.Scheme)
 }
 
 func (bbs *bitbucketServer) GetDefaultBranch(ctx context.Context, orgRepo string) (string, error) {
@@ -198,7 +198,7 @@ func (bbs *bitbucketServer) requestRest(ctx context.Context, method, urlPath str
 func (bbs *bitbucketServer) request(ctx context.Context, method, urlPath string, body interface{}) ([]byte, error) {
 	var err error
 
-	urlClone := *bbs.baseUrl
+	urlClone := *bbs.baseURL
 	urlClone.Path = path.Join(urlClone.Path, urlPath)
 	bodyStr := []byte{}
 	if body != nil {
