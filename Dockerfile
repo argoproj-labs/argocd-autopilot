@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=docker.io/library/ubuntu:21.10
+ARG BASE_IMAGE=docker.io/library/ubuntu:22.04
 
 ### Base
 FROM $BASE_IMAGE as base
