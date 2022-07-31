@@ -66,7 +66,6 @@ type (
 		url      string
 		revision string
 		path     string
-		provider Provider
 	}
 
 	PushOptions struct {
@@ -78,9 +77,10 @@ type (
 
 	repo struct {
 		gogit.Repository
-		auth     Auth
-		progress io.Writer
-		provider Provider
+		auth         Auth
+		progress     io.Writer
+		providerType string
+		repoURL      string
 	}
 )
 
@@ -104,6 +104,29 @@ var (
 
 	checkoutBranch = func(r *repo, branch string, upsertBranch bool) error {
 		return r.checkoutBranch(branch, upsertBranch)
+	}
+
+	getProvider = func(providerType, repoURL string, auth *Auth) (Provider, error) {
+		if providerType == "" {
+			u, err := url.Parse(repoURL)
+			if err != nil {
+				return nil, err
+			}
+
+			if strings.Contains(u.Hostname(), AzureHostName) {
+				providerType = Azure
+			} else {
+				providerType = strings.TrimSuffix(u.Hostname(), ".com")
+			}
+
+			log.G().Warnf("--provider not specified, assuming provider from url: %s", providerType)
+		}
+
+		return newProvider(&ProviderOptions{
+			Type:    providerType,
+			Auth:    auth,
+			RepoURL: repoURL,
+		})
 	}
 
 	ggClone = func(ctx context.Context, s storage.Storer, worktree billy.Filesystem, o *gg.CloneOptions) (gogit.Repository, error) {
@@ -187,7 +210,6 @@ func (o *CloneOptions) GetRepo(ctx context.Context) (Repository, fs.FS, error) {
 		return nil, nil, ErrNoParse
 	}
 
-	o.provider, err = getProvider(o.Provider, o.url, &o.Auth)
 	if err != nil {
 		log.G(ctx).Warn("failed initializing git provider: %s", err.Error())
 	}
@@ -327,10 +349,13 @@ func (r *repo) getAuthor(ctx context.Context) (*object.Signature, error) {
 	username := cfg.User.Name
 	email := cfg.User.Email
 
-	if (username == "" || email == "") && r.provider != nil {
-		username, email, err = r.provider.GetAuthor(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get author information: %w", err)
+	if username == "" || email == "" {
+		provider, _ := getProvider(r.providerType, r.repoURL, &r.auth)
+		if provider != nil {
+			username, email, err = provider.GetAuthor(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get author information: %w", err)
+			}
 		}
 	}
 
@@ -411,10 +436,11 @@ var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 	}
 
 	repo := &repo{
-		Repository: r,
-		auth:       opts.Auth,
-		progress:   progress,
-		provider:   opts.provider,
+		Repository:   r,
+		auth:         opts.Auth,
+		progress:     progress,
+		providerType: opts.Provider,
+		repoURL:      opts.Repo,
 	}
 
 	if opts.revision != "" {
@@ -440,35 +466,13 @@ var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 }
 
 var createRepo = func(ctx context.Context, opts *CloneOptions) (string, error) {
-	if opts.provider == nil {
+	provider, _ := getProvider(opts.Provider, opts.Repo, &opts.Auth)
+	if provider == nil {
 		return "", errors.New("failed creating repository - no git provider supplied")
 	}
 
 	_, orgRepo, _, _, _, _, _ := util.ParseGitUrl(opts.Repo)
-	return opts.provider.CreateRepository(ctx, orgRepo)
-}
-
-func getProvider(providerType, repoUrl string, auth *Auth) (Provider, error) {
-	if providerType == "" {
-		u, err := url.Parse(repoUrl)
-		if err != nil {
-			return nil, err
-		}
-
-		if strings.Contains(u.Hostname(), AzureHostName) {
-			providerType = Azure
-		} else {
-			providerType = strings.TrimSuffix(u.Hostname(), ".com")
-		}
-
-		log.G().Warnf("--provider not specified, assuming provider from url: %s", providerType)
-	}
-
-	return newProvider(&ProviderOptions{
-		Type:    providerType,
-		Auth:    auth,
-		RepoURL: repoUrl,
-	})
+	return provider.CreateRepository(ctx, orgRepo)
 }
 
 func getDefaultRepoOptions(orgRepo string) (*CreateRepoOptions, error) {
@@ -498,10 +502,11 @@ var initRepo = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 	}
 
 	r := &repo{
-		Repository: ggr,
-		auth:       opts.Auth,
-		progress:   progress,
-		provider:   opts.provider,
+		Repository:   ggr,
+		progress:     progress,
+		providerType: opts.Provider,
+		repoURL:      opts.Repo,
+		auth:         opts.Auth,
 	}
 	if err = r.addRemote("origin", opts.url); err != nil {
 		return nil, err
@@ -528,7 +533,12 @@ var initRepo = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 
 func (r *repo) getDefaultBranch(ctx context.Context, repo string) (string, error) {
 	_, orgRepo, _, _, _, _, _ := util.ParseGitUrl(repo)
-	defaultBranch, err := r.provider.GetDefaultBranch(ctx, orgRepo)
+	provider, err := getProvider(r.providerType, r.repoURL, &r.auth)
+	if err != nil {
+		return "", err
+	}
+
+	defaultBranch, err := provider.GetDefaultBranch(ctx, orgRepo)
 	if err != nil {
 		return "", fmt.Errorf("failed to get default branch from provider. Error: %w", err)
 	}
