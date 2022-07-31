@@ -7,15 +7,15 @@ USER root
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN groupadd -g 999 autopilot && \
-    useradd -r -u 999 -g autopilot autopilot && \
-    mkdir -p /home/autopilot && \
-    chown autopilot:0 /home/autopilot && \
-    chmod g=u /home/autopilot && \
-    apt-get update && \
-    apt-get install -y git git-lfs tini gpg tzdata && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+RUN groupadd -g 999 autopilot
+RUN    useradd -r -u 999 -g autopilot autopilot
+RUN    mkdir -p /home/autopilot
+RUN    chown autopilot:0 /home/autopilot
+RUN    chmod g=u /home/autopilot
+RUN    apt-get update
+RUN    apt-get install -y git git-lfs tini gpg tzdata
+RUN    apt-get clean
+RUN    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 ENV USER=autopilot
 
