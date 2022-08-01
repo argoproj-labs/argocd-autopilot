@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=docker.io/library/ubuntu:21.10
+ARG BASE_IMAGE=docker.io/library/ubuntu:22.04
 
 ### Base
 FROM $BASE_IMAGE as base
@@ -12,8 +12,7 @@ RUN groupadd -g 999 autopilot && \
     mkdir -p /home/autopilot && \
     chown autopilot:0 /home/autopilot && \
     chmod g=u /home/autopilot && \
-    apt-get update && \
-    apt-get dist-upgrade -y && \
+    apt-get update -y && \
     apt-get install -y git git-lfs tini gpg tzdata && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
