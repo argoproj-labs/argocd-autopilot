@@ -1,5 +1,11 @@
 # Changelog:
 
+# v0.4.3
+
+* [chore] bumped ubuntu to 22.04 (LTS) [#354](https://github.com/argoproj-labs/argocd-autopilot/pull/354)
+* [fix] fix github-enterprise client creation [#353](https://github.com/argoproj-labs/argocd-autopilot/pull/353)
+* [fix] --provider not respected "WARNING --provider not specified, assuming provider from url: github" always displayed [#352](https://github.com/argoproj-labs/argocd-autopilot/issues/352)
+
 # v0.4.2
 
 * [fix] uninstall from bitbucket-server does not clean the repository [#347](https://github.com/argoproj-labs/argocd-autopilot/issues/347)
