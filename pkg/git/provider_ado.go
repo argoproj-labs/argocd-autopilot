@@ -41,10 +41,11 @@ const AzureHostName = "dev.azure"
 const timeoutTime = 10 * time.Second
 
 func newAdo(opts *ProviderOptions) (Provider, error) {
-	adoUrl, err := parseAdoUrl(opts.Host)
+	adoUrl, err := parseAdoUrl(opts.RepoURL)
 	if err != nil {
 		return nil, err
 	}
+
 	connection := azuredevops.NewPatConnection(adoUrl.loginUrl, opts.Auth.Password)
 	ctx, cancel := context.WithTimeout(context.Background(), timeoutTime)
 	defer cancel()
@@ -85,7 +86,7 @@ func (g *adoGit) GetDefaultBranch(ctx context.Context, orgRepo string) (string, 
 	project := g.adoUrl.GetProjectName()
 	r, err := g.adoClient.GetRepository(ctx, ado.GetRepositoryArgs{
 		RepositoryId: &orgRepo,
-		Project: &project,
+		Project:      &project,
 	})
 	if err != nil {
 		return "", err
@@ -109,15 +110,17 @@ func parseAdoUrl(host string) (*adoGitUrl, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	var sub, project string
 	path := strings.Split(u.Path, "/")
 	if len(path) < 5 {
 		return nil, fmt.Errorf("unable to parse Azure DevOps url")
-	} else {
-		// 1 since the path starts with a slash
-		sub = path[1]
-		project = path[2]
 	}
+
+	// 1 since the path starts with a slash
+	sub = path[1]
+	project = path[2]
+
 	loginUrl := fmt.Sprintf("%s://%s/%s", u.Scheme, u.Host, sub)
 	return &adoGitUrl{
 		loginUrl:     loginUrl,
