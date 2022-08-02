@@ -138,6 +138,12 @@ func TestNewRepoSpecFromUrl_CloneSpecs(t *testing.T) {
 			absPath:   "",
 			ref:       "",
 		},
+		{
+			input:     "https://gitlab-onprem.devops.cf-cd.com/root/gitlab-demo_git-source/resources_gitlab-demo",
+			cloneSpec: "https://gitlab-onprem.devops.cf-cd.com/root/gitlab-demo_git-source.git",
+			absPath:   "resources_gitlab-demo",
+			ref:       "",
+		},
 	}
 	for _, testcase := range testcases {
 		host, orgRepo, path, ref, _, suffix, _ := ParseGitUrl(testcase.input)

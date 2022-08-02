@@ -23,7 +23,7 @@ type (
 )
 
 func newGitea(opts *ProviderOptions) (Provider, error) {
-	c, err := gt.NewClient(opts.Host, gt.SetToken(opts.Auth.Password))
+	c, err := gt.NewClient(opts.RepoURL, gt.SetToken(opts.Auth.Password))
 	if err != nil {
 		return nil, err
 	}

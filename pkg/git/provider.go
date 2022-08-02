@@ -32,7 +32,7 @@ type (
 	ProviderOptions struct {
 		Type string
 		Auth *Auth
-		Host string
+		RepoURL string
 	}
 
 	CreateRepoOptions struct {
