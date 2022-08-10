@@ -15,7 +15,7 @@ type (
 		CurrentUser(options ...gl.RequestOptionFunc) (*gl.User, *gl.Response, error)
 		CreateProject(opt *gl.CreateProjectOptions, options ...gl.RequestOptionFunc) (*gl.Project, *gl.Response, error)
 		GetProject(pid interface{}, opt *gl.GetProjectOptions, options ...gl.RequestOptionFunc) (*gl.Project, *gl.Response, error) 
-		ListGroups(opt *gl.ListGroupsOptions, options ...gl.RequestOptionFunc) ([]*gl.Group, *gl.Response, error)
+		GetGroup(gid interface{}, opt *gl.GetGroupOptions, options ...gl.RequestOptionFunc) (*gl.Group, *gl.Response, error)
 	}
 
 	clientImpl struct {
@@ -141,19 +141,11 @@ func (g *gitlab) getAuthenticatedUser() (*gl.User, error) {
 }
 
 func (g *gitlab) getGroupIdByName(groupName string) (int, error) {
-	groups, _, err := g.client.ListGroups(&gl.ListGroupsOptions{
-		MinAccessLevel: gl.AccessLevel(gl.DeveloperPermissions),
-		TopLevelOnly:   gl.Bool(false),
-	})
+	group, _, err := g.client.GetGroup(groupName, &gl.GetGroupOptions{})
+
 	if err != nil {
 		return 0, err
 	}
 
-	for _, group := range groups {
-		if group.FullPath == groupName {
-			return group.ID, nil
-		}
-	}
-
-	return 0, fmt.Errorf("group \"%s\" not found", groupName)
+	return group.ID, nil
 }
