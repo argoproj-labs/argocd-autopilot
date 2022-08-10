@@ -47,20 +47,16 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 		},
 		"Fails if can't find group": {
 			orgRepo: "org/projectName",
-			wantErr: "group \"org\" not found",
+			wantErr: "some error",
 			beforeFn: func(c *glmocks.MockGitlabClient) {
 				u := &gl.User{Username: "username"}
-				g := []*gl.Group{{FullPath: "anotherOrg", ID: 1}}
 
 				c.EXPECT().CurrentUser().
 					Times(1).
 					Return(u, nil, nil)
-				c.EXPECT().ListGroups(&gl.ListGroupsOptions{
-					MinAccessLevel: gl.AccessLevel(gl.DeveloperPermissions),
-					TopLevelOnly:   gl.Bool(false),
-				}).
+				c.EXPECT().GetGroup("org", &gl.GetGroupOptions{}).
 					Times(1).
-					Return(g, nil, nil)
+					Return(nil, nil, errors.New("some error"))
 			},
 		},
 		"Fails if can't create project": {
@@ -111,17 +107,14 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 				u := &gl.User{Username: "username"}
 				c.EXPECT().CurrentUser().Return(u, nil, nil)
 				p := &gl.Project{HTTPURLToRepo: "http://gitlab.com/org/projectName"}
-				g := []*gl.Group{{FullPath: "org", ID: 1}}
+				g := &gl.Group{FullPath: "org", ID: 1}
 				createOpts := gl.CreateProjectOptions{
 					Name:        gl.String("projectName"),
 					Visibility:  gl.Visibility(gl.PrivateVisibility),
 					NamespaceID: gl.Int(1),
 				}
 
-				c.EXPECT().ListGroups(&gl.ListGroupsOptions{
-					MinAccessLevel: gl.AccessLevel(gl.DeveloperPermissions),
-					TopLevelOnly:   gl.Bool(false),
-				}).
+				c.EXPECT().GetGroup("org", &gl.GetGroupOptions{}).
 					Times(1).
 					Return(g, nil, nil)
 
@@ -137,17 +130,14 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 				u := &gl.User{Username: "username"}
 				c.EXPECT().CurrentUser().Return(u, nil, nil)
 				p := &gl.Project{HTTPURLToRepo: "http://gitlab.com/org/subOrg/projectName"}
-				g := []*gl.Group{{FullPath: "org/subOrg", ID: 1}}
+				g := &gl.Group{FullPath: "org/subOrg", ID: 1}
 				createOpts := gl.CreateProjectOptions{
 					Name:        gl.String("projectName"),
 					Visibility:  gl.Visibility(gl.PrivateVisibility),
 					NamespaceID: gl.Int(1),
 				}
 
-				c.EXPECT().ListGroups(&gl.ListGroupsOptions{
-					MinAccessLevel: gl.AccessLevel(gl.DeveloperPermissions),
-					TopLevelOnly:   gl.Bool(false),
-				}).
+				c.EXPECT().GetGroup("org/subOrg", &gl.GetGroupOptions{}).
 					Times(1).
 					Return(g, nil, nil)
 
