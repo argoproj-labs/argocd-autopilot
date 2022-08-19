@@ -46,7 +46,7 @@ argocd-autopilot repo bootstrap [flags]
       --kubeconfig string                 Path to the kubeconfig file to use for CLI requests.
   -n, --namespace string                  If present, the namespace scope for this CLI request
       --namespace-labels stringToString   Optional labels that will be set on the namespace resource. (e.g. "key1=value1,key2=value2" (default [])
-      --provider string                   The git provider, one of: azure|bitbucket-server|gitea|github|gitlab
+      --provider string                   The git provider, one of: azure|bitbucket-server|gitea|github|gitlab|bitbucket
       --recover                           Installs Argo-CD on a cluster without pushing installation manifests to the git repository. This is meant to be used together with --app flag to use the same Argo-CD manifests that exists in the git repository (e.g. --app https://github.com/git-user/repo-name/bootstrap/argo-cd)
       --repo string                       Repository URL [GIT_REPO]
       --request-timeout string            The length of time to wait before giving up on a single server request. Non-zero values should contain a corresponding time unit (e.g. 1s, 2m, 3h). A value of zero means don't timeout requests. (default "0")
