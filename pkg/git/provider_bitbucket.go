@@ -48,18 +48,16 @@ func (g *bitbucket) CreateRepository(ctx context.Context, orgRepo string) (strin
 
 	p, err := g.client.Repositories.Repository.Create(createOpts)
 	if err != nil {
-		return "", fmt.Errorf("failed creating the project \"%s\" under \"%s\": %w", opts.Name, opts.Owner, err)
+		return "", fmt.Errorf("failed creating the repository \"%s\" under \"%s\": %w", opts.Name, opts.Owner, err)
 	}
 
 	var cloneUrl string
 	cloneLinksObj := p.Links["clone"]
 	for _, cloneLink := range cloneLinksObj.([]interface{}) {
-		link, ok := cloneLink.(map[string]interface{})
-		if !ok {
-			return "", fmt.Errorf("clone url is empty")
-		}
-		if link["name"].(string) == "https" {
-			cloneUrl = link["href"].(string)
+		if link, ok := cloneLink.(map[string]interface{}); ok {
+			if link["name"].(string) == "https" {
+				cloneUrl = link["href"].(string)
+			}
 		}
 	}
 
@@ -97,25 +95,53 @@ func (g *bitbucket) GetDefaultBranch(ctx context.Context, orgRepo string) (strin
 }
 
 func (g *bitbucket) GetAuthor(_ context.Context) (username, email string, err error) {
-	// authUser, err := g.getAuthenticatedUser()
-	// if err != nil {
-	// 	return
-	// }
+	authUser, err := g.getAuthenticatedUser()
+	if err != nil {
+		return
+	}
 
-	// username = authUser.Name
-	// if username == "" {
-	// 	username = authUser.Username
-	// }
+	username = authUser.Username
 
-	// email = authUser.Email
-	// if email == "" {
-	// 	email = authUser.Username
-	// }
+	authUserEmail, err := g.getAuthenticatedUserEmail()
+	if err != nil || authUserEmail == "" {
+		email = authUser.Username
+		return
+	}
+
+	email = authUserEmail
 
 	return
 }
 
 func (g *bitbucket) getAuthenticatedUser() (*bb.User, error) {
+	user, err := g.client.User.Profile()
 
-	return nil, nil
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
+func (g *bitbucket) getAuthenticatedUserEmail() (string, error) {
+	emails, err := g.client.User.Emails()
+
+	if err != nil {
+		return "", err
+	}
+
+	userEmails, ok := emails.(map[string]interface{})
+	if !ok {
+		return "", nil
+	}
+
+	for _, emailValues := range userEmails["values"].([]interface{}) {
+		if emailStrValues, ok := emailValues.(map[string]interface{}); ok {
+			if email, ok := emailStrValues["email"].(string); ok {
+				return email, nil
+			}
+		}
+	}
+
+	return "", nil
 }
