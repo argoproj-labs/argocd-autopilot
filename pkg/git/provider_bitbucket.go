@@ -103,7 +103,6 @@ func (g *bitbucket) GetDefaultBranch(ctx context.Context, orgRepo string) (strin
 	}
 
 	repo, err := g.client.Repository.Get(repoOpts)
-
 	if err != nil {
 		return "", err
 	}
@@ -153,12 +152,31 @@ func (g *bitbucket) getAuthenticatedUserEmail() (string, error) {
 		return "", nil
 	}
 
+	var lastEmailInfo map[string]interface{}
+
 	for _, emailValues := range userEmails["values"].([]interface{}) {
-		if emailStrValues, ok := emailValues.(map[string]interface{}); ok {
-			if email, ok := emailStrValues["email"].(string); ok {
-				return email, nil
+		if emailInfo, ok := emailValues.(map[string]interface{}); ok {
+			isPrimary, ok := emailInfo["is_primary"].(bool)
+			isConfirmed, ok := emailInfo["is_confirmed"].(bool)
+			isLastPrimary, lastExist := lastEmailInfo["is_primary"].(bool)
+			if !ok {
+				break
+			}
+			if isConfirmed && isPrimary {
+				lastEmailInfo = emailInfo
+				break
+			}
+			if isPrimary {
+				lastEmailInfo = emailInfo
+			}
+			if ((lastExist && !isLastPrimary) || !lastExist) && isConfirmed {
+				lastEmailInfo = emailInfo
 			}
 		}
+	}
+
+	if email, ok := lastEmailInfo["email"].(string); ok {
+		return email, nil
 	}
 
 	return "", nil
