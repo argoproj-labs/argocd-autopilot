@@ -8,22 +8,39 @@ import (
 	bb "github.com/ktrysmt/go-bitbucket"
 )
 
-//go:generate mockgen -destination=./gitlab/mocks/client.go -package=mocks -source=./provider_gitlab.go GitlabClient
+//go:generate mockgen -destination=./bitbucket/mocks/client.go -package=mocks -source=./provider_bitbucket.go bbRepo bbUser
 
-type bitbucket struct {
-	opts   *ProviderOptions
-	client *bb.Client
-}
+type (
+	bbClientImpl struct {
+		Repository bbRepo
+		User       bbUser
+	}
+	bitbucket struct {
+		opts   *ProviderOptions
+		client *bbClientImpl
+	}
+
+	bbRepo interface {
+		Create(ro *bb.RepositoryOptions) (*bb.Repository, error)
+		Get(ro *bb.RepositoryOptions) (*bb.Repository, error)
+	}
+	bbUser interface {
+		Profile() (*bb.User, error)
+		Emails() (interface{}, error)
+	}
+)
 
 func newBitbucket(opts *ProviderOptions) (Provider, error) {
 	c := bb.NewBasicAuth(opts.Auth.Username, opts.Auth.Password)
-
 	if c == nil {
 		return nil, errors.New("Authentication info is invalid")
 	}
 	g := &bitbucket{
-		opts:   opts,
-		client: c,
+		opts: opts,
+		client: &bbClientImpl{
+			Repository: c.Repositories.Repository,
+			User:       c.User,
+		},
 	}
 
 	return g, nil
@@ -46,7 +63,8 @@ func (g *bitbucket) CreateRepository(ctx context.Context, orgRepo string) (strin
 		createOpts.IsPrivate = fmt.Sprintf("%t", opts.Private)
 	}
 
-	p, err := g.client.Repositories.Repository.Create(createOpts)
+	p, err := g.client.Repository.Create(createOpts)
+
 	if err != nil {
 		return "", fmt.Errorf("failed creating the repository \"%s\" under \"%s\": %w", opts.Name, opts.Owner, err)
 	}
@@ -84,7 +102,7 @@ func (g *bitbucket) GetDefaultBranch(ctx context.Context, orgRepo string) (strin
 		repoOpts.IsPrivate = fmt.Sprintf("%t", opts.Private)
 	}
 
-	repo, err := g.client.Repositories.Repository.Get(repoOpts)
+	repo, err := g.client.Repository.Get(repoOpts)
 
 	if err != nil {
 		return "", err
