@@ -163,9 +163,9 @@ func (g *bitbucket) getAuthenticatedUserEmail() (string, error) {
 		}
 	}
 
-	if email, ok := lastEmailInfo["email"].(string); !ok {
-		return "", nil
+	if email, ok := lastEmailInfo["email"].(string); ok {
+		return email, nil
 	}
 
-	return email, nil
+	return "", nil
 }
