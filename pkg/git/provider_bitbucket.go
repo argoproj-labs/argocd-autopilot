@@ -21,6 +21,7 @@ type (
 		Create(ro *bb.RepositoryOptions) (*bb.Repository, error)
 		Get(ro *bb.RepositoryOptions) (*bb.Repository, error)
 	}
+
 	bbUser interface {
 		Profile() (*bb.User, error)
 		Emails() (interface{}, error)
@@ -67,10 +68,9 @@ func (g *bitbucket) CreateRepository(ctx context.Context, orgRepo string) (strin
 	var cloneUrl string
 	cloneLinksObj := p.Links["clone"]
 	for _, cloneLink := range cloneLinksObj.([]interface{}) {
-		if link, ok := cloneLink.(map[string]interface{}); ok {
-			if link["name"].(string) == "https" {
-				cloneUrl = link["href"].(string)
-			}
+		link := cloneLink.(map[string]interface{})
+		if link["name"].(string) == "https" {
+			cloneUrl = link["href"].(string)
 		}
 	}
 
@@ -137,42 +137,35 @@ func (g *bitbucket) getAuthenticatedUser() (*bb.User, error) {
 
 func (g *bitbucket) getAuthenticatedUserEmail() (string, error) {
 	emails, err := g.User.Emails()
-
 	if err != nil {
 		return "", err
 	}
 
-	userEmails, ok := emails.(map[string]interface{})
-	if !ok {
-		return "", nil
-	}
-
+	userEmails := emails.(map[string]interface{})
 	var lastEmailInfo map[string]interface{}
 
 	for _, emailValues := range userEmails["values"].([]interface{}) {
-		if emailInfo, ok := emailValues.(map[string]interface{}); ok {
-			isPrimary, ok := emailInfo["is_primary"].(bool)
-			isConfirmed, ok := emailInfo["is_confirmed"].(bool)
-			isLastPrimary, lastExist := lastEmailInfo["is_primary"].(bool)
-			if !ok {
-				break
-			}
-			if isConfirmed && isPrimary {
-				lastEmailInfo = emailInfo
-				break
-			}
-			if isPrimary {
-				lastEmailInfo = emailInfo
-			}
-			if ((lastExist && !isLastPrimary) || !lastExist) && isConfirmed {
-				lastEmailInfo = emailInfo
-			}
+		emailInfo := emailValues.(map[string]interface{})
+		isPrimary := emailInfo["is_primary"].(bool)
+		isConfirmed := emailInfo["is_confirmed"].(bool)
+		isLastPrimary, lastExist := lastEmailInfo["is_primary"].(bool)
+		if isConfirmed && isPrimary {
+			lastEmailInfo = emailInfo
+			break
+		}
+
+		if isPrimary {
+			lastEmailInfo = emailInfo
+		}
+
+		if ((lastExist && !isLastPrimary) || !lastExist) && isConfirmed {
+			lastEmailInfo = emailInfo
 		}
 	}
 
-	if email, ok := lastEmailInfo["email"].(string); ok {
-		return email, nil
+	if email, ok := lastEmailInfo["email"].(string); !ok {
+		return "", nil
 	}
 
-	return "", nil
+	return email, nil
 }
