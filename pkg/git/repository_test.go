@@ -1279,7 +1279,7 @@ func TestAddFlags(t *testing.T) {
 			wantedFlags: []flag{
 				{
 					name:  "provider",
-					usage: "The git provider, one of: azure|bitbucket-server|gitea|github|gitlab",
+					usage: "The git provider, one of: azure|bitbucket|bitbucket-server|gitea|github|gitlab",
 				},
 			},
 		},
