@@ -1,5 +1,8 @@
 # Changelog:
 
+# v0.4.5
+- Added support for bitbucket cloud
+
 # v0.4.4
 - [fix] find GitLab group by name, instead of searching in 1st page of list
 
