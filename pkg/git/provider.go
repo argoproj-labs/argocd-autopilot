@@ -57,6 +57,7 @@ var (
 	}
 
 	supportedProviders = map[string]func(*ProviderOptions) (Provider, error){
+		"bitbucket":     newBitbucket,
 		BitbucketServer: newBitbucketServer,
 		"github":        newGithub,
 		"gitea":         newGitea,
