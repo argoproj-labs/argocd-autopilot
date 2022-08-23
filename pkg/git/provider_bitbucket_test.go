@@ -102,10 +102,8 @@ func Test_bitbucket_CreateRepository(t *testing.T) {
 			}
 
 			g := &bitbucket{
-				client: &bbClientImpl{
-					Repository: mockRepoClient,
-					User:       mockUserClient,
-				},
+				Repository: mockRepoClient,
+				User:       mockUserClient,
 			}
 			got, err := g.CreateRepository(context.Background(), tt.orgRepo)
 			if err != nil || tt.wantErr != "" {
@@ -178,10 +176,8 @@ func Test_bitbucket_GetDefaultBranch(t *testing.T) {
 			}
 
 			g := &bitbucket{
-				client: &bbClientImpl{
-					Repository: mockRepoClient,
-					User:       mockUserClient,
-				},
+				Repository: mockRepoClient,
+				User:       mockUserClient,
 			}
 			got, err := g.GetDefaultBranch(context.Background(), tt.orgRepo)
 			if err != nil || tt.wantErr != "" {
@@ -298,10 +294,8 @@ func Test_bitbucket_GetAuthor(t *testing.T) {
 			}
 
 			g := &bitbucket{
-				client: &bbClientImpl{
-					Repository: mockRepoClient,
-					User:       mockUserClient,
-				},
+				Repository: mockRepoClient,
+				User:       mockUserClient,
 			}
 			gotUsername, gotEmail, err := g.GetAuthor(context.Background())
 			if err != nil || tt.wantErr != "" {

@@ -11,13 +11,10 @@ import (
 //go:generate mockgen -destination=./bitbucket/mocks/client.go -package=mocks -source=./provider_bitbucket.go bbRepo bbUser
 
 type (
-	bbClientImpl struct {
+	bitbucket struct {
+		opts       *ProviderOptions
 		Repository bbRepo
 		User       bbUser
-	}
-	bitbucket struct {
-		opts   *ProviderOptions
-		client *bbClientImpl
 	}
 
 	bbRepo interface {
@@ -36,11 +33,9 @@ func newBitbucket(opts *ProviderOptions) (Provider, error) {
 		return nil, errors.New("Authentication info is invalid")
 	}
 	g := &bitbucket{
-		opts: opts,
-		client: &bbClientImpl{
-			Repository: c.Repositories.Repository,
-			User:       c.User,
-		},
+		opts:       opts,
+		Repository: c.Repositories.Repository,
+		User:       c.User,
 	}
 
 	return g, nil
@@ -63,7 +58,7 @@ func (g *bitbucket) CreateRepository(ctx context.Context, orgRepo string) (strin
 		createOpts.IsPrivate = fmt.Sprintf("%t", opts.Private)
 	}
 
-	p, err := g.client.Repository.Create(createOpts)
+	p, err := g.Repository.Create(createOpts)
 
 	if err != nil {
 		return "", fmt.Errorf("failed creating the repository \"%s\" under \"%s\": %w", opts.Name, opts.Owner, err)
@@ -102,7 +97,7 @@ func (g *bitbucket) GetDefaultBranch(ctx context.Context, orgRepo string) (strin
 		repoOpts.IsPrivate = fmt.Sprintf("%t", opts.Private)
 	}
 
-	repo, err := g.client.Repository.Get(repoOpts)
+	repo, err := g.Repository.Get(repoOpts)
 	if err != nil {
 		return "", err
 	}
@@ -131,7 +126,7 @@ func (g *bitbucket) GetAuthor(_ context.Context) (username, email string, err er
 }
 
 func (g *bitbucket) getAuthenticatedUser() (*bb.User, error) {
-	user, err := g.client.User.Profile()
+	user, err := g.User.Profile()
 
 	if err != nil {
 		return nil, err
@@ -141,7 +136,7 @@ func (g *bitbucket) getAuthenticatedUser() (*bb.User, error) {
 }
 
 func (g *bitbucket) getAuthenticatedUserEmail() (string, error) {
-	emails, err := g.client.User.Emails()
+	emails, err := g.User.Emails()
 
 	if err != nil {
 		return "", err
