@@ -1,10 +1,10 @@
 ### Changes
 
-- Added support for bitbucket cloud
+- [fix] When creating a new repo, sometimes getDefaultBranch fails [#372](https://github.com/argoproj-labs/argocd-autopilot/issues/372)
 
 ### Contributors:
 
-- Kim Aharfi ([@kim-codefresh](https://github.com/kim-codefresh))
+- Noam Gal ([@noam-codefresh](https://github.com/noam-codefresh))
 
 ## Installation:
 
@@ -47,7 +47,7 @@ argocd-autopilot version
 
 ```bash
 # download and extract the binary
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.5/argocd-autopilot-linux-amd64.tar.gz | tar zx
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.6/argocd-autopilot-linux-amd64.tar.gz | tar zx
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
@@ -60,7 +60,7 @@ argocd-autopilot version
 
 ```bash
 # download and extract the binary
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.5/argocd-autopilot-darwin-amd64.tar.gz | tar zx
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.6/argocd-autopilot-darwin-amd64.tar.gz | tar zx
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
@@ -77,5 +77,5 @@ When using the Docker image, you have to provide the `.kube` and `.gitconfig` di
 docker run \
   -v ~/.kube:/home/autopilot/.kube \
   -v ~/.gitconfig:/home/autopilot/.gitconfig \
-  -it quay.io/argoprojlabs/argocd-autopilot:v0.4.5 <cmd> <flags>
+  -it quay.io/argoprojlabs/argocd-autopilot:v0.4.6 <cmd> <flags>
 ```
