@@ -200,7 +200,10 @@ func (o *CloneOptions) Parse() {
 }
 
 func (o *CloneOptions) GetRepo(ctx context.Context) (Repository, fs.FS, error) {
-	var err error
+	var (
+		err           error
+		defaultBranch string
+	)
 
 	if o == nil {
 		return nil, nil, ErrNilOpts
@@ -223,15 +226,16 @@ func (o *CloneOptions) GetRepo(ctx context.Context) (Repository, fs.FS, error) {
 			}
 
 			log.G(ctx).Infof("repository '%s' was not found, trying to create it...", o.Repo)
-			_, err = createRepo(ctx, o)
+			o.Repo, defaultBranch, err = createRepo(ctx, o)
 			if err != nil {
 				return nil, nil, fmt.Errorf("failed to create repository: %w", err)
 			}
 
+			o.Parse()
 			fallthrough // a new repo will always start as empty - we need to init it locally
 		case transport.ErrEmptyRemoteRepository:
 			log.G(ctx).Info("empty repository, initializing a new one with specified remote")
-			r, err = initRepo(ctx, o)
+			r, err = initRepo(ctx, o, defaultBranch)
 			if err != nil {
 				return nil, nil, fmt.Errorf("failed to initialize repository: %w", err)
 			}
@@ -465,10 +469,10 @@ var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 	return repo, nil
 }
 
-var createRepo = func(ctx context.Context, opts *CloneOptions) (string, error) {
+var createRepo = func(ctx context.Context, opts *CloneOptions) (cloneURL, defaultBranch string, err error) {
 	provider, _ := getProvider(opts.Provider, opts.Repo, &opts.Auth)
 	if provider == nil {
-		return "", errors.New("failed creating repository - no git provider supplied")
+		return "", "", errors.New("failed creating repository - no git provider supplied")
 	}
 
 	_, orgRepo, _, _, _, _, _ := util.ParseGitUrl(opts.Repo)
@@ -490,7 +494,7 @@ func getDefaultRepoOptions(orgRepo string) (*CreateRepoOptions, error) {
 	}, nil
 }
 
-var initRepo = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
+var initRepo = func(ctx context.Context, opts *CloneOptions, defaultBranch string) (*repo, error) {
 	ggr, err := ggInitRepo(memory.NewStorage(), opts.FS)
 	if err != nil {
 		return nil, err
@@ -512,9 +516,11 @@ var initRepo = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 		return nil, err
 	}
 
-	defaultBranch, err := r.getDefaultBranch(ctx, opts.Repo)
-	if err != nil {
-		return nil, err
+	if defaultBranch == "" {
+		defaultBranch, err = r.getDefaultBranch(ctx, opts.Repo)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if defaultBranch != plumbing.Master.Short() {

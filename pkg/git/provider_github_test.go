@@ -14,10 +14,11 @@ import (
 
 func Test_github_CreateRepository(t *testing.T) {
 	tests := map[string]struct {
-		orgRepo  string
-		beforeFn func(*mocks.MockRepositories, *mocks.MockUsers)
-		want     string
-		wantErr  string
+		orgRepo           string
+		beforeFn          func(*mocks.MockRepositories, *mocks.MockUsers)
+		wantCloneURL      string
+		wantDefaultBranch string
+		wantErr           string
 	}{
 		"Error getting user": {
 			orgRepo: "owner/name",
@@ -59,18 +60,22 @@ func Test_github_CreateRepository(t *testing.T) {
 						Login: gh.String("owner"),
 					}, nil, nil)
 
+				repo := &gh.Repository{
+					CloneURL:      gh.String("https://github.com/owner/repo"),
+					DefaultBranch: gh.String("main"),
+				}
+				res := &gh.Response{Response: &http.Response{
+					StatusCode: 200,
+				}}
 				mr.EXPECT().Create(context.Background(), "", &gh.Repository{
 					Name:    gh.String("name"),
 					Private: gh.Bool(true),
 				}).
 					Times(1).
-					Return(&gh.Repository{
-						CloneURL: gh.String("https://github.com/owner/repo"),
-					}, &gh.Response{Response: &http.Response{
-						StatusCode: 200,
-					}}, nil)
+					Return(repo, res, nil)
 			},
-			want: "https://github.com/owner/repo",
+			wantCloneURL:      "https://github.com/owner/repo",
+			wantDefaultBranch: "main",
 		},
 		"Creates with org": {
 			orgRepo: "org/name",
@@ -81,18 +86,22 @@ func Test_github_CreateRepository(t *testing.T) {
 						Login: gh.String("owner"),
 					}, nil, nil)
 
+				repo := &gh.Repository{
+					CloneURL:      gh.String("https://github.com/org/repo"),
+					DefaultBranch: gh.String("main"),
+				}
+				res := &gh.Response{Response: &http.Response{
+					StatusCode: 200,
+				}}
 				mr.EXPECT().Create(context.Background(), "org", &gh.Repository{
 					Name:    gh.String("name"),
 					Private: gh.Bool(true),
 				}).
 					Times(1).
-					Return(&gh.Repository{
-						CloneURL: gh.String("https://github.com/org/repo"),
-					}, &gh.Response{Response: &http.Response{
-						StatusCode: 200,
-					}}, nil)
+					Return(repo, res, nil)
 			},
-			want: "https://github.com/org/repo",
+			wantCloneURL:      "https://github.com/org/repo",
+			wantDefaultBranch: "main",
 		},
 		"Error when no cloneURL": {
 			orgRepo: "org/name",
@@ -126,15 +135,14 @@ func Test_github_CreateRepository(t *testing.T) {
 				Repositories: mockRepo,
 				Users:        mockUsers,
 			}
-			got, err := g.CreateRepository(ctx, tt.orgRepo)
+			gotCloneURL, gotDefaultBranch, err := g.CreateRepository(ctx, tt.orgRepo)
 			if err != nil || tt.wantErr != "" {
 				assert.EqualError(t, err, tt.wantErr)
 				return
 			}
 
-			if got != tt.want {
-				t.Errorf("github.CreateRepository() = %v, want %v", got, tt.want)
-			}
+			assert.Equalf(t, tt.wantCloneURL, gotCloneURL, "CreateRepository - %s", name)
+			assert.Equalf(t, tt.wantDefaultBranch, gotDefaultBranch, "CreateRepository - %s", name)
 		})
 	}
 }

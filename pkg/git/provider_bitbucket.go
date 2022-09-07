@@ -43,10 +43,10 @@ func newBitbucket(opts *ProviderOptions) (Provider, error) {
 
 }
 
-func (g *bitbucket) CreateRepository(ctx context.Context, orgRepo string) (string, error) {
+func (g *bitbucket) CreateRepository(ctx context.Context, orgRepo string) (cloneURL, defaultBranch string, err error) {
 	opts, err := getDefaultRepoOptions(orgRepo)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	createOpts := &bb.RepositoryOptions{
@@ -62,7 +62,7 @@ func (g *bitbucket) CreateRepository(ctx context.Context, orgRepo string) (strin
 	p, err := g.Repository.Create(createOpts)
 
 	if err != nil {
-		return "", fmt.Errorf("failed creating the repository \"%s\" under \"%s\": %w", opts.Name, opts.Owner, err)
+		return "", "", fmt.Errorf("failed creating the repository \"%s\" under \"%s\": %w", opts.Name, opts.Owner, err)
 	}
 
 	var cloneUrl string
@@ -75,10 +75,10 @@ func (g *bitbucket) CreateRepository(ctx context.Context, orgRepo string) (strin
 	}
 
 	if cloneUrl == "" {
-		return "", fmt.Errorf("clone url is empty")
+		return "", "", fmt.Errorf("clone url is empty")
 	}
 
-	return cloneUrl, err
+	return cloneUrl, p.Mainbranch.Name, err
 }
 
 func (g *bitbucket) GetDefaultBranch(ctx context.Context, orgRepo string) (string, error) {
@@ -103,7 +103,6 @@ func (g *bitbucket) GetDefaultBranch(ctx context.Context, orgRepo string) (strin
 	}
 
 	return repo.Mainbranch.Name, nil
-
 }
 
 func (g *bitbucket) GetAuthor(_ context.Context) (username, email string, err error) {

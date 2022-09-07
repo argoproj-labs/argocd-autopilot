@@ -35,15 +35,15 @@ func newGitea(opts *ProviderOptions) (Provider, error) {
 	return g, nil
 }
 
-func (g *gitea) CreateRepository(_ context.Context, orgRepo string) (string, error) {
+func (g *gitea) CreateRepository(_ context.Context, orgRepo string) (cloneURL, defaultBranch string, err error) {
 	opts, err := getDefaultRepoOptions(orgRepo)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	authUser, err := g.getAuthenticatedUser()
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	createOpts := gt.CreateRepoOption{
@@ -63,13 +63,13 @@ func (g *gitea) CreateRepository(_ context.Context, orgRepo string) (string, err
 
 	if err != nil {
 		if res.StatusCode == 404 {
-			return "", fmt.Errorf("owner %s not found: %w", opts.Owner, err)
+			return "", "", fmt.Errorf("owner %s not found: %w", opts.Owner, err)
 		}
 
-		return "", err
+		return "", "", err
 	}
 
-	return r.CloneURL, nil
+	return r.CloneURL, r.DefaultBranch, nil
 }
 
 func (g *gitea) GetDefaultBranch(_ context.Context, orgRepo string) (string, error) {

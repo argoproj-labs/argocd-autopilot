@@ -14,10 +14,11 @@ import (
 
 func Test_gitlab_CreateRepository(t *testing.T) {
 	tests := map[string]struct {
-		orgRepo  string
-		beforeFn func(*glmocks.MockGitlabClient)
-		want     string
-		wantErr  string
+		orgRepo           string
+		beforeFn          func(*glmocks.MockGitlabClient)
+		wantCloneURL      string
+		wantDefaultBranch string
+		wantErr           string
 	}{
 		"Fails if credentials are wrong": {
 			orgRepo: "username/projectName",
@@ -82,11 +83,15 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 			},
 		},
 		"Creates project under user": {
-			orgRepo: "username/projectName",
-			want:    "http://gitlab.com/username/projectName",
+			orgRepo:           "username/projectName",
+			wantCloneURL:      "http://gitlab.com/username/projectName",
+			wantDefaultBranch: "main",
 			beforeFn: func(c *glmocks.MockGitlabClient) {
 				u := &gl.User{Username: "username"}
-				p := &gl.Project{HTTPURLToRepo: "http://gitlab.com/username/projectName"}
+				p := &gl.Project{
+					HTTPURLToRepo: "http://gitlab.com/username/projectName",
+					DefaultBranch: "main",
+				}
 				createOpts := gl.CreateProjectOptions{
 					Name:       gl.String("projectName"),
 					Visibility: gl.Visibility(gl.PrivateVisibility),
@@ -101,12 +106,16 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 			},
 		},
 		"Creates project under group": {
-			orgRepo: "org/projectName",
-			want:    "http://gitlab.com/org/projectName",
+			orgRepo:           "org/projectName",
+			wantCloneURL:      "http://gitlab.com/org/projectName",
+			wantDefaultBranch: "main",
 			beforeFn: func(c *glmocks.MockGitlabClient) {
 				u := &gl.User{Username: "username"}
 				c.EXPECT().CurrentUser().Return(u, nil, nil)
-				p := &gl.Project{HTTPURLToRepo: "http://gitlab.com/org/projectName"}
+				p := &gl.Project{
+					HTTPURLToRepo: "http://gitlab.com/org/projectName",
+					DefaultBranch: "main",
+				}
 				g := &gl.Group{FullPath: "org", ID: 1}
 				createOpts := gl.CreateProjectOptions{
 					Name:        gl.String("projectName"),
@@ -124,12 +133,16 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 			},
 		},
 		"Creates project under sub group": {
-			orgRepo: "org/subOrg/projectName",
-			want:    "http://gitlab.com/org/subOrg/projectName",
+			orgRepo:           "org/subOrg/projectName",
+			wantCloneURL:      "http://gitlab.com/org/subOrg/projectName",
+			wantDefaultBranch: "main",
 			beforeFn: func(c *glmocks.MockGitlabClient) {
 				u := &gl.User{Username: "username"}
 				c.EXPECT().CurrentUser().Return(u, nil, nil)
-				p := &gl.Project{HTTPURLToRepo: "http://gitlab.com/org/subOrg/projectName"}
+				p := &gl.Project{
+					HTTPURLToRepo: "http://gitlab.com/org/subOrg/projectName",
+					DefaultBranch: "main",
+				}
 				g := &gl.Group{FullPath: "org/subOrg", ID: 1}
 				createOpts := gl.CreateProjectOptions{
 					Name:        gl.String("projectName"),
@@ -147,11 +160,15 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 			},
 		},
 		"Creates private project": {
-			orgRepo: "username/projectName",
-			want:    "http://gitlab.com/username/projectName",
+			orgRepo:           "username/projectName",
+			wantCloneURL:      "http://gitlab.com/username/projectName",
+			wantDefaultBranch: "main",
 			beforeFn: func(c *glmocks.MockGitlabClient) {
 				u := &gl.User{Username: "username"}
-				p := &gl.Project{HTTPURLToRepo: "http://gitlab.com/username/projectName"}
+				p := &gl.Project{
+					HTTPURLToRepo: "http://gitlab.com/username/projectName",
+					DefaultBranch: "main",
+				}
 				createOpts := gl.CreateProjectOptions{
 					Name:       gl.String("projectName"),
 					Visibility: gl.Visibility(gl.PrivateVisibility),
@@ -197,14 +214,14 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 			g := &gitlab{
 				client: mockClient,
 			}
-			got, err := g.CreateRepository(context.Background(), tt.orgRepo)
-
+			gotCloneURL, gotDefaultBranch, err := g.CreateRepository(context.Background(), tt.orgRepo)
 			if err != nil || tt.wantErr != "" {
 				assert.EqualError(t, err, tt.wantErr)
 				return
 			}
 
-			assert.Equal(t, tt.want, got)
+			assert.Equalf(t, tt.wantCloneURL, gotCloneURL, "CreateRepository - %s", name)
+			assert.Equalf(t, tt.wantDefaultBranch, gotDefaultBranch, "CreateRepository - %s", name)
 		})
 	}
 }
@@ -287,7 +304,7 @@ func Test_gitlab_GetAuthor(t *testing.T) {
 			wantErr: "authentication failed, make sure credentials are correct: some error",
 			beforeFn: func(c *glmocks.MockGitlabClient) {
 				c.EXPECT().CurrentUser().Times(1).
-					Return(nil,  &gl.Response{
+					Return(nil, &gl.Response{
 						Response: &http.Response{
 							StatusCode: 401,
 						},
@@ -298,7 +315,7 @@ func Test_gitlab_GetAuthor(t *testing.T) {
 			wantErr: "some error",
 			beforeFn: func(c *glmocks.MockGitlabClient) {
 				c.EXPECT().CurrentUser().Times(1).
-					Return(nil,  &gl.Response{
+					Return(nil, &gl.Response{
 						Response: &http.Response{
 							StatusCode: 404,
 						},
@@ -310,7 +327,7 @@ func Test_gitlab_GetAuthor(t *testing.T) {
 			wantEmail:    "name@email",
 			beforeFn: func(c *glmocks.MockGitlabClient) {
 				c.EXPECT().CurrentUser().Times(1).Return(&gl.User{
-					Name: "name",
+					Name:  "name",
 					Email: "name@email",
 				}, nil, nil)
 			},
