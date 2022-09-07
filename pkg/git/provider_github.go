@@ -54,15 +54,15 @@ func newGithub(opts *ProviderOptions) (Provider, error) {
 	return g, nil
 }
 
-func (g *github) CreateRepository(ctx context.Context, orgRepo string) (string, error) {
+func (g *github) CreateRepository(ctx context.Context, orgRepo string) (cloneURL, defaultBranch string, err error) {
 	opts, err := getDefaultRepoOptions(orgRepo)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	authUser, err := g.getAuthenticatedUser(ctx)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	org := ""
@@ -76,17 +76,17 @@ func (g *github) CreateRepository(ctx context.Context, orgRepo string) (string, 
 	})
 	if err != nil {
 		if res.StatusCode == 404 {
-			return "", fmt.Errorf("owner %s not found: %w", opts.Owner, err)
+			return "",  "", fmt.Errorf("owner %s not found: %w", opts.Owner, err)
 		}
 
-		return "", err
+		return "",  "", err
 	}
 
 	if r.CloneURL == nil {
-		return "", fmt.Errorf("repo clone url is nil")
+		return "",  "", fmt.Errorf("repo clone url is nil")
 	}
 
-	return *r.CloneURL, err
+	return *r.CloneURL, *r.DefaultBranch, err
 }
 
 func (g *github) GetDefaultBranch(ctx context.Context, orgRepo string) (string, error) {

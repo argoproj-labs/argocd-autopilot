@@ -13,7 +13,7 @@ type (
 	Provider interface {
 		// CreateRepository creates the repository in the remote provider and returns a
 		// clone url
-		CreateRepository(ctx context.Context, orgRepo string) (string, error)
+		CreateRepository(ctx context.Context, orgRepo string) (cloneURL, defaultBranch string, err error)
 
 		// GetDefaultBranch returns the default branch of the repository
 		GetDefaultBranch(ctx context.Context, orgRepo string) (string, error)
@@ -30,8 +30,8 @@ type (
 
 	// ProviderOptions for a new git provider
 	ProviderOptions struct {
-		Type string
-		Auth *Auth
+		Type    string
+		Auth    *Auth
 		RepoURL string
 	}
 
