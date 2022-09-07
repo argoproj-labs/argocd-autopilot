@@ -1,5 +1,8 @@
 # Changelog:
 
+# v0.4.6
+- [fix] When creating a new repo, sometimes getDefaultBranch fails [#372](https://github.com/argoproj-labs/argocd-autopilot/issues/372)
+
 # v0.4.5
 - Added support for bitbucket cloud
 
