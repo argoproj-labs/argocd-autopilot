@@ -36,10 +36,11 @@ func createBody(obj interface{}) io.ReadCloser {
 
 func Test_bitbucketServer_CreateRepository(t *testing.T) {
 	tests := map[string]struct {
-		orgRepo  string
-		want     string
-		wantErr  string
-		beforeFn func(t *testing.T, c *mocks.MockHttpClient)
+		orgRepo           string
+		wantCloneURL      string
+		wantDefaultBranch string
+		wantErr           string
+		beforeFn          func(t *testing.T, c *mocks.MockHttpClient)
 	}{
 		"Should fail if orgRepo is invalid": {
 			orgRepo: "no-scm/project/repo",
@@ -75,8 +76,8 @@ func Test_bitbucketServer_CreateRepository(t *testing.T) {
 			},
 		},
 		"Should create a valid project repo": {
-			orgRepo: "scm/project/repo",
-			want:    "https://some.server/scm/project/repo.git",
+			orgRepo:      "scm/project/repo",
+			wantCloneURL: "https://some.server/scm/project/repo.git",
 			beforeFn: func(t *testing.T, c *mocks.MockHttpClient) {
 				c.EXPECT().Do(gomock.AssignableToTypeOf(&http.Request{})).Times(1).DoAndReturn(func(req *http.Request) (*http.Response, error) {
 					assert.Equal(t, "POST", req.Method)
@@ -101,8 +102,8 @@ func Test_bitbucketServer_CreateRepository(t *testing.T) {
 			},
 		},
 		"Should create a valid user repo": {
-			orgRepo: "scm/~user/repo",
-			want:    "https://some.server/scm/~user/repo.git",
+			orgRepo:      "scm/~user/repo",
+			wantCloneURL: "https://some.server/scm/~user/repo.git",
 			beforeFn: func(t *testing.T, c *mocks.MockHttpClient) {
 				c.EXPECT().Do(gomock.AssignableToTypeOf(&http.Request{})).Times(1).DoAndReturn(func(req *http.Request) (*http.Response, error) {
 					assert.Equal(t, "POST", req.Method)
@@ -141,13 +142,14 @@ func Test_bitbucketServer_CreateRepository(t *testing.T) {
 				c:       mockClient,
 				opts:    providerOptions,
 			}
-			got, err := bbs.CreateRepository(context.Background(), tt.orgRepo)
+			gotCloneURL, gotDefaultBranch, err := bbs.CreateRepository(context.Background(), tt.orgRepo)
 			if err != nil || tt.wantErr != "" {
 				assert.EqualError(t, err, tt.wantErr)
 				return
 			}
 
-			assert.Equal(t, tt.want, got)
+			assert.Equalf(t, tt.wantCloneURL, gotCloneURL, "CreateRepository - %s", name)
+			assert.Equalf(t, tt.wantDefaultBranch, gotDefaultBranch, "CreateRepository - %s", name)
 		})
 	}
 }

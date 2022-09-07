@@ -14,10 +14,11 @@ import (
 
 func Test_gitea_CreateRepository(t *testing.T) {
 	tests := map[string]struct {
-		orgRepo  string
-		beforeFn func(*gtmocks.MockClient)
-		want     string
-		wantErr  string
+		orgRepo           string
+		beforeFn          func(*gtmocks.MockClient)
+		wantCloneURL      string
+		wantDefaultBranch string
+		wantErr           string
 	}{
 		"Should fail if credentials are wrong": {
 			orgRepo: "username/repo",
@@ -95,7 +96,8 @@ func Test_gitea_CreateRepository(t *testing.T) {
 					Times(1).
 					Return(u, nil, nil)
 				r := &gt.Repository{
-					CloneURL: "http://gitea.com/username/repo",
+					CloneURL:      "http://gitea.com/username/repo",
+					DefaultBranch: "main",
 				}
 				createOpts := gt.CreateRepoOption{
 					Name:    "repo",
@@ -105,7 +107,8 @@ func Test_gitea_CreateRepository(t *testing.T) {
 					Times(1).
 					Return(r, nil, nil)
 			},
-			want: "http://gitea.com/username/repo",
+			wantCloneURL:      "http://gitea.com/username/repo",
+			wantDefaultBranch: "main",
 		},
 	}
 	for name, tt := range tests {
@@ -115,16 +118,15 @@ func Test_gitea_CreateRepository(t *testing.T) {
 			g := &gitea{
 				client: mockClient,
 			}
-			got, err := g.CreateRepository(context.Background(), tt.orgRepo)
+			gotCloneURL, gotDefaultBranch, err := g.CreateRepository(context.Background(), tt.orgRepo)
 
 			if err != nil || tt.wantErr != "" {
 				assert.EqualError(t, err, tt.wantErr)
 				return
 			}
 
-			if got != tt.want {
-				t.Errorf("gitea.CreateRepository() = %v, want %v", got, tt.want)
-			}
+			assert.Equalf(t, tt.wantCloneURL, gotCloneURL, "CreateRepository - %s", name)
+			assert.Equalf(t, tt.wantDefaultBranch, gotDefaultBranch, "CreateRepository - %s", name)
 		})
 	}
 }
@@ -203,7 +205,7 @@ func Test_gitea_GetAuthor(t *testing.T) {
 		wantUsername string
 		wantEmail    string
 		wantErr      string
-		beforeFn func(*gtmocks.MockClient)
+		beforeFn     func(*gtmocks.MockClient)
 	}{
 		"Should fail if GetMyUserInfo fails with 401": {
 			wantErr: "authentication failed, make sure credentials are correct: some error",
@@ -229,11 +231,11 @@ func Test_gitea_GetAuthor(t *testing.T) {
 		},
 		"Should succeed with valid user": {
 			wantUsername: "user",
-			wantEmail: "user@email",
+			wantEmail:    "user@email",
 			beforeFn: func(mc *gtmocks.MockClient) {
 				user := gt.User{
 					UserName: "user",
-					Email: "user@email",
+					Email:    "user@email",
 				}
 				mc.EXPECT().GetMyUserInfo().Times(1).Return(&user, nil, nil)
 			},

@@ -13,18 +13,20 @@ import (
 
 func Test_bitbucket_CreateRepository(t *testing.T) {
 	tests := map[string]struct {
-		orgRepo      string
-		want         string
-		wantErr      string
-		beforeRepoFn func(*bbmocks.MockbbRepo)
+		orgRepo           string
+		wantCloneURL      string
+		wantDefaultBranch string
+		wantErr           string
+		beforeRepoFn      func(*bbmocks.MockbbRepo)
 	}{
 		"Should fail if orgRepo is invalid": {
 			orgRepo: "invalid",
 			wantErr: "failed parsing organization and repo from 'invalid'",
 		},
 		"Creates repository under user": {
-			orgRepo: "username/repoName",
-			want:    "https://username@bitbucket.org/username/repoName.git",
+			orgRepo:           "username/repoName",
+			wantCloneURL:      "https://username@bitbucket.org/username/repoName.git",
+			wantDefaultBranch: "main",
 			beforeRepoFn: func(c *bbmocks.MockbbRepo) {
 				createOpts := bb.RepositoryOptions{
 					Owner:     "username",
@@ -47,6 +49,9 @@ func Test_bitbucket_CreateRepository(t *testing.T) {
 
 				repo := &bb.Repository{
 					Name:  "userName",
+					Mainbranch: bb.RepositoryBranch{
+						Name: "main",
+					},
 					Links: links,
 				}
 
@@ -55,7 +60,6 @@ func Test_bitbucket_CreateRepository(t *testing.T) {
 					Return(repo, nil)
 			},
 		},
-
 		"Creates repository under user but cloneUrl doesnt exist": {
 			orgRepo: "username/repoName",
 			wantErr: "failed creating the repository \"repoName\" under \"username\": clone url is empty",
@@ -105,13 +109,14 @@ func Test_bitbucket_CreateRepository(t *testing.T) {
 				Repository: mockRepoClient,
 				User:       mockUserClient,
 			}
-			got, err := g.CreateRepository(context.Background(), tt.orgRepo)
+			gotCloneURL, gotDefaultBranch, err := g.CreateRepository(context.Background(), tt.orgRepo)
 			if err != nil || tt.wantErr != "" {
 				assert.EqualError(t, err, tt.wantErr)
 				return
 			}
 
-			assert.Equal(t, tt.want, got)
+			assert.Equalf(t, tt.wantCloneURL, gotCloneURL, "CreateRepository - %s", name)
+			assert.Equalf(t, tt.wantDefaultBranch, gotDefaultBranch, "CreateRepository - %s",name)
 		})
 	}
 }
