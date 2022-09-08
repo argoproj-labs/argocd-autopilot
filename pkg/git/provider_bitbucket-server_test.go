@@ -36,11 +36,10 @@ func createBody(obj interface{}) io.ReadCloser {
 
 func Test_bitbucketServer_CreateRepository(t *testing.T) {
 	tests := map[string]struct {
-		orgRepo           string
-		wantCloneURL      string
-		wantDefaultBranch string
-		wantErr           string
-		beforeFn          func(t *testing.T, c *mocks.MockHttpClient)
+		orgRepo  string
+		want     string
+		wantErr  string
+		beforeFn func(t *testing.T, c *mocks.MockHttpClient)
 	}{
 		"Should fail if orgRepo is invalid": {
 			orgRepo: "no-scm/project/repo",
@@ -53,44 +52,15 @@ func Test_bitbucketServer_CreateRepository(t *testing.T) {
 				c.EXPECT().Do(gomock.AssignableToTypeOf(&http.Request{})).Times(1).Return(nil, errors.New("some error"))
 			},
 		},
-		"Should fail if returned repo doesn't have clone url": {
-			orgRepo: "scm/project/repo",
-			wantErr: "created repo did not contain a valid https clone url",
-			beforeFn: func(_ *testing.T, c *mocks.MockHttpClient) {
-				repo := &repoResponse{
-					Links: Links{
-						Clone: []Link{
-							{
-								Name: "ssh",
-								Href: "ssh@some.server/scm/project/repo.git",
-							},
-						},
-					},
-				}
-				body := createBody(repo)
-				res := &http.Response{
-					StatusCode: 200,
-					Body:       body,
-				}
-				c.EXPECT().Do(gomock.AssignableToTypeOf(&http.Request{})).Times(1).Return(res, nil)
-			},
-		},
 		"Should create a valid project repo": {
-			orgRepo:      "scm/project/repo",
-			wantCloneURL: "https://some.server/scm/project/repo.git",
+			orgRepo: "scm/project/repo",
+			want:    "main",
 			beforeFn: func(t *testing.T, c *mocks.MockHttpClient) {
 				c.EXPECT().Do(gomock.AssignableToTypeOf(&http.Request{})).Times(1).DoAndReturn(func(req *http.Request) (*http.Response, error) {
 					assert.Equal(t, "POST", req.Method)
 					assert.Equal(t, "https://some.server/rest/api/1.0/projects/project/repos", req.URL.String())
 					repo := &repoResponse{
-						Links: Links{
-							Clone: []Link{
-								{
-									Name: "https",
-									Href: "https://some.server/scm/project/repo.git",
-								},
-							},
-						},
+						DefaultBranch: "main",
 					}
 					body := createBody(repo)
 					res := &http.Response{
@@ -102,8 +72,7 @@ func Test_bitbucketServer_CreateRepository(t *testing.T) {
 			},
 		},
 		"Should create a valid user repo": {
-			orgRepo:      "scm/~user/repo",
-			wantCloneURL: "https://some.server/scm/~user/repo.git",
+			orgRepo: "scm/~user/repo",
 			beforeFn: func(t *testing.T, c *mocks.MockHttpClient) {
 				c.EXPECT().Do(gomock.AssignableToTypeOf(&http.Request{})).Times(1).DoAndReturn(func(req *http.Request) (*http.Response, error) {
 					assert.Equal(t, "POST", req.Method)
@@ -142,14 +111,13 @@ func Test_bitbucketServer_CreateRepository(t *testing.T) {
 				c:       mockClient,
 				opts:    providerOptions,
 			}
-			gotCloneURL, gotDefaultBranch, err := bbs.CreateRepository(context.Background(), tt.orgRepo)
+			got, err := bbs.CreateRepository(context.Background(), tt.orgRepo)
 			if err != nil || tt.wantErr != "" {
 				assert.EqualError(t, err, tt.wantErr)
 				return
 			}
 
-			assert.Equalf(t, tt.wantCloneURL, gotCloneURL, "CreateRepository - %s", name)
-			assert.Equalf(t, tt.wantDefaultBranch, gotDefaultBranch, "CreateRepository - %s", name)
+			assert.Equalf(t, tt.want, got, "CreateRepository - %s", name)
 		})
 	}
 }

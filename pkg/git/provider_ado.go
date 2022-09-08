@@ -62,9 +62,9 @@ func newAdo(opts *ProviderOptions) (Provider, error) {
 	}, nil
 }
 
-func (g *adoGit) CreateRepository(ctx context.Context, orgRepo string) (cloneURL, defaultBranch string, err error) {
+func (g *adoGit) CreateRepository(ctx context.Context, orgRepo string) (defaultBranch string, err error) {
 	if orgRepo == "" {
-		return "", "", fmt.Errorf("name needs to be provided to create an azure devops repository. name: '%s'", orgRepo)
+		return "", fmt.Errorf("name needs to be provided to create an azure devops repository. name: '%s'", orgRepo)
 	}
 
 	project := g.adoUrl.GetProjectName()
@@ -76,10 +76,10 @@ func (g *adoGit) CreateRepository(ctx context.Context, orgRepo string) (cloneURL
 	}
 	repository, err := g.adoClient.CreateRepository(ctx, createRepositoryArgs)
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
 
-	return *repository.RemoteUrl, *repository.DefaultBranch, nil
+	return *repository.DefaultBranch, nil
 }
 
 func (g *adoGit) GetDefaultBranch(ctx context.Context, orgRepo string) (string, error) {

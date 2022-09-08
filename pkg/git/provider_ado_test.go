@@ -15,18 +15,16 @@ import (
 func Test_adoGit_CreateRepository(t *testing.T) {
 	emptyFunc := func(client *adoMock.MockAdoClient, url *adoMock.MockAdoUrl) {}
 	tests := []struct {
-		name              string
-		mockClient        func(client *adoMock.MockAdoClient, url *adoMock.MockAdoUrl)
-		repoName          string
-		wantCloneURL      string
-		wantDefaultBranch string
-		wantErr           assert.ErrorAssertionFunc
+		name       string
+		mockClient func(client *adoMock.MockAdoClient, url *adoMock.MockAdoUrl)
+		repoName   string
+		want       string
+		wantErr    assert.ErrorAssertionFunc
 	}{
 		{
-			name:         "Empty Name",
-			mockClient:   emptyFunc,
-			repoName:     "",
-			wantCloneURL: "",
+			name:       "Empty Name",
+			mockClient: emptyFunc,
+			repoName:   "",
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
 				return true
 			},
@@ -41,8 +39,7 @@ func Test_adoGit_CreateRepository(t *testing.T) {
 					Times(1).
 					Return("blah")
 			},
-			repoName:     "name",
-			wantCloneURL: "",
+			repoName: "name",
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
 				return true
 			},
@@ -50,7 +47,6 @@ func Test_adoGit_CreateRepository(t *testing.T) {
 		{
 			name: "Success creating repo",
 			mockClient: func(client *adoMock.MockAdoClient, url *adoMock.MockAdoUrl) {
-				remoteURL := "https://dev.azure.com/SUB/PROJECT/_git/REPO"
 				defaultBranch := "main"
 				url.EXPECT().GetProjectName().
 					Times(1).
@@ -65,7 +61,7 @@ func Test_adoGit_CreateRepository(t *testing.T) {
 						Name:             nil,
 						ParentRepository: nil,
 						Project:          nil,
-						RemoteUrl:        &remoteURL,
+						RemoteUrl:        nil,
 						Size:             nil,
 						SshUrl:           nil,
 						Url:              nil,
@@ -73,9 +69,8 @@ func Test_adoGit_CreateRepository(t *testing.T) {
 						WebUrl:           nil,
 					}, nil)
 			},
-			repoName:          "name",
-			wantCloneURL:      "https://dev.azure.com/SUB/PROJECT/_git/REPO",
-			wantDefaultBranch: "main",
+			repoName: "name",
+			want:     "main",
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
 				return false
 			},
@@ -91,13 +86,12 @@ func Test_adoGit_CreateRepository(t *testing.T) {
 				adoClient: mockClient,
 				adoUrl:    mockUrl,
 			}
-			gotCloneURL, gotDefaultBranch, err := g.CreateRepository(context.Background(), tt.repoName)
+			got, err := g.CreateRepository(context.Background(), tt.repoName)
 			if !tt.wantErr(t, err, fmt.Sprintf("CreateRepository - %s", tt.repoName)) {
 				return
 			}
 
-			assert.Equalf(t, tt.wantCloneURL, gotCloneURL, "CreateRepository - %s", tt.name)
-			assert.Equalf(t, tt.wantDefaultBranch, gotDefaultBranch, "CreateRepository - %s", tt.name)
+			assert.Equalf(t, tt.want, got, "CreateRepository - %s", tt.name)
 		})
 	}
 }

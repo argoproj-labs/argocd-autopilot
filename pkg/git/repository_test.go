@@ -27,14 +27,14 @@ import (
 )
 
 type mockProvider struct {
-	createRepository func(orgRepo string) (cloneURL, defaultBranch string, err error)
+	createRepository func(orgRepo string) (defaultBranch string, err error)
 
 	getDefaultBranch func(orgRepo string) (string, error)
 
 	getAuthor func() (string, string, error)
 }
 
-func (p *mockProvider) CreateRepository(_ context.Context, orgRepo string) (cloneURL, defaultBranch string, err error) {
+func (p *mockProvider) CreateRepository(_ context.Context, orgRepo string) (defaultBranch string, err error) {
 	return p.createRepository(orgRepo)
 }
 
@@ -599,7 +599,7 @@ func TestGetRepo(t *testing.T) {
 		opts         *CloneOptions
 		wantErr      string
 		cloneFn      func(context.Context, *CloneOptions) (*repo, error)
-		createRepoFn func(context.Context, *CloneOptions) (cloneURL, defaultBranch string, err error)
+		createRepoFn func(context.Context, *CloneOptions) (defaultBranch string, err error)
 		initRepoFn   func(context.Context, *CloneOptions, string) (*repo, error)
 		assertFn     func(*testing.T, Repository, fs.FS, error)
 	}{
@@ -661,8 +661,8 @@ func TestGetRepo(t *testing.T) {
 			cloneFn: func(_ context.Context, opts *CloneOptions) (*repo, error) {
 				return nil, transport.ErrRepositoryNotFound
 			},
-			createRepoFn: func(c context.Context, co *CloneOptions) (cloneURL, defaultBranch string, err error) {
-				return "", "", errors.New("some error")
+			createRepoFn: func(c context.Context, co *CloneOptions) (defaultBranch string, err error) {
+				return "", errors.New("some error")
 			},
 			assertFn: func(t *testing.T, r Repository, f fs.FS, e error) {
 				assert.Nil(t, r)
@@ -697,8 +697,8 @@ func TestGetRepo(t *testing.T) {
 			cloneFn: func(_ context.Context, opts *CloneOptions) (*repo, error) {
 				return nil, transport.ErrRepositoryNotFound
 			},
-			createRepoFn: func(c context.Context, co *CloneOptions) (cloneURL, defaultBranch string, err error) {
-				return "", "", nil
+			createRepoFn: func(c context.Context, co *CloneOptions) (defaultBranch string, err error) {
+				return "", nil
 			},
 			initRepoFn: func(c context.Context, _ *CloneOptions, _ string) (*repo, error) {
 				return &repo{}, nil
@@ -1310,10 +1310,9 @@ func TestAddFlags(t *testing.T) {
 
 func Test_createRepo(t *testing.T) {
 	tests := map[string]struct {
-		opts              *CloneOptions
-		wantCloneURL      string
-		wantDefaultBranch string
-		wantErr           string
+		opts    *CloneOptions
+		want    string
+		wantErr string
 	}{
 		"Should create new repository": {
 			opts: &CloneOptions{
@@ -1324,15 +1323,13 @@ func Test_createRepo(t *testing.T) {
 					Password: "password",
 				},
 			},
-			wantCloneURL:      "https://github.com/owner/name.git",
-			wantDefaultBranch: "main",
+			want: "main",
 		},
 		"Should infer correct provider type from repo url": {
 			opts: &CloneOptions{
 				Repo: "https://github.com/owner/name.git",
 			},
-			wantCloneURL:      "https://github.com/owner/name.git",
-			wantDefaultBranch: "main",
+			want: "main",
 		},
 	}
 
@@ -1340,18 +1337,17 @@ func Test_createRepo(t *testing.T) {
 	defer func() { getProvider = orgGetProvider }()
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			mockProvider := &mockProvider{func(orgRepo string) (cloneURL, defaultBranch string, err error) {
-				return "https://github.com/owner/name.git", "main", nil
+			mockProvider := &mockProvider{func(orgRepo string) (defaultBranch string, err error) {
+				return "main", nil
 			}, nil, nil}
 			getProvider = func(providerType, repoURL string, auth *Auth) (Provider, error) { return mockProvider, nil }
-			gotCloneURL, gotDefaultBranch, err := createRepo(context.Background(), tt.opts)
+			got, err := createRepo(context.Background(), tt.opts)
 			if err != nil || tt.wantErr != "" {
 				assert.EqualError(t, err, tt.wantErr)
 				return
 			}
 
-			assert.Equalf(t, tt.wantCloneURL, gotCloneURL, "CreateRepository - %s", name)
-			assert.Equalf(t, tt.wantDefaultBranch, gotDefaultBranch, "CreateRepository - %s", name)
+			assert.Equalf(t, tt.want, got, "CreateRepository - %s", name)
 		})
 	}
 }

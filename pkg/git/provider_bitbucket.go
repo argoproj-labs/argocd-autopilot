@@ -43,10 +43,10 @@ func newBitbucket(opts *ProviderOptions) (Provider, error) {
 
 }
 
-func (g *bitbucket) CreateRepository(ctx context.Context, orgRepo string) (cloneURL, defaultBranch string, err error) {
+func (g *bitbucket) CreateRepository(ctx context.Context, orgRepo string) (defaultBranch string, err error) {
 	opts, err := getDefaultRepoOptions(orgRepo)
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
 
 	createOpts := &bb.RepositoryOptions{
@@ -62,23 +62,10 @@ func (g *bitbucket) CreateRepository(ctx context.Context, orgRepo string) (clone
 	p, err := g.Repository.Create(createOpts)
 
 	if err != nil {
-		return "", "", fmt.Errorf("failed creating the repository \"%s\" under \"%s\": %w", opts.Name, opts.Owner, err)
+		return "", fmt.Errorf("failed creating the repository \"%s\" under \"%s\": %w", opts.Name, opts.Owner, err)
 	}
 
-	var cloneUrl string
-	cloneLinksObj := p.Links["clone"]
-	for _, cloneLink := range cloneLinksObj.([]interface{}) {
-		link := cloneLink.(map[string]interface{})
-		if link["name"].(string) == "https" {
-			cloneUrl = link["href"].(string)
-		}
-	}
-
-	if cloneUrl == "" {
-		return "", "", fmt.Errorf("clone url is empty")
-	}
-
-	return cloneUrl, p.Mainbranch.Name, err
+	return p.Mainbranch.Name, err
 }
 
 func (g *bitbucket) GetDefaultBranch(ctx context.Context, orgRepo string) (string, error) {
