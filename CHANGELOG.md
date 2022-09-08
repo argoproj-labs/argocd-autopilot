@@ -1,5 +1,8 @@
 # Changelog:
 
+# v0.4.7
+- [fix] 0.4.6 fix caused a regression when `--repo` contained path and/or ref [#375](https://github.com/argoproj-labs/argocd-autopilot/pull/375)
+
 # v0.4.6
 - [fix] When creating a new repo, sometimes getDefaultBranch fails [#372](https://github.com/argoproj-labs/argocd-autopilot/issues/372)
 

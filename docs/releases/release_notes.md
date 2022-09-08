@@ -1,6 +1,6 @@
 ### Changes
 
-- [fix] When creating a new repo, sometimes getDefaultBranch fails [#372](https://github.com/argoproj-labs/argocd-autopilot/issues/372)
+- [fix] 0.4.6 fix caused a regression when `--repo` contained path and/or ref [#375](https://github.com/argoproj-labs/argocd-autopilot/pull/375)
 
 ### Contributors:
 
@@ -47,7 +47,7 @@ argocd-autopilot version
 
 ```bash
 # download and extract the binary
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.6/argocd-autopilot-linux-amd64.tar.gz | tar zx
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.7/argocd-autopilot-linux-amd64.tar.gz | tar zx
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
@@ -60,7 +60,7 @@ argocd-autopilot version
 
 ```bash
 # download and extract the binary
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.6/argocd-autopilot-darwin-amd64.tar.gz | tar zx
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.7/argocd-autopilot-darwin-amd64.tar.gz | tar zx
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
@@ -77,5 +77,5 @@ When using the Docker image, you have to provide the `.kube` and `.gitconfig` di
 docker run \
   -v ~/.kube:/home/autopilot/.kube \
   -v ~/.gitconfig:/home/autopilot/.gitconfig \
-  -it quay.io/argoprojlabs/argocd-autopilot:v0.4.6 <cmd> <flags>
+  -it quay.io/argoprojlabs/argocd-autopilot:v0.4.7 <cmd> <flags>
 ```
