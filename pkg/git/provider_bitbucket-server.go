@@ -94,10 +94,10 @@ func newBitbucketServer(opts *ProviderOptions) (Provider, error) {
 	return g, nil
 }
 
-func (bbs *bitbucketServer) CreateRepository(ctx context.Context, orgRepo string) (cloneURL, defaultBranch string, err error) {
+func (bbs *bitbucketServer) CreateRepository(ctx context.Context, orgRepo string) (defaultBranch string, err error) {
 	noun, owner, name, err := splitOrgRepo(orgRepo)
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
 
 	path := fmt.Sprintf("%s/%s/repos", noun, owner)
@@ -107,17 +107,10 @@ func (bbs *bitbucketServer) CreateRepository(ctx context.Context, orgRepo string
 		Scm:  "git",
 	}, repo)
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
 
-	for _, link := range repo.Links.Clone {
-		if link.Name == bbs.baseURL.Scheme {
-			return link.Href, repo.DefaultBranch, nil
-
-		}
-	}
-
-	return "", "", fmt.Errorf("created repo did not contain a valid %s clone url", bbs.baseURL.Scheme)
+	return repo.DefaultBranch, nil
 }
 
 func (bbs *bitbucketServer) GetDefaultBranch(ctx context.Context, orgRepo string) (string, error) {

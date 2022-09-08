@@ -14,11 +14,10 @@ import (
 
 func Test_gitlab_CreateRepository(t *testing.T) {
 	tests := map[string]struct {
-		orgRepo           string
-		beforeFn          func(*glmocks.MockGitlabClient)
-		wantCloneURL      string
-		wantDefaultBranch string
-		wantErr           string
+		orgRepo  string
+		beforeFn func(*glmocks.MockGitlabClient)
+		want     string
+		wantErr  string
 	}{
 		"Fails if credentials are wrong": {
 			orgRepo: "username/projectName",
@@ -83,13 +82,11 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 			},
 		},
 		"Creates project under user": {
-			orgRepo:           "username/projectName",
-			wantCloneURL:      "http://gitlab.com/username/projectName",
-			wantDefaultBranch: "main",
+			orgRepo: "username/projectName",
+			want:    "main",
 			beforeFn: func(c *glmocks.MockGitlabClient) {
 				u := &gl.User{Username: "username"}
 				p := &gl.Project{
-					HTTPURLToRepo: "http://gitlab.com/username/projectName",
 					DefaultBranch: "main",
 				}
 				createOpts := gl.CreateProjectOptions{
@@ -106,14 +103,12 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 			},
 		},
 		"Creates project under group": {
-			orgRepo:           "org/projectName",
-			wantCloneURL:      "http://gitlab.com/org/projectName",
-			wantDefaultBranch: "main",
+			orgRepo: "org/projectName",
+			want:    "main",
 			beforeFn: func(c *glmocks.MockGitlabClient) {
 				u := &gl.User{Username: "username"}
 				c.EXPECT().CurrentUser().Return(u, nil, nil)
 				p := &gl.Project{
-					HTTPURLToRepo: "http://gitlab.com/org/projectName",
 					DefaultBranch: "main",
 				}
 				g := &gl.Group{FullPath: "org", ID: 1}
@@ -133,14 +128,12 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 			},
 		},
 		"Creates project under sub group": {
-			orgRepo:           "org/subOrg/projectName",
-			wantCloneURL:      "http://gitlab.com/org/subOrg/projectName",
-			wantDefaultBranch: "main",
+			orgRepo: "org/subOrg/projectName",
+			want:    "main",
 			beforeFn: func(c *glmocks.MockGitlabClient) {
 				u := &gl.User{Username: "username"}
 				c.EXPECT().CurrentUser().Return(u, nil, nil)
 				p := &gl.Project{
-					HTTPURLToRepo: "http://gitlab.com/org/subOrg/projectName",
 					DefaultBranch: "main",
 				}
 				g := &gl.Group{FullPath: "org/subOrg", ID: 1}
@@ -160,13 +153,11 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 			},
 		},
 		"Creates private project": {
-			orgRepo:           "username/projectName",
-			wantCloneURL:      "http://gitlab.com/username/projectName",
-			wantDefaultBranch: "main",
+			orgRepo: "username/projectName",
+			want:    "main",
 			beforeFn: func(c *glmocks.MockGitlabClient) {
 				u := &gl.User{Username: "username"}
 				p := &gl.Project{
-					HTTPURLToRepo: "http://gitlab.com/username/projectName",
 					DefaultBranch: "main",
 				}
 				createOpts := gl.CreateProjectOptions{
@@ -185,27 +176,6 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 					Return(p, res, nil)
 			},
 		},
-		"Fails when no HTTPURLToRepo": {
-			orgRepo: "username/projectName",
-			wantErr: "clone url is empty",
-			beforeFn: func(c *glmocks.MockGitlabClient) {
-				u := &gl.User{Username: "username"}
-				p := &gl.Project{}
-				createOpts := gl.CreateProjectOptions{
-					Name:       gl.String("projectName"),
-					Visibility: gl.Visibility(gl.PrivateVisibility),
-				}
-				res := &gl.Response{
-					Response: &http.Response{},
-				}
-				c.EXPECT().CurrentUser().
-					Times(1).
-					Return(u, nil, nil)
-				c.EXPECT().CreateProject(&createOpts).
-					Times(1).
-					Return(p, res, nil)
-			},
-		},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -214,14 +184,13 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 			g := &gitlab{
 				client: mockClient,
 			}
-			gotCloneURL, gotDefaultBranch, err := g.CreateRepository(context.Background(), tt.orgRepo)
+			got, err := g.CreateRepository(context.Background(), tt.orgRepo)
 			if err != nil || tt.wantErr != "" {
 				assert.EqualError(t, err, tt.wantErr)
 				return
 			}
 
-			assert.Equalf(t, tt.wantCloneURL, gotCloneURL, "CreateRepository - %s", name)
-			assert.Equalf(t, tt.wantDefaultBranch, gotDefaultBranch, "CreateRepository - %s", name)
+			assert.Equalf(t, tt.want, got, "CreateRepository - %s", name)
 		})
 	}
 }
