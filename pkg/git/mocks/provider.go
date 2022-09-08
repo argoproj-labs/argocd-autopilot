@@ -35,13 +35,12 @@ func (m *MockProvider) EXPECT() *MockProviderMockRecorder {
 }
 
 // CreateRepository mocks base method.
-func (m *MockProvider) CreateRepository(ctx context.Context, orgRepo string) (string, string, error) {
+func (m *MockProvider) CreateRepository(ctx context.Context, orgRepo string) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateRepository", ctx, orgRepo)
 	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(string)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // CreateRepository indicates an expected call of CreateRepository.
