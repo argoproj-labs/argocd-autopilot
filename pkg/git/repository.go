@@ -226,12 +226,11 @@ func (o *CloneOptions) GetRepo(ctx context.Context) (Repository, fs.FS, error) {
 			}
 
 			log.G(ctx).Infof("repository '%s' was not found, trying to create it...", o.Repo)
-			o.Repo, defaultBranch, err = createRepo(ctx, o)
+			defaultBranch, err = createRepo(ctx, o)
 			if err != nil {
 				return nil, nil, fmt.Errorf("failed to create repository: %w", err)
 			}
 
-			o.Parse()
 			fallthrough // a new repo will always start as empty - we need to init it locally
 		case transport.ErrEmptyRemoteRepository:
 			log.G(ctx).Info("empty repository, initializing a new one with specified remote")
@@ -469,10 +468,10 @@ var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 	return repo, nil
 }
 
-var createRepo = func(ctx context.Context, opts *CloneOptions) (cloneURL, defaultBranch string, err error) {
+var createRepo = func(ctx context.Context, opts *CloneOptions) (defaultBranch string, err error) {
 	provider, _ := getProvider(opts.Provider, opts.Repo, &opts.Auth)
 	if provider == nil {
-		return "", "", errors.New("failed creating repository - no git provider supplied")
+		return "", errors.New("failed creating repository - no git provider supplied")
 	}
 
 	_, orgRepo, _, _, _, _, _ := util.ParseGitUrl(opts.Repo)

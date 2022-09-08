@@ -13,20 +13,18 @@ import (
 
 func Test_bitbucket_CreateRepository(t *testing.T) {
 	tests := map[string]struct {
-		orgRepo           string
-		wantCloneURL      string
-		wantDefaultBranch string
-		wantErr           string
-		beforeRepoFn      func(*bbmocks.MockbbRepo)
+		orgRepo      string
+		want         string
+		wantErr      string
+		beforeRepoFn func(*bbmocks.MockbbRepo)
 	}{
 		"Should fail if orgRepo is invalid": {
 			orgRepo: "invalid",
 			wantErr: "failed parsing organization and repo from 'invalid'",
 		},
 		"Creates repository under user": {
-			orgRepo:           "username/repoName",
-			wantCloneURL:      "https://username@bitbucket.org/username/repoName.git",
-			wantDefaultBranch: "main",
+			orgRepo: "username/repoName",
+			want:    "main",
 			beforeRepoFn: func(c *bbmocks.MockbbRepo) {
 				createOpts := bb.RepositoryOptions{
 					Owner:     "username",
@@ -35,24 +33,11 @@ func Test_bitbucket_CreateRepository(t *testing.T) {
 					IsPrivate: "true",
 				}
 
-				links := map[string]interface{}{
-					"self": map[string]string{
-						"href": "https://api.bitbucket.org/2.0/repositories/userName/repoName",
-					},
-					"clone": []interface{}{
-						map[string]interface{}{
-							"name": "https",
-							"href": "https://username@bitbucket.org/username/repoName.git",
-						},
-					},
-				}
-
 				repo := &bb.Repository{
-					Name:  "userName",
+					Name: "userName",
 					Mainbranch: bb.RepositoryBranch{
 						Name: "main",
 					},
-					Links: links,
 				}
 
 				c.EXPECT().Create(&createOpts).
@@ -109,14 +94,13 @@ func Test_bitbucket_CreateRepository(t *testing.T) {
 				Repository: mockRepoClient,
 				User:       mockUserClient,
 			}
-			gotCloneURL, gotDefaultBranch, err := g.CreateRepository(context.Background(), tt.orgRepo)
+			got, err := g.CreateRepository(context.Background(), tt.orgRepo)
 			if err != nil || tt.wantErr != "" {
 				assert.EqualError(t, err, tt.wantErr)
 				return
 			}
 
-			assert.Equalf(t, tt.wantCloneURL, gotCloneURL, "CreateRepository - %s", name)
-			assert.Equalf(t, tt.wantDefaultBranch, gotDefaultBranch, "CreateRepository - %s",name)
+			assert.Equalf(t, tt.want, got, "CreateRepository - %s", name)
 		})
 	}
 }
