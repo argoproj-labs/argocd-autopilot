@@ -34,6 +34,7 @@ type (
 		KubeFactory     kube.Factory
 		Timeout         time.Duration
 		Labels          map[string]string
+		Annotations     map[string]string
 		Include         string
 		Exclude         string
 	}
@@ -180,6 +181,7 @@ func RunAppCreate(ctx context.Context, opts *AppCreateOptions) error {
 		if opts.AppsCloneOpts.Auth.Password == "" {
 			opts.AppsCloneOpts.Auth.Username = opts.CloneOpts.Auth.Username
 			opts.AppsCloneOpts.Auth.Password = opts.CloneOpts.Auth.Password
+			opts.AppsCloneOpts.Provider = opts.CloneOpts.Provider
 		}
 
 		appsRepo, appsfs, err = getRepo(ctx, opts.AppsCloneOpts)
@@ -261,6 +263,10 @@ var setAppOptsDefaults = func(ctx context.Context, repofs fs.FS, opts *AppCreate
 	if opts.AppOpts.Labels == nil {
 		opts.AppOpts.Labels = opts.Labels
 	}
+	
+	if opts.AppOpts.Annotations == nil {
+		opts.AppOpts.Annotations = opts.Annotations
+	}
 
 	if opts.AppOpts.AppType != "" {
 		return nil
@@ -277,6 +283,7 @@ var setAppOptsDefaults = func(ctx context.Context, repofs fs.FS, opts *AppCreate
 		cloneOpts := &git.CloneOptions{
 			Repo: opts.AppOpts.AppSpecifier,
 			Auth: opts.CloneOpts.Auth,
+			Provider: opts.CloneOpts.Provider,
 			FS:   fs.Create(memfs.New()),
 		}
 		cloneOpts.Parse()

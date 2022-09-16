@@ -7,14 +7,12 @@ import (
 	"testing"
 
 	adoMock "github.com/argoproj-labs/argocd-autopilot/pkg/git/ado/mocks"
-
 	"github.com/golang/mock/gomock"
 	ado "github.com/microsoft/azure-devops-go-api/azuredevops/git"
 	"github.com/stretchr/testify/assert"
 )
 
 func Test_adoGit_CreateRepository(t *testing.T) {
-	remoteURL := "https://dev.azure.com/SUB/PROJECT/_git/REPO"
 	emptyFunc := func(client *adoMock.MockAdoClient, url *adoMock.MockAdoUrl) {}
 	tests := []struct {
 		name       string
@@ -27,7 +25,6 @@ func Test_adoGit_CreateRepository(t *testing.T) {
 			name:       "Empty Name",
 			mockClient: emptyFunc,
 			repoName:   "",
-			want:       "",
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
 				return true
 			},
@@ -43,7 +40,6 @@ func Test_adoGit_CreateRepository(t *testing.T) {
 					Return("blah")
 			},
 			repoName: "name",
-			want:     "",
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
 				return true
 			},
@@ -51,6 +47,7 @@ func Test_adoGit_CreateRepository(t *testing.T) {
 		{
 			name: "Success creating repo",
 			mockClient: func(client *adoMock.MockAdoClient, url *adoMock.MockAdoUrl) {
+				defaultBranch := "main"
 				url.EXPECT().GetProjectName().
 					Times(1).
 					Return("PROJECT")
@@ -58,13 +55,13 @@ func Test_adoGit_CreateRepository(t *testing.T) {
 					Times(1).
 					Return(&ado.GitRepository{
 						Links:            nil,
-						DefaultBranch:    nil,
+						DefaultBranch:    &defaultBranch,
 						Id:               nil,
 						IsFork:           nil,
 						Name:             nil,
 						ParentRepository: nil,
 						Project:          nil,
-						RemoteUrl:        &remoteURL,
+						RemoteUrl:        nil,
 						Size:             nil,
 						SshUrl:           nil,
 						Url:              nil,
@@ -73,7 +70,7 @@ func Test_adoGit_CreateRepository(t *testing.T) {
 					}, nil)
 			},
 			repoName: "name",
-			want:     "https://dev.azure.com/SUB/PROJECT/_git/REPO",
+			want:     "main",
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
 				return false
 			},
@@ -94,7 +91,7 @@ func Test_adoGit_CreateRepository(t *testing.T) {
 				return
 			}
 
-			assert.Equalf(t, tt.want, got, "CreateRepository - %s", tt.repoName)
+			assert.Equalf(t, tt.want, got, "CreateRepository - %s", tt.name)
 		})
 	}
 }
@@ -145,6 +142,76 @@ func Test_parseAdoUrl(t *testing.T) {
 			}
 
 			assert.Equalf(t, tt.want, got, "parseAdoUrl(%v)", tt.args.host)
+		})
+	}
+}
+
+func Test_adoGit_GetDefaultBranch(t *testing.T) {
+	tests := map[string]struct {
+		orgRepo  string
+		want     string
+		wantErr  string
+		beforeFn func(client *adoMock.MockAdoClient, url *adoMock.MockAdoUrl)
+	}{
+		"Fails when GetRepository fails": {
+			orgRepo: "owner/repo",
+			want:    "",
+			wantErr: "some error",
+			beforeFn: func(client *adoMock.MockAdoClient, url *adoMock.MockAdoUrl) {
+				orgRepo := "owner/repo"
+				project := "adoUrl"
+				defaultBranch := "main"
+				repoArgs := ado.GetRepositoryArgs{
+					RepositoryId: &orgRepo,
+					Project:      &project,
+				}
+				r := &ado.GitRepository{
+					DefaultBranch: &defaultBranch,
+				}
+				client.EXPECT().GetRepository(gomock.Any(), repoArgs).Times(1).Return(r, errors.New("some error"))
+				url.EXPECT().GetProjectName().Times(1).Return(project)
+			},
+		},
+		"Returns valid default branch": {
+			orgRepo: "owner/repo",
+			want:    "main",
+			wantErr: "",
+			beforeFn: func(client *adoMock.MockAdoClient, url *adoMock.MockAdoUrl) {
+				orgRepo := "owner/repo"
+				project := "adoUrl"
+				defaultBranch := "main"
+				repoArgs := ado.GetRepositoryArgs{
+					RepositoryId: &orgRepo,
+					Project:      &project,
+				}
+				r := &ado.GitRepository{
+					DefaultBranch: &defaultBranch,
+				}
+				client.EXPECT().GetRepository(gomock.Any(), repoArgs).Times(1).Return(r, nil)
+				url.EXPECT().GetProjectName().Times(1).Return(project)
+			},
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			mockClient := adoMock.NewMockAdoClient(ctrl)
+			mockUrl := adoMock.NewMockAdoUrl(ctrl)
+			tt.beforeFn(mockClient, mockUrl)
+			g := &adoGit{
+				adoClient: mockClient,
+				adoUrl:    mockUrl,
+			}
+
+			got, err := g.GetDefaultBranch(context.Background(), tt.orgRepo)
+			if err != nil || tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
+				return
+			}
+
+			if got != tt.want {
+				t.Errorf("adoGit.GetDefaultBranch() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }

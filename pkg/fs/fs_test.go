@@ -153,13 +153,8 @@ func Test_fsimpl_CheckExistsOrWrite(t *testing.T) {
 			fs := Create(mockedFS)
 			got, err := fs.CheckExistsOrWrite(tt.args.path, tt.args.data)
 
-			if err != nil {
-				if tt.wantErr != "" {
-					assert.EqualError(t, err, tt.wantErr)
-				} else {
-					t.Errorf("prepare() error = %v", err)
-				}
-
+			if err != nil || tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
 				return
 			}
 
@@ -229,13 +224,8 @@ func Test_fsimpl_ReadFile(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			fs := tt.beforeFn()
 			got, err := fs.ReadFile(tt.filename)
-			if err != nil {
-				if tt.wantErr != "" {
-					assert.EqualError(t, err, tt.wantErr)
-				} else {
-					t.Errorf("prepare() error = %v", err)
-				}
-
+			if err != nil || tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
 				return
 			}
 
@@ -409,13 +399,8 @@ func Test_fsimpl_ReadYamls(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			fs := tt.beforeFn()
-			if err := fs.ReadYamls("filename", tt.o...); err != nil {
-				if tt.wantErr != "" {
-					assert.EqualError(t, err, tt.wantErr)
-				} else {
-					t.Errorf("ReadYamls() error = %v", err)
-				}
-
+			if err := fs.ReadYamls("filename", tt.o...); err != nil || tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
 				return
 			}
 
@@ -492,13 +477,8 @@ func Test_fsimpl_WriteYamls(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			fs := Create(memfs.New())
-			if err := fs.WriteYamls("filename", tt.o...); err != nil {
-				if tt.wantErr != "" {
-					assert.EqualError(t, err, tt.wantErr)
-				} else {
-					t.Errorf("WriteYamls() error = %v", err)
-				}
-
+			if err := fs.WriteYamls("filename", tt.o...); err != nil || tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
 				return
 			}
 
@@ -543,13 +523,8 @@ func Test_fsimpl_ReadJson(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			fs := tt.beforeFn()
-			if err := fs.ReadJson("filename", tt.o); err != nil {
-				if tt.wantErr != "" {
-					assert.EqualError(t, err, tt.wantErr)
-				} else {
-					t.Errorf("ReadYamls() error = %v", err)
-				}
-
+			if err := fs.ReadJson("filename", tt.o); err != nil || tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
 				return
 			}
 
@@ -583,13 +558,8 @@ func Test_fsimpl_WriteJson(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			fs := Create(memfs.New())
-			if err := fs.WriteJson("filename", tt.o); err != nil {
-				if tt.wantErr != "" {
-					assert.EqualError(t, err, tt.wantErr)
-				} else {
-					t.Errorf("WriteYamls() error = %v", err)
-				}
-
+			if err := fs.WriteJson("filename", tt.o); err != nil || tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
 				return
 			}
 

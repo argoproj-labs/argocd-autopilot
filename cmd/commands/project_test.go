@@ -19,8 +19,8 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 
+	appset "github.com/argoproj/applicationset/api/v1alpha1"
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
-  appset "github.com/argoproj/applicationset/api/v1alpha1"
 	"github.com/ghodss/yaml"
 	"github.com/golang/mock/gomock"
 
@@ -141,13 +141,8 @@ func TestRunProjectCreate(t *testing.T) {
 				return repo, repofs, err
 			}
 			getInstallationNamespace = tt.getInstallationNamespace
-			if err := RunProjectCreate(context.Background(), opts); tt.wantErr != "" {
-				if tt.wantErr != "" {
-					assert.EqualError(t, err, tt.wantErr)
-				} else {
-					t.Errorf("prepare() error = %v", err)
-				}
-
+			if err := RunProjectCreate(context.Background(), opts); err != nil || tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
 				return
 			}
 
@@ -170,6 +165,7 @@ func Test_generateProjectManifests(t *testing.T) {
 		wantProject            string
 		wantContextName        string
 		wantLabels             map[string]string
+		wantAnnotations        map[string]string
 	}{
 		"should generate project and appset with correct values": {
 			o: &GenerateProjectOptions{
@@ -181,6 +177,9 @@ func Test_generateProjectManifests(t *testing.T) {
 				Revision:           "revision",
 				InstallationPath:   "some/path",
 				Labels: map[string]string{
+					"some-key": "some-value",
+				},
+				Annotations: map[string]string{
 					"some-key": "some-value",
 				},
 			},
@@ -195,6 +194,9 @@ func Test_generateProjectManifests(t *testing.T) {
 				"some-key":                         "some-value",
 				store.Default.LabelKeyAppManagedBy: store.Default.LabelValueManagedBy,
 				store.Default.LabelKeyAppName:      "{{ appName }}",
+			},
+			wantAnnotations: map[string]string{
+				"some-key":                         "some-value",
 			},
 		},
 	}
@@ -283,13 +285,8 @@ func Test_getInstallationNamespace(t *testing.T) {
 		t.Run(ttName, func(t *testing.T) {
 			repofs := tt.beforeFn(t)
 			got, err := getInstallationNamespace(repofs)
-			if err != nil {
-				if tt.wantErr != "" {
-					assert.EqualError(t, err, tt.wantErr)
-				} else {
-					t.Errorf("getInstallationNamespace() error = %v", err)
-				}
-
+			if err != nil || tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
 				return
 			}
 
@@ -346,13 +343,8 @@ func Test_getProjectInfoFromFile(t *testing.T) {
 			}
 
 			got, _, err := getProjectInfoFromFile(repofs, tt.name)
-			if err != nil {
-				if tt.wantErr != "" {
-					assert.EqualError(t, err, tt.wantErr)
-				} else {
-					t.Errorf("getProjectInfoFromFile() error = %v", err)
-				}
-
+			if err != nil || tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
 				return
 			}
 
@@ -408,13 +400,8 @@ func TestRunProjectList(t *testing.T) {
 			prepareRepo = tt.prepareRepo
 			getProjectInfoFromFile = tt.getProjectInfoFromFile
 
-			if err := RunProjectList(context.Background(), tt.opts); tt.wantErr != "" {
-				if tt.wantErr != "" {
-					assert.EqualError(t, err, tt.wantErr)
-				} else {
-					t.Errorf("prepare() error = %v", err)
-				}
-
+			if err := RunProjectList(context.Background(), tt.opts); err != nil || tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
 				return
 			}
 
@@ -640,13 +627,8 @@ func TestRunProjectDelete(t *testing.T) {
 			opts := &ProjectDeleteOptions{
 				ProjectName: tt.projectName,
 			}
-			if err := RunProjectDelete(context.Background(), opts); err != nil {
-				if tt.wantErr != "" {
-					assert.EqualError(t, err, tt.wantErr)
-				} else {
-					t.Errorf("prepare() error = %v", err)
-				}
-
+			if err := RunProjectDelete(context.Background(), opts); err != nil || tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
 				return
 			}
 

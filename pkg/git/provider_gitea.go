@@ -13,6 +13,7 @@ type (
 	Client interface {
 		CreateOrgRepo(org string, opt gt.CreateRepoOption) (*gt.Repository, *gt.Response, error)
 		CreateRepo(opt gt.CreateRepoOption) (*gt.Repository, *gt.Response, error)
+		GetRepo(owner, reponame string) (*gt.Repository, *gt.Response, error)
 		GetMyUserInfo() (*gt.User, *gt.Response, error)
 	}
 
@@ -22,7 +23,7 @@ type (
 )
 
 func newGitea(opts *ProviderOptions) (Provider, error) {
-	c, err := gt.NewClient(opts.Host, gt.SetToken(opts.Auth.Password))
+	c, err := gt.NewClient(opts.RepoURL, gt.SetToken(opts.Auth.Password))
 	if err != nil {
 		return nil, err
 	}
@@ -34,10 +35,10 @@ func newGitea(opts *ProviderOptions) (Provider, error) {
 	return g, nil
 }
 
-func (g *gitea) CreateRepository(ctx context.Context, orgRepo string) (string, error) {
+func (g *gitea) CreateRepository(_ context.Context, orgRepo string) (defaultBranch string, err error) {
 	opts, err := getDefaultRepoOptions(orgRepo)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	authUser, err := g.getAuthenticatedUser()
@@ -68,7 +69,25 @@ func (g *gitea) CreateRepository(ctx context.Context, orgRepo string) (string, e
 		return "", err
 	}
 
-	return r.CloneURL, nil
+	return r.DefaultBranch, nil
+}
+
+func (g *gitea) GetDefaultBranch(_ context.Context, orgRepo string) (string, error) {
+	opts, err := getDefaultRepoOptions(orgRepo)
+	if err != nil {
+		return "", err
+	}
+
+	r, res, err := g.client.GetRepo(opts.Owner, opts.Name)
+	if err != nil {
+		if res.StatusCode == 404 {
+			return "", fmt.Errorf("owner %s not found: %w", opts.Owner, err)
+		}
+
+		return "", err
+	}
+
+	return r.DefaultBranch, nil
 }
 
 func (g *gitea) GetAuthor(_ context.Context) (username, email string, err error) {

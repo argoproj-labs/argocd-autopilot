@@ -13,7 +13,10 @@ type (
 	Provider interface {
 		// CreateRepository creates the repository in the remote provider and returns a
 		// clone url
-		CreateRepository(ctx context.Context, orgRepo string) (string, error)
+		CreateRepository(ctx context.Context, orgRepo string) (defaultBranch string, err error)
+
+		// GetDefaultBranch returns the default branch of the repository
+		GetDefaultBranch(ctx context.Context, orgRepo string) (string, error)
 
 		// GetAuthor gets the authenticated user's name and email address, for making git commits.
 		// Returns empty strings if not implemented
@@ -27,9 +30,9 @@ type (
 
 	// ProviderOptions for a new git provider
 	ProviderOptions struct {
-		Type string
-		Auth *Auth
-		Host string
+		Type    string
+		Auth    *Auth
+		RepoURL string
 	}
 
 	CreateRepoOptions struct {
@@ -52,14 +55,16 @@ var (
 	ErrAuthenticationFailed = func(err error) error {
 		return fmt.Errorf("authentication failed, make sure credentials are correct: %w", err)
 	}
-)
 
-var supportedProviders = map[string]func(*ProviderOptions) (Provider, error){
-	"github": newGithub,
-	"gitea":  newGitea,
-	"gitlab": newGitlab,
-	Azure:    newAdo,
-}
+	supportedProviders = map[string]func(*ProviderOptions) (Provider, error){
+		"bitbucket":     newBitbucket,
+		BitbucketServer: newBitbucketServer,
+		"github":        newGithub,
+		"gitea":         newGitea,
+		"gitlab":        newGitlab,
+		Azure:           newAdo,
+	}
+)
 
 // New creates a new git provider
 func newProvider(opts *ProviderOptions) (Provider, error) {

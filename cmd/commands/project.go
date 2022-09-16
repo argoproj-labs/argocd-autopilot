@@ -37,6 +37,7 @@ type (
 		DryRun          bool
 		AddCmd          argocd.AddClusterCmd
 		Labels          map[string]string
+		Annotations     map[string]string
 	}
 
 	ProjectDeleteOptions struct {
@@ -58,6 +59,7 @@ type (
 		Revision           string
 		InstallationPath   string
 		Labels             map[string]string
+		Annotations        map[string]string
 	}
 )
 
@@ -86,6 +88,7 @@ func NewProjectCreateCommand() *cobra.Command {
 		dryRun      bool
 		addCmd      argocd.AddClusterCmd
 		labels      map[string]string
+		annotations map[string]string
 		cloneOpts   *git.CloneOptions
 	)
 
@@ -122,6 +125,7 @@ func NewProjectCreateCommand() *cobra.Command {
 				DryRun:          dryRun,
 				AddCmd:          addCmd,
 				Labels:          labels,
+				Annotations:     annotations,
 			})
 		},
 	}
@@ -130,6 +134,7 @@ func NewProjectCreateCommand() *cobra.Command {
 	cmd.Flags().StringVar(&kubeContext, "dest-kube-context", "", "The default destination kubernetes context for applications in this project (will be ignored if --dest-kube-server is supplied)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "If true, print manifests instead of applying them to the cluster (nothing will be commited to git)")
 	cmd.Flags().StringToStringVar(&labels, "labels", nil, "Optional labels that will be set on the Application resource. (e.g. \"app.kubernetes.io/managed-by={{ placeholder }}\"")
+	cmd.Flags().StringToStringVar(&annotations, "annotations", nil, "Optional annotations that will be set on the Application resource. (e.g. \"argocd.argoproj.io/sync-wave={{ placeholder }}\"")
 
 	cloneOpts = git.AddFlags(cmd, &git.AddFlagsOptions{
 		FS:            memfs.New(),
@@ -183,6 +188,7 @@ func RunProjectCreate(ctx context.Context, opts *ProjectCreateOptions) error {
 		DefaultDestServer:  opts.DestKubeServer,
 		DefaultDestContext: opts.DestKubeContext,
 		Labels:             opts.Labels,
+		Annotations:        opts.Annotations,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to generate project resources: %w", err)
@@ -293,6 +299,7 @@ func generateProjectManifests(o *GenerateProjectOptions) (projectYAML, appSetYAM
 		prune:                       true,
 		preserveResourcesOnDeletion: false,
 		appLabels:                   getDefaultAppLabels(o.Labels),
+		appAnnotations:              o.Annotations,
 		generators: []appset.ApplicationSetGenerator{
 			{
 				Git: &appset.GitGenerator{

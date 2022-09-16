@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	g "github.com/argoproj-labs/argocd-autopilot/pkg/git/github"
+	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 
 	gh "github.com/google/go-github/v43/github"
 )
@@ -34,8 +35,9 @@ func newGithub(opts *ProviderOptions) (Provider, error) {
 		}
 	}
 
-	if opts.Host != "" && !strings.Contains(opts.Host, "github.com") {
-		c, err = gh.NewEnterpriseClient(opts.Host, opts.Host, hc)
+	host, _, _, _, _, _, _ := util.ParseGitUrl(opts.RepoURL)
+	if !strings.Contains(host, "github.com") {
+		c, err = gh.NewEnterpriseClient(host, host, hc)
 		if err != nil {
 			return nil, err
 		}
@@ -52,10 +54,10 @@ func newGithub(opts *ProviderOptions) (Provider, error) {
 	return g, nil
 }
 
-func (g *github) CreateRepository(ctx context.Context, orgRepo string) (string, error) {
+func (g *github) CreateRepository(ctx context.Context, orgRepo string) (defaultBranch string, err error) {
 	opts, err := getDefaultRepoOptions(orgRepo)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	authUser, err := g.getAuthenticatedUser(ctx)
@@ -80,11 +82,25 @@ func (g *github) CreateRepository(ctx context.Context, orgRepo string) (string, 
 		return "", err
 	}
 
-	if r.CloneURL == nil {
-		return "", fmt.Errorf("repo clone url is nil")
+	return *r.DefaultBranch, err
+}
+
+func (g *github) GetDefaultBranch(ctx context.Context, orgRepo string) (string, error) {
+	opts, err := getDefaultRepoOptions(orgRepo)
+	if err != nil {
+		return "", err
 	}
 
-	return *r.CloneURL, err
+	r, res, err := g.Repositories.Get(ctx, opts.Owner, opts.Name)
+	if err != nil {
+		if res.StatusCode == 404 {
+			return "", fmt.Errorf("owner %s not found: %w", opts.Owner, err)
+		}
+
+		return "", err
+	}
+
+	return *r.DefaultBranch, nil
 }
 
 func (g *github) GetAuthor(ctx context.Context) (username, email string, err error) {

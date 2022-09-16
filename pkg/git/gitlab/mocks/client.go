@@ -75,23 +75,44 @@ func (mr *MockGitlabClientMockRecorder) CurrentUser(options ...interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CurrentUser", reflect.TypeOf((*MockGitlabClient)(nil).CurrentUser), options...)
 }
 
-// ListGroups mocks base method.
-func (m *MockGitlabClient) ListGroups(opt *gitlab.ListGroupsOptions, options ...gitlab.RequestOptionFunc) ([]*gitlab.Group, *gitlab.Response, error) {
+// GetGroup mocks base method.
+func (m *MockGitlabClient) GetGroup(gid interface{}, opt *gitlab.GetGroupOptions, options ...gitlab.RequestOptionFunc) (*gitlab.Group, *gitlab.Response, error) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{opt}
+	varargs := []interface{}{gid, opt}
 	for _, a := range options {
 		varargs = append(varargs, a)
 	}
-	ret := m.ctrl.Call(m, "ListGroups", varargs...)
-	ret0, _ := ret[0].([]*gitlab.Group)
+	ret := m.ctrl.Call(m, "GetGroup", varargs...)
+	ret0, _ := ret[0].(*gitlab.Group)
 	ret1, _ := ret[1].(*gitlab.Response)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
 
-// ListGroups indicates an expected call of ListGroups.
-func (mr *MockGitlabClientMockRecorder) ListGroups(opt interface{}, options ...interface{}) *gomock.Call {
+// GetGroup indicates an expected call of GetGroup.
+func (mr *MockGitlabClientMockRecorder) GetGroup(gid, opt interface{}, options ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{opt}, options...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListGroups", reflect.TypeOf((*MockGitlabClient)(nil).ListGroups), varargs...)
+	varargs := append([]interface{}{gid, opt}, options...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGroup", reflect.TypeOf((*MockGitlabClient)(nil).GetGroup), varargs...)
+}
+
+// GetProject mocks base method.
+func (m *MockGitlabClient) GetProject(pid interface{}, opt *gitlab.GetProjectOptions, options ...gitlab.RequestOptionFunc) (*gitlab.Project, *gitlab.Response, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{pid, opt}
+	for _, a := range options {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetProject", varargs...)
+	ret0, _ := ret[0].(*gitlab.Project)
+	ret1, _ := ret[1].(*gitlab.Response)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetProject indicates an expected call of GetProject.
+func (mr *MockGitlabClientMockRecorder) GetProject(pid, opt interface{}, options ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{pid, opt}, options...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProject", reflect.TypeOf((*MockGitlabClient)(nil).GetProject), varargs...)
 }

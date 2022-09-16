@@ -27,13 +27,19 @@ import (
 )
 
 type mockProvider struct {
-	createRepository func(orgRepo string) (string, error)
+	createRepository func(orgRepo string) (defaultBranch string, err error)
+
+	getDefaultBranch func(orgRepo string) (string, error)
 
 	getAuthor func() (string, string, error)
 }
 
-func (p *mockProvider) CreateRepository(_ context.Context, orgRepo string) (string, error) {
+func (p *mockProvider) CreateRepository(_ context.Context, orgRepo string) (defaultBranch string, err error) {
 	return p.createRepository(orgRepo)
+}
+
+func (p *mockProvider) GetDefaultBranch(_ context.Context, orgRepo string) (string, error) {
+	return p.getDefaultBranch(orgRepo)
 }
 
 func (p *mockProvider) GetAuthor(ctx context.Context) (username, email string, err error) {
@@ -127,39 +133,72 @@ func Test_getAuth(t *testing.T) {
 	}
 }
 
+var globalGitConfig = &config.Config{
+	User: struct {
+		Name  string
+		Email string
+	}{
+		Name:  "name",
+		Email: "email",
+	},
+	Init: struct {
+		DefaultBranch string
+	}{
+		DefaultBranch: "master",
+	},
+}
+
 func Test_repo_initBranch(t *testing.T) {
 	tests := map[string]struct {
-		branchName string
-		wantErr    bool
-		retErr     error
-		assertFn   func(r *mocks.MockRepository, wt *mocks.MockWorktree)
+		branchName   string
+		createBranch bool
+		wantErr      string
+		retErr       error
+		beforeFn     func(r *mocks.MockRepository, wt *mocks.MockWorktree)
 	}{
-		"Init current branch": {
-			branchName: "",
-			assertFn: func(r *mocks.MockRepository, wt *mocks.MockWorktree) {
-				r.EXPECT().Worktree().Times(0)
-				wt.EXPECT().Commit("initial commit", gomock.Any()).Times(1)
-				wt.EXPECT().Checkout(gomock.Any()).Times(0)
+		"Should succeed in initializing an existing branch": {
+			branchName: "main",
+			beforeFn: func(r *mocks.MockRepository, wt *mocks.MockWorktree) {
+				r.EXPECT().ConfigScoped(gomock.Any()).Times(1).Return(globalGitConfig, nil)
+				wt.EXPECT().AddGlob(".").Times(1).Return(nil)
+				wt.EXPECT().Commit("initial commit", gomock.Any()).Times(1).Return(plumbing.Hash{}, nil)
+				b := plumbing.NewBranchReferenceName("main")
+				r.EXPECT().Reference(b, true).Times(1).Return(nil, nil)
+				wt.EXPECT().Checkout(&gg.CheckoutOptions{
+					Branch: b,
+					Create: false,
+				}).Times(1).Return(nil)
 			},
 		},
-		"Init and checkout branch": {
-			assertFn: func(_ *mocks.MockRepository, wt *mocks.MockWorktree) {
-				b := plumbing.NewBranchReferenceName("test")
-				wt.EXPECT().Commit("initial commit", gomock.Any()).
-					Times(1)
-				wt.EXPECT().Checkout(&gg.CheckoutOptions{Branch: b, Create: true}).
-					Times(1)
+		"Should fail if initial commit fails": {
+			wantErr: "failed to commit while trying to initialize the branch. Error: failed to get gitconfig: some error",
+			beforeFn: func(r *mocks.MockRepository, _ *mocks.MockWorktree) {
+				r.EXPECT().ConfigScoped(gomock.Any()).Times(1).Return(nil, errors.New("some error"))
 			},
 		},
-		"Error": {
-			branchName: "test",
-			wantErr:    true,
-			retErr:     fmt.Errorf("error"),
-			assertFn: func(_ *mocks.MockRepository, wt *mocks.MockWorktree) {
-				wt.EXPECT().Commit("initial commit", gomock.Any()).
-					Times(0)
-				wt.EXPECT().Checkout(gomock.Any()).
-					Times(0)
+		"Should fail if Reference call fails": {
+			branchName: "branchName",
+			wantErr:    "failed to check if branch exist. Error: some error",
+			beforeFn: func(r *mocks.MockRepository, wt *mocks.MockWorktree) {
+				r.EXPECT().ConfigScoped(gomock.Any()).Times(1).Return(globalGitConfig, nil)
+				wt.EXPECT().AddGlob(".").Times(1).Return(nil)
+				wt.EXPECT().Commit("initial commit", gomock.Any()).Times(1).Return(plumbing.Hash{}, nil)
+				b := plumbing.NewBranchReferenceName("branchName")
+				r.EXPECT().Reference(b, true).Times(1).Return(nil, errors.New("some error"))
+			},
+		},
+		"Should create branch if not exist": {
+			branchName: "branchName",
+			beforeFn: func(r *mocks.MockRepository, wt *mocks.MockWorktree) {
+				r.EXPECT().ConfigScoped(gomock.Any()).Times(1).Return(globalGitConfig, nil)
+				wt.EXPECT().AddGlob(".").Times(1).Return(nil)
+				wt.EXPECT().Commit("initial commit", gomock.Any()).Times(1).Return(plumbing.Hash{}, nil)
+				b := plumbing.NewBranchReferenceName("branchName")
+				r.EXPECT().Reference(b, true).Times(1).Return(nil, plumbing.ErrReferenceNotFound)
+				wt.EXPECT().Checkout(&gg.CheckoutOptions{
+					Branch: b,
+					Create: true,
+				}).Times(1).Return(nil)
 			},
 		},
 	}
@@ -171,109 +210,172 @@ func Test_repo_initBranch(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			mockRepo := mocks.NewMockRepository(ctrl)
 			mockWt := mocks.NewMockWorktree(ctrl)
-			mockProvider := &mockProvider{}
-
-			mockWt.EXPECT().Commit(gomock.Any(), gomock.Any()).Return(plumbing.Hash{}, tt.retErr).AnyTimes()
-			mockWt.EXPECT().Checkout(gomock.Any()).Return(tt.retErr).AnyTimes()
-			mockWt.EXPECT().AddGlob(gomock.Any()).Return(tt.retErr).AnyTimes()
-
-			gitConfig := &config.Config{
-				User: struct {
-					Name  string
-					Email string
-				}{
-					Name:  "name",
-					Email: "email",
-				},
+			if tt.beforeFn != nil {
+				tt.beforeFn(mockRepo, mockWt)
 			}
-
-			mockRepo.EXPECT().ConfigScoped(gomock.Any()).Return(gitConfig, nil).AnyTimes()
 
 			worktree = func(r gogit.Repository) (gogit.Worktree, error) { return mockWt, nil }
 
-			r := &repo{Repository: mockRepo, provider: mockProvider}
-
-			if err := r.initBranch(context.Background(), tt.branchName); (err != nil) != tt.wantErr {
-				t.Errorf("repo.checkout() error = %v, wantErr %v", err, tt.wantErr)
+			r := &repo{Repository: mockRepo}
+			err := r.initBranch(context.Background(), tt.branchName)
+			if err != nil || tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
 			}
-
-			// tt.assertFn(mockRepo, mockWt)
 		})
 	}
 }
 
 func Test_initRepo(t *testing.T) {
 	tests := map[string]struct {
-		opts     *CloneOptions
-		want     Repository
-		wantErr  bool
-		retErr   error
-		assertFn func(r *mocks.MockRepository, w *mocks.MockWorktree)
+		repo     string
+		wantErr  string
+		beforeFn func(r *mocks.MockRepository, wt *mocks.MockWorktree, p *mockProvider)
 	}{
-		"Basic": {
-			opts: &CloneOptions{
-				Repo: "https://github.com/owner/name?ref=test",
-			},
-			assertFn: func(r *mocks.MockRepository, w *mocks.MockWorktree) {
-				r.EXPECT().CreateRemote(gomock.Any()).Times(1)
-				w.EXPECT().Commit(gomock.Any(), gomock.Any()).Times(2)
+		"Should succeed when provider returns default branch": {
+			repo: "https://github.com/owner/name",
+			beforeFn: func(r *mocks.MockRepository, wt *mocks.MockWorktree, p *mockProvider) {
+				r.EXPECT().CreateRemote(&config.RemoteConfig{
+					Name: "origin",
+					URLs: []string{
+						"https://github.com/owner/name.git",
+					},
+				}).Times(1).Return(nil, nil)
+				p.getDefaultBranch = func(orgRepo string) (string, error) {
+					return "master", nil
+				}
+				r.EXPECT().ConfigScoped(gomock.Any()).Times(1).Return(globalGitConfig, nil)
+				wt.EXPECT().AddGlob(".").Times(1).Return(nil)
+				wt.EXPECT().Commit("initial commit", gomock.Any()).Times(1).Return(plumbing.Hash{}, nil)
+				b := plumbing.NewBranchReferenceName("master")
+				r.EXPECT().Reference(b, true).Times(1).Return(nil, nil)
+				wt.EXPECT().Checkout(&gg.CheckoutOptions{
+					Branch: b,
+					Create: false,
+				}).Times(1).Return(nil)
 			},
 		},
-		"Error": {
-			opts: &CloneOptions{
-				Repo: "https://github.com/owner/name?ref=test",
+		"Should use default branch from global config, when provider returns empty string": {
+			repo: "https://github.com/owner/name",
+			beforeFn: func(r *mocks.MockRepository, wt *mocks.MockWorktree, p *mockProvider) {
+				r.EXPECT().CreateRemote(&config.RemoteConfig{
+					Name: "origin",
+					URLs: []string{
+						"https://github.com/owner/name.git",
+					},
+				}).Times(1).Return(nil, nil)
+				p.getDefaultBranch = func(orgRepo string) (string, error) {
+					return "", nil
+				}
+
+				r.EXPECT().ConfigScoped(gomock.Any()).Times(2).Return(globalGitConfig, nil)
+				wt.EXPECT().AddGlob(".").Times(1).Return(nil)
+				wt.EXPECT().Commit("initial commit", gomock.Any()).Times(1).Return(plumbing.Hash{}, nil)
+				b := plumbing.NewBranchReferenceName("master")
+				r.EXPECT().Reference(b, true).Times(1).Return(nil, nil)
+				wt.EXPECT().Checkout(&gg.CheckoutOptions{
+					Branch: b,
+					Create: false,
+				}).Times(1).Return(nil)
 			},
-			retErr:  fmt.Errorf("error"),
-			wantErr: true,
-			assertFn: func(r *mocks.MockRepository, w *mocks.MockWorktree) {
-				r.EXPECT().CreateRemote(gomock.Any()).Times(1)
-				w.EXPECT().Commit(gomock.Any(), gomock.Any()).Times(0)
+		},
+		"Should fail when getDefaultBranch fails": {
+			repo:    "https://github.com/owner/name",
+			wantErr: "failed to get default branch from provider. Error: some error",
+			beforeFn: func(r *mocks.MockRepository, _ *mocks.MockWorktree, p *mockProvider) {
+				r.EXPECT().CreateRemote(&config.RemoteConfig{
+					Name: "origin",
+					URLs: []string{
+						"https://github.com/owner/name.git",
+					},
+				}).Times(1).Return(nil, nil)
+				p.getDefaultBranch = func(orgRepo string) (string, error) {
+					return "", errors.New("some error")
+				}
+			},
+		},
+		"Should fail when defaultBranchFromConfig fails": {
+			repo:    "https://github.com/owner/name",
+			wantErr: "failed to get default branch from global config. Error: failed to get gitconfig: some error",
+			beforeFn: func(r *mocks.MockRepository, _ *mocks.MockWorktree, p *mockProvider) {
+				r.EXPECT().CreateRemote(&config.RemoteConfig{
+					Name: "origin",
+					URLs: []string{
+						"https://github.com/owner/name.git",
+					},
+				}).Times(1).Return(nil, nil)
+				p.getDefaultBranch = func(orgRepo string) (string, error) {
+					return "", nil
+				}
+				r.EXPECT().ConfigScoped(gomock.Any()).Times(1).Return(nil, errors.New("some error"))
+			},
+		},
+		"Should fail when addRemote fails": {
+			repo:    "https://github.com/owner/name",
+			wantErr: "some error",
+			beforeFn: func(r *mocks.MockRepository, _ *mocks.MockWorktree, _ *mockProvider) {
+				r.EXPECT().CreateRemote(&config.RemoteConfig{
+					Name: "origin",
+					URLs: []string{
+						"https://github.com/owner/name.git",
+					},
+				}).Times(1).Return(nil, errors.New("some error"))
+			},
+		},
+		"Should fail when initBranch fails": {
+			repo:    "https://github.com/owner/name",
+			wantErr: "failed to commit while trying to initialize the branch. Error: some error",
+			beforeFn: func(r *mocks.MockRepository, wt *mocks.MockWorktree, p *mockProvider) {
+				r.EXPECT().CreateRemote(&config.RemoteConfig{
+					Name: "origin",
+					URLs: []string{
+						"https://github.com/owner/name.git",
+					},
+				}).Times(1).Return(nil, nil)
+				p.getDefaultBranch = func(orgRepo string) (string, error) {
+					return "master", nil
+				}
+
+				r.EXPECT().ConfigScoped(gomock.Any()).Times(1).Return(globalGitConfig, nil)
+				wt.EXPECT().AddGlob(".").Times(1).Return(nil)
+				wt.EXPECT().Commit("initial commit", gomock.Any()).Times(1).Return(plumbing.Hash{}, errors.New("some error"))
 			},
 		},
 	}
 
 	orgInitRepo := ggInitRepo
-	defer func() { ggInitRepo = orgInitRepo }()
+	orgGetProvider := getProvider
 	orgWorktree := worktree
-	defer func() { worktree = orgWorktree }()
+	defer func() {
+		ggInitRepo = orgInitRepo
+		worktree = orgWorktree
+		getProvider = orgGetProvider
+	}()
+
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			mockRepo := mocks.NewMockRepository(ctrl)
 			mockWt := mocks.NewMockWorktree(ctrl)
 			mockProvider := &mockProvider{}
-
-			mockRepo.EXPECT().CreateRemote(gomock.Any()).Return(nil, tt.retErr).AnyTimes()
-			mockWt.EXPECT().Commit(gomock.Any(), gomock.Any()).Return(plumbing.Hash{}, tt.retErr).AnyTimes()
-			mockWt.EXPECT().Checkout(gomock.Any()).Return(tt.retErr).AnyTimes()
+			if tt.beforeFn != nil {
+				tt.beforeFn(mockRepo, mockWt, mockProvider)
+			}
 
 			ggInitRepo = func(s storage.Storer, worktree billy.Filesystem) (gogit.Repository, error) { return mockRepo, nil }
 			worktree = func(r gogit.Repository) (gogit.Worktree, error) { return mockWt, nil }
+			getProvider = func(providerType, repoURL string, auth *Auth) (Provider, error) { return mockProvider, nil }
 
-			cfg := &config.Config{
-				User: struct {
-					Name  string
-					Email string
-				}{
-					Name:  "name",
-					Email: "email",
-				},
+			opts := &CloneOptions{
+				Repo: tt.repo,
 			}
-
-			mockRepo.EXPECT().ConfigScoped(gomock.Any()).Return(cfg, nil).AnyTimes()
-			mockWt.EXPECT().AddGlob(gomock.Any()).Return(tt.retErr).AnyTimes()
-
-			tt.opts.Parse()
-			tt.opts.provider = mockProvider
-			got, err := initRepo(context.Background(), tt.opts)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("initRepo() error = %v, wantErr %v", err, tt.wantErr)
+			opts.Parse()
+			got, err := initRepo(context.Background(), opts, "")
+			if err != nil || tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
 				return
 			}
 
-			if !tt.wantErr {
-				assert.NotNil(t, got)
-			}
+			assert.NotNil(t, got)
 		})
 	}
 }
@@ -441,7 +543,8 @@ func Test_clone(t *testing.T) {
 		},
 	}
 
-	origCheckoutRef, origClone := checkoutRef, ggClone
+	origCheckoutRef := checkoutRef
+	origClone := ggClone
 	defer func() {
 		checkoutRef = origCheckoutRef
 		ggClone = origClone
@@ -496,8 +599,8 @@ func TestGetRepo(t *testing.T) {
 		opts         *CloneOptions
 		wantErr      string
 		cloneFn      func(context.Context, *CloneOptions) (*repo, error)
-		createRepoFn func(context.Context, *CloneOptions) (string, error)
-		initRepoFn   func(context.Context, *CloneOptions) (*repo, error)
+		createRepoFn func(context.Context, *CloneOptions) (defaultBranch string, err error)
+		initRepoFn   func(context.Context, *CloneOptions, string) (*repo, error)
 		assertFn     func(*testing.T, Repository, fs.FS, error)
 	}{
 		"Should get a repo": {
@@ -558,7 +661,7 @@ func TestGetRepo(t *testing.T) {
 			cloneFn: func(_ context.Context, opts *CloneOptions) (*repo, error) {
 				return nil, transport.ErrRepositoryNotFound
 			},
-			createRepoFn: func(c context.Context, co *CloneOptions) (string, error) {
+			createRepoFn: func(c context.Context, co *CloneOptions) (defaultBranch string, err error) {
 				return "", errors.New("some error")
 			},
 			assertFn: func(t *testing.T, r Repository, f fs.FS, e error) {
@@ -572,10 +675,10 @@ func TestGetRepo(t *testing.T) {
 				Repo: "https://github.com/owner/name",
 			},
 			wantErr: "some error",
-			cloneFn: func(_ context.Context, opts *CloneOptions) (*repo, error) {
+			cloneFn: func(_ context.Context, _ *CloneOptions) (*repo, error) {
 				return nil, transport.ErrEmptyRemoteRepository
 			},
-			initRepoFn: func(c context.Context, co *CloneOptions) (*repo, error) {
+			initRepoFn: func(_ context.Context, co *CloneOptions, _ string) (*repo, error) {
 				return nil, errors.New("some error")
 			},
 			assertFn: func(t *testing.T, r Repository, f fs.FS, e error) {
@@ -594,10 +697,10 @@ func TestGetRepo(t *testing.T) {
 			cloneFn: func(_ context.Context, opts *CloneOptions) (*repo, error) {
 				return nil, transport.ErrRepositoryNotFound
 			},
-			createRepoFn: func(c context.Context, co *CloneOptions) (string, error) {
+			createRepoFn: func(c context.Context, co *CloneOptions) (defaultBranch string, err error) {
 				return "", nil
 			},
-			initRepoFn: func(c context.Context, co *CloneOptions) (*repo, error) {
+			initRepoFn: func(c context.Context, _ *CloneOptions, _ string) (*repo, error) {
 				return &repo{}, nil
 			},
 			assertFn: func(t *testing.T, r Repository, f fs.FS, e error) {
@@ -607,6 +710,7 @@ func TestGetRepo(t *testing.T) {
 			},
 		},
 	}
+
 	origClone, origCreateRepo, origInitRepo := clone, createRepo, initRepo
 	defer func() {
 		clone = origClone
@@ -742,8 +846,12 @@ func Test_repo_Persist(t *testing.T) {
 		},
 	}
 
-	worktreeOrg := worktree
-	defer func() { worktree = worktreeOrg }()
+	orgGetProvider := getProvider
+	orgWorktree := worktree
+	defer func() {
+		getProvider = orgGetProvider
+		worktree = orgWorktree
+	}()
 
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
@@ -753,10 +861,12 @@ func Test_repo_Persist(t *testing.T) {
 			mockProvider := &mockProvider{}
 
 			mockRepo.EXPECT().ConfigScoped(gomock.Any()).Return(gitConfig, nil).AnyTimes()
+			getProvider = func(providerType, repoURL string, auth *Auth) (Provider, error) { return mockProvider, nil }
+			worktree = func(r gogit.Repository) (gogit.Worktree, error) { return mockWt, nil }
 
-			r := &repo{Repository: mockRepo, progress: os.Stderr, provider: mockProvider}
-			worktree = func(r gogit.Repository) (gogit.Worktree, error) {
-				return mockWt, nil
+			r := &repo{
+				Repository: mockRepo,
+				progress:   os.Stderr,
 			}
 
 			tt.beforeFn(mockRepo, mockWt)
@@ -895,14 +1005,8 @@ func Test_repo_checkoutRef(t *testing.T) {
 			tt.beforeFn(mockRepo)
 			r := &repo{Repository: mockRepo}
 
-			if err := r.checkoutRef(tt.ref); err != nil {
-				if tt.wantErr != "" {
-					assert.EqualError(t, err, tt.wantErr)
-				} else {
-					t.Errorf("repo.checkoutRef() error = %v, wantErr %v", err, tt.wantErr)
-				}
-
-				return
+			if err := r.checkoutRef(tt.ref); err != nil || tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
 			}
 		})
 	}
@@ -1083,14 +1187,8 @@ func Test_repo_checkoutBranch(t *testing.T) {
 				return mockWT, nil
 			}
 
-			if err := r.checkoutBranch(tt.ref, tt.createIfNotExists); err != nil {
-				if tt.wantErr != "" {
-					assert.EqualError(t, err, tt.wantErr)
-				} else {
-					t.Errorf("repo.checkoutBranch() error = %v, wantErr %v", err, tt.wantErr)
-				}
-
-				return
+			if err := r.checkoutBranch(tt.ref, tt.createIfNotExists); err != nil || tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
 			}
 		})
 	}
@@ -1181,7 +1279,7 @@ func TestAddFlags(t *testing.T) {
 			wantedFlags: []flag{
 				{
 					name:  "provider",
-					usage: "The git provider, one of: azure|gitea|github|gitlab",
+					usage: "The git provider, one of: azure|bitbucket|bitbucket-server|gitea|github|gitlab",
 				},
 			},
 		},
@@ -1224,49 +1322,32 @@ func Test_createRepo(t *testing.T) {
 					Username: "username",
 					Password: "password",
 				},
-				provider: &mockProvider{func(orgRepo string) (string, error) {
-					assert.Equal(t, "owner/name", orgRepo)
-					return "https://github.com/owner/name.git", nil
-				}, nil},
 			},
-			want: "https://github.com/owner/name.git",
+			want: "main",
 		},
 		"Should infer correct provider type from repo url": {
 			opts: &CloneOptions{
 				Repo: "https://github.com/owner/name.git",
-				provider: &mockProvider{func(orgRepo string) (string, error) {
-					return "https://github.com/owner/name.git", nil
-				}, nil},
 			},
-			want: "https://github.com/owner/name.git",
-		},
-		"Should succesfully parse owner and name for long orgRepos": {
-			opts: &CloneOptions{
-				Repo: "https://github.com/foo22/bar/fizz.git",
-				provider: &mockProvider{func(orgRepo string) (string, error) {
-					assert.Equal(t, "foo22/bar/fizz", orgRepo)
-					return "https://github.com/foo22/bar/fizz.git", nil
-				}, nil},
-			},
-			want: "https://github.com/foo22/bar/fizz.git",
+			want: "main",
 		},
 	}
+
+	orgGetProvider := getProvider
+	defer func() { getProvider = orgGetProvider }()
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
+			mockProvider := &mockProvider{func(orgRepo string) (defaultBranch string, err error) {
+				return "main", nil
+			}, nil, nil}
+			getProvider = func(providerType, repoURL string, auth *Auth) (Provider, error) { return mockProvider, nil }
 			got, err := createRepo(context.Background(), tt.opts)
-			if err != nil {
-				if tt.wantErr != "" {
-					assert.EqualError(t, err, tt.wantErr)
-				} else {
-					t.Errorf("createRepo() error = %v, wantErr %v", err, tt.wantErr)
-				}
-
+			if err != nil || tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
 				return
 			}
 
-			if got != tt.want {
-				t.Errorf("createRepo() = %v, want %v", got, tt.want)
-			}
+			assert.Equalf(t, tt.want, got, "CreateRepository - %s", name)
 		})
 	}
 }
@@ -1438,31 +1519,29 @@ func Test_repo_commit(t *testing.T) {
 		},
 	}
 
+	orgGetProvider := getProvider
 	orgWorktree := worktree
-	defer func() { worktree = orgWorktree }()
+	defer func() {
+		getProvider = orgGetProvider
+		worktree = orgWorktree
+	}()
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			mockRepo := mocks.NewMockRepository(ctrl)
 			mockWt := mocks.NewMockWorktree(ctrl)
 			mockProvider := &mockProvider{}
+			getProvider = func(providerType, repoURL string, auth *Auth) (Provider, error) { return mockProvider, nil }
+			worktree = func(r gogit.Repository) (gogit.Worktree, error) { return mockWt, nil }
 
-			r := &repo{Repository: mockRepo, provider: mockProvider}
-			worktree = func(r gogit.Repository) (gogit.Worktree, error) {
-				return mockWt, nil
-			}
+			r := &repo{Repository: mockRepo}
 
 			tt.beforeFn(mockRepo, mockWt, mockProvider)
 
 			got, err := r.commit(context.Background(), &PushOptions{CommitMsg: "test"})
 
-			if err != nil {
-				if tt.wantErr != "" {
-					assert.EqualError(t, err, tt.wantErr)
-				} else {
-					t.Errorf("r.commit() error = %v", err)
-				}
-
+			if err != nil || tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
 				return
 			}
 
