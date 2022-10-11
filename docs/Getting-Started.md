@@ -76,6 +76,9 @@ argocd-autopilot repo bootstrap --recover \
 
 In case of a cluster failure, you can recover argo-cd from an existing repository using `--recover` flag. You can optionally use it with `--app` flag to specify the path to the existing argo-cd manifests.
 
+### Using Argo CD HA
+Using Argo CD HA with Argo CD Autopilot is fully supported. Bootstrap Argo CD with high-availability using the [App Specifier](App-Specifier/) model `argocd-autopilot repo bootstrap --app https://github.com/argoproj-labs/argocd-autopilot/manifests/ha`.
+
 ### Running Applications:
 * autopilot-bootstrap - References the `bootstrap` directory in the GitOps repository, and manages the other 2 applications
 * argo-cd - References the `bootstrap/argo-cd` folder, and manages the Argo CD deployment itself (including Argo CD ApplicationSet)
