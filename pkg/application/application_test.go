@@ -2,7 +2,7 @@ package application
 
 import (
 	"errors"
-	"io/ioutil"
+	"io"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -206,7 +206,7 @@ func Test_writeFile(t *testing.T) {
 
 				f, err := repofs.Open("/foo/bar")
 				assert.NoError(t, err)
-				d, err := ioutil.ReadAll(f)
+				d, err := io.ReadAll(f)
 				assert.NoError(t, err)
 
 				assert.Equal(t, d, []byte("data"))
@@ -226,7 +226,7 @@ func Test_writeFile(t *testing.T) {
 				assert.Equal(t, "/someroot", repofs.Root())
 				f, err := repofs.Open("/foo/bar")
 				assert.NoError(t, err)
-				d, err := ioutil.ReadAll(f)
+				d, err := io.ReadAll(f)
 				assert.NoError(t, err)
 
 				assert.Equal(t, d, []byte("data2"))
