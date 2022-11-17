@@ -200,7 +200,8 @@ func createAppSet(o *createAppSetOptions) ([]byte, error) {
 
 	appSet := &argocdv1alpha1.ApplicationSet{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       argocdv1alpha1.ApplicationSetSchemaGroupVersionKind.Kind,
+			// do not use argocdv1alpha1.ApplicationSetSchemaGroupVersionKind.Kind because it is "Applicationset" - noticed the lowercase "s"
+			Kind:       "ApplicationSet",
 			APIVersion: argocdv1alpha1.ApplicationSetSchemaGroupVersionKind.GroupVersion().String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
