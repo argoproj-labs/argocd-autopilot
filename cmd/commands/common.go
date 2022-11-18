@@ -15,7 +15,6 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 
-	appset "github.com/argoproj/applicationset/api/v1alpha1"
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/ghodss/yaml"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -179,7 +178,7 @@ type createAppSetOptions struct {
 	preserveResourcesOnDeletion bool
 	appLabels                   map[string]string
 	appAnnotations              map[string]string
-	generators                  []appset.ApplicationSetGenerator
+	generators                  []argocdv1alpha1.ApplicationSetGenerator
 }
 
 func createAppSet(o *createAppSetOptions) ([]byte, error) {
@@ -199,10 +198,11 @@ func createAppSet(o *createAppSetOptions) ([]byte, error) {
 		}
 	}
 
-	appSet := &appset.ApplicationSet{
+	appSet := &argocdv1alpha1.ApplicationSet{
 		TypeMeta: metav1.TypeMeta{
+			// do not use argocdv1alpha1.ApplicationSetSchemaGroupVersionKind.Kind because it is "Applicationset" - noticed the lowercase "s"
 			Kind:       "ApplicationSet",
-			APIVersion: appset.GroupVersion.String(),
+			APIVersion: argocdv1alpha1.ApplicationSetSchemaGroupVersionKind.GroupVersion().String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      o.name,
@@ -211,10 +211,10 @@ func createAppSet(o *createAppSetOptions) ([]byte, error) {
 				"argocd.argoproj.io/sync-wave": "0",
 			},
 		},
-		Spec: appset.ApplicationSetSpec{
+		Spec: argocdv1alpha1.ApplicationSetSpec{
 			Generators: o.generators,
-			Template: appset.ApplicationSetTemplate{
-				ApplicationSetTemplateMeta: appset.ApplicationSetTemplateMeta{
+			Template: argocdv1alpha1.ApplicationSetTemplate{
+				ApplicationSetTemplateMeta: argocdv1alpha1.ApplicationSetTemplateMeta{
 					Namespace:   o.appNamespace,
 					Name:        o.appName,
 					Labels:      o.appLabels,
@@ -249,7 +249,7 @@ func createAppSet(o *createAppSetOptions) ([]byte, error) {
 					},
 				},
 			},
-			SyncPolicy: &appset.ApplicationSetSyncPolicy{
+			SyncPolicy: &argocdv1alpha1.ApplicationSetSyncPolicy{
 				PreserveResourcesOnDeletion: o.preserveResourcesOnDeletion,
 			},
 		},

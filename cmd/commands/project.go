@@ -19,7 +19,6 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 
-	appset "github.com/argoproj/applicationset/api/v1alpha1"
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/ghodss/yaml"
 	"github.com/go-git/go-billy/v5/memfs"
@@ -300,12 +299,12 @@ func generateProjectManifests(o *GenerateProjectOptions) (projectYAML, appSetYAM
 		preserveResourcesOnDeletion: false,
 		appLabels:                   getDefaultAppLabels(o.Labels),
 		appAnnotations:              o.Annotations,
-		generators: []appset.ApplicationSetGenerator{
+		generators: []argocdv1alpha1.ApplicationSetGenerator{
 			{
-				Git: &appset.GitGenerator{
+				Git: &argocdv1alpha1.GitGenerator{
 					RepoURL:  o.RepoURL,
 					Revision: o.Revision,
-					Files: []appset.GitFileGeneratorItem{
+					Files: []argocdv1alpha1.GitFileGeneratorItem{
 						{
 							Path: filepath.Join(o.InstallationPath, store.Default.AppsDir, "**", o.Name, "config.json"),
 						},
@@ -314,16 +313,16 @@ func generateProjectManifests(o *GenerateProjectOptions) (projectYAML, appSetYAM
 				},
 			},
 			{
-				Git: &appset.GitGenerator{
+				Git: &argocdv1alpha1.GitGenerator{
 					RepoURL:  o.RepoURL,
 					Revision: o.Revision,
-					Files: []appset.GitFileGeneratorItem{
+					Files: []argocdv1alpha1.GitFileGeneratorItem{
 						{
 							Path: filepath.Join(o.InstallationPath, store.Default.AppsDir, "**", o.Name, "config_dir.json"),
 						},
 					},
 					RequeueAfterSeconds: &DefaultApplicationSetGeneratorInterval,
-					Template: appset.ApplicationSetTemplate{
+					Template: argocdv1alpha1.ApplicationSetTemplate{
 						Spec: argocdv1alpha1.ApplicationSpec{
 							Source: argocdv1alpha1.ApplicationSource{
 								Directory: &argocdv1alpha1.ApplicationSourceDirectory{
@@ -432,9 +431,9 @@ func RunProjectList(ctx context.Context, opts *ProjectListOptions) error {
 	return nil
 }
 
-var getProjectInfoFromFile = func(repofs fs.FS, name string) (*argocdv1alpha1.AppProject, *appset.ApplicationSet, error) {
+var getProjectInfoFromFile = func(repofs fs.FS, name string) (*argocdv1alpha1.AppProject, *argocdv1alpha1.ApplicationSet, error) {
 	proj := &argocdv1alpha1.AppProject{}
-	appSet := &appset.ApplicationSet{}
+	appSet := &argocdv1alpha1.ApplicationSet{}
 	if err := repofs.ReadYamls(name, proj, appSet); err != nil {
 		return nil, nil, err
 	}
