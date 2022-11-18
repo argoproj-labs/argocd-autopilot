@@ -26,6 +26,7 @@ type (
 	Auth struct {
 		Username string
 		Password string
+		Insecure bool
 	}
 
 	// ProviderOptions for a new git provider

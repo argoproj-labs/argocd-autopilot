@@ -2,7 +2,9 @@ package git
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
+	"net/http"
 
 	gt "code.gitea.io/sdk/gitea"
 )
@@ -26,6 +28,14 @@ func newGitea(opts *ProviderOptions) (Provider, error) {
 	c, err := gt.NewClient(opts.RepoURL, gt.SetToken(opts.Auth.Password))
 	if err != nil {
 		return nil, err
+	}
+
+	if opts.Auth.Insecure {
+		c.SetHTTPClient(&http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			},
+		})
 	}
 
 	g := &gitea{

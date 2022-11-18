@@ -3,6 +3,7 @@ package git
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -85,6 +86,10 @@ func newBitbucketServer(opts *ProviderOptions) (Provider, error) {
 	}
 
 	httpClient := &http.Client{}
+	if opts.Auth.Insecure {
+		httpClient.Transport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	}
+
 	g := &bitbucketServer{
 		baseURL: baseURL,
 		c:       httpClient,

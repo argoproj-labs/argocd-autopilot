@@ -156,11 +156,13 @@ func AddFlags(cmd *cobra.Command, opts *AddFlagsOptions) *CloneOptions {
 	envPrefix := strings.ReplaceAll(strings.ToUpper(opts.Prefix), "-", "_")
 	cmd.PersistentFlags().StringVar(&co.Auth.Password, opts.Prefix+"git-token", "", fmt.Sprintf("Your git provider api token [%sGIT_TOKEN]", envPrefix))
 	cmd.PersistentFlags().StringVar(&co.Auth.Username, opts.Prefix+"git-user", "", fmt.Sprintf("Your git provider user name [%sGIT_USER] (not required in GitHub)", envPrefix))
+	cmd.PersistentFlags().BoolVar(&co.Auth.Insecure, opts.Prefix+"insecure-git-server", false, fmt.Sprint("Disable repository server certificate validation", envPrefix))
 	cmd.PersistentFlags().StringVar(&co.Repo, opts.Prefix+"repo", "", fmt.Sprintf("Repository URL [%sGIT_REPO]", envPrefix))
 
 	util.Die(viper.BindEnv(opts.Prefix+"git-token", envPrefix+"GIT_TOKEN"))
 	util.Die(viper.BindEnv(opts.Prefix+"git-user", envPrefix+"GIT_USER"))
 	util.Die(viper.BindEnv(opts.Prefix+"repo", envPrefix+"GIT_REPO"))
+	util.Die(cmd.PersistentFlags().MarkHidden(opts.Prefix + "insecure-git-server"))
 
 	if opts.Prefix == "" {
 		cmd.Flag("git-token").Shorthand = "t"

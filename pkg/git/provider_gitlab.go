@@ -2,7 +2,9 @@ package git
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
+	"net/http"
 
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 	gl "github.com/xanzy/go-gitlab"
@@ -32,7 +34,18 @@ type (
 
 func newGitlab(opts *ProviderOptions) (Provider, error) {
 	host, _, _, _, _, _, _ := util.ParseGitUrl(opts.RepoURL)
-	c, err := gl.NewClient(opts.Auth.Password, gl.WithBaseURL(host))
+	clientOptions := []gl.ClientOptionFunc{
+		gl.WithBaseURL(host),
+	}
+	if opts.Auth.Insecure {
+		clientOptions = append(clientOptions, gl.WithHTTPClient(&http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			},
+		}))
+	}
+
+	c, err := gl.NewClient(opts.Auth.Password, clientOptions...)
 	if err != nil {
 		return nil, err
 	}

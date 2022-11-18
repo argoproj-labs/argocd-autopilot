@@ -2,6 +2,7 @@ package git
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net/url"
 	"strings"
@@ -47,6 +48,10 @@ func newAdo(opts *ProviderOptions) (Provider, error) {
 	}
 
 	connection := azuredevops.NewPatConnection(adoUrl.loginUrl, opts.Auth.Password)
+	if opts.Auth.Insecure {
+		connection.TlsConfig = &tls.Config{InsecureSkipVerify: true}
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), timeoutTime)
 	defer cancel()
 	// FYI: ado also has a "core" client that can be used to update project, teams, and other ADO constructs
