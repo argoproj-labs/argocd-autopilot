@@ -29,13 +29,15 @@ type (
 )
 
 func newBitbucket(opts *ProviderOptions) (Provider, error) {
+	var err error
 	c := bb.NewBasicAuth(opts.Auth.Username, opts.Auth.Password)
 	if c == nil {
 		return nil, errors.New("Authentication info is invalid")
 	}
 
-	if opts.Auth.Insecure {
-		c.HttpClient.Transport = DefaultTransportWithInsecure()
+	c.HttpClient.Transport, err = DefaultTransportWithCa(opts.Auth.CertFile)
+	if err != nil {
+		return nil, err
 	}
 
 	g := &bitbucket{

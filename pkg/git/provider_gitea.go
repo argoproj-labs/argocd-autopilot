@@ -29,11 +29,14 @@ func newGitea(opts *ProviderOptions) (Provider, error) {
 		return nil, err
 	}
 
-	if opts.Auth.Insecure {
-		c.SetHTTPClient(&http.Client{
-			Transport: DefaultTransportWithInsecure(),
-		})
+	transport, err := DefaultTransportWithCa(opts.Auth.CertFile)
+	if err != nil {
+		return nil, err
 	}
+
+	c.SetHTTPClient(&http.Client{
+		Transport: transport,
+	})
 
 	g := &gitea{
 		client: c,

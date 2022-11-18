@@ -3,8 +3,10 @@ package git
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net/http"
+	"os"
 	"sort"
 )
 
@@ -28,7 +30,7 @@ type (
 	Auth struct {
 		Username string
 		Password string
-		Insecure bool
+		CertFile string
 	}
 
 	// ProviderOptions for a new git provider
@@ -89,8 +91,48 @@ func Providers() []string {
 	return res
 }
 
-func DefaultTransportWithInsecure() *http.Transport {
+func DefaultTransportWithCa(certFile string) (*http.Transport, error) {
+	rootCAs, err := getRootCas(certFile)
+	if err != nil {
+		return nil, err
+	}
+
 	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-	return transport
+	transport.TLSClientConfig = &tls.Config{RootCAs: rootCAs}
+	return transport, nil
+}
+
+func getRootCas(certFile string) (*x509.CertPool, error) {
+	rootCAs, err := x509.SystemCertPool()
+	if err != nil {
+		return nil, fmt.Errorf("failed getting system certificates: %w", err)
+	}
+
+	if rootCAs == nil {
+		rootCAs = x509.NewCertPool()
+	}
+
+	if certFile == "" {
+		return rootCAs, nil
+	}
+
+	certs, err := os.ReadFile(certFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed reading certificate from %s: %w", certFile, err)
+	}
+
+	// Append our cert to the system pool
+	if ok := rootCAs.AppendCertsFromPEM(certs); !ok {
+		return nil, fmt.Errorf("failed adding certificate to rootCAs")
+	}
+
+	return rootCAs, nil
+}
+
+func (a *Auth) getCertificate() ([]byte, error) {
+	if a.CertFile == "" {
+		return nil, nil
+	}
+
+	return os.ReadFile(a.CertFile)
 }

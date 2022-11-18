@@ -33,16 +33,18 @@ type (
 
 func newGitlab(opts *ProviderOptions) (Provider, error) {
 	host, _, _, _, _, _, _ := util.ParseGitUrl(opts.RepoURL)
-	clientOptions := []gl.ClientOptionFunc{
-		gl.WithBaseURL(host),
-	}
-	if opts.Auth.Insecure {
-		clientOptions = append(clientOptions, gl.WithHTTPClient(&http.Client{
-			Transport: DefaultTransportWithInsecure(),
-		}))
+	transport, err := DefaultTransportWithCa(opts.Auth.CertFile)
+	if err != nil {
+		return nil, err
 	}
 
-	c, err := gl.NewClient(opts.Auth.Password, clientOptions...)
+	c, err := gl.NewClient(
+		opts.Auth.Password,
+		gl.WithBaseURL(host),
+		gl.WithHTTPClient(&http.Client{
+			Transport: transport,
+		}),
+	)
 	if err != nil {
 		return nil, err
 	}
