@@ -42,6 +42,7 @@ argocd-autopilot repo uninstall [flags]
 ```
       --context string           The name of the kubeconfig context to use
       --force                    If true, will try to complete the uninstallation even if one or more of the uninstallation steps failed
+      --git-server-crt string    Git Server certificate file
   -t, --git-token string         Your git provider api token [GIT_TOKEN]
   -u, --git-user string          Your git provider user name [GIT_USER] (not required in GitHub)
   -h, --help                     help for uninstall
