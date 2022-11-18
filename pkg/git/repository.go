@@ -162,6 +162,7 @@ func AddFlags(cmd *cobra.Command, opts *AddFlagsOptions) *CloneOptions {
 	util.Die(viper.BindEnv(opts.Prefix+"git-token", envPrefix+"GIT_TOKEN"))
 	util.Die(viper.BindEnv(opts.Prefix+"git-user", envPrefix+"GIT_USER"))
 	util.Die(viper.BindEnv(opts.Prefix+"repo", envPrefix+"GIT_REPO"))
+	util.Die(cmd.PersistentFlags().MarkHidden(opts.Prefix + "git-server-crt"))
 
 	if opts.Prefix == "" {
 		cmd.Flag("git-token").Shorthand = "t"
