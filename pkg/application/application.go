@@ -3,7 +3,6 @@ package application
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -512,7 +511,7 @@ func fixResourcesPaths(k *kusttypes.Kustomization, newKustDir string) error {
 }
 
 var generateManifests = func(k *kusttypes.Kustomization) ([]byte, error) {
-	td, err := ioutil.TempDir(".", "auto-pilot")
+	td, err := os.MkdirTemp(".", "auto-pilot")
 	if err != nil {
 		return nil, fmt.Errorf("failed creating temp dir: %w", err)
 	}
@@ -533,7 +532,7 @@ var generateManifests = func(k *kusttypes.Kustomization) ([]byte, error) {
 	}
 
 	kustomizationPath := filepath.Join(td, "kustomization.yaml")
-	if err = ioutil.WriteFile(kustomizationPath, kyaml, 0400); err != nil {
+	if err = os.WriteFile(kustomizationPath, kyaml, 0400); err != nil {
 		return nil, fmt.Errorf("failed writing file to \"%s\": %w", kustomizationPath, err)
 	}
 
