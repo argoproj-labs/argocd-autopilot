@@ -3,6 +3,7 @@ package git
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 	gl "github.com/xanzy/go-gitlab"
@@ -32,7 +33,18 @@ type (
 
 func newGitlab(opts *ProviderOptions) (Provider, error) {
 	host, _, _, _, _, _, _ := util.ParseGitUrl(opts.RepoURL)
-	c, err := gl.NewClient(opts.Auth.Password, gl.WithBaseURL(host))
+	transport, err := DefaultTransportWithCa(opts.Auth.CertFile)
+	if err != nil {
+		return nil, err
+	}
+
+	c, err := gl.NewClient(
+		opts.Auth.Password,
+		gl.WithBaseURL(host),
+		gl.WithHTTPClient(&http.Client{
+			Transport: transport,
+		}),
+	)
 	if err != nil {
 		return nil, err
 	}

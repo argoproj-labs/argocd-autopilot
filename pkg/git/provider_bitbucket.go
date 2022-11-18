@@ -29,10 +29,17 @@ type (
 )
 
 func newBitbucket(opts *ProviderOptions) (Provider, error) {
+	var err error
 	c := bb.NewBasicAuth(opts.Auth.Username, opts.Auth.Password)
 	if c == nil {
 		return nil, errors.New("Authentication info is invalid")
 	}
+
+	c.HttpClient.Transport, err = DefaultTransportWithCa(opts.Auth.CertFile)
+	if err != nil {
+		return nil, err
+	}
+
 	g := &bitbucket{
 		opts:       opts,
 		Repository: c.Repositories.Repository,
@@ -40,7 +47,6 @@ func newBitbucket(opts *ProviderOptions) (Provider, error) {
 	}
 
 	return g, nil
-
 }
 
 func (g *bitbucket) CreateRepository(ctx context.Context, orgRepo string) (defaultBranch string, err error) {

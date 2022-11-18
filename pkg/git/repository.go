@@ -156,11 +156,13 @@ func AddFlags(cmd *cobra.Command, opts *AddFlagsOptions) *CloneOptions {
 	envPrefix := strings.ReplaceAll(strings.ToUpper(opts.Prefix), "-", "_")
 	cmd.PersistentFlags().StringVar(&co.Auth.Password, opts.Prefix+"git-token", "", fmt.Sprintf("Your git provider api token [%sGIT_TOKEN]", envPrefix))
 	cmd.PersistentFlags().StringVar(&co.Auth.Username, opts.Prefix+"git-user", "", fmt.Sprintf("Your git provider user name [%sGIT_USER] (not required in GitHub)", envPrefix))
+	cmd.PersistentFlags().StringVar(&co.Auth.CertFile, opts.Prefix+"git-server-crt", "", fmt.Sprint("Git Server certificate file", envPrefix))
 	cmd.PersistentFlags().StringVar(&co.Repo, opts.Prefix+"repo", "", fmt.Sprintf("Repository URL [%sGIT_REPO]", envPrefix))
 
 	util.Die(viper.BindEnv(opts.Prefix+"git-token", envPrefix+"GIT_TOKEN"))
 	util.Die(viper.BindEnv(opts.Prefix+"git-user", envPrefix+"GIT_USER"))
 	util.Die(viper.BindEnv(opts.Prefix+"repo", envPrefix+"GIT_REPO"))
+	util.Die(cmd.PersistentFlags().MarkHidden(opts.Prefix + "git-server-crt"))
 
 	if opts.Prefix == "" {
 		cmd.Flag("git-token").Shorthand = "t"
@@ -273,6 +275,11 @@ func (r *repo) Persist(ctx context.Context, opts *PushOptions) (string, error) {
 		progress = r.progress
 	}
 
+	cert, err := r.auth.GetCertificate()
+	if err != nil {
+		return "", fmt.Errorf("failed reading git certificate file: %w", err)
+	}
+
 	h, err := r.commit(ctx, opts)
 	if err != nil {
 		return "", err
@@ -282,6 +289,7 @@ func (r *repo) Persist(ctx context.Context, opts *PushOptions) (string, error) {
 		err = r.PushContext(ctx, &gg.PushOptions{
 			Auth:     getAuth(r.auth),
 			Progress: progress,
+			CABundle: cert,
 		})
 		if err == nil || !errors.Is(err, transport.ErrRepositoryNotFound) {
 			break
@@ -403,11 +411,17 @@ var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 		progress = os.Stderr
 	}
 
+	cert, err := opts.Auth.GetCertificate()
+	if err != nil {
+		return nil, fmt.Errorf("failed reading git certificate file: %w", err)
+	}
+
 	cloneOpts := &gg.CloneOptions{
 		URL:      opts.url,
 		Auth:     getAuth(opts.Auth),
 		Depth:    1,
 		Progress: progress,
+		CABundle: cert,
 	}
 
 	log.G(ctx).WithField("url", opts.url).Debug("cloning git repo")
