@@ -282,8 +282,9 @@ func (r *repo) Persist(ctx context.Context, opts *PushOptions) (string, error) {
 
 	for try := 0; try < pushRetries; try++ {
 		err = r.PushContext(ctx, &gg.PushOptions{
-			Auth:     getAuth(r.auth),
-			Progress: progress,
+			Auth:            getAuth(r.auth),
+			Progress:        progress,
+			InsecureSkipTLS: r.auth.Insecure,
 		})
 		if err == nil || !errors.Is(err, transport.ErrRepositoryNotFound) {
 			break
@@ -406,10 +407,11 @@ var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 	}
 
 	cloneOpts := &gg.CloneOptions{
-		URL:      opts.url,
-		Auth:     getAuth(opts.Auth),
-		Depth:    1,
-		Progress: progress,
+		URL:             opts.url,
+		Auth:            getAuth(opts.Auth),
+		Depth:           1,
+		Progress:        progress,
+		InsecureSkipTLS: opts.Auth.Insecure,
 	}
 
 	log.G(ctx).WithField("url", opts.url).Debug("cloning git repo")
