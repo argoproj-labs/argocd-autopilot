@@ -129,7 +129,7 @@ func getRootCas(certFile string) (*x509.CertPool, error) {
 	return rootCAs, nil
 }
 
-func (a *Auth) getCertificate() ([]byte, error) {
+func (a *Auth) GetCertificate() ([]byte, error) {
 	if a.CertFile == "" {
 		return nil, nil
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -235,7 +236,7 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 
 	log.G(ctx).Infof("using revision: \"%s\", installation path: \"%s\"", opts.CloneOptions.Revision(), opts.CloneOptions.Path())
 	err = validateRepo(repofs, opts.Recover)
-	if err != nil{
+	if err != nil {
 		return err
 	}
 
@@ -624,7 +625,7 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 		return nil, err
 	}
 
-	k, err := createBootstrapKustomization(namespace, cloneOpts.URL(), appSpecifier)
+	k, err := createBootstrapKustomization(namespace, appSpecifier, cloneOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -691,8 +692,8 @@ func writeManifestsToRepo(repoFS fs.FS, manifests *bootstrapManifests, installat
 	return fsutils.BulkWrite(repoFS, bulkWrites...)
 }
 
-func createBootstrapKustomization(namespace, repoURL, appSpecifier string) (*kusttypes.Kustomization, error) {
-	credsYAML, err := createCreds(repoURL)
+func createBootstrapKustomization(namespace, appSpecifier string, cloneOpts *git.CloneOptions) (*kusttypes.Kustomization, error) {
+	credsYAML, err := createCreds(cloneOpts.URL())
 	if err != nil {
 		return nil, err
 	}
@@ -719,6 +720,30 @@ func createBootstrapKustomization(namespace, repoURL, appSpecifier string) (*kus
 			},
 		},
 		Namespace: namespace,
+	}
+
+	cert, err := cloneOpts.Auth.GetCertificate()
+	if err != nil {
+		return nil, err
+	}
+
+	if cert != nil {
+		u, err := url.Parse(cloneOpts.URL())
+		if err != nil {
+			return nil, err
+		}
+
+		k.ConfigMapGenerator = append(k.ConfigMapGenerator, kusttypes.ConfigMapArgs{
+			GeneratorArgs: kusttypes.GeneratorArgs{
+				Name: "argocd-tls-certs-cm",
+				Behavior: kusttypes.BehaviorMerge.String(),
+				KvPairSources: kusttypes.KvPairSources{
+					LiteralSources: []string{
+						u.Host + "=" + string(cert),
+					},
+				},
+			},
+		})
 	}
 
 	k.FixKustomizationPostUnmarshalling()

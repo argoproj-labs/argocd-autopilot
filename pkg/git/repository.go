@@ -275,7 +275,7 @@ func (r *repo) Persist(ctx context.Context, opts *PushOptions) (string, error) {
 		progress = r.progress
 	}
 
-	cert, err := r.auth.getCertificate()
+	cert, err := r.auth.GetCertificate()
 	if err != nil {
 		return "", fmt.Errorf("failed reading git certificate file: %w", err)
 	}
@@ -411,7 +411,7 @@ var clone = func(ctx context.Context, opts *CloneOptions) (*repo, error) {
 		progress = os.Stderr
 	}
 
-	cert, err := opts.Auth.getCertificate()
+	cert, err := opts.Auth.GetCertificate()
 	if err != nil {
 		return nil, fmt.Errorf("failed reading git certificate file: %w", err)
 	}
