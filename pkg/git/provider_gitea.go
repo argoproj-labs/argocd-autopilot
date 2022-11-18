@@ -3,6 +3,7 @@ package git
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	gt "code.gitea.io/sdk/gitea"
 )
@@ -27,6 +28,15 @@ func newGitea(opts *ProviderOptions) (Provider, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	transport, err := DefaultTransportWithCa(opts.Auth.CertFile)
+	if err != nil {
+		return nil, err
+	}
+
+	c.SetHTTPClient(&http.Client{
+		Transport: transport,
+	})
 
 	g := &gitea{
 		client: c,
