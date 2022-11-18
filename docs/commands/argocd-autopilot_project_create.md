@@ -47,6 +47,7 @@ argocd-autopilot project create [PROJECT] [flags]
       --exec-command-args stringArray      Arguments to supply to the --exec-command executable
       --exec-command-env stringToString    Environment vars to set when running the --exec-command executable (default [])
       --exec-command-install-hint string   Text shown to the user when the --exec-command executable doesn't seem to be present
+      --git-server-crt string              Git Server certificate file
   -t, --git-token string                   Your git provider api token [GIT_TOKEN]
   -u, --git-user string                    Your git provider user name [GIT_USER] (not required in GitHub)
       --grpc-web                           Enables gRPC-web protocol. Useful if Argo CD server is behind proxy which does not support HTTP2.
