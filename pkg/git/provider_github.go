@@ -29,10 +29,18 @@ func newGithub(opts *ProviderOptions) (Provider, error) {
 
 	hc := &http.Client{}
 	if opts.Auth != nil {
-		hc.Transport = &gh.BasicAuthTransport{
+		underlyingTransport, err := DefaultTransportWithCa(opts.Auth.CertFile)
+		if err != nil {
+			return nil, err
+		}
+	
+		transport := &gh.BasicAuthTransport{
 			Username: opts.Auth.Username,
 			Password: opts.Auth.Password,
+			Transport: underlyingTransport,
 		}
+		
+		hc.Transport = transport
 	}
 
 	host, _, _, _, _, _, _ := util.ParseGitUrl(opts.RepoURL)

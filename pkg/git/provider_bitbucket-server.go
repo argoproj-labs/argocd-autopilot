@@ -85,6 +85,11 @@ func newBitbucketServer(opts *ProviderOptions) (Provider, error) {
 	}
 
 	httpClient := &http.Client{}
+	httpClient.Transport, err = DefaultTransportWithCa(opts.Auth.CertFile)
+	if err != nil {
+		return nil, err
+	}
+
 	g := &bitbucketServer{
 		baseURL: baseURL,
 		c:       httpClient,
