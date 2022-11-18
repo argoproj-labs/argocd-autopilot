@@ -2,7 +2,9 @@ package git
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
+	"net/http"
 	"sort"
 )
 
@@ -85,4 +87,10 @@ func Providers() []string {
 
 	sort.Strings(res) // must sort the providers by name, otherwise the codegen is not deterministic
 	return res
+}
+
+func DefaultTransportWithInsecure() *http.Transport {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	return transport
 }

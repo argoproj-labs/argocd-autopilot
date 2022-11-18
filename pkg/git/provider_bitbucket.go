@@ -2,10 +2,8 @@ package git
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
-	"net/http"
 
 	bb "github.com/ktrysmt/go-bitbucket"
 )
@@ -37,7 +35,7 @@ func newBitbucket(opts *ProviderOptions) (Provider, error) {
 	}
 
 	if opts.Auth.Insecure {
-		c.HttpClient.Transport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+		c.HttpClient.Transport = DefaultTransportWithInsecure()
 	}
 
 	g := &bitbucket{

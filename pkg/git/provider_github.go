@@ -2,7 +2,6 @@ package git
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"net/http"
 	"strings"
@@ -36,8 +35,7 @@ func newGithub(opts *ProviderOptions) (Provider, error) {
 		}
 
 		if opts.Auth.Insecure {
-			transport.Transport = http.DefaultTransport
-			transport.Transport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+			transport.Transport = DefaultTransportWithInsecure()
 		}
 
 		hc.Transport = transport

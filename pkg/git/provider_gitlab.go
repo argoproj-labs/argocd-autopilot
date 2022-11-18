@@ -2,7 +2,6 @@ package git
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"net/http"
 
@@ -39,9 +38,7 @@ func newGitlab(opts *ProviderOptions) (Provider, error) {
 	}
 	if opts.Auth.Insecure {
 		clientOptions = append(clientOptions, gl.WithHTTPClient(&http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-			},
+			Transport: DefaultTransportWithInsecure(),
 		}))
 	}
 
