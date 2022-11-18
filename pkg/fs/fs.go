@@ -3,7 +3,7 @@ package fs
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
@@ -92,7 +92,7 @@ func (fs *fsimpl) ReadFile(filename string) ([]byte, error) {
 	}
 	defer f.Close()
 
-	return ioutil.ReadAll(f)
+	return io.ReadAll(f)
 }
 
 func (fs *fsimpl) ReadYamls(filename string, o ...interface{}) error {

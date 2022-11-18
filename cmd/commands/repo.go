@@ -19,7 +19,7 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 
-	appset "github.com/argoproj/applicationset/api/v1alpha1"
+	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	argocdcommon "github.com/argoproj/argo-cd/v2/common"
 	argocdsettings "github.com/argoproj/argo-cd/v2/util/settings"
 	"github.com/ghodss/yaml"
@@ -595,12 +595,12 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 		prune:                       false,
 		preserveResourcesOnDeletion: true,
 		srcPath:                     filepath.Join(cloneOpts.Path(), store.Default.BootsrtrapDir, store.Default.ClusterResourcesDir, "{{name}}"),
-		generators: []appset.ApplicationSetGenerator{
+		generators: []argocdv1alpha1.ApplicationSetGenerator{
 			{
-				Git: &appset.GitGenerator{
+				Git: &argocdv1alpha1.GitGenerator{
 					RepoURL:  cloneOpts.URL(),
 					Revision: cloneOpts.Revision(),
-					Files: []appset.GitFileGeneratorItem{
+					Files: []argocdv1alpha1.GitFileGeneratorItem{
 						{
 							Path: filepath.Join(
 								cloneOpts.Path(),

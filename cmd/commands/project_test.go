@@ -19,7 +19,6 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 
-	appset "github.com/argoproj/applicationset/api/v1alpha1"
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/ghodss/yaml"
 	"github.com/golang/mock/gomock"
@@ -204,7 +203,7 @@ func Test_generateProjectManifests(t *testing.T) {
 		t.Run(ttname, func(t *testing.T) {
 			assert := assert.New(t)
 			gotProject := &argocdv1alpha1.AppProject{}
-			gotAppSet := &appset.ApplicationSet{}
+			gotAppSet := &argocdv1alpha1.ApplicationSet{}
 			gotClusterResConf := &application.ClusterResConfig{}
 			gotProjectYAML, gotAppSetYAML, _, gotClusterResConfigYAML, _ := generateProjectManifests(tt.o)
 			assert.NoError(yaml.Unmarshal(gotProjectYAML, gotProject))
@@ -324,7 +323,7 @@ func Test_getProjectInfoFromFile(t *testing.T) {
 						Namespace: "ns",
 					},
 				}
-				appSet := appset.ApplicationSet{}
+				appSet := argocdv1alpha1.ApplicationSet{}
 				_ = repofs.WriteYamls("prod.yaml", appProj, appSet)
 			},
 			want: &argocdv1alpha1.AppProject{
@@ -360,7 +359,7 @@ func TestRunProjectList(t *testing.T) {
 		opts                   *ProjectListOptions
 		wantErr                string
 		prepareRepo            func(ctx context.Context, cloneOpts *git.CloneOptions, projectName string) (git.Repository, fs.FS, error)
-		getProjectInfoFromFile func(repofs fs.FS, name string) (*argocdv1alpha1.AppProject, *appset.ApplicationSet, error)
+		getProjectInfoFromFile func(repofs fs.FS, name string) (*argocdv1alpha1.AppProject, *argocdv1alpha1.ApplicationSet, error)
 		assertFn               func(t *testing.T, out io.Writer)
 	}{
 		"should print to table": {
@@ -373,7 +372,7 @@ func TestRunProjectList(t *testing.T) {
 				_ = billyUtils.WriteFile(memfs, "projects/prod.yaml", []byte{}, 0666)
 				return nil, fs.Create(memfs), nil
 			},
-			getProjectInfoFromFile: func(_ fs.FS, _ string) (*argocdv1alpha1.AppProject, *appset.ApplicationSet, error) {
+			getProjectInfoFromFile: func(_ fs.FS, _ string) (*argocdv1alpha1.AppProject, *argocdv1alpha1.ApplicationSet, error) {
 				appProj := &argocdv1alpha1.AppProject{
 					ObjectMeta: v1.ObjectMeta{
 						Name:      "prod",

@@ -2,14 +2,13 @@ package main
 
 import (
 	"io/fs"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/argoproj-labs/argocd-autopilot/cmd/commands"
-	
+
 	"github.com/spf13/cobra/doc"
 )
 
@@ -55,7 +54,7 @@ func replaceHome() error {
 
 		log.Printf("replaced home at: %s", fname)
 
-		err = ioutil.WriteFile(fname, []byte(newstr), 0422)
+		err = os.WriteFile(fname, []byte(newstr), 0422)
 		if err != nil {
 			return err
 		}
