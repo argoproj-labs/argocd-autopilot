@@ -72,6 +72,7 @@ steps:
       - argocd-autopilot repo bootstrap -n $NAMESPACE
       - argocd-autopilot project create e2e
       - argocd-autopilot app create example --app github.com/argoproj-labs/argocd-autopilot/examples/demo-app -p e2e --wait-timeout 10m --dest-namespace $NAMESPACE
+      - argocd-autopilot repo uninstall -n $NAMESPACE
     when:
       steps:
       - name: prep_cluster
@@ -83,7 +84,6 @@ steps:
     title: "delete bootstrap"
     image: "codefresh/kube-helm"
     commands:
-      - kubectl delete application autopilot-bootstrap -n $NAMESPACE
       - kubectl delete ns $NAMESPACE --request-timeout ${{KUBECTL_TIMEOUT}}
       - curl -H "Authorization:Bearer $GIT_TOKEN" -X DELETE "https://api.github.com/repos/${{GIT_REPO}}" || true
     when:
