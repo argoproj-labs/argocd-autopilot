@@ -72,7 +72,7 @@ func (g *gitea) CreateRepository(_ context.Context, orgRepo string) (defaultBran
 	}
 
 	if err != nil {
-		if res.StatusCode == 404 {
+		if res != nil && res.StatusCode == 404 {
 			return "", fmt.Errorf("owner %s not found: %w", opts.Owner, err)
 		}
 
@@ -90,7 +90,7 @@ func (g *gitea) GetDefaultBranch(_ context.Context, orgRepo string) (string, err
 
 	r, res, err := g.client.GetRepo(opts.Owner, opts.Name)
 	if err != nil {
-		if res.StatusCode == 404 {
+		if res != nil && res.StatusCode == 404 {
 			return "", fmt.Errorf("owner %s not found: %w", opts.Owner, err)
 		}
 
@@ -114,7 +114,7 @@ func (g *gitea) GetAuthor(_ context.Context) (username, email string, err error)
 func (g *gitea) getAuthenticatedUser() (*gt.User, error) {
 	authUser, res, err := g.client.GetMyUserInfo()
 	if err != nil {
-		if res.StatusCode == 401 {
+		if res != nil && res.StatusCode == 401 {
 			return nil, ErrAuthenticationFailed(err)
 		}
 
