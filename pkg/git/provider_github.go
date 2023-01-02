@@ -33,13 +33,13 @@ func newGithub(opts *ProviderOptions) (Provider, error) {
 		if err != nil {
 			return nil, err
 		}
-	
+
 		transport := &gh.BasicAuthTransport{
-			Username: opts.Auth.Username,
-			Password: opts.Auth.Password,
+			Username:  opts.Auth.Username,
+			Password:  opts.Auth.Password,
 			Transport: underlyingTransport,
 		}
-		
+
 		hc.Transport = transport
 	}
 
@@ -83,7 +83,7 @@ func (g *github) CreateRepository(ctx context.Context, orgRepo string) (defaultB
 		Private: gh.Bool(opts.Private),
 	})
 	if err != nil {
-		if res.StatusCode == 404 {
+		if res != nil && res.StatusCode == 404 {
 			return "", fmt.Errorf("owner %s not found: %w", opts.Owner, err)
 		}
 
@@ -101,7 +101,7 @@ func (g *github) GetDefaultBranch(ctx context.Context, orgRepo string) (string, 
 
 	r, res, err := g.Repositories.Get(ctx, opts.Owner, opts.Name)
 	if err != nil {
-		if res.StatusCode == 404 {
+		if res != nil && res.StatusCode == 404 {
 			return "", fmt.Errorf("owner %s not found: %w", opts.Owner, err)
 		}
 
@@ -137,7 +137,7 @@ func (g *github) GetAuthor(ctx context.Context) (username, email string, err err
 func (g *github) getAuthenticatedUser(ctx context.Context) (*gh.User, error) {
 	authUser, res, err := g.Users.Get(ctx, "")
 	if err != nil {
-		if res.StatusCode == 401 {
+		if res != nil && res.StatusCode == 401 {
 			return nil, ErrAuthenticationFailed(err)
 		}
 
