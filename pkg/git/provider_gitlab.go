@@ -106,7 +106,7 @@ func (g *gitlab) GetDefaultBranch(ctx context.Context, orgRepo string) (string, 
 
 	p, res, err := g.client.GetProject(orgRepo, &gl.GetProjectOptions{})
 	if err != nil {
-		if res.StatusCode == 404 {
+		if res != nil && res.StatusCode == 404 {
 			return "", fmt.Errorf("owner \"%s\" not found: %w", opts.Owner, err)
 		}
 
@@ -138,7 +138,7 @@ func (g *gitlab) GetAuthor(_ context.Context) (username, email string, err error
 func (g *gitlab) getAuthenticatedUser() (*gl.User, error) {
 	authUser, res, err := g.client.CurrentUser()
 	if err != nil {
-		if res.StatusCode == 401 {
+		if res != nil && res.StatusCode == 401 {
 			return nil, ErrAuthenticationFailed(err)
 		}
 
@@ -150,7 +150,6 @@ func (g *gitlab) getAuthenticatedUser() (*gl.User, error) {
 
 func (g *gitlab) getGroupIdByName(groupName string) (int, error) {
 	group, _, err := g.client.GetGroup(groupName, &gl.GetGroupOptions{})
-
 	if err != nil {
 		return 0, err
 	}
