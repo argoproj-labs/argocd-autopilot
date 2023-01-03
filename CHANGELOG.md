@@ -1,5 +1,9 @@
 # Changelog:
 
+# v0.4.8
+- [chore] bumped argo-cd to 2.5.2, removed applicationset pkg (already in argo-cd), updated golang to 1.19 [#394](https://github.com/argoproj-labs/argocd-autopilot/pull/394)
+- [fix] add support for git servers with self-signed certificates [#392](https://github.com/argoproj-labs/argocd-autopilot/pull/392)
+
 # v0.4.7
 - [fix] 0.4.6 fix caused a regression when `--repo` contained path and/or ref [#375](https://github.com/argoproj-labs/argocd-autopilot/pull/375)
 
