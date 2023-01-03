@@ -49,23 +49,8 @@ argocd-autopilot version
 
 ```bash
 # download and extract the binary
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
 curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.9/argocd-autopilot-linux-amd64.tar.gz | tar zx
-=======
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.8/argocd-autopilot-linux-amd64.tar.gz | tar zx
->>>>>>> Release-v0.4.8 (#396)
-=======
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.9/argocd-autopilot-linux-amd64.tar.gz | tar zx
->>>>>>> release v0.4.9 (#404)
-=======
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.8/argocd-autopilot-linux-amd64.tar.gz | tar zx
->>>>>>> Release-v0.4.8 (#396)
-=======
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.9/argocd-autopilot-linux-amd64.tar.gz | tar zx
->>>>>>> release v0.4.9 (#404)
+
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
@@ -78,23 +63,7 @@ argocd-autopilot version
 
 ```bash
 # download and extract the binary
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
 curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.9/argocd-autopilot-darwin-amd64.tar.gz | tar zx
-=======
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.8/argocd-autopilot-darwin-amd64.tar.gz | tar zx
->>>>>>> Release-v0.4.8 (#396)
-=======
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.9/argocd-autopilot-darwin-amd64.tar.gz | tar zx
->>>>>>> release v0.4.9 (#404)
-=======
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.8/argocd-autopilot-darwin-amd64.tar.gz | tar zx
->>>>>>> Release-v0.4.8 (#396)
-=======
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.9/argocd-autopilot-darwin-amd64.tar.gz | tar zx
->>>>>>> release v0.4.9 (#404)
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
@@ -111,21 +80,5 @@ When using the Docker image, you have to provide the `.kube` and `.gitconfig` di
 docker run \
   -v ~/.kube:/home/autopilot/.kube \
   -v ~/.gitconfig:/home/autopilot/.gitconfig \
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
   -it quay.io/argoprojlabs/argocd-autopilot:v0.4.9 <cmd> <flags>
-=======
-  -it quay.io/argoprojlabs/argocd-autopilot:v0.4.8 <cmd> <flags>
->>>>>>> Release-v0.4.8 (#396)
-=======
-  -it quay.io/argoprojlabs/argocd-autopilot:v0.4.9 <cmd> <flags>
->>>>>>> release v0.4.9 (#404)
-=======
-  -it quay.io/argoprojlabs/argocd-autopilot:v0.4.8 <cmd> <flags>
->>>>>>> Release-v0.4.8 (#396)
-=======
-  -it quay.io/argoprojlabs/argocd-autopilot:v0.4.9 <cmd> <flags>
->>>>>>> release v0.4.9 (#404)
 ```
