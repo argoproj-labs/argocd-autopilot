@@ -1,11 +1,10 @@
 ### Changes
 
-- [chore] bumped argo-cd to 2.5.2, removed applicationset pkg (already in argo-cd), updated golang to 1.19 [#394](https://github.com/argoproj-labs/argocd-autopilot/pull/394)
-- [fix] add support for git servers with self-signed certificates [#392](https://github.com/argoproj-labs/argocd-autopilot/pull/392)
+- [fix] fix nil pointer deref in provider code when there are network errors [#403](https://github.com/argoproj-labs/argocd-autopilot/pull/403)
 
 ### Contributors:
 
-- Noam Gal ([@noam-codefresh](https://github.com/noam-codefresh))
+- Roi Kramer ([@roi-codefresh](https://github.com/roi-codefresh))
 
 ## Installation:
 
@@ -48,7 +47,7 @@ argocd-autopilot version
 
 ```bash
 # download and extract the binary
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.8/argocd-autopilot-linux-amd64.tar.gz | tar zx
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.9/argocd-autopilot-linux-amd64.tar.gz | tar zx
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
@@ -61,7 +60,7 @@ argocd-autopilot version
 
 ```bash
 # download and extract the binary
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.8/argocd-autopilot-darwin-amd64.tar.gz | tar zx
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.9/argocd-autopilot-darwin-amd64.tar.gz | tar zx
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
@@ -78,5 +77,5 @@ When using the Docker image, you have to provide the `.kube` and `.gitconfig` di
 docker run \
   -v ~/.kube:/home/autopilot/.kube \
   -v ~/.gitconfig:/home/autopilot/.gitconfig \
-  -it quay.io/argoprojlabs/argocd-autopilot:v0.4.8 <cmd> <flags>
+  -it quay.io/argoprojlabs/argocd-autopilot:v0.4.9 <cmd> <flags>
 ```
