@@ -3,8 +3,8 @@ package application
 import (
 	"errors"
 	"fmt"
-	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"reflect"
 
@@ -289,14 +289,13 @@ func newKustApp(o *CreateOptions, projectName, repoURL, targetRevision, repoRoot
 		app.namespace = kube.GenerateNamespace(o.DestNamespace, nil)
 	}
 
-	srcPath, _ := url.JoinPath(repoRoot, store.Default.AppsDir, o.AppName, store.Default.OverlaysDir, projectName)
 	app.config = &Config{
 		AppName:           o.AppName,
 		UserGivenName:     o.AppName,
 		DestNamespace:     o.DestNamespace,
 		DestServer:        o.DestServer,
 		SrcRepoURL:        repoURL,
-		SrcPath:           srcPath,
+		SrcPath:           path.Join(repoRoot, store.Default.AppsDir, o.AppName, store.Default.OverlaysDir, projectName),
 		SrcTargetRevision: targetRevision,
 		Labels:            o.Labels,
 		Annotations:       o.Annotations,

@@ -5,9 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/url"
 	"os"
-	"path/filepath"
+	"path"
 	"strings"
 	"text/tabwriter"
 
@@ -285,8 +284,6 @@ func generateProjectManifests(o *GenerateProjectOptions) (projectYAML, appSetYAM
 		return
 	}
 
-	kustConfigPath, _ := url.JoinPath(o.InstallationPath, store.Default.AppsDir, "**", o.Name, "config.json")
-	dirConfigPath, _ := url.JoinPath(o.InstallationPath, store.Default.AppsDir, "**", o.Name, "config_dir.json")
 	appSetYAML, err = createAppSet(&createAppSetOptions{
 		name:                        o.Name,
 		namespace:                   o.Namespace,
@@ -309,7 +306,7 @@ func generateProjectManifests(o *GenerateProjectOptions) (projectYAML, appSetYAM
 					Revision: o.Revision,
 					Files: []argocdv1alpha1.GitFileGeneratorItem{
 						{
-							Path: kustConfigPath,
+							Path: path.Join(o.InstallationPath, store.Default.AppsDir, "**", o.Name, "config.json"),
 						},
 					},
 					RequeueAfterSeconds: &DefaultApplicationSetGeneratorInterval,
@@ -321,7 +318,7 @@ func generateProjectManifests(o *GenerateProjectOptions) (projectYAML, appSetYAM
 					Revision: o.Revision,
 					Files: []argocdv1alpha1.GitFileGeneratorItem{
 						{
-							Path: dirConfigPath,
+							Path: path.Join(o.InstallationPath, store.Default.AppsDir, "**", o.Name, "config_dir.json"),
 						},
 					},
 					RequeueAfterSeconds: &DefaultApplicationSetGeneratorInterval,
