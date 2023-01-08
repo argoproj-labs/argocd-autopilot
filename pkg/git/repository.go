@@ -334,7 +334,6 @@ func (r *repo) Reset(ctx context.Context, hash plumbing.Hash) error {
 	if err != nil {
 		return fmt.Errorf("failed getting repository certificates: %w", err)
 	}
-	r.Push(&gg.PushOptions{})
 	err = r.PushContext(ctx, &gg.PushOptions{
 		Auth:     getAuth(r.auth),
 		Progress: r.progress,
