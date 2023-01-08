@@ -596,12 +596,13 @@ func Test_clone(t *testing.T) {
 
 func TestGetRepo(t *testing.T) {
 	tests := map[string]struct {
-		opts         *CloneOptions
-		wantErr      string
-		cloneFn      func(context.Context, *CloneOptions) (*repo, error)
-		createRepoFn func(context.Context, *CloneOptions) (defaultBranch string, err error)
-		initRepoFn   func(context.Context, *CloneOptions, string) (*repo, error)
-		assertFn     func(*testing.T, Repository, fs.FS, error)
+		opts                          *CloneOptions
+		wantErr                       string
+		cloneFn                       func(context.Context, *CloneOptions) (*repo, error)
+		validateRepoWritePermissionFn func(ctx context.Context, r *repo) error
+		createRepoFn                  func(context.Context, *CloneOptions) (defaultBranch string, err error)
+		initRepoFn                    func(context.Context, *CloneOptions, string) (*repo, error)
+		assertFn                      func(*testing.T, Repository, fs.FS, error)
 	}{
 		"Should get a repo": {
 			opts: &CloneOptions{
@@ -610,6 +611,9 @@ func TestGetRepo(t *testing.T) {
 			},
 			cloneFn: func(_ context.Context, opts *CloneOptions) (*repo, error) {
 				return &repo{}, nil
+			},
+			validateRepoWritePermissionFn: func(ctx context.Context, r *repo) error {
+				return nil
 			},
 			assertFn: func(t *testing.T, r Repository, f fs.FS, e error) {
 				assert.NotNil(t, r)
@@ -708,20 +712,26 @@ func TestGetRepo(t *testing.T) {
 				assert.NotNil(t, f)
 				assert.Nil(t, e)
 			},
+			validateRepoWritePermissionFn: func(ctx context.Context, r *repo) error {
+				return nil
+			},
 		},
 	}
 
-	origClone, origCreateRepo, origInitRepo := clone, createRepo, initRepo
+	origClone, origCreateRepo, origInitRepo, origValidateRepoWritePermission := clone, createRepo, initRepo, validateRepoWritePermission
+
 	defer func() {
 		clone = origClone
 		createRepo = origCreateRepo
 		initRepo = origInitRepo
+		validateRepoWritePermission = origValidateRepoWritePermission
 	}()
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
 			clone = tt.cloneFn
 			createRepo = tt.createRepoFn
 			initRepo = tt.initRepoFn
+			validateRepoWritePermission = tt.validateRepoWritePermissionFn
 			if tt.opts != nil {
 				tt.opts.Parse()
 			}
@@ -1547,6 +1557,66 @@ func Test_repo_commit(t *testing.T) {
 
 			hash := plumbing.NewHash("3992c4")
 			assert.Equal(t, got, &hash)
+		})
+	}
+}
+func Test_validateRepoWritePermission(t *testing.T) {
+	tests := map[string]struct {
+		opts     *PushOptions
+		wantErr  bool
+		beforeFn func(r *mocks.MockRepository, w *mocks.MockWorktree)
+	}{
+		"Should fail getting git log": {
+			opts:    nil,
+			wantErr: true,
+			beforeFn: func(r *mocks.MockRepository, w *mocks.MockWorktree) {
+				r.EXPECT().PushContext(gomock.Any(), &gg.PushOptions{
+					Auth:     nil,
+					Progress: os.Stderr,
+				}).
+					Times(1).
+					Return(gg.NoErrAlreadyUpToDate)
+				r.EXPECT().Log(&gg.LogOptions{}).
+					Times(1).
+					Return(nil, fmt.Errorf("some error"))
+			},
+		},
+	}
+
+	gitConfig := &config.Config{
+		User: struct {
+			Name  string
+			Email string
+		}{
+			Name:  "name",
+			Email: "email",
+		},
+	}
+
+	for tname, tt := range tests {
+		t.Run(tname, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			mockRepo := mocks.NewMockRepository(ctrl)
+			mockWt := mocks.NewMockWorktree(ctrl)
+			mockProvider := &mockProvider{}
+
+			mockRepo.EXPECT().ConfigScoped(gomock.Any()).Return(gitConfig, nil).AnyTimes()
+			getProvider = func(providerType, repoURL string, auth *Auth) (Provider, error) { return mockProvider, nil }
+			worktree = func(r gogit.Repository) (gogit.Worktree, error) { return mockWt, nil }
+
+			r := &repo{
+				Repository: mockRepo,
+				progress:   os.Stderr,
+			}
+
+			tt.beforeFn(mockRepo, mockWt)
+
+			err := validateRepoWritePermission(context.Background(), r)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
 		})
 	}
 }
