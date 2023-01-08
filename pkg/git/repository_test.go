@@ -1578,7 +1578,6 @@ func Test_validateRepoWritePermission(t *testing.T) {
 					Return(gg.NoErrAlreadyUpToDate).
 					Times(1).
 					Return(fmt.Errorf("some error"))
-
 			},
 		},
 	}
