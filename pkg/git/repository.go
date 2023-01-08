@@ -244,6 +244,11 @@ func (o *CloneOptions) GetRepo(ctx context.Context) (Repository, fs.FS, error) {
 		}
 	}
 
+	err = r.ValidateRepoWritePermission(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to initialize repository: %w", err)
+	}
+
 	bootstrapFS, err := o.FS.Chroot(o.path)
 	if err != nil {
 		return nil, nil, err
@@ -252,6 +257,97 @@ func (o *CloneOptions) GetRepo(ctx context.Context) (Repository, fs.FS, error) {
 	return r, fs.Create(bootstrapFS), nil
 }
 
+func (r *repo) ValidateRepoWritePermission(ctx context.Context) error {
+	cert, err := r.auth.GetCertificate()
+	if err != nil {
+		return fmt.Errorf("failed getting repository certificates: %w", err)
+	}
+
+	err = r.PushContext(ctx, &gg.PushOptions{
+		Auth:     getAuth(r.auth),
+		Progress: r.progress,
+		CABundle: cert,
+	})
+	if err != nil {
+		if !errors.Is(err, gg.NoErrAlreadyUpToDate) {
+			// means there was already a commit to push, and it failed to push it
+			return fmt.Errorf("failed to initialize repository, failed pushing to repository: %w", err)
+		}
+		// no commit to push, all up to date
+		err = r.PushDummyCommit("Validating write permission to project", ctx)
+
+		if err != nil {
+			return fmt.Errorf("failed to initialize repository, failed pushing to repository: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (r *repo) PushDummyCommit(commitMsg string, ctx context.Context) error {
+	gitlog, err := r.Log(&gg.LogOptions{})
+	if err != nil {
+		return fmt.Errorf("failed getting git log: %w", err)
+	}
+
+	commit, err := gitlog.Next()
+	if err != nil {
+		return fmt.Errorf("gailed getting last commit: %w", err)
+	}
+
+	hash := commit.Hash
+	_, err = r.Persist(ctx, &PushOptions{
+		CommitMsg: commitMsg,
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed pushing commit to repository: %w", err)
+	}
+
+	err = r.Reset(ctx, hash)
+
+	if err != nil {
+		log.G().Warnf("failed to reset commit: %v", err)
+	}
+
+	return nil
+
+}
+func (r *repo) Reset(ctx context.Context, hash plumbing.Hash) error {
+	w, err := worktree(r)
+
+	if err != nil {
+		return fmt.Errorf("failed getting worktree of repository: %w", err)
+	}
+
+	err = w.Reset(&gg.ResetOptions{
+		Commit: hash,
+		Mode:   gg.HardReset,
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed getting reseting validation commit: %w", err)
+	}
+
+	cert, err := r.auth.GetCertificate()
+
+	if err != nil {
+		return fmt.Errorf("failed getting repository certificates: %w", err)
+	}
+	r.Push(&gg.PushOptions{})
+	err = r.PushContext(ctx, &gg.PushOptions{
+		Auth:     getAuth(r.auth),
+		Progress: r.progress,
+		CABundle: cert,
+		Force:    true,
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed pushing reset validation commit: %w", err)
+	}
+
+	return nil
+}
 func (o *CloneOptions) URL() string {
 	return o.url
 }
