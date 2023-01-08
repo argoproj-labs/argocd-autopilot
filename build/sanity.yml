@@ -2,13 +2,13 @@ version: "1.0"
 
 mode: parallel
 stages:
-  - "clone"
-  - "build"
+  - "prepare"
   - "test"
+  - "cleanup"
 
 steps:
   main_clone:
-    stage: clone
+    stage: prepare
     title: "Cloning repository"
     type: git-clone
     git: cf_github
@@ -16,7 +16,7 @@ steps:
     revision: ${{CF_BRANCH}}
 
   prep: &deps
-    stage: "build"
+    stage: "prepare"
     title: "prepare env vars"
     image: quay.io/codefresh/golang-ci-helper:latest
     commands:
@@ -32,7 +32,19 @@ steps:
       - name: main_clone
         on:
         - success
-    
+
+  clean_prev_repo:
+    <<: *deps
+    title: Clean old repo
+    image: 'codefresh/kube-helm'
+    commands:
+    - curl -H "Authorization:Bearer $GIT_TOKEN" -X DELETE "https://api.github.com/repos/${{GIT_REPO}}" || true
+    when:
+      steps:
+      - name: prep
+        on:
+        - success
+
   build:
     <<: *deps
     title: "build cli"
@@ -46,21 +58,22 @@ steps:
       - name: prep
         on:
         - success
-  
+
   prep_cluster:
-    stage: test
+    stage: prepare
     title: "prepare cluster"
-    image: "codefresh/kube-helm"
-    commands:
-    - kubectl config use-context ${{KUBE_CONTEXT}}
-    - kubectl delete ns $NAMESPACE --timeout=${{KUBECTL_TIMEOUT}} || true
-    - curl -H "Authorization:Bearer $GIT_TOKEN" -X DELETE "https://api.github.com/repos/${{GIT_REPO}}" || true
+    type: "roicodefresh/k3d"
+    arguments:
+      CLUSTER_IMAGE: rancher/k3s:v1.24.9-k3s1
     when:
       steps:
       - name: build
         on:
         - success
-        
+      - name: clean_prev_repo
+        on:
+        - success
+
   run_bootstrap:
     stage: test
     title: "run repo bootstrap"
@@ -71,8 +84,7 @@ steps:
       - export GIT_REPO=https://github.com/${{GIT_REPO}}
       - argocd-autopilot repo bootstrap -n $NAMESPACE
       - argocd-autopilot project create e2e
-      - argocd-autopilot app create example --app github.com/argoproj-labs/argocd-autopilot/examples/demo-app -p e2e --wait-timeout 10m --dest-namespace $NAMESPACE
-      - argocd-autopilot repo uninstall -n $NAMESPACE
+      - argocd-autopilot app create example --app github.com/argoproj-labs/argocd-autopilot/examples/demo-app -p e2e --wait-timeout 5m --dest-namespace $NAMESPACE
     when:
       steps:
       - name: prep_cluster
@@ -81,20 +93,22 @@ steps:
 
   delete_bootstrap:
     stage: test
-    title: "delete bootstrap"
+    title: "delete bootstrap & cleanup"
     image: "codefresh/kube-helm"
     commands:
-      - kubectl delete ns $NAMESPACE --request-timeout ${{KUBECTL_TIMEOUT}}
+      - export GIT_REPO=https://github.com/${{GIT_REPO}}
+      - argocd-autopilot repo uninstall --request-timeout 5m
+      - kubectl delete namespace $NAMESPACE
       - curl -H "Authorization:Bearer $GIT_TOKEN" -X DELETE "https://api.github.com/repos/${{GIT_REPO}}" || true
     when:
       steps:
       - name: run_bootstrap
         on:
         - success
-  
-  cleanup:
-    stage: test
-    title: "cleanup"
+
+  cleanup_after_failure:
+    stage: "cleanup"
+    title: "cleanup after failure"
     image: "codefresh/kube-helm"
     commands:
       - kubectl delete application autopilot-bootstrap -n $NAMESPACE --request-timeout ${{KUBECTL_TIMEOUT}} || true
