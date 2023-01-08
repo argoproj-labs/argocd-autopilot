@@ -244,7 +244,7 @@ func (o *CloneOptions) GetRepo(ctx context.Context) (Repository, fs.FS, error) {
 		}
 	}
 
-	err = r.ValidateRepoWritePermission(ctx)
+	err = validateRepoWritePermission(ctx, r)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to initialize repository: %w", err)
 	}
@@ -257,13 +257,13 @@ func (o *CloneOptions) GetRepo(ctx context.Context) (Repository, fs.FS, error) {
 	return r, fs.Create(bootstrapFS), nil
 }
 
-func (r *repo) ValidateRepoWritePermission(ctx context.Context) error {
+var validateRepoWritePermission = func(ctx context.Context, r *repo) error {
 	cert, err := r.auth.GetCertificate()
 	if err != nil {
 		return fmt.Errorf("failed getting repository certificates: %w", err)
 	}
 
-	err = r.PushContext(ctx, &gg.PushOptions{
+	err = r.Repository.PushContext(ctx, &gg.PushOptions{
 		Auth:     getAuth(r.auth),
 		Progress: r.progress,
 		CABundle: cert,
@@ -285,7 +285,7 @@ func (r *repo) ValidateRepoWritePermission(ctx context.Context) error {
 }
 
 func (r *repo) PushDummyCommit(commitMsg string, ctx context.Context) error {
-	gitlog, err := r.Log(&gg.LogOptions{})
+	gitlog, err := r.Repository.Log(&gg.LogOptions{})
 	if err != nil {
 		return fmt.Errorf("failed getting git log: %w", err)
 	}
@@ -334,7 +334,7 @@ func (r *repo) Reset(ctx context.Context, hash plumbing.Hash) error {
 	if err != nil {
 		return fmt.Errorf("failed getting repository certificates: %w", err)
 	}
-	err = r.PushContext(ctx, &gg.PushOptions{
+	err = r.Repository.PushContext(ctx, &gg.PushOptions{
 		Auth:     getAuth(r.auth),
 		Progress: r.progress,
 		CABundle: cert,
