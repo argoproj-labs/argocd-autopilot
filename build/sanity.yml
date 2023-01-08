@@ -85,7 +85,6 @@ steps:
       - argocd-autopilot repo bootstrap -n $NAMESPACE
       - argocd-autopilot project create e2e
       - argocd-autopilot app create example --app github.com/argoproj-labs/argocd-autopilot/examples/demo-app -p e2e --wait-timeout 5m --dest-namespace $NAMESPACE
-      - argocd-autopilot app create example --app github.com/argoproj-labs/argocd-autopilot/examples/demo-app -p e2e --wait-timeout 10m --dest-namespace $NAMESPACE
     when:
       steps:
       - name: prep_cluster
