@@ -1575,10 +1575,10 @@ func Test_validateRepoWritePermission(t *testing.T) {
 					Progress: os.Stderr,
 				}).
 					Times(1).
-					Return(gg.NoErrAlreadyUpToDate)
-				r.EXPECT().Log(&gg.LogOptions{}).
+					Return(gg.NoErrAlreadyUpToDate).
 					Times(1).
-					Return(nil, fmt.Errorf("some error"))
+					Return(fmt.Errorf("some error"))
+
 			},
 		},
 	}
