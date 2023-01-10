@@ -1,8 +1,6 @@
 ### Changes
 
 - [fix] fix nil pointer deref in provider code when there are network errors [#403](https://github.com/argoproj-labs/argocd-autopilot/pull/403)
-- [chore] bumped argo-cd to 2.5.2, removed applicationset pkg (already in argo-cd), updated golang to 1.19 [#394](https://github.com/argoproj-labs/argocd-autopilot/pull/394)
-- [fix] add support for git servers with self-signed certificates [#392](https://github.com/argoproj-labs/argocd-autopilot/pull/392)
 
 ### Contributors:
 
@@ -63,6 +61,7 @@ argocd-autopilot version
 ```bash
 # download and extract the binary
 curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.9/argocd-autopilot-darwin-amd64.tar.gz | tar zx
+
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
 
