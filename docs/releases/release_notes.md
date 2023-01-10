@@ -51,6 +51,7 @@ argocd-autopilot version
 # download and extract the binary
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.9/argocd-autopilot-linux-amd64.tar.gz | tar zx
 =======
 curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.8/argocd-autopilot-linux-amd64.tar.gz | tar zx
@@ -58,6 +59,9 @@ curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/do
 =======
 curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.9/argocd-autopilot-linux-amd64.tar.gz | tar zx
 >>>>>>> release v0.4.9 (#404)
+=======
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.9/argocd-autopilot-linux-amd64.tar.gz | tar zx
+>>>>>>> f93ca6ac2f529889e5f37096df671c0fa0243fe7
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
@@ -72,6 +76,7 @@ argocd-autopilot version
 # download and extract the binary
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.9/argocd-autopilot-darwin-amd64.tar.gz | tar zx
 =======
 curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.8/argocd-autopilot-darwin-amd64.tar.gz | tar zx
@@ -79,6 +84,9 @@ curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/do
 =======
 curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.9/argocd-autopilot-darwin-amd64.tar.gz | tar zx
 >>>>>>> release v0.4.9 (#404)
+=======
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.9/argocd-autopilot-darwin-amd64.tar.gz | tar zx
+>>>>>>> f93ca6ac2f529889e5f37096df671c0fa0243fe7
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
@@ -97,6 +105,7 @@ docker run \
   -v ~/.gitconfig:/home/autopilot/.gitconfig \
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
   -it quay.io/argoprojlabs/argocd-autopilot:v0.4.9 <cmd> <flags>
 =======
   -it quay.io/argoprojlabs/argocd-autopilot:v0.4.8 <cmd> <flags>
@@ -104,4 +113,7 @@ docker run \
 =======
   -it quay.io/argoprojlabs/argocd-autopilot:v0.4.9 <cmd> <flags>
 >>>>>>> release v0.4.9 (#404)
+=======
+  -it quay.io/argoprojlabs/argocd-autopilot:v0.4.9 <cmd> <flags>
+>>>>>>> f93ca6ac2f529889e5f37096df671c0fa0243fe7
 ```
