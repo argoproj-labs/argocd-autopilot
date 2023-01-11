@@ -242,12 +242,10 @@ func (o *CloneOptions) GetRepo(ctx context.Context) (Repository, fs.FS, error) {
 		default:
 			return nil, nil, err
 		}
-	}
-
-	if o.CloneForWrite {
+	} else if o.CloneForWrite {
 		err = validateRepoWritePermission(ctx, r)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to validate repository write permissions: %w", err)
+			return nil, nil, fmt.Errorf("failed to validate repository write permission: %w", err)
 		}
 	}
 
@@ -260,46 +258,15 @@ func (o *CloneOptions) GetRepo(ctx context.Context) (Repository, fs.FS, error) {
 }
 
 var validateRepoWritePermission = func(ctx context.Context, r *repo) error {
-	cert, err := r.auth.GetCertificate()
-	if err != nil {
-		return fmt.Errorf("failed getting repository certificates: %w", err)
-	}
-
-	err = r.Repository.PushContext(ctx, &gg.PushOptions{
-		Auth:     getAuth(r.auth),
-		Progress: r.progress,
-		CABundle: cert,
-	})
-	if err != nil {
-		if !errors.Is(err, gg.NoErrAlreadyUpToDate) {
-			// means there was already a commit to push, and it failed to push it
-			return err
-		}
-		// no commit to push, all up to date
-		if err := r.PushDummyCommit("Validating repository write permissions", ctx); err != nil {
-			return fmt.Errorf("failed to push dummy commit: %w", err)
-		}
-	}
-
-	return nil
-}
-
-func (r *repo) PushDummyCommit(commitMsg string, ctx context.Context) error {
-
 	_, err := r.Persist(ctx, &PushOptions{
-		CommitMsg: commitMsg,
+		CommitMsg: "Validating repository write permission",
 	})
 
 	if err != nil {
 		return fmt.Errorf("failed pushing commit to repository: %w", err)
 	}
 
-	if err != nil {
-		log.G().Warnf("failed to reset commit: %v", err)
-	}
-
 	return nil
-
 }
 
 func (o *CloneOptions) URL() string {
