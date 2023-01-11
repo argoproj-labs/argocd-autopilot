@@ -1565,7 +1565,7 @@ func Test_validateRepoWritePermission(t *testing.T) {
 		wantErr  bool
 		beforeFn func(r *mocks.MockRepository, w *mocks.MockWorktree)
 	}{
-		"Should fail getting git log": {
+		"Should fail if push context failed": {
 			opts:    nil,
 			wantErr: true,
 			beforeFn: func(r *mocks.MockRepository, w *mocks.MockWorktree) {
@@ -1574,9 +1574,43 @@ func Test_validateRepoWritePermission(t *testing.T) {
 					Progress: os.Stderr,
 				}).
 					Times(1).
-					Return(gg.NoErrAlreadyUpToDate).
-					Times(1).
 					Return(fmt.Errorf("some error"))
+				w.EXPECT().AddGlob(gomock.Any()).
+					Times(1).
+					Return(nil)
+				w.EXPECT().Commit("Validating repository write permission", gomock.Any()).
+					Times(1).
+					Return(plumbing.Hash{}, nil)
+			},
+		},
+		"Should fail if commit failed": {
+			opts:    nil,
+			wantErr: true,
+			beforeFn: func(r *mocks.MockRepository, w *mocks.MockWorktree) {
+				w.EXPECT().AddGlob(gomock.Any()).
+					Times(1).
+					Return(nil)
+				w.EXPECT().Commit("Validating repository write permission", gomock.Any()).
+					Times(1).
+					Return(plumbing.Hash{}, fmt.Errorf("some error"))
+			},
+		},
+		"Should succeed if push context succeed": {
+			opts:    nil,
+			wantErr: false,
+			beforeFn: func(r *mocks.MockRepository, w *mocks.MockWorktree) {
+				r.EXPECT().PushContext(gomock.Any(), &gg.PushOptions{
+					Auth:     nil,
+					Progress: os.Stderr,
+				}).
+					Times(1).
+					Return(nil)
+				w.EXPECT().AddGlob(gomock.Any()).
+					Times(1).
+					Return(nil)
+				w.EXPECT().Commit("Validating repository write permission", gomock.Any()).
+					Times(1).
+					Return(plumbing.Hash{}, nil)
 			},
 		},
 	}
