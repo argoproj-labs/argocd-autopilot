@@ -1,5 +1,8 @@
 # Changelog:
 
+# v0.4.10
+- [fix] Fail early on `repo bootstrap` when there is no repo write permission [#409](https://github.com/argoproj-labs/argocd-autopilot/pull/409)
+
 # v0.4.9
 - [fix] fix nil pointer deref in provider code when there are network errors [#403](https://github.com/argoproj-labs/argocd-autopilot/pull/403)
 
