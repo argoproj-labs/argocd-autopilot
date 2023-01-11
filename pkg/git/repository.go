@@ -242,6 +242,11 @@ func (o *CloneOptions) GetRepo(ctx context.Context) (Repository, fs.FS, error) {
 		default:
 			return nil, nil, err
 		}
+	} else if o.CloneForWrite {
+		err = validateRepoWritePermission(ctx, r)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to validate repository write permission: %w", err)
+		}
 	}
 
 	bootstrapFS, err := o.FS.Chroot(o.path)
@@ -250,6 +255,18 @@ func (o *CloneOptions) GetRepo(ctx context.Context) (Repository, fs.FS, error) {
 	}
 
 	return r, fs.Create(bootstrapFS), nil
+}
+
+var validateRepoWritePermission = func(ctx context.Context, r *repo) error {
+	_, err := r.Persist(ctx, &PushOptions{
+		CommitMsg: "Validating repository write permission",
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed pushing commit to repository: %w", err)
+	}
+
+	return nil
 }
 
 func (o *CloneOptions) URL() string {
