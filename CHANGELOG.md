@@ -2,6 +2,10 @@
 
 # v0.4.11
 
+- [fix] Cannot bootstrap on windows [#221](https://github.com/argoproj-labs/argocd-autopilot/issues/221)
+
+# v0.4.10
+
 - [fix] Fail early on `repo bootstrap` when there is no repo write permission [#409](https://github.com/argoproj-labs/argocd-autopilot/pull/409)
 
 # v0.4.9
