@@ -1,4 +1,4 @@
-VERSION=v0.4.10
+VERSION=v0.4.11
 OUT_DIR=dist
 
 CLI_NAME?=argocd-autopilot
@@ -68,10 +68,15 @@ cli-package: $(OUT_DIR)/$(CLI_NAME)-$(shell go env GOOS)-$(shell go env GOARCH)
 $(OUT_DIR)/$(CLI_NAME)-linux-amd64: GO_FLAGS='GOOS=linux GOARCH=amd64 CGO_ENABLED=0'
 $(OUT_DIR)/$(CLI_NAME)-darwin-amd64: GO_FLAGS='GOOS=darwin GOARCH=amd64 CGO_ENABLED=0'
 $(OUT_DIR)/$(CLI_NAME)-darwin-arm64: GO_FLAGS='GOOS=darwin GOARCH=arm64 CGO_ENABLED=0'
-$(OUT_DIR)/$(CLI_NAME)-windows-amd64: GO_FLAGS='GOOS=windows GOARCH=amd64 CGO_ENABLED=0'
+$(OUT_DIR)/$(CLI_NAME)-windows-amd64.exe: GO_FLAGS='GOOS=windows GOARCH=amd64 CGO_ENABLED=0'
 $(OUT_DIR)/$(CLI_NAME)-linux-arm64: GO_FLAGS='GOOS=linux GOARCH=arm64 CGO_ENABLED=0'
 $(OUT_DIR)/$(CLI_NAME)-linux-ppc64le: GO_FLAGS='GOOS=linux GOARCH=ppc64le CGO_ENABLED=0'
 $(OUT_DIR)/$(CLI_NAME)-linux-s390x: GO_FLAGS='GOOS=linux GOARCH=s390x CGO_ENABLED=0'
+
+# special target for windows, to add the ".exe" extension at the end
+$(OUT_DIR)/$(CLI_NAME)-windows-amd64.tar.gz:
+	@make $(OUT_DIR)/$(CLI_NAME)-windows-amd64.exe
+	cd $(OUT_DIR) && tar -czvf $(CLI_NAME)-windows-amd64.tar.gz $(CLI_NAME)-windows-amd64.exe && cd ..
 
 $(OUT_DIR)/$(CLI_NAME)-%.tar.gz:
 	@make $(OUT_DIR)/$(CLI_NAME)-$*

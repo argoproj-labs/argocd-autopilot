@@ -1,10 +1,11 @@
 ### Changes
 
-- [fix] Fail early on `repo bootstrap` when there is no repo write permission [#409](https://github.com/argoproj-labs/argocd-autopilot/pull/409)
+- [fix] Cannot bootstrap on windows [#221](https://github.com/argoproj-labs/argocd-autopilot/issues/221)
+- [chore] bump github.com/argoproj/argo-cd/v2 to 2.5.9 [#416](https://github.com/argoproj-labs/argocd-autopilot/pull/416)
 
 ### Contributors:
 
-- Kim Aharfi ([@kim-codefresh](https://github.com/kim-codefresh))
+- Noam Gal ([@noam-codefresh](https://github.com/noam-codefresh))
 
 ## Installation:
 
@@ -47,7 +48,7 @@ argocd-autopilot version
 
 ```bash
 # download and extract the binary
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.10/argocd-autopilot-linux-amd64.tar.gz | tar zx
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.11/argocd-autopilot-linux-amd64.tar.gz | tar zx
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
@@ -60,7 +61,7 @@ argocd-autopilot version
 
 ```bash
 # download and extract the binary
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.10/argocd-autopilot-darwin-amd64.tar.gz | tar zx
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.11/argocd-autopilot-darwin-amd64.tar.gz | tar zx
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
@@ -77,5 +78,5 @@ When using the Docker image, you have to provide the `.kube` and `.gitconfig` di
 docker run \
   -v ~/.kube:/home/autopilot/.kube \
   -v ~/.gitconfig:/home/autopilot/.gitconfig \
-  -it quay.io/argoprojlabs/argocd-autopilot:v0.4.10 <cmd> <flags>
+  -it quay.io/argoprojlabs/argocd-autopilot:v0.4.11 <cmd> <flags>
 ```

@@ -1,25 +1,37 @@
 # Changelog:
 
+# v0.4.11
+
+- [fix] Cannot bootstrap on windows [#221](https://github.com/argoproj-labs/argocd-autopilot/issues/221)
+- [chore] bump github.com/argoproj/argo-cd/v2 to 2.5.9 [#416](https://github.com/argoproj-labs/argocd-autopilot/pull/416)
+
 # v0.4.10
+
 - [fix] Fail early on `repo bootstrap` when there is no repo write permission [#409](https://github.com/argoproj-labs/argocd-autopilot/pull/409)
 
 # v0.4.9
+
 - [fix] fix nil pointer deref in provider code when there are network errors [#403](https://github.com/argoproj-labs/argocd-autopilot/pull/403)
 
 # v0.4.8
+
 - [chore] bumped argo-cd to 2.5.2, removed applicationset pkg (already in argo-cd), updated golang to 1.19 [#394](https://github.com/argoproj-labs/argocd-autopilot/pull/394)
 - [fix] add support for git servers with self-signed certificates [#392](https://github.com/argoproj-labs/argocd-autopilot/pull/392)
 
 # v0.4.7
+
 - [fix] 0.4.6 fix caused a regression when `--repo` contained path and/or ref [#375](https://github.com/argoproj-labs/argocd-autopilot/pull/375)
 
 # v0.4.6
+
 - [fix] When creating a new repo, sometimes getDefaultBranch fails [#372](https://github.com/argoproj-labs/argocd-autopilot/issues/372)
 
 # v0.4.5
+
 - Added support for bitbucket cloud
 
 # v0.4.4
+
 - [fix] find GitLab group by name, instead of searching in 1st page of list
 
 # v0.4.3
