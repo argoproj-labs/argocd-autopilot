@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"path/filepath"
+	"path"
 	"strings"
 	"time"
 
@@ -20,8 +20,8 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 
-	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	argocdcommon "github.com/argoproj/argo-cd/v2/common"
+	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	argocdsettings "github.com/argoproj/argo-cd/v2/util/settings"
 	"github.com/ghodss/yaml"
 	"github.com/go-git/go-billy/v5/memfs"
@@ -552,7 +552,7 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 		namespace: namespace,
 		repoURL:   cloneOpts.URL(),
 		revision:  cloneOpts.Revision(),
-		srcPath:   filepath.Join(cloneOpts.Path(), store.Default.BootsrtrapDir),
+		srcPath:   path.Join(cloneOpts.Path(), store.Default.BootsrtrapDir),
 		labels:    bootstrapAppsLabels,
 	})
 	if err != nil {
@@ -564,7 +564,7 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 		namespace: namespace,
 		repoURL:   cloneOpts.URL(),
 		revision:  cloneOpts.Revision(),
-		srcPath:   filepath.Join(cloneOpts.Path(), store.Default.ProjectsDir),
+		srcPath:   path.Join(cloneOpts.Path(), store.Default.ProjectsDir),
 		labels:    bootstrapAppsLabels,
 	})
 	if err != nil {
@@ -576,7 +576,7 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 		namespace:   namespace,
 		repoURL:     cloneOpts.URL(),
 		revision:    cloneOpts.Revision(),
-		srcPath:     filepath.Join(cloneOpts.Path(), store.Default.BootsrtrapDir, store.Default.ArgoCDName),
+		srcPath:     path.Join(cloneOpts.Path(), store.Default.BootsrtrapDir, store.Default.ArgoCDName),
 		noFinalizer: true,
 		labels:      argocdLabels,
 	})
@@ -595,7 +595,7 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 		destServer:                  "{{server}}",
 		prune:                       false,
 		preserveResourcesOnDeletion: true,
-		srcPath:                     filepath.Join(cloneOpts.Path(), store.Default.BootsrtrapDir, store.Default.ClusterResourcesDir, "{{name}}"),
+		srcPath:                     path.Join(cloneOpts.Path(), store.Default.BootsrtrapDir, store.Default.ClusterResourcesDir, "{{name}}"),
 		generators: []argocdv1alpha1.ApplicationSetGenerator{
 			{
 				Git: &argocdv1alpha1.GitGenerator{
@@ -603,12 +603,7 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 					Revision: cloneOpts.Revision(),
 					Files: []argocdv1alpha1.GitFileGeneratorItem{
 						{
-							Path: filepath.Join(
-								cloneOpts.Path(),
-								store.Default.BootsrtrapDir,
-								store.Default.ClusterResourcesDir,
-								"*.json",
-							),
+							Path: path.Join(cloneOpts.Path(), store.Default.BootsrtrapDir, store.Default.ClusterResourcesDir, "*.json"),
 						},
 					},
 					RequeueAfterSeconds: &DefaultApplicationSetGeneratorInterval,
@@ -735,7 +730,7 @@ func createBootstrapKustomization(namespace, appSpecifier string, cloneOpts *git
 
 		k.ConfigMapGenerator = append(k.ConfigMapGenerator, kusttypes.ConfigMapArgs{
 			GeneratorArgs: kusttypes.GeneratorArgs{
-				Name: "argocd-tls-certs-cm",
+				Name:     "argocd-tls-certs-cm",
 				Behavior: kusttypes.BehaviorMerge.String(),
 				KvPairSources: kusttypes.KvPairSources{
 					LiteralSources: []string{

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
+	"path"
 	"strings"
 	"text/tabwriter"
 
@@ -306,7 +306,7 @@ func generateProjectManifests(o *GenerateProjectOptions) (projectYAML, appSetYAM
 					Revision: o.Revision,
 					Files: []argocdv1alpha1.GitFileGeneratorItem{
 						{
-							Path: filepath.Join(o.InstallationPath, store.Default.AppsDir, "**", o.Name, "config.json"),
+							Path: path.Join(o.InstallationPath, store.Default.AppsDir, "**", o.Name, "config.json"),
 						},
 					},
 					RequeueAfterSeconds: &DefaultApplicationSetGeneratorInterval,
@@ -318,7 +318,7 @@ func generateProjectManifests(o *GenerateProjectOptions) (projectYAML, appSetYAM
 					Revision: o.Revision,
 					Files: []argocdv1alpha1.GitFileGeneratorItem{
 						{
-							Path: filepath.Join(o.InstallationPath, store.Default.AppsDir, "**", o.Name, "config_dir.json"),
+							Path: path.Join(o.InstallationPath, store.Default.AppsDir, "**", o.Name, "config_dir.json"),
 						},
 					},
 					RequeueAfterSeconds: &DefaultApplicationSetGeneratorInterval,

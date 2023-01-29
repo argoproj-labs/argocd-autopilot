@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"reflect"
 
@@ -294,7 +295,7 @@ func newKustApp(o *CreateOptions, projectName, repoURL, targetRevision, repoRoot
 		DestNamespace:     o.DestNamespace,
 		DestServer:        o.DestServer,
 		SrcRepoURL:        repoURL,
-		SrcPath:           filepath.Join(repoRoot, store.Default.AppsDir, o.AppName, store.Default.OverlaysDir, projectName),
+		SrcPath:           path.Join(repoRoot, store.Default.AppsDir, o.AppName, store.Default.OverlaysDir, projectName),
 		SrcTargetRevision: targetRevision,
 		Labels:            o.Labels,
 		Annotations:       o.Annotations,
