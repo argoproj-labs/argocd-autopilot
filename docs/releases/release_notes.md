@@ -1,6 +1,7 @@
 ### Changes
 
 - [fix] Cannot bootstrap on windows [#221](https://github.com/argoproj-labs/argocd-autopilot/issues/221)
+- [chore] bump github.com/argoproj/argo-cd/v2 to 2.5.9 [#416](https://github.com/argoproj-labs/argocd-autopilot/pull/416)
 
 ### Contributors:
 
