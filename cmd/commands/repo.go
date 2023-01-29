@@ -290,18 +290,18 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 		return err
 	}
 
-	log.G(ctx).Infof("skipping argocd login")
-	// err = argocdLogin(&argocd.LoginOptions{
-	// 	Namespace:   opts.Namespace,
-	// 	Username:    "admin",
-	// 	Password:    passwd,
-	// 	KubeConfig:  opts.KubeConfig,
-	// 	KubeContext: opts.KubeContextName,
-	// 	Insecure:    opts.Insecure,
-	// })
-	// if err != nil {
-	// 	return err
-	// }
+	log.G(ctx).Infof("running argocd login to initialize argocd config")
+	err = argocdLogin(&argocd.LoginOptions{
+		Namespace:   opts.Namespace,
+		Username:    "admin",
+		Password:    passwd,
+		KubeConfig:  opts.KubeConfig,
+		KubeContext: opts.KubeContextName,
+		Insecure:    opts.Insecure,
+	})
+	if err != nil {
+		return err
+	}
 
 	if !opts.HidePassword {
 		log.G(ctx).Printf("")
