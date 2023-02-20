@@ -1,11 +1,10 @@
 ### Changes
 
-- [fix] Cannot bootstrap on windows [#221](https://github.com/argoproj-labs/argocd-autopilot/issues/221)
-- [chore] bump github.com/argoproj/argo-cd/v2 to 2.5.9 [#416](https://github.com/argoproj-labs/argocd-autopilot/pull/416)
+- [fix] Validate that repo name is not empty [#426](https://github.com/argoproj-labs/argocd-autopilot/pull/426)
 
 ### Contributors:
 
-- Noam Gal ([@noam-codefresh](https://github.com/noam-codefresh))
+- Daniel Maizel ([@danielm-codefresh](https://github.com/danielm-codefresh))
 
 ## Installation:
 
