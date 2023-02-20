@@ -13,7 +13,7 @@ RUN groupadd -g 999 autopilot && \
     chown autopilot:0 /home/autopilot && \
     chmod g=u /home/autopilot && \
     apt-get update -y && \
-    apt-get install -y git git-lfs tini gpg tzdata && \
+    apt-get install -y libssl-dev git git-lfs tini gpg tzdata && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
