@@ -96,7 +96,7 @@ require (
 	github.com/go-openapi/validate v0.19.8 // indirect
 	github.com/go-redis/cache/v8 v8.4.2 // indirect
 	github.com/go-redis/redis/v8 v8.11.3 // indirect
-	github.com/go-stack/stack v1.8.0 // indirect
+	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.4.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gogits/go-gogs-client v0.0.0-20190616193657-5a05380e4bc2 // indirect

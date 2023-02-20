@@ -505,6 +505,13 @@ var createRepo = func(ctx context.Context, opts *CloneOptions) (defaultBranch st
 	}
 
 	_, orgRepo, _, _, _, _, _ := util.ParseGitUrl(opts.Repo)
+
+	// It depends on the provider, but org repo strucure should at least contain org and repo name
+	slc := util.CleanSliceWhiteSpaces(strings.Split(orgRepo, "/"))
+	if len(slc) < 2 {
+		return "", errors.New("repo name can't be empty")
+	}
+
 	return provider.CreateRepository(ctx, orgRepo)
 }
 

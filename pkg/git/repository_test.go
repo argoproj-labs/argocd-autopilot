@@ -1340,6 +1340,17 @@ func Test_createRepo(t *testing.T) {
 			},
 			want: "main",
 		},
+		"Should fail if repo name is empty": {
+			opts: &CloneOptions{
+				Repo:     "https://github.com/owner/",
+				Provider: "github",
+				Auth: Auth{
+					Username: "username",
+					Password: "password",
+				},
+			},
+			wantErr: "repo name can't be empty",
+		},
 	}
 
 	orgGetProvider := getProvider
