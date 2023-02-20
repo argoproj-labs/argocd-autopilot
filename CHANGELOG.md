@@ -1,5 +1,9 @@
 # Changelog:
 
+# v0.4.12
+
+- [fix] Validate that repo name is not empty [#426](https://github.com/argoproj-labs/argocd-autopilot/pull/426)
+
 # v0.4.11
 
 - [fix] Cannot bootstrap on windows [#221](https://github.com/argoproj-labs/argocd-autopilot/issues/221)
