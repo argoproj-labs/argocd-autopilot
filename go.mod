@@ -6,6 +6,7 @@ require (
 	code.gitea.io/sdk/gitea v0.15.1
 	github.com/argoproj/argo-cd/v2 v2.5.9
 	github.com/argoproj/gitops-engine v0.7.1-0.20221004132320-98ccd3d43fd9
+	github.com/beaconsoftwarellc/gadget v1.3.8
 	github.com/briandowns/spinner v1.18.1
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-git/go-billy/v5 v5.3.1
@@ -96,7 +97,7 @@ require (
 	github.com/go-openapi/validate v0.19.8 // indirect
 	github.com/go-redis/cache/v8 v8.4.2 // indirect
 	github.com/go-redis/redis/v8 v8.11.3 // indirect
-	github.com/go-stack/stack v1.8.0 // indirect
+	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.4.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gogits/go-gogs-client v0.0.0-20190616193657-5a05380e4bc2 // indirect
