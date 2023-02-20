@@ -15,7 +15,6 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/log"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
-	"github.com/beaconsoftwarellc/gadget/stringutil"
 
 	billy "github.com/go-git/go-billy/v5"
 	gg "github.com/go-git/go-git/v5"
@@ -506,8 +505,10 @@ var createRepo = func(ctx context.Context, opts *CloneOptions) (defaultBranch st
 	}
 
 	_, orgRepo, _, _, _, _, _ := util.ParseGitUrl(opts.Repo)
+
 	// It depends on the provider, but org repo strucure should at least contain org and repo name
-	if len(stringutil.CleanWhiteSpace(strings.Split(orgRepo, "/"))) < 2 {
+	slc := util.CleanSliceWhiteSpaces(strings.Split(orgRepo, "/"))
+	if len(slc) < 2 {
 		return "", errors.New("repo name can't be empty")
 	}
 

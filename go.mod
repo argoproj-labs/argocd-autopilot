@@ -6,7 +6,6 @@ require (
 	code.gitea.io/sdk/gitea v0.15.1
 	github.com/argoproj/argo-cd/v2 v2.5.9
 	github.com/argoproj/gitops-engine v0.7.1-0.20221004132320-98ccd3d43fd9
-	github.com/beaconsoftwarellc/gadget v1.3.8
 	github.com/briandowns/spinner v1.18.1
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-git/go-billy/v5 v5.3.1
