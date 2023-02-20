@@ -18,7 +18,7 @@ require (
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.10.1
-	github.com/stretchr/testify v1.8.0
+	github.com/stretchr/testify v1.8.1
 	github.com/xanzy/go-gitlab v0.71.0
 	k8s.io/api v0.24.2
 	k8s.io/apimachinery v0.24.2
