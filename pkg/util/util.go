@@ -174,7 +174,7 @@ func StealFlags(cmd *cobra.Command, exceptFor []string) (*pflag.FlagSet, error) 
 func CleanSliceWhiteSpaces(slc []string) []string {
 	var res []string
 	for i := range slc {
-		if slc[i] != "" {
+		if strings.TrimSpace(slc[i]) != "" {
 			res = append(res, slc[i])
 		}
 	}
