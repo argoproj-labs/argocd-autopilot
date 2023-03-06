@@ -23,7 +23,7 @@ export GIT_REPO=https://github.com/owner/name
 ```
 
 #### Using a Specific Installation Path
-If you want the autopilot-managed folder structure to reside under some sub-folder in your repository, you can also export the following env variable:
+If you want the autopilot-managed folder structure to reside under some sub-folder in your repository, you can also append the path:
 ```
 export GIT_REPO=https://github.com/owner/name/some/relative/path
 ```
@@ -45,8 +45,8 @@ export GIT_REPO=https://github.com/owner/name?ref=gitops_branch
 
 
 #### Using a Specific git Provider
-You can add the `--provider` flag to the `repo bootstrap` command, to enforce using a specific provider when creating a new repository. If the value is not supplied, the code will attempt to infer it from the clone URL.  
-Autopilot currently support github, gitlab, bitbucket-server (on-prem only), azure devops, and gitea as SCM providers.
+You can add the `--provider` flag to the `repo bootstrap` command, to enforce using a specific provider when creating a new repository. If the value is not supplied, autopilot will attempt to infer it from the clone URL.  
+Autopilot currently supports `github`, `gitlab`, `bitbucket` (Cloud), `bitbucket-server` (on-prem), `azure` (Azure DevOps Repos), and `gitea` as SCM providers.
 
 All the following commands will use the variables you supplied in order to manage your GitOps repository.
 
@@ -64,17 +64,18 @@ INFO run:
 ```
 <sub>(Your initial password will be different)</sub>
 
-Execute the port forward command, and browse to http://localhost:8080. Log in using username `admin`, and the password from the previous step. your initial Argo CD deployment should look like this:
+Execute the port-forward command, and browse to http://localhost:8080. Log in using username `admin`, and the password from the previous step. your initial Argo CD deployment should look like this:
 
+<!-- FIXME: Screenshot is outdated; missing the `cluster-resources-in-cluster` Application introduced with #79. -->
 ![Step 1](assets/getting_started_1.png)
 
-### Recovering Argo-cd from an existing repository
+### Recovering Argo CD from an existing repository
 ```
 argocd-autopilot repo bootstrap --recover \
   --app "github.com/git-user/repo-name/bootstrap" #optional
 ```
 
-In case of a cluster failure, you can recover argo-cd from an existing repository using `--recover` flag. You can optionally use it with `--app` flag to specify the path to the existing argo-cd manifests.
+In case of a cluster failure, you can recover Argo CD from an existing repository using `--recover` flag. You can optionally use it with `--app` flag to specify the path to the existing Argo CD manifests.
 
 ### Using Argo CD HA
 Using Argo CD HA with Argo CD Autopilot is fully supported. Bootstrap Argo CD with high-availability using the [App Specifier](App-Specifier/) model `argocd-autopilot repo bootstrap --app https://github.com/argoproj-labs/argocd-autopilot/manifests/ha`.
@@ -82,10 +83,10 @@ Using Argo CD HA with Argo CD Autopilot is fully supported. Bootstrap Argo CD wi
 ### Running Applications:
 * autopilot-bootstrap - References the `bootstrap` directory in the GitOps repository, and manages the other 2 applications
 * argo-cd - References the `bootstrap/argo-cd` folder, and manages the Argo CD deployment itself (including Argo CD ApplicationSet)
-* root - References the `projects` directiry in the repo. The folder contains only an empty `DUMMY` file after the bootstrap command, so no projects will be created
+* root - References the `projects` directory in the repo. The folder contains only an empty `DUMMY` file after the bootstrap command, so no projects will be created
 
 ## Add a Project and an Application
-Execute the following commands to create a `testing` project, and add a example application to it:
+Execute the following commands to create a `testing` project, and add an example application to it:
 ```
 argocd-autopilot project create testing
 argocd-autopilot app create hello-world --app github.com/argoproj-labs/argocd-autopilot/examples/demo-app/ -p testing --wait-timeout 2m
@@ -96,12 +97,12 @@ After the application is created, and after Argo CD has finished its sync cycle,
 
 ![Step 2](assets/getting_started_2.png)
 
-And the "hello-world" application will also be deployed to the cluster:
+The "hello-world" application will also be deployed to the cluster:
 
 ![Step 3](assets/getting_started_3.png)
 
 ## Uninstall everything when done
-The following command will clear your entire GitOps Repository of related files, and your k8s cluster from any resources autopilot resources
+The following command will clear your entire GitOps Repository of related files, and your k8s cluster from any resources autopilot created:
 ```
 argocd-autopilot repo uninstall
 ```
