@@ -1,5 +1,10 @@
 # Changelog:
 
+# v0.4.13
+
+- [docs] docs: fix wordings and typos in Getting-Started [#431](https://github.com/argoproj-labs/argocd-autopilot/pull/431)
+- [fix] when bootstrap repo contains a port, argocd-tls-certs-cm is invalid [#434](https://github.com/argoproj-labs/argocd-autopilot/issues/434)
+
 # v0.4.12
 
 - [fix] Validate that repo name is not empty [#426](https://github.com/argoproj-labs/argocd-autopilot/pull/426)
