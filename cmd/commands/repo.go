@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"path"
@@ -728,13 +729,21 @@ func createBootstrapKustomization(namespace, appSpecifier string, cloneOpts *git
 			return nil, err
 		}
 
+		host := u.Host
+		if strings.Contains(host, ":") {
+			host, _, err = net.SplitHostPort(host)
+			if err != nil {
+				return nil, err
+			}
+		}
+
 		k.ConfigMapGenerator = append(k.ConfigMapGenerator, kusttypes.ConfigMapArgs{
 			GeneratorArgs: kusttypes.GeneratorArgs{
 				Name:     "argocd-tls-certs-cm",
 				Behavior: kusttypes.BehaviorMerge.String(),
 				KvPairSources: kusttypes.KvPairSources{
 					LiteralSources: []string{
-						u.Host + "=" + string(cert),
+						host + "=" + string(cert),
 					},
 				},
 			},
