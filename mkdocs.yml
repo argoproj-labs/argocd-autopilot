@@ -26,9 +26,13 @@ nav:
   - Installation: Installation-Guide.md
   - User Guide:
     - Getting Started: Getting-Started.md
+    - Advanced Installation: Advanced-Installation.md
+    - Modifying Argo-CD: Modifying-Argo-CD.md
     - Application Specifier: App-Specifier.md
     - Labels: Labels.md
+    - Installation Recovery: Recovery.md
     - Command Reference: commands/argocd-autopilot.md
+  - Git Providers: Git-Providers.md
   - Development: Development.md
   - Roadmap: Roadmap.md
   - Blogs: Blogs.md
