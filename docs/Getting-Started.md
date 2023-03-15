@@ -8,12 +8,13 @@ This guide assumes you are familiar with Argo CD and its basic concepts. See the
 * Installed [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/) command-line tool
 * Have a [kubeconfig](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/) file (default location is `~/.kube/config`)
 
-### Git Authentication
-Make sure to have a [valid token](https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token)
-![Github token](assets/github_token.png)
+### Export a Git Token
 ```
 export GIT_TOKEN=ghp_PcZ...IP0
 ```
+
+Make sure you export a [valid token](https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token) with the required scopes.
+![Github token](assets/github_token.png)
 
 ### Export Clone URL
 You can use any clone URL to a valid git repo, provided that the token you supplied earlier will allow cloning from, and pushing to it.
@@ -22,40 +23,24 @@ If the repository does not exist, bootstrapping it will also create it as a priv
 export GIT_REPO=https://github.com/owner/name
 ```
 
-#### Using a Specific Installation Path
-If you want the autopilot-managed folder structure to reside under some sub-folder in your repository, you can also append the path:
-```
-export GIT_REPO=https://github.com/owner/name/some/relative/path
-```
-
-#### Using a Specific Branch
-If you want to use a specific branch for your GitOps repository operations, you can use the `ref` query parameter:
-```
-export GIT_REPO=https://github.com/owner/name?ref=gitops_branch
-```
-
-!!! note
-    When running commands that commit or write to the repository, the value of `ref` can only be a branch.
-
-
-!!! tip
-    When running commands that commit or write to the repository you may also specify the `-b`, this would create the branch specified in `ref` if it doesn't exist. 
-
-    Note that when doing so the new branch would be create from the default branch.
-
-
 #### Using a Specific git Provider
-You can add the `--provider` flag to the `repo bootstrap` command, to enforce using a specific provider when creating a new repository. If the value is not supplied, autopilot will attempt to infer it from the clone URL.  
-Autopilot currently supports `github`, `gitlab`, `bitbucket` (Cloud), `bitbucket-server` (on-prem), `azure` (Azure DevOps Repos), and `gitea` as SCM providers.
+You can add the `--provider` flag to the `repo bootstrap` command, to enforce using a specific provider when creating a new repository. If the value is not supplied, the code will attempt to infer it from the clone URL.
 
-All the following commands will use the variables you supplied in order to manage your GitOps repository.
+Autopilot currently supports a variaty of git providers, you should check if yours is currently supported [here](./Git-Providers.md).
 
-## Set up the GitOps Repository
+
+## Bootstrap Argo-CD 
+
+Now that you have exported the `GIT_TOKEN` and `GIT_REPO` environment variables you can run the bootstrap command:
 ```
 argocd-autopilot repo bootstrap
 ```
-The execution might take several minutes, while your k8s cluster downloads the required images for Argo CD.
-Once it completes, you will get the initial Argo CD admin password, as well as the command to run to enable port-forwarding:
+
+This command will install Argo-CD on your current Kubernetes context in the `argocd` namespace. You might need to wait a few minutes while the required images are being pulled.
+
+After Argo-CD is up and running autopilot will push the installation manifests to the installation repository and create the `autopilot-bootstrap` application in the cluster. This will in turn deploy the `argo-cd` application, making Argo-CD manage itself, completing the bootstrap process.
+
+Before the bootstrap command is finished it will print out the initial Argo-CD admin password, as well as the command to run to enable port-forwarding:
 ```
 INFO argocd initialized. password: pfrDVRJZtHYZKzBv 
 INFO run:
@@ -64,45 +49,51 @@ INFO run:
 ```
 <sub>(Your initial password will be different)</sub>
 
-Execute the port-forward command, and browse to http://localhost:8080. Log in using username `admin`, and the password from the previous step. your initial Argo CD deployment should look like this:
+Execute the port forward command, and browse to `http://localhost:8080`. You can log in with user: `admin`, and the password from the previous step.
+
+Your initial Argo CD should have the following applications:
+
+* `autopilot-bootstrap` - References the `bootstrap` directory in the GitOps repository, and manages the other 2 applications
+* `argo-cd` - References the `bootstrap/argo-cd` folder, and manages the Argo CD deployment itself (including Argo CD ApplicationSet)
+* `root` - References the `projects` directiry in the repo. The folder contains only an empty `DUMMY` file after the bootstrap command, so no projects will be created
 
 <!-- FIXME: Screenshot is outdated; missing the `cluster-resources-in-cluster` Application introduced with #79. -->
 ![Step 1](assets/getting_started_1.png)
 
-### Recovering Argo CD from an existing repository
-```
-argocd-autopilot repo bootstrap --recover \
-  --app "github.com/git-user/repo-name/bootstrap" #optional
-```
 
-In case of a cluster failure, you can recover Argo CD from an existing repository using `--recover` flag. You can optionally use it with `--app` flag to specify the path to the existing Argo CD manifests.
+## Create a Project
+Projects provide a way to logically group applications and easily control things such as defaults and restrictions.
 
-### Using Argo CD HA
-Using Argo CD HA with Argo CD Autopilot is fully supported. Bootstrap Argo CD with high-availability using the [App Specifier](App-Specifier/) model `argocd-autopilot repo bootstrap --app https://github.com/argoproj-labs/argocd-autopilot/manifests/ha`.
+Projects may also be used to deploy applications to different kubernetes clusters.
 
-### Running Applications:
-* autopilot-bootstrap - References the `bootstrap` directory in the GitOps repository, and manages the other 2 applications
-* argo-cd - References the `bootstrap/argo-cd` folder, and manages the Argo CD deployment itself (including Argo CD ApplicationSet)
-* root - References the `projects` directory in the repo. The folder contains only an empty `DUMMY` file after the bootstrap command, so no projects will be created
-
-## Add a Project and an Application
-Execute the following commands to create a `testing` project, and add an example application to it:
+To create your first project run the following command:
 ```
 argocd-autopilot project create testing
+```
+This will create the `testing` [AppProject](https://argo-cd.readthedocs.io/en/stable/user-guide/projects/) and [ApplicationSet](https://argo-cd.readthedocs.io/en/stable/user-guide/application-set/). You should see that it was pushed to your installation repository under `/projects/testing.yaml`
+
+## Add an Application
+Now that you have your first project, Argo-CD applications can be added to it and deployed with a simple command:
+```
 argocd-autopilot app create hello-world --app github.com/argoproj-labs/argocd-autopilot/examples/demo-app/ -p testing --wait-timeout 2m
 ```
 <sub>* notice the trailing slash in the URL</sub>
 
-After the application is created, and after Argo CD has finished its sync cycle, your new project will appear under the *Root* application:
+This will create an application with the name `hello-world` and add it to the `testing` project.
+
+After the application is created, and Argo-CD has finished its sync cycle, your new `testing` project will appear under the `root` application:
 
 ![Step 2](assets/getting_started_2.png)
 
-The "hello-world" application will also be deployed to the cluster:
+And the `hello-world` application will also be deployed to the cluster:
 
 ![Step 3](assets/getting_started_3.png)
 
-## Uninstall everything when done
-The following command will clear your entire GitOps Repository of related files, and your k8s cluster from any resources autopilot created:
+## Uninstalling
+The following command will clear your GitOps repository of related files, and your Kubernetes cluster from any autopilot related resources (including Argo-CD itself)
 ```
 argocd-autopilot repo uninstall
 ```
+
+## Advanced Use Cases
+For more advanced use-case, which includes deploying to multiple environments, you can go through this [argocd-autopilot deep dive](https://codefresh.io/about-gitops/launching-argo-cd-autopilot-opinionated-way-manage-applications-across-environments-using-gitops-scale/) blog post.
