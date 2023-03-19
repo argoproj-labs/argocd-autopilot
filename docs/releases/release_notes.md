@@ -1,12 +1,11 @@
 ### Changes
 
-- [docs] docs: fix wordings and typos in Getting-Started [#431](https://github.com/argoproj-labs/argocd-autopilot/pull/431)
-- [fix] when bootstrap repo contains a port, argocd-tls-certs-cm is invalid [#434](https://github.com/argoproj-labs/argocd-autopilot/issues/434)
+- [docs] improved and organized official docs [#440](https://github.com/argoproj-labs/argocd-autopilot/pull/440)
+- [fix] redundant validation of write permission when using `--recover` [#443](https://github.com/argoproj-labs/argocd-autopilot/issues/443)
 
 ### Contributors:
 
-- Thomas Stadler ([@thomasstxyz](https://github.com/thomasstxyz))
-- Noam Gal ([@noam-codefresh](https://github.com/noam-codefresh))
+- Roi Kramer ([@roi-codefresh](https://github.com/roi-codefresh))
 
 ## Installation:
 
@@ -49,7 +48,7 @@ argocd-autopilot version
 
 ```bash
 # download and extract the binary
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.13/argocd-autopilot-linux-amd64.tar.gz | tar zx
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.14/argocd-autopilot-linux-amd64.tar.gz | tar zx
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
@@ -62,7 +61,7 @@ argocd-autopilot version
 
 ```bash
 # download and extract the binary
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.13/argocd-autopilot-darwin-amd64.tar.gz | tar zx
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.14/argocd-autopilot-darwin-amd64.tar.gz | tar zx
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
@@ -79,5 +78,5 @@ When using the Docker image, you have to provide the `.kube` and `.gitconfig` di
 docker run \
   -v ~/.kube:/home/autopilot/.kube \
   -v ~/.gitconfig:/home/autopilot/.gitconfig \
-  -it quay.io/argoprojlabs/argocd-autopilot:v0.4.13 <cmd> <flags>
+  -it quay.io/argoprojlabs/argocd-autopilot:v0.4.14 <cmd> <flags>
 ```
