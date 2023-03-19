@@ -146,7 +146,14 @@ func NewRepoBootstrapCommand() *cobra.Command {
 
 	<BIN> repo bootstrap --repo https://github.com/example/repo/path/to/installation_root
 `),
-		PreRun: func(_ *cobra.Command, _ []string) { cloneOpts.Parse() },
+		PreRun: func(_ *cobra.Command, _ []string) {
+			cloneOpts.Parse()
+			if recover {
+				// in recover mode we don't want to commit anything
+				cloneOpts.CloneForWrite = false
+				cloneOpts.CreateIfNotExist = false
+			}
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return RunRepoBootstrap(cmd.Context(), &RepoBootstrapOptions{
 				AppSpecifier:     appSpecifier,
