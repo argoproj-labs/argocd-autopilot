@@ -1,5 +1,10 @@
 # Changelog:
 
+# v0.4.14
+
+- [docs] improved and organized official docs [#440](https://github.com/argoproj-labs/argocd-autopilot/pull/440)
+- [fix] redundant validation of write permission when using `--recover` [#443](https://github.com/argoproj-labs/argocd-autopilot/issues/443)
+
 # v0.4.13
 
 - [docs] docs: fix wordings and typos in Getting-Started [#431](https://github.com/argoproj-labs/argocd-autopilot/pull/431)
