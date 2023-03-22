@@ -26,7 +26,7 @@ export GIT_REPO=https://github.com/owner/name
 #### Using a Specific git Provider
 You can add the `--provider` flag to the `repo bootstrap` command, to enforce using a specific provider when creating a new repository. If the value is not supplied, the code will attempt to infer it from the clone URL.
 
-Autopilot currently supports a variaty of git providers, you should check if yours is currently supported [here](./Git-Providers.md).
+Autopilot currently supports a variety of git providers, you should check if yours is currently supported [here](./Git-Providers.md).
 
 
 ## Bootstrap Argo-CD 
