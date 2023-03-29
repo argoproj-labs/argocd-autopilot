@@ -1,5 +1,10 @@
 # Changelog:
 
+# v0.4.15
+
+- [docs] fix small typo in Getting Started docs [#445](https://github.com/argoproj-labs/argocd-autopilot/pull/445)
+- [chore] fixed security vulnerabilities [#446](https://github.com/argoproj-labs/argocd-autopilot/issues/446)
+
 # v0.4.14
 
 - [docs] improved and organized official docs [#440](https://github.com/argoproj-labs/argocd-autopilot/pull/440)
