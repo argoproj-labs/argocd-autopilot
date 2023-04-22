@@ -56,7 +56,7 @@ Your initial Argo CD should have the following applications:
 
 * `autopilot-bootstrap` - References the `bootstrap` directory in the GitOps repository, and manages the other 2 applications
 * `argo-cd` - References the `bootstrap/argo-cd` folder, and manages the Argo CD deployment itself (including Argo CD ApplicationSet)
-* `root` - References the `projects` directiry in the repo. The folder contains only an empty `DUMMY` file after the bootstrap command, so no projects will be created
+* `root` - References the `projects` directory in the repo. The folder contains only an empty `DUMMY` file after the bootstrap command, so no projects will be created
 
 <!-- FIXME: Screenshot is outdated; missing the `cluster-resources-in-cluster` Application introduced with #79. -->
 ![Step 1](assets/getting_started_1.png)
