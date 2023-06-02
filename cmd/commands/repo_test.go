@@ -121,8 +121,6 @@ func Test_validateRepo(t *testing.T) {
 
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
-			t.Parallel()
-
 			repofs := fs.Create(memfs.New())
 			if tt.preFn != nil {
 				tt.preFn(t, repofs)
