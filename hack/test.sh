@@ -3,10 +3,10 @@
 set -e
 echo "" > coverage.txt
 
-go mod tidy
-git status
-
 for d in $(go list ./... | grep -v vendor); do
+    echo "tidying"
+    go mod tidy
+    git status
     echo "before $d"
     go test -v -race -coverprofile=profile.out -covermode=atomic $d
     echo "after $d"
