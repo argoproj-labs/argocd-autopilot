@@ -3,6 +3,9 @@
 set -e
 echo "" > coverage.txt
 
+go mod tidy
+git status
+
 echo "before github.com/argoproj-labs/argocd-autopilot/hack/commands"
 go test -v -race -coverprofile=profile.out -covermode=atomic github.com/argoproj-labs/argocd-autopilot/hack/commands
 echo "after github.com/argoproj-labs/argocd-autopilot/hack/commands"
