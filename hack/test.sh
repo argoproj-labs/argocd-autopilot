@@ -3,9 +3,9 @@
 set -e
 echo "" > coverage.txt
 
-echo "before github.com/argoproj-labs/argocd-autopilot/hack/cmd-docs"
-go test -v -race -coverprofile=profile.out -covermode=atomic github.com/argoproj-labs/argocd-autopilot/hack/cmd-docs
-echo "after github.com/argoproj-labs/argocd-autopilot/hack/cmd-docs"
+echo "before github.com/argoproj-labs/argocd-autopilot/hack/commands"
+go test -v -race -coverprofile=profile.out -covermode=atomic github.com/argoproj-labs/argocd-autopilot/hack/commands
+echo "after github.com/argoproj-labs/argocd-autopilot/hack/commands"
 
 # for d in $(go list ./... | grep -v vendor); do
 #     go test -v -race -coverprofile=profile.out -covermode=atomic $d
