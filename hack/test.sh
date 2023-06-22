@@ -3,7 +3,7 @@
 set -e
 echo "" > coverage.txt
 
-for d in $(go list ./... | grep -v vendor); do
+for d in $(go list ./...); do
     echo "tidying"
     # go mod tidy
     # git status
