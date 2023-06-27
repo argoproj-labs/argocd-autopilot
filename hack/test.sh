@@ -3,7 +3,7 @@
 set -e
 echo "" > coverage.txt
 
-go test -v -race -coverprofile=profile.out -covermode=atomic ./...
+go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
 
 # for d in $(go list ./...); do
     # echo "tidying"
