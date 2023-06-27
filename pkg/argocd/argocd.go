@@ -12,7 +12,6 @@ import (
 	"github.com/argoproj/argo-cd/v2/cmd/argocd/commands"
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	argocdcs "github.com/argoproj/argo-cd/v2/pkg/client/clientset/versioned"
-	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/spf13/cobra"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -82,7 +81,7 @@ func GetAppSyncWaitFunc(revision string, waitForCreation bool) kube.WaitFunc {
 		}
 
 		synced := app.Status.Sync.Status == v1alpha1.SyncStatusCodeSynced
-		healthy := app.Status.Health.Status == health.HealthStatusHealthy
+		healthy := app.Status.Health.Status == "Healthy"
 		onRevision := true
 		if revision != "" {
 			onRevision = revision == app.Status.Sync.Revision
