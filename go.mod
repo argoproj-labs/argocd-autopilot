@@ -7,7 +7,7 @@ require (
 	github.com/argoproj/argo-cd/v2 v2.5.9
 	github.com/briandowns/spinner v1.18.1
 	github.com/ghodss/yaml v1.0.0
-	github.com/go-git/go-billy/v5 v5.3.1
+	github.com/go-git/go-billy/v5 v5.4.1
 	github.com/go-git/go-git/v5 v5.4.2
 	github.com/golang/mock v1.6.0
 	github.com/google/go-github/v43 v43.0.0
