@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
+
 	gt "code.gitea.io/sdk/gitea"
 )
 
@@ -24,7 +26,8 @@ type (
 )
 
 func newGitea(opts *ProviderOptions) (Provider, error) {
-	c, err := gt.NewClient(opts.RepoURL, gt.SetToken(opts.Auth.Password))
+	host, _, _, _, _, _, _ := util.ParseGitUrl(opts.RepoURL)
+	c, err := gt.NewClient(host, gt.SetToken(opts.Auth.Password))
 	if err != nil {
 		return nil, err
 	}
