@@ -38,7 +38,7 @@ steps:
     title: Clean old repo
     image: 'codefresh/kube-helm'
     commands:
-    - curl -H "Authorization:Bearer $GIT_TOKEN" -X DELETE "https://api.github.com/repos/${{GIT_REPO}}" || true
+    - curl -H "Authorization:Bearer $GITHUB_TOKEN" -X DELETE "https://api.github.com/repos/${{GIT_REPO}}" || true
     when:
       steps:
       - name: prep
@@ -99,7 +99,7 @@ steps:
       - export GIT_REPO=https://github.com/${{GIT_REPO}}
       - argocd-autopilot repo uninstall --request-timeout 5m
       - kubectl delete namespace $NAMESPACE
-      - curl -H "Authorization:Bearer $GIT_TOKEN" -X DELETE "https://api.github.com/repos/${{GIT_REPO}}" || true
+      - curl -H "Authorization:Bearer $GITHUB_TOKEN" -X DELETE "https://api.github.com/repos/${{GIT_REPO}}" || true
     when:
       steps:
       - name: run_bootstrap
@@ -113,7 +113,7 @@ steps:
     commands:
       - kubectl delete application autopilot-bootstrap -n $NAMESPACE --request-timeout ${{KUBECTL_TIMEOUT}} || true
       - kubectl delete ns $NAMESPACE --request-timeout ${{KUBECTL_TIMEOUT}} || true
-      - curl -H "Authorization:Bearer $GIT_TOKEN" -X DELETE "https://api.github.com/repos/${{GIT_REPO}}" || true
+      - curl -H "Authorization:Bearer $GITHUB_TOKEN" -X DELETE "https://api.github.com/repos/${{GIT_REPO}}" || true
     when:
       steps:
       - name: run_bootstrap
