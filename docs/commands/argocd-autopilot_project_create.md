@@ -36,6 +36,7 @@ argocd-autopilot project create [PROJECT] [flags]
       --aws-role-arn string                Optional AWS role arn. If set then AWS IAM Authenticator assumes a role to perform cluster operations instead of the default AWS credential provider chain.
       --client-crt string                  Client certificate file
       --client-crt-key string              Client certificate key file
+      --cluster-endpoint string            Cluster endpoint to use. Can be one of the following: 'kubeconfig', 'kube-public', or 'internal'.
       --cluster-resources                  Indicates if cluster level resources should be managed. The setting is used only if list of managed namespaces is not empty.
       --config string                      Path to Argo CD config (default "/home/user/.config/argocd/config")
       --core                               If set to true then CLI talks directly to Kubernetes instead of talking to Argo CD API server
