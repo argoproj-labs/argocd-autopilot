@@ -32,7 +32,7 @@ func Test_adoGit_CreateRepository(t *testing.T) {
 		{
 			name: "Failure creating repo",
 			mockClient: func(client *adoMock.MockAdoClient, url *adoMock.MockAdoUrl) {
-				client.EXPECT().CreateRepository(context.TODO(), gomock.AssignableToTypeOf(ado.CreateRepositoryArgs{})).
+				client.EXPECT().CreateRepository(context.Background(), gomock.AssignableToTypeOf(ado.CreateRepositoryArgs{})).
 					Times(1).
 					Return(nil, errors.New("ah an error"))
 				url.EXPECT().GetProjectName().
@@ -51,7 +51,7 @@ func Test_adoGit_CreateRepository(t *testing.T) {
 				url.EXPECT().GetProjectName().
 					Times(1).
 					Return("PROJECT")
-				client.EXPECT().CreateRepository(context.TODO(), gomock.AssignableToTypeOf(ado.CreateRepositoryArgs{})).
+				client.EXPECT().CreateRepository(context.Background(), gomock.AssignableToTypeOf(ado.CreateRepositoryArgs{})).
 					Times(1).
 					Return(&ado.GitRepository{
 						Links:            nil,
