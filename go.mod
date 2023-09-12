@@ -238,9 +238,11 @@ replace (
 	github.com/go-check/check => github.com/go-check/check v0.0.0-20180628173108-788fd7840127
 
 	github.com/golang/protobuf => github.com/golang/protobuf v1.4.2
-	github.com/gorilla/websocket => github.com/gorilla/websocket v1.4.2
 	github.com/grpc-ecosystem/grpc-gateway => github.com/grpc-ecosystem/grpc-gateway v1.16.0
 	github.com/improbable-eng/grpc-web => github.com/improbable-eng/grpc-web v0.0.0-20181111100011-16092bd1d58a
+
+	// Avoid CVE-2022-3064
+	gopkg.in/yaml.v2 => gopkg.in/yaml.v2 v2.4.0
 
 	// Avoid CVE-2022-28948
 	gopkg.in/yaml.v3 => gopkg.in/yaml.v3 v3.0.1
