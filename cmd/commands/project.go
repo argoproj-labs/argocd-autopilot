@@ -324,7 +324,7 @@ func generateProjectManifests(o *GenerateProjectOptions) (projectYAML, appSetYAM
 					RequeueAfterSeconds: &DefaultApplicationSetGeneratorInterval,
 					Template: argocdv1alpha1.ApplicationSetTemplate{
 						Spec: argocdv1alpha1.ApplicationSpec{
-							Source: argocdv1alpha1.ApplicationSource{
+							Source: &argocdv1alpha1.ApplicationSource{
 								Directory: &argocdv1alpha1.ApplicationSourceDirectory{
 									Recurse: true,
 									Exclude: "{{ exclude }}",
