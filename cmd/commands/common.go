@@ -107,7 +107,7 @@ func createApp(opts *createAppOptions) ([]byte, error) {
 		},
 		Spec: argocdv1alpha1.ApplicationSpec{
 			Project: "default",
-			Source: argocdv1alpha1.ApplicationSource{
+			Source: &argocdv1alpha1.ApplicationSource{
 				RepoURL:        opts.repoURL,
 				Path:           opts.srcPath,
 				TargetRevision: opts.revision,
@@ -222,7 +222,7 @@ func createAppSet(o *createAppSetOptions) ([]byte, error) {
 				},
 				Spec: argocdv1alpha1.ApplicationSpec{
 					Project: o.appProject,
-					Source: argocdv1alpha1.ApplicationSource{
+					Source: &argocdv1alpha1.ApplicationSource{
 						RepoURL:        o.repoURL,
 						Path:           o.srcPath,
 						TargetRevision: o.revision,
