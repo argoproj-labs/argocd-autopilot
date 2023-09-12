@@ -24,7 +24,7 @@
 ### Contributors:
 
 - Wim Fournier ([@hsmade](https://github.com/hsmade))
-- Noam Gal ([@hsmade](https://github.com/noam-codefresh))
+- Noam Gal ([@noam-codefresh](https://github.com/noam-codefresh))
 - gamerslouis ([@gamerslouis](https://github.com/gamerslouis))
 - TomyLobo ([@TomyLobo](https://github.com/TomyLobo))
 
