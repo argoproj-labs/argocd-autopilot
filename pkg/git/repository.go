@@ -359,6 +359,7 @@ func (r *repo) commit(ctx context.Context, opts *PushOptions) (*plumbing.Hash, e
 	h, err = w.Commit(opts.CommitMsg, &gg.CommitOptions{
 		All:    true,
 		Author: author,
+		AllowEmptyCommits: true,
 	})
 	if err != nil {
 		return nil, err
