@@ -38,7 +38,7 @@ steps:
     title: Clean old repo
     image: 'codefresh/kube-helm'
     commands:
-    - curl -H "Authorization:Bearer $GIT_TOKEN" -X DELETE "https://api.github.com/repos/${{GIT_REPO}}" || true
+    - curl -H "Authorization:Bearer $GITHUB_TOKEN" -X DELETE "https://api.github.com/repos/${{GIT_REPO}}" || true
     when:
       steps:
       - name: prep
@@ -81,6 +81,7 @@ steps:
     commands:
       - git config --global user.email "cfci.bot@codefresh.io"
       - git config --global user.name "cf-ci-bot"
+      - export GIT_TOKEN=${{GITHUB_TOKEN}}
       - export GIT_REPO=https://github.com/${{GIT_REPO}}
       - argocd-autopilot repo bootstrap -n $NAMESPACE
       - argocd-autopilot project create e2e
@@ -96,10 +97,11 @@ steps:
     title: "delete bootstrap & cleanup"
     image: "codefresh/kube-helm"
     commands:
+      - export GIT_TOKEN=${{GITHUB_TOKEN}}
       - export GIT_REPO=https://github.com/${{GIT_REPO}}
       - argocd-autopilot repo uninstall --request-timeout 5m
       - kubectl delete namespace $NAMESPACE
-      - curl -H "Authorization:Bearer $GIT_TOKEN" -X DELETE "https://api.github.com/repos/${{GIT_REPO}}" || true
+      - curl -H "Authorization:Bearer $GITHUB_TOKEN" -X DELETE "https://api.github.com/repos/${{GIT_REPO}}" || true
     when:
       steps:
       - name: run_bootstrap
@@ -113,9 +115,13 @@ steps:
     commands:
       - kubectl delete application autopilot-bootstrap -n $NAMESPACE --request-timeout ${{KUBECTL_TIMEOUT}} || true
       - kubectl delete ns $NAMESPACE --request-timeout ${{KUBECTL_TIMEOUT}} || true
-      - curl -H "Authorization:Bearer $GIT_TOKEN" -X DELETE "https://api.github.com/repos/${{GIT_REPO}}" || true
+      - curl -H "Authorization:Bearer $GITHUB_TOKEN" -X DELETE "https://api.github.com/repos/${{GIT_REPO}}" || true
     when:
       steps:
-      - name: run_bootstrap
-        on:
-        - failure
+        any:
+        - name: run_bootstrap
+          on:
+          - failure
+        - name: delete_bootstrap
+          on:
+          - failure
