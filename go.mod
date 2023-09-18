@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	code.gitea.io/sdk/gitea v0.16.0
-	github.com/argoproj/argo-cd/v2 v2.8.3
+	github.com/argoproj/argo-cd/v2 v2.8.4
 	github.com/briandowns/spinner v1.23.0
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-git/go-billy/v5 v5.5.0
