@@ -25,7 +25,7 @@ USER 999
 WORKDIR /home/autopilot
 
 ### Build
-FROM docker.io/library/golang:1.19 as build
+FROM docker.io/library/golang:1.21 as build
 
 WORKDIR /go/src/github.com/argoproj-labs/argocd-autopilot
 

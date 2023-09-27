@@ -1,6 +1,6 @@
 module github.com/argoproj-labs/argocd-autopilot
 
-go 1.20
+go 1.21
 
 require (
 	code.gitea.io/sdk/gitea v0.16.0
@@ -18,7 +18,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.16.0
 	github.com/stretchr/testify v1.8.4
-	github.com/xanzy/go-gitlab v0.91.1
+	github.com/xanzy/go-gitlab v0.92.1
 	k8s.io/api v0.24.15
 	k8s.io/apimachinery v0.24.15
 	k8s.io/cli-runtime v0.24.15
