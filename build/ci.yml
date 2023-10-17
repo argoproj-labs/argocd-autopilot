@@ -18,7 +18,7 @@ steps:
 
   prepare_env_vars: &deps
     stage: Prepare
-    title: prepare-env & download modules
+    title: prepare-env
     image: quay.io/codefresh/golang-ci-helper:1.21.1
     commands:
       - cf_export GO111MODULE=on
@@ -31,16 +31,15 @@ steps:
           on:
             - success
 
-  download_modules:
+  clean:
     <<: *deps
     stage: Prepare
-    title: download modules
+    title: clean
     commands:
-      - go mod download -x
       - make clean
     when:
       steps:
-        - name: prepare_env_vars
+        - name: main_clone
           on:
             - success
 
@@ -53,7 +52,10 @@ steps:
       - make check-worktree
     when:
       steps:
-        - name: download_modules
+        - name: prepare_env_vars
+          on:
+            - success
+        - name: clean
           on:
             - success
 
