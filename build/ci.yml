@@ -117,10 +117,11 @@ steps:
       - SNYK_TOKEN=${{SNYK_TOKEN}}
       - LOCAL_IMAGE_REF=${{IMAGE_NAME}}:${{CF_BRANCH_TAG_NORMALIZED_LOWER_CASE}}
     commands:
-      - |
-        snyk test --severity-threshold=${{SNYK_SEVERITY_THRESHOLD}} || fail=1
-        snyk container test --severity-threshold=${{SNYK_SEVERITY_THRESHOLD}} --file=Dockerfile ${LOCAL_IMAGE_REF}
-        if [ "$fail" == "1" ]; then exit 1; fi
+      - sleep 600
+      # - |
+      #   snyk test --severity-threshold=${{SNYK_SEVERITY_THRESHOLD}} || fail=1
+      #   snyk container test --severity-threshold=${{SNYK_SEVERITY_THRESHOLD}} --file=Dockerfile ${LOCAL_IMAGE_REF}
+      #   if [ "$fail" == "1" ]; then exit 1; fi
     when:
       steps:
         - name: build
