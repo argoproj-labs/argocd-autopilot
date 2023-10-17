@@ -14,7 +14,7 @@ RUN groupadd -g 999 autopilot && \
     chmod g=u /home/autopilot && \
     apt-get update -y && \
     apt-get upgrade -y && \
-    apt-get install -y git git-lfs tini gpg tzdata && \
+    apt-get install -y git tini gpg tzdata && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 

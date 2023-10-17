@@ -18,7 +18,7 @@ steps:
 
   prepare_env_vars: &deps
     stage: Prepare
-    title: prepare-env & download modules
+    title: prepare-env
     image: quay.io/codefresh/golang-ci-helper:1.21.1
     commands:
       - cf_export GO111MODULE=on
@@ -31,16 +31,15 @@ steps:
           on:
             - success
 
-  download_modules:
+  clean:
     <<: *deps
     stage: Prepare
-    title: download modules
+    title: clean
     commands:
-      - go mod download -x
       - make clean
     when:
       steps:
-        - name: prepare_env_vars
+        - name: main_clone
           on:
             - success
 
@@ -53,7 +52,10 @@ steps:
       - make check-worktree
     when:
       steps:
-        - name: download_modules
+        - name: prepare_env_vars
+          on:
+            - success
+        - name: clean
           on:
             - success
 
@@ -117,6 +119,8 @@ steps:
       - SNYK_TOKEN=${{SNYK_TOKEN}}
       - LOCAL_IMAGE_REF=${{IMAGE_NAME}}:${{CF_BRANCH_TAG_NORMALIZED_LOWER_CASE}}
     commands:
+      # - sleep 600
+      # - exit 1
       - |
         snyk test --severity-threshold=${{SNYK_SEVERITY_THRESHOLD}} || fail=1
         snyk container test --severity-threshold=${{SNYK_SEVERITY_THRESHOLD}} --file=Dockerfile ${LOCAL_IMAGE_REF}
