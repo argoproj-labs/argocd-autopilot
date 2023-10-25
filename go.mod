@@ -8,7 +8,7 @@ require (
 	github.com/briandowns/spinner v1.23.0
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-git/go-billy/v5 v5.5.0
-	github.com/go-git/go-git/v5 v5.9.0
+	github.com/go-git/go-git/v5 v5.10.0
 	github.com/golang/mock v1.6.0
 	github.com/google/go-github/v43 v43.0.0
 	github.com/ktrysmt/go-bitbucket v0.9.70
