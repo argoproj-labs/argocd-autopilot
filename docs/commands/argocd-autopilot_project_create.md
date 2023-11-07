@@ -39,6 +39,7 @@ argocd-autopilot project create [PROJECT] [flags]
       --cluster-endpoint string            Cluster endpoint to use. Can be one of the following: 'kubeconfig', 'kube-public', or 'internal'.
       --cluster-resources                  Indicates if cluster level resources should be managed. The setting is used only if list of managed namespaces is not empty.
       --config string                      Path to Argo CD config (default "/home/user/.config/argocd/config")
+      --controller-name string             Name of the Argo CD Application controller; set this or the ARGOCD_APPLICATION_CONTROLLER_NAME environment variable when the controller's name label differs from the default, for example when installing via the Helm chart (default "argocd-application-controller")
       --core                               If set to true then CLI talks directly to Kubernetes instead of talking to Argo CD API server
       --dest-kube-context string           The default destination kubernetes context for applications in this project (will be ignored if --dest-kube-server is supplied)
       --dest-server string                 The default destination kubernetes server for applications in this project
@@ -65,9 +66,13 @@ argocd-autopilot project create [PROJECT] [flags]
       --port-forward                       Connect to a random argocd-server port using port forwarding
       --port-forward-namespace string      Namespace name which should be used for port forwarding
       --project string                     project of the cluster
+      --redis-haproxy-name string          Name of the Redis HA Proxy; set this or the ARGOCD_REDIS_HAPROXY_NAME environment variable when the HA Proxy's name label differs from the default, for example when installing via the Helm chart (default "argocd-redis-ha-haproxy")
+      --redis-name string                  Name of the Redis deployment; set this or the ARGOCD_REDIS_NAME environment variable when the Redis's name label differs from the default, for example when installing via the Helm chart (default "argocd-redis")
       --repo string                        Repository URL [GIT_REPO]
+      --repo-server-name string            Name of the Argo CD Repo server; set this or the ARGOCD_REPO_SERVER_NAME environment variable when the server's name label differs from the default, for example when installing via the Helm chart (default "argocd-repo-server")
       --server string                      Argo CD server address
       --server-crt string                  Server certificate file
+      --server-name string                 Name of the Argo CD API server; set this or the ARGOCD_SERVER_NAME environment variable when the server's name label differs from the default, for example when installing via the Helm chart (default "argocd-server")
       --service-account string             System namespace service account to use for kubernetes resource management. If not set then default "argocd-manager" SA will be created
       --shard int                          Cluster shard number; inferred from hostname if not set (default -1)
       --system-namespace string            Use different system namespace (default "kube-system")
