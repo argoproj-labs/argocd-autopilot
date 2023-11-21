@@ -74,11 +74,11 @@ func (g *gitlab) CreateRepository(ctx context.Context, orgRepo string) (defaultB
 
 	createOpts := gl.CreateProjectOptions{
 		Name:       &opts.Name,
-		Visibility: gl.Visibility(gl.PublicVisibility),
+		Visibility: gl.Ptr(gl.PublicVisibility),
 	}
 
 	if opts.Private {
-		createOpts.Visibility = gl.Visibility(gl.PrivateVisibility)
+		createOpts.Visibility = gl.Ptr(gl.PrivateVisibility)
 	}
 
 	if authUser.Username != opts.Owner {
@@ -87,7 +87,7 @@ func (g *gitlab) CreateRepository(ctx context.Context, orgRepo string) (defaultB
 			return "", err
 		}
 
-		createOpts.NamespaceID = gl.Int(groupId)
+		createOpts.NamespaceID = gl.Ptr(groupId)
 	}
 
 	p, _, err := g.client.CreateProject(&createOpts)

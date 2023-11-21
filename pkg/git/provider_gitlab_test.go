@@ -65,8 +65,8 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 			beforeFn: func(c *glmocks.MockGitlabClient) {
 				u := &gl.User{Username: "username"}
 				createOpts := gl.CreateProjectOptions{
-					Name:       gl.String("projectName"),
-					Visibility: gl.Visibility(gl.PrivateVisibility),
+					Name:       gl.Ptr("projectName"),
+					Visibility: gl.Ptr(gl.PrivateVisibility),
 				}
 				res := &gl.Response{
 					Response: &http.Response{},
@@ -90,8 +90,8 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 					DefaultBranch: "main",
 				}
 				createOpts := gl.CreateProjectOptions{
-					Name:       gl.String("projectName"),
-					Visibility: gl.Visibility(gl.PrivateVisibility),
+					Name:       gl.Ptr("projectName"),
+					Visibility: gl.Ptr(gl.PrivateVisibility),
 				}
 
 				c.EXPECT().CurrentUser().
@@ -113,9 +113,9 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 				}
 				g := &gl.Group{FullPath: "org", ID: 1}
 				createOpts := gl.CreateProjectOptions{
-					Name:        gl.String("projectName"),
-					Visibility:  gl.Visibility(gl.PrivateVisibility),
-					NamespaceID: gl.Int(1),
+					Name:        gl.Ptr("projectName"),
+					Visibility:  gl.Ptr(gl.PrivateVisibility),
+					NamespaceID: gl.Ptr(1),
 				}
 
 				c.EXPECT().GetGroup("org", &gl.GetGroupOptions{}).
@@ -138,9 +138,9 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 				}
 				g := &gl.Group{FullPath: "org/subOrg", ID: 1}
 				createOpts := gl.CreateProjectOptions{
-					Name:        gl.String("projectName"),
-					Visibility:  gl.Visibility(gl.PrivateVisibility),
-					NamespaceID: gl.Int(1),
+					Name:        gl.Ptr("projectName"),
+					Visibility:  gl.Ptr(gl.PrivateVisibility),
+					NamespaceID: gl.Ptr(1),
 				}
 
 				c.EXPECT().GetGroup("org/subOrg", &gl.GetGroupOptions{}).
@@ -161,8 +161,8 @@ func Test_gitlab_CreateRepository(t *testing.T) {
 					DefaultBranch: "main",
 				}
 				createOpts := gl.CreateProjectOptions{
-					Name:       gl.String("projectName"),
-					Visibility: gl.Visibility(gl.PrivateVisibility),
+					Name:       gl.Ptr("projectName"),
+					Visibility: gl.Ptr(gl.PrivateVisibility),
 				}
 				res := &gl.Response{
 					Response: &http.Response{},
