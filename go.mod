@@ -8,7 +8,7 @@ require (
 	github.com/briandowns/spinner v1.23.0
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-git/go-billy/v5 v5.5.0
-	github.com/go-git/go-git/v5 v5.10.0
+	github.com/go-git/go-git/v5 v5.10.1
 	github.com/golang/mock v1.6.0
 	github.com/google/go-github/v43 v43.0.0
 	github.com/ktrysmt/go-bitbucket v0.9.72
@@ -49,7 +49,6 @@ require (
 	github.com/ProtonMail/go-crypto v0.0.0-20230828082145-3c4c8a2d2371 // indirect
 	github.com/RocketChat/Rocket.Chat.Go.SDK v0.0.0-20210112200207-10ab4d695d60 // indirect
 	github.com/TomOnTime/utfutil v0.0.0-20180511104225-09c41003ee1d // indirect
-	github.com/acomagu/bufpipe v1.0.4 // indirect
 	github.com/alicebob/gopher-json v0.0.0-20200520072559-a9ecdc9d1d3a // indirect
 	github.com/alicebob/miniredis/v2 v2.30.3 // indirect
 	github.com/antonmedv/expr v1.12.5 // indirect
@@ -181,7 +180,7 @@ require (
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
 	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/shopspring/decimal v1.2.0 // indirect
-	github.com/skeema/knownhosts v1.2.0 // indirect
+	github.com/skeema/knownhosts v1.2.1 // indirect
 	github.com/skratchdot/open-golang v0.0.0-20160302144031-75fb7ed4208c // indirect
 	github.com/slack-go/slack v0.12.1 // indirect
 	github.com/soheilhy/cmux v0.1.5 // indirect
