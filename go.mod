@@ -3,7 +3,7 @@ module github.com/argoproj-labs/argocd-autopilot
 go 1.21
 
 require (
-	code.gitea.io/sdk/gitea v0.16.0
+	code.gitea.io/sdk/gitea v0.17.0
 	github.com/argoproj/argo-cd/v2 v2.8.4
 	github.com/briandowns/spinner v1.23.0
 	github.com/ghodss/yaml v1.0.0
