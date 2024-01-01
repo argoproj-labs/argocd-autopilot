@@ -3,7 +3,7 @@ module github.com/argoproj-labs/argocd-autopilot
 go 1.21
 
 require (
-	code.gitea.io/sdk/gitea v0.17.0
+	code.gitea.io/sdk/gitea v0.17.1
 	github.com/argoproj/argo-cd/v2 v2.8.4
 	github.com/briandowns/spinner v1.23.0
 	github.com/ghodss/yaml v1.0.0
@@ -125,7 +125,7 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.4 // indirect
-	github.com/hashicorp/go-version v1.5.0 // indirect
+	github.com/hashicorp/go-version v1.6.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/huandu/xstrings v1.3.3 // indirect
 	github.com/imdario/mergo v0.3.16 // indirect
