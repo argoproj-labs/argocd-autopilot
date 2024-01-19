@@ -41,7 +41,7 @@ argocd-autopilot project create [PROJECT] [flags]
       --config string                      Path to Argo CD config (default "/home/user/.config/argocd/config")
       --controller-name string             Name of the Argo CD Application controller; set this or the ARGOCD_APPLICATION_CONTROLLER_NAME environment variable when the controller's name label differs from the default, for example when installing via the Helm chart (default "argocd-application-controller")
       --core                               If set to true then CLI talks directly to Kubernetes instead of talking to Argo CD API server
-      --dest-kube-context string           The default destination kubernetes context for applications in this project (will be ignored if --dest-kube-server is supplied)
+      --dest-kube-context string           The default destination kubernetes context for applications in this project (will be ignored if --dest-server is supplied)
       --dest-server string                 The default destination kubernetes server for applications in this project
       --dry-run                            If true, print manifests instead of applying them to the cluster (nothing will be commited to git)
       --exec-command string                Command to run to provide client credentials to the cluster. You may need to build a custom ArgoCD image to ensure the command is available at runtime.
