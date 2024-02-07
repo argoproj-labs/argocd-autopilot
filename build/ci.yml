@@ -113,7 +113,7 @@ steps:
   scan-image:
     stage: Build
     title: scan docker image
-    image: quay.io/codefresh/snyk-cli:latest
+    image: snyk/snyk:golang
     shell: bash
     environment:
       - SNYK_TOKEN=${{SNYK_TOKEN}}
