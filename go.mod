@@ -1,6 +1,6 @@
 module github.com/argoproj-labs/argocd-autopilot
 
-go 1.21
+go 1.22
 
 require (
 	code.gitea.io/sdk/gitea v0.17.1
@@ -23,7 +23,7 @@ require (
 	k8s.io/apimachinery v0.26.11
 	k8s.io/cli-runtime v0.26.11
 	k8s.io/client-go v0.26.11
-	k8s.io/kubectl v0.26.4
+	k8s.io/kubectl v0.26.11
 	sigs.k8s.io/kustomize/api v0.12.1
 	sigs.k8s.io/kustomize/kyaml v0.13.9
 )
