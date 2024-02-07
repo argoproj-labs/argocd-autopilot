@@ -1,6 +1,6 @@
 module github.com/argoproj-labs/argocd-autopilot
 
-go 1.21
+go 1.22
 
 require (
 	code.gitea.io/sdk/gitea v0.17.1
