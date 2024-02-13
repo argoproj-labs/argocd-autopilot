@@ -11,7 +11,7 @@ require (
 	github.com/go-git/go-git/v5 v5.11.0
 	github.com/golang/mock v1.6.0
 	github.com/google/go-github/v43 v43.0.0
-	github.com/ktrysmt/go-bitbucket v0.9.75
+	github.com/ktrysmt/go-bitbucket v0.9.76
 	github.com/microsoft/azure-devops-go-api/azuredevops v1.0.0-b5
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.0
