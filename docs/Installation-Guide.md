@@ -41,7 +41,7 @@ VERSION=$(curl --silent "https://api.github.com/repos/argoproj-labs/argocd-autop
 curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/"$VERSION"/argocd-autopilot-linux-amd64.tar.gz | tar zx
 
 # move the binary to your $PATH
-mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
+sudo mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
 
 # check the installation
 argocd-autopilot version
