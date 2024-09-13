@@ -22,6 +22,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/protocol/packp"
+	"github.com/go-git/go-git/v5/plumbing/protocol/packp/capability"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/storage"
@@ -130,6 +131,17 @@ var (
 	}
 
 	ggClone = func(ctx context.Context, s storage.Storer, worktree billy.Filesystem, o *gg.CloneOptions) (gogit.Repository, error) {
+		// See https://github.com/go-git/go-git/blob/v5.5.1/_examples/azure_devops/main.go.
+		if strings.Contains(o.URL, "dev.azure.com") {
+			oldCaps := transport.UnsupportedCapabilities
+			defer func() {
+				transport.UnsupportedCapabilities = oldCaps
+			}()
+			transport.UnsupportedCapabilities = []capability.Capability{
+				capability.ThinPack,
+			}
+		}
+
 		return gg.CloneContext(ctx, s, worktree, o)
 	}
 
@@ -212,10 +224,6 @@ func (o *CloneOptions) GetRepo(ctx context.Context) (Repository, fs.FS, error) {
 
 	if o.url == "" {
 		return nil, nil, ErrNoParse
-	}
-
-	if err != nil {
-		log.G(ctx).Warn("failed initializing git provider: %s", err.Error())
 	}
 
 	r, err := clone(ctx, o)
@@ -357,8 +365,8 @@ func (r *repo) commit(ctx context.Context, opts *PushOptions) (*plumbing.Hash, e
 	}
 
 	h, err = w.Commit(opts.CommitMsg, &gg.CommitOptions{
-		All:    true,
-		Author: author,
+		All:               true,
+		Author:            author,
 		AllowEmptyCommits: true,
 	})
 	if err != nil {
