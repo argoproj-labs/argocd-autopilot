@@ -31,8 +31,10 @@ argocd-autopilot project create [PROJECT] [flags]
 ```
       --annotation stringArray             Set metadata annotations (e.g. --annotation key=value)
       --annotations stringToString         Optional annotations that will be set on the Application resource. (e.g. "argocd.argoproj.io/sync-wave={{ placeholder }}" (default [])
+      --argocd-context string              The name of the Argo-CD server context to use
       --auth-token string                  Authentication token
       --aws-cluster-name string            AWS Cluster name if set then aws cli eks token command will be used to access cluster
+      --aws-profile string                 Optional AWS profile. If set then AWS IAM Authenticator uses this profile to perform cluster operations instead of the default AWS credential provider chain.
       --aws-role-arn string                Optional AWS role arn. If set then AWS IAM Authenticator assumes a role to perform cluster operations instead of the default AWS credential provider chain.
       --client-crt string                  Client certificate file
       --client-crt-key string              Client certificate key file
