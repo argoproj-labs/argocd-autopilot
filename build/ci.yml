@@ -19,7 +19,7 @@ steps:
   prepare_env_vars: &deps
     stage: Prepare
     title: prepare-env
-    image: quay.io/codefresh/golang-ci-helper:1.22
+    image: quay.io/codefresh/golang-ci-helper:1.23
     commands:
       - cf_export GO111MODULE=on
       - cf_export GOCACHE=/codefresh/volume/gocache # change gopath to codefresh shared volume
