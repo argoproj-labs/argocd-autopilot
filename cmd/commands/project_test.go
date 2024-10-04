@@ -276,7 +276,7 @@ func Test_getInstallationNamespace(t *testing.T) {
 				_ = billyUtils.WriteFile(repofs, filepath.Join(store.Default.BootsrtrapDir, store.Default.ArgoCDName+".yaml"), []byte("some string"), 0666)
 				return repofs
 			},
-			wantErr: "failed to unmarshal namespace: error unmarshaling JSON: json: cannot unmarshal string into Go value of type v1alpha1.Application",
+			wantErr: "failed to unmarshal namespace: error unmarshaling JSON: while decoding JSON: json: cannot unmarshal string into Go value of type v1alpha1.Application",
 		},
 	}
 	for ttName, tt := range tests {
