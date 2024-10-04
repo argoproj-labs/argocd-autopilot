@@ -268,7 +268,7 @@ func (f *factory) Wait(ctx context.Context, opts *WaitOptions) error {
 		timeout = opts.Timeout
 	}
 
-	return wait.PollImmediate(interval, timeout, func() (done bool, err error) {
+	return wait.PollUntilContextTimeout(ctx, interval, timeout, true, func(ctx context.Context) (done bool, err error) {
 		itr += 1
 		allReady := true
 
