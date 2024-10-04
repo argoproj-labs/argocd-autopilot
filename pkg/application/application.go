@@ -543,7 +543,6 @@ var generateManifests = func(k *kusttypes.Kustomization) ([]byte, error) {
 	}).Debugf("running bootstrap kustomization: %s\n", string(kyaml))
 
 	opts := krusty.MakeDefaultOptions()
-	opts.DoLegacyResourceSort = true
 	kust := krusty.MakeKustomizer(opts)
 	fs := filesys.MakeFsOnDisk()
 	res, err := kust.Run(fs, td)
