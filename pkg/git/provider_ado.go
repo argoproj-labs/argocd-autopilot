@@ -2,6 +2,7 @@ package git
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net/url"
 	"strings"
@@ -52,7 +53,9 @@ func newAdo(opts *ProviderOptions) (Provider, error) {
 		return nil, err
 	}
 
-	connection.TlsConfig.RootCAs = rootCAs
+	connection.TlsConfig = &tls.Config{
+		RootCAs: rootCAs,
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeoutTime)
 	defer cancel()
 	// FYI: ado also has a "core" client that can be used to update project, teams, and other ADO constructs
@@ -97,7 +100,10 @@ func (g *adoGit) GetDefaultBranch(ctx context.Context, orgRepo string) (string, 
 	if err != nil {
 		return "", err
 	}
-
+	if r.DefaultBranch == nil {
+		// Repo is empty.
+		return "main", nil
+	}
 	return *r.DefaultBranch, nil
 }
 
