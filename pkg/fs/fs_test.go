@@ -377,7 +377,7 @@ func Test_fsimpl_ReadYamls(t *testing.T) {
 				&corev1.Namespace{},
 				&corev1.Namespace{},
 			},
-			wantErr: "error unmarshaling JSON: json: cannot unmarshal string into Go value of type v1.Namespace",
+			wantErr: "error unmarshaling JSON: while decoding JSON: json: cannot unmarshal string into Go value of type v1.Namespace",
 			beforeFn: func() FS {
 				ns := &corev1.Namespace{
 					TypeMeta: metav1.TypeMeta{
