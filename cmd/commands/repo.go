@@ -757,13 +757,12 @@ func createBootstrapKustomization(namespace, appSpecifier string, cloneOpts *git
 		})
 	}
 
-	k.FixKustomizationPostUnmarshalling()
 	errs := k.EnforceFields()
 	if len(errs) > 0 {
 		return nil, fmt.Errorf("kustomization errors: %s", strings.Join(errs, "\n"))
 	}
 
-	return k, k.FixKustomizationPreMarshalling()
+	return k, nil
 }
 
 func createCreds(repoUrl string) ([]byte, error) {
