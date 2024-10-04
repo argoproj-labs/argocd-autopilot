@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	_ "embed"
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -63,7 +64,7 @@ var (
 		if projectName != "" {
 			projExists := repofs.ExistsOrDie(repofs.Join(store.Default.ProjectsDir, projectName+".yaml"))
 			if !projExists {
-				return nil, nil, fmt.Errorf(util.Doc(fmt.Sprintf("project '%[1]s' not found, please execute `<BIN> project create %[1]s`", projectName)))
+				return nil, nil, errors.New(util.Doc(fmt.Sprintf("project '%[1]s' not found, please execute `<BIN> project create %[1]s`", projectName)))
 			}
 		}
 
