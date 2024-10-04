@@ -6,7 +6,6 @@ require (
 	code.gitea.io/sdk/gitea v0.19.0
 	github.com/argoproj/argo-cd/v2 v2.13.0
 	github.com/briandowns/spinner v1.23.1
-	github.com/ghodss/yaml v1.0.0
 	github.com/go-git/go-billy/v5 v5.5.0
 	github.com/go-git/go-git/v5 v5.12.0
 	github.com/golang/mock v1.6.0
@@ -26,6 +25,7 @@ require (
 	k8s.io/kubectl v0.31.2
 	sigs.k8s.io/kustomize/api v0.17.2
 	sigs.k8s.io/kustomize/kyaml v0.17.1
+	sigs.k8s.io/yaml v1.4.0
 )
 
 require (
@@ -271,7 +271,6 @@ require (
 	sigs.k8s.io/controller-runtime v0.19.0 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
-	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
 replace (

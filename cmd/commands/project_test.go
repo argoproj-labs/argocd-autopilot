@@ -20,13 +20,12 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
-	"github.com/ghodss/yaml"
-	"github.com/golang/mock/gomock"
-
 	"github.com/go-git/go-billy/v5/memfs"
 	billyUtils "github.com/go-git/go-billy/v5/util"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/yaml"
 )
 
 func TestRunProjectCreate(t *testing.T) {
@@ -195,7 +194,7 @@ func Test_generateProjectManifests(t *testing.T) {
 				store.Default.LabelKeyAppName:      "{{ appName }}",
 			},
 			wantAnnotations: map[string]string{
-				"some-key":                         "some-value",
+				"some-key": "some-value",
 			},
 		},
 	}

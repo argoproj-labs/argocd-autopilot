@@ -17,16 +17,15 @@ import (
 
 	argocdcommon "github.com/argoproj/argo-cd/v2/common"
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
-	"github.com/ghodss/yaml"
+	"github.com/go-git/go-billy/v5/memfs"
+	billyUtils "github.com/go-git/go-billy/v5/util"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	kusttypes "sigs.k8s.io/kustomize/api/types"
-
-	"github.com/go-git/go-billy/v5/memfs"
-	billyUtils "github.com/go-git/go-billy/v5/util"
-	"github.com/stretchr/testify/assert"
+	"sigs.k8s.io/yaml"
 )
 
 func Test_setBootstrapOptsDefaults(t *testing.T) {
