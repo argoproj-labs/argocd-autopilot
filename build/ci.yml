@@ -87,7 +87,7 @@ steps:
 
   codecov-report:
     stage: Test
-    type: codecov-reporter
+    type: codecov-reporter:2.1.0
     title: report code coverage
     arguments:
       codecov_integration: ${{CODECOV_INTEGRATION}}
