@@ -476,7 +476,7 @@ func RunAppDelete(ctx context.Context, opts *AppDeleteOptions) error {
 	appDir := repofs.Join(store.Default.AppsDir, opts.AppName)
 	appExists := repofs.ExistsOrDie(appDir)
 	if !appExists {
-		return fmt.Errorf(util.Doc(fmt.Sprintf("application '%s' not found", opts.AppName)))
+		return errors.New(util.Doc(fmt.Sprintf("application '%s' not found", opts.AppName)))
 	}
 
 	var dirToRemove string
@@ -493,7 +493,7 @@ func RunAppDelete(ctx context.Context, opts *AppDeleteOptions) error {
 		appProjectDir := repofs.Join(appOverlaysDir, opts.ProjectName)
 		overlayExists := repofs.ExistsOrDie(appProjectDir)
 		if !overlayExists {
-			return fmt.Errorf(util.Doc(fmt.Sprintf("application '%s' not found in project '%s'", opts.AppName, opts.ProjectName)))
+			return errors.New(util.Doc(fmt.Sprintf("application '%s' not found in project '%s'", opts.AppName, opts.ProjectName)))
 		}
 
 		allOverlays, err := repofs.ReadDir(appOverlaysDir)

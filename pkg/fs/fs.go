@@ -8,9 +8,9 @@ import (
 
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 
-	"github.com/ghodss/yaml"
 	"github.com/go-git/go-billy/v5"
 	billyUtils "github.com/go-git/go-billy/v5/util"
+	"sigs.k8s.io/yaml"
 )
 
 //go:generate mockgen -destination=./mocks/fs.go -package=mocks -source=./fs.go FS
