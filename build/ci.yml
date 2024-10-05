@@ -5,7 +5,6 @@ stages:
   - Prepare
   - Test
   - Build
-  # - Snyk Scan
   - Push Dev
 
 steps:
@@ -111,28 +110,10 @@ steps:
           on:
             - success
 
-  # scan-module:
-  #   stage: Snyk Scan
-  #   title: scan golang module
-  #   image: snyk/snyk:golang
-  #   shell: bash
-  #   environment:
-  #     - SNYK_TOKEN=${{SNYK_TOKEN}}
-  #   commands:
-  #     - snyk test --severity-threshold=${{SNYK_SEVERITY_THRESHOLD}}
-  #   when:
-  #     steps:
-  #       - name: prepare_env_vars
-  #         on:
-  #           - success
-  #       - name: clean
-  #         on:
-  #           - success
-
   scan-image:
     stage: Build
     title: scan docker image
-    image: snyk/snyk:golang
+    image: quay.io/codefresh/snyk-cli:latest
     shell: bash
     environment:
       - SNYK_TOKEN=${{SNYK_TOKEN}}
