@@ -5,6 +5,7 @@ stages:
   - Prepare
   - Test
   - Build
+  - Snyk Scan
   - Push Dev
 
 steps:
@@ -110,8 +111,26 @@ steps:
           on:
             - success
 
+  scan-module:
+    stage: Snyk Scan
+    title: scan golang module
+    image: snyk/snyk:golang
+    shell: bash
+    environment:
+      - SNYK_TOKEN=${{SNYK_TOKEN}}
+    commands:
+      - snyk test --severity-threshold=${{SNYK_SEVERITY_THRESHOLD}}
+    when:
+      steps:
+        - name: prepare_env_vars
+          on:
+            - success
+        - name: clean
+          on:
+            - success
+
   scan-image:
-    stage: Build
+    stage: Snyk Scan
     title: scan docker image
     image: snyk/snyk:golang
     shell: bash
@@ -119,16 +138,10 @@ steps:
       - SNYK_TOKEN=${{SNYK_TOKEN}}
       - LOCAL_IMAGE_REF=${{IMAGE_NAME}}:${{CF_BRANCH_TAG_NORMALIZED_LOWER_CASE}}
     commands:
-      - |
-        snyk test --severity-threshold=${{SNYK_SEVERITY_THRESHOLD}} || fail=1
-        snyk container test --severity-threshold=${{SNYK_SEVERITY_THRESHOLD}} --file=Dockerfile ${LOCAL_IMAGE_REF}
-        if [ "$fail" == "1" ]; then exit 1; fi
+      - snyk container test --severity-threshold=${{SNYK_SEVERITY_THRESHOLD}} --file=Dockerfile ${LOCAL_IMAGE_REF}
     when:
       steps:
         - name: build
-          on:
-            - success
-        - name: codegen
           on:
             - success
 
