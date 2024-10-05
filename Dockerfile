@@ -1,7 +1,7 @@
 ARG BASE_IMAGE=docker.io/library/ubuntu:22.04
 
 ### Base
-FROM $BASE_IMAGE as base
+FROM $BASE_IMAGE AS base
 
 USER root
 
@@ -25,7 +25,7 @@ USER 999
 WORKDIR /home/autopilot
 
 ### Build
-FROM docker.io/library/golang:1.23 as build
+FROM docker.io/library/golang:1.23 AS build
 
 WORKDIR /go/src/github.com/argoproj-labs/argocd-autopilot
 
