@@ -4,7 +4,7 @@ go 1.23
 
 require (
 	code.gitea.io/sdk/gitea v0.19.0
-	github.com/argoproj/argo-cd/v2 v2.13.0
+	github.com/argoproj/argo-cd/v2 v2.13.1
 	github.com/briandowns/spinner v1.23.1
 	github.com/go-git/go-billy/v5 v5.5.0
 	github.com/go-git/go-git/v5 v5.12.0
@@ -229,6 +229,7 @@ require (
 	go.opentelemetry.io/otel/metric v1.30.0 // indirect
 	go.opentelemetry.io/otel/trace v1.30.0 // indirect
 	go.starlark.net v0.0.0-20230525235612-a134d8f9ddca // indirect
+	go.uber.org/automaxprocs v1.5.3 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.27.0 // indirect
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9 // indirect
