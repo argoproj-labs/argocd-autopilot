@@ -163,4 +163,4 @@ $(GOBIN)/mockgen:
 $(GOBIN)/golangci-lint:
 	@mkdir dist || true
 	@echo installing: golangci-lint
-	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(GOBIN) v1.61.0
+	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(GOBIN) v1.62.0
