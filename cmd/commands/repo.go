@@ -24,7 +24,6 @@ import (
 	argocdcommon "github.com/argoproj/argo-cd/v2/common"
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	argocdsettings "github.com/argoproj/argo-cd/v2/util/settings"
-	"github.com/ghodss/yaml"
 	"github.com/go-git/go-billy/v5/memfs"
 	billyUtils "github.com/go-git/go-billy/v5/util"
 	"github.com/spf13/cobra"
@@ -32,6 +31,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kusttypes "sigs.k8s.io/kustomize/api/types"
+	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -757,13 +757,12 @@ func createBootstrapKustomization(namespace, appSpecifier string, cloneOpts *git
 		})
 	}
 
-	k.FixKustomizationPostUnmarshalling()
 	errs := k.EnforceFields()
 	if len(errs) > 0 {
 		return nil, fmt.Errorf("kustomization errors: %s", strings.Join(errs, "\n"))
 	}
 
-	return k, k.FixKustomizationPreMarshalling()
+	return k, nil
 }
 
 func createCreds(repoUrl string) ([]byte, error) {

@@ -20,11 +20,11 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
-	"github.com/ghodss/yaml"
 	"github.com/go-git/go-billy/v5/memfs"
 	billyUtils "github.com/go-git/go-billy/v5/util"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/yaml"
 )
 
 type (
@@ -130,7 +130,7 @@ func NewProjectCreateCommand() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&kubeServer, "dest-server", "", "The default destination kubernetes server for applications in this project")
-	cmd.Flags().StringVar(&kubeContext, "dest-kube-context", "", "The default destination kubernetes context for applications in this project (will be ignored if --dest-kube-server is supplied)")
+	cmd.Flags().StringVar(&kubeContext, "dest-kube-context", "", "The default destination kubernetes context for applications in this project (will be ignored if --dest-server is supplied)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "If true, print manifests instead of applying them to the cluster (nothing will be commited to git)")
 	cmd.Flags().StringToStringVar(&labels, "labels", nil, "Optional labels that will be set on the Application resource. (e.g. \"app.kubernetes.io/managed-by={{ placeholder }}\"")
 	cmd.Flags().StringToStringVar(&annotations, "annotations", nil, "Optional annotations that will be set on the Application resource. (e.g. \"argocd.argoproj.io/sync-wave={{ placeholder }}\"")

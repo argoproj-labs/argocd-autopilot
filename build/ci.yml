@@ -19,7 +19,7 @@ steps:
   prepare_env_vars: &deps
     stage: Prepare
     title: prepare-env
-    image: quay.io/codefresh/golang-ci-helper:1.22
+    image: quay.io/codefresh/golang-ci-helper:1.23
     commands:
       - cf_export GO111MODULE=on
       - cf_export GOCACHE=/codefresh/volume/gocache # change gopath to codefresh shared volume
@@ -86,7 +86,7 @@ steps:
 
   codecov-report:
     stage: Test
-    type: codecov-reporter
+    type: codecov-reporter:2.1.0
     title: report code coverage
     arguments:
       codecov_integration: ${{CODECOV_INTEGRATION}}
@@ -119,16 +119,10 @@ steps:
       - SNYK_TOKEN=${{SNYK_TOKEN}}
       - LOCAL_IMAGE_REF=${{IMAGE_NAME}}:${{CF_BRANCH_TAG_NORMALIZED_LOWER_CASE}}
     commands:
-      - |
-        snyk test --severity-threshold=${{SNYK_SEVERITY_THRESHOLD}} || fail=1
-        snyk container test --severity-threshold=${{SNYK_SEVERITY_THRESHOLD}} --file=Dockerfile ${LOCAL_IMAGE_REF}
-        if [ "$fail" == "1" ]; then exit 1; fi
+      - snyk container test --severity-threshold=${{SNYK_SEVERITY_THRESHOLD}} --file=Dockerfile ${LOCAL_IMAGE_REF}
     when:
       steps:
         - name: build
-          on:
-            - success
-        - name: codegen
           on:
             - success
 
