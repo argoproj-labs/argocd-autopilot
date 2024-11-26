@@ -1,19 +1,23 @@
 ### Changes
 
-- [chore] Bump code.gitea.io/sdk/gitea from 0.15.1 to 0.16.0 [#503](https://github.com/argoproj-labs/argocd-autopilot/pull/503)
-- [chore] Bump github.com/argoproj/argo-cd/v2 from 2.8.3 to 2.8.4 [#503](https://github.com/argoproj-labs/argocd-autopilot/pull/503)
-- [chore] Bump github.com/briandowns/spinner from 1.18.1 to 1.23.0 [#499](https://github.com/argoproj-labs/argocd-autopilot/pull/499)
-- [chore] Bump github.com/go-git/go-git/v5 from 5.7.0 to 5.9.0 [#505](https://github.com/argoproj-labs/argocd-autopilot/pull/505)
-- [chore] Bump github.com/ktrysmt/go-bitbucket from 0.9.60 to 0.9.70 [#502](https://github.com/argoproj-labs/argocd-autopilot/pull/502) [#506](https://github.com/argoproj-labs/argocd-autopilot/pull/506) [#514](https://github.com/argoproj-labs/argocd-autopilot/pull/514)
-- [chore] Bump github.com/spf13/viper from 1.16.0 to 1.17.0 [#511](https://github.com/argoproj-labs/argocd-autopilot/pull/511)
-- [chore] Bump github.com/xanzy/go-gitlab from 0.86.0 to 0.93.1 [#500](https://github.com/argoproj-labs/argocd-autopilot/pull/500) [#508](https://github.com/argoproj-labs/argocd-autopilot/pull/508) [#512](https://github.com/argoproj-labs/argocd-autopilot/pull/512)
-- [chore] Bump golang.org/x/net from 0.15.0 to 0.17.0 [#513](https://github.com/argoproj-labs/argocd-autopilot/pull/513)
-- [chore] Bump k8s.io/* deps to v0.24.17 [#513](https://github.com/argoproj-labs/argocd-autopilot/pull/513)
-- [chore] removed git-lfs from docker image [#513](https://github.com/argoproj-labs/argocd-autopilot/pull/513)
+- [chore] Bump github.com/spf13/cobra from 1.7.0 to 1.8.0 [#523](https://github.com/argoproj-labs/argocd-autopilot/pull/523)
+- [chore] Bump go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc [#525](https://github.com/argoproj-labs/argocd-autopilot/pull/525)
+- [chore] Bump github.com/go-jose/go-jose/v3 from 3.0.0 to 3.0.1 [#528](https://github.com/argoproj-labs/argocd-autopilot/pull/528)
+- [chore] Bump code.gitea.io/sdk/gitea from 0.16.0 to 0.17.0 [#532](https://github.com/argoproj-labs/argocd-autopilot/pull/532)
+- [chore] Bump github.com/go-git/go-git/v5 from 5.9.0 to 5.11.0 [#519](https://github.com/argoproj-labs/argocd-autopilot/pull/519) [#531](https://github.com/argoproj-labs/argocd-autopilot/pull/531) [#539](https://github.com/argoproj-labs/argocd-autopilot/pull/539)
+- [chore] Bump github.com/spf13/viper from 1.17.0 to 1.18.2 [#537](https://github.com/argoproj-labs/argocd-autopilot/pull/537) [#543](https://github.com/argoproj-labs/argocd-autopilot/pull/543)
+- [chore] Bump golang.org/x/crypto from 0.16.0 to 0.17.1 [#542](https://github.com/argoproj-labs/argocd-autopilot/pull/542) [#544](https://github.com/argoproj-labs/argocd-autopilot/pull/544)
+- [chore] Bump github.com/cloudflare/circl from 1.3.3 to 1.3.7 [#546](https://github.com/argoproj-labs/argocd-autopilot/pull/546)
+- [chore] Bump github.com/argoproj/argo-cd/v2 to 2.10.0 [#554](https://github.com/argoproj-labs/argocd-autopilot/pull/554)
+- [chore] Bump github.com/xanzy/go-gitlab from 0.93.1 to 0.97.0 [#518](https://github.com/argoproj-labs/argocd-autopilot/pull/518) [#526](https://github.com/argoproj-labs/argocd-autopilot/pull/526) [#541](https://github.com/argoproj-labs/argocd-autopilot/pull/541) [#552](https://github.com/argoproj-labs/argocd-autopilot/pull/552)
+- [chore] Bump github.com/ktrysmt/go-bitbucket from 0.9.70 to 0.9.75 [#524](https://github.com/argoproj-labs/argocd-autopilot/pull/524) [#527](https://github.com/argoproj-labs/argocd-autopilot/pull/527) [#540](https://github.com/argoproj-labs/argocd-autopilot/pull/540) [#553](https://github.com/argoproj-labs/argocd-autopilot/pull/553)
+- [chore] updated golang to 1.22 [#555](https://github.com/argoproj-labs/argocd-autopilot/pull/555)
+- [docs] fixed "project create" documentation and help text [#550](https://github.com/argoproj-labs/argocd-autopilot/pull/550)
 
 ### Contributors:
 
 - Noam Gal ([@noam-codefresh](https://github.com/noam-codefresh))
+- [priyanshusd](https://github.com/priyanshusd)
 
 ## Installation:
 
