@@ -164,13 +164,6 @@ func waitAppSynced(ctx context.Context, f kube.Factory, timeout time.Duration, a
 	})
 }
 
-func waitAppDeleted(ctx context.Context, f kube.Factory, timeout time.Duration, appName, namespace string) error {
-	return f.Delete(ctx, &kube.DeleteOptions{
-		Timeout: timeout,
-		WaitForDeletion: true,
-	})
-}
-
 type createAppSetOptions struct {
 	name                        string
 	namespace                   string
