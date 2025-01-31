@@ -72,6 +72,7 @@ type (
 		CloneOptions    *git.CloneOptions
 		KubeFactory     kube.Factory
 		Force           bool
+		ClusterOnly     bool
 		FastExit        bool
 	}
 
@@ -322,9 +323,10 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 
 func NewRepoUninstallCommand() *cobra.Command {
 	var (
-		cloneOpts *git.CloneOptions
-		f         kube.Factory
-		force     bool
+		cloneOpts   *git.CloneOptions
+		f           kube.Factory
+		force       bool
+		clusterOnly bool
 	)
 
 	cmd := &cobra.Command{
@@ -368,12 +370,14 @@ func NewRepoUninstallCommand() *cobra.Command {
 				Timeout:         util.MustParseDuration(cmd.Flag("request-timeout").Value.String()),
 				CloneOptions:    cloneOpts,
 				Force:           force,
+				ClusterOnly:     clusterOnly,
 				KubeFactory:     f,
 			})
 		},
 	}
 
 	cmd.Flags().BoolVar(&force, "force", false, "If true, will try to complete the uninstallation even if one or more of the uninstallation steps failed")
+	cmd.Flags().BoolVar(&clusterOnly, "clusterOnly", false, "If true, will uninstall directly from cluster, without touching the git repository")
 
 	cloneOpts = git.AddFlags(cmd, &git.AddFlagsOptions{
 		FS:            memfs.New(),
@@ -385,7 +389,11 @@ func NewRepoUninstallCommand() *cobra.Command {
 }
 
 func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
-	var err error
+	var (
+		r      git.Repository
+		repofs fs.FS
+		err    error
+	)
 
 	opts, err = setUninstallOptsDefaults(*opts)
 	if err != nil {
@@ -399,18 +407,18 @@ func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
 		"kube-context": opts.KubeContextName,
 	}).Debug("starting with options: ")
 
-	log.G(ctx).Infof("cloning repo: %s", opts.CloneOptions.URL())
-	r, repofs, err := getRepo(ctx, opts.CloneOptions)
-	if err != nil {
-		if !opts.Force {
-			return err
+	var revision string
+	if !opts.ClusterOnly {
+		log.G(ctx).Infof("cloning repo: %s", opts.CloneOptions.URL())
+		r, repofs, err = getRepo(ctx, opts.CloneOptions)
+		if err != nil {
+			if !opts.Force {
+				return err
+			}
+
+			log.G().Warnf("Continuing uninstall, even though failed getting repo: %v", err)
 		}
 
-		log.G().Warnf("Continuing uninstall, even though failed getting repo: %v", err)
-	}
-
-	var revision string
-	if r != nil && repofs != nil {
 		revision, err = removeFromRepo(ctx, r, repofs)
 		if err != nil {
 			if !opts.Force {
@@ -430,7 +438,7 @@ func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
 		log.G().Warnf("Continuing uninstall, even though failed completing deletion of cluster resources: %v", err)
 	}
 
-	if r != nil && repofs != nil {
+	if !opts.ClusterOnly {
 		err = removeLeftoversFromRepo(ctx, r, repofs)
 		if err != nil {
 			if !opts.Force {
@@ -845,18 +853,15 @@ func deleteGitOpsFiles(repofs fs.FS) error {
 }
 
 func removeFromCluster(ctx context.Context, opts *RepoUninstallOptions, revision string) error {
-	if revision != "" {
-		stop := util.WithSpinner(ctx, fmt.Sprintf("waiting for '%s' to be finish syncing", store.Default.BootsrtrapAppName))
-		err := waitAppSynced(ctx, opts.KubeFactory, opts.Timeout, store.Default.BootsrtrapAppName, opts.Namespace, revision, false)
-		if err != nil {
-			se, ok := err.(*kerrors.StatusError)
-			if !ok || se.ErrStatus.Reason != metav1.StatusReasonNotFound {
-				stop()
-				return err
-			}
-		}
+	var err error
+	if opts.ClusterOnly {
+		err = waitForBootstrapAppDelete(ctx, opts)
+	} else {
+		err = waitForBootstrapAppSync(ctx, opts, revision)
+	}
 
-		stop()
+	if err != nil {
+		return err
 	}
 
 	log.G(ctx).Info("Deleting cluster resources")
@@ -865,6 +870,40 @@ func removeFromCluster(ctx context.Context, opts *RepoUninstallOptions, revision
 		KubeFactory: opts.KubeFactory,
 		FastExit:    opts.FastExit,
 	})
+}
+
+func waitForBootstrapAppSync(ctx context.Context, opts *RepoUninstallOptions, revision string) error {
+	stop := util.WithSpinner(ctx, fmt.Sprintf("waiting for '%s' to be finish syncing", store.Default.BootsrtrapAppName))
+	err := waitAppSynced(ctx, opts.KubeFactory, opts.Timeout, store.Default.BootsrtrapAppName, opts.Namespace, revision, false)
+	if err != nil {
+		se, ok := err.(*kerrors.StatusError)
+		if !ok || se.ErrStatus.Reason != metav1.StatusReasonNotFound {
+			stop()
+			return fmt.Errorf("failed syncing '%s' application: %w", store.Default.BootsrtrapAppName, err)
+		}
+	}
+
+	stop()
+	return err
+}
+
+func waitForBootstrapAppDelete(ctx context.Context, opts *RepoUninstallOptions) error {
+	stop := util.WithSpinner(ctx, fmt.Sprintf("waiting for '%s' to be finish deleting", store.Default.BootsrtrapAppName))
+	err := opts.KubeFactory.DeleteResource(ctx, &kube.DeleteResourceOptions{
+		Namespace: opts.Namespace,
+		Name:      store.Default.BootsrtrapAppName,
+		Resource:  argocdv1alpha1.SchemeGroupVersion.WithResource("applications"),
+	})
+	if err != nil {
+		se, ok := err.(*kerrors.StatusError)
+		if !ok || se.ErrStatus.Reason != metav1.StatusReasonNotFound {
+			stop()
+			return fmt.Errorf("failed deleting '%s' application: %w", store.Default.BootsrtrapAppName, err)
+		}
+	}
+
+	stop()
+	return err
 }
 
 func deleteClusterResources(ctx context.Context, opts *deleteClusterResourcesOptions) error {

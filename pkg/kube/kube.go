@@ -2,6 +2,7 @@ package kube
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -13,8 +14,10 @@ import (
 	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -62,6 +65,9 @@ type (
 		// Delete delets the resources by their type(s) and labelSelector
 		Delete(context.Context, *DeleteOptions) error
 
+		// Delete deletes a specific resource by namespace/name
+		DeleteResource(context.Context, *DeleteResourceOptions) error
+
 		// Wait waits for all of the provided `Resources` to be ready by calling
 		// the `WaitFunc` of each resource until all of them returns `true`
 		Wait(context.Context, *WaitOptions) error
@@ -84,6 +90,12 @@ type (
 		ResourceTypes   []string
 		Timeout         time.Duration
 		WaitForDeletion bool
+	}
+
+	DeleteResourceOptions struct {
+		Namespace string
+		Name      string
+		Resource  schema.GroupVersionResource
 	}
 
 	WaitOptions struct {
@@ -250,6 +262,17 @@ func (f *factory) Delete(ctx context.Context, opts *DeleteOptions) error {
 	cmd.SetArgs([]string{})
 
 	return cmd.ExecuteContext(ctx)
+}
+
+func (f *factory) DeleteResource(ctx context.Context, opts *DeleteResourceOptions) error {
+	config, _ := f.ToRESTConfig()
+	clientset, _ := dynamic.NewForConfig(config)
+	err := clientset.Resource(opts.Resource).Namespace(opts.Namespace).Delete(ctx, opts.Name, metav1.DeleteOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to delete resource %s/%s: %w", opts.Namespace, opts.Name, err)
+	}
+
+	return nil
 }
 
 func (f *factory) Wait(ctx context.Context, opts *WaitOptions) error {
