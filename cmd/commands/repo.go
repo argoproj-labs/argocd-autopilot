@@ -358,12 +358,23 @@ func NewRepoUninstallCommand() *cobra.Command {
 
 	<BIN> repo uninstall --repo https://github.com/example/repo --force
 `),
-		PreRun: func(_ *cobra.Command, _ []string) { cloneOpts.Parse() },
+		PreRun: func(_ *cobra.Command, _ []string) {
+			if !clusterOnly {
+				cloneOpts.Parse()
+			}
+		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			kubeContextName, err := cmd.Flags().GetString("context")
 			if err != nil {
 				return fmt.Errorf("failed to get kube context name: %w", err)
 			}
+
+			if !clusterOnly {
+				if cloneOpts.Repo == "" || cloneOpts.Auth.Password == "" {
+					return fmt.Errorf("both --repo and --git-token flags are required")
+				}
+			}
+
 			return RunRepoUninstall(cmd.Context(), &RepoUninstallOptions{
 				Namespace:       cmd.Flag("namespace").Value.String(),
 				KubeContextName: kubeContextName,
@@ -382,6 +393,7 @@ func NewRepoUninstallCommand() *cobra.Command {
 	cloneOpts = git.AddFlags(cmd, &git.AddFlagsOptions{
 		FS:            memfs.New(),
 		CloneForWrite: true,
+		Optional:      true,
 	})
 	f = kube.AddFlags(cmd.Flags())
 
