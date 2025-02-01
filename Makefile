@@ -106,11 +106,11 @@ $(OUT_DIR)/$(CLI_NAME).image: $(CLI_SRCS)
 	@mkdir -p $(OUT_DIR)
 	@touch $(OUT_DIR)/$(CLI_NAME).image
 
-lint: golangci-lint tidy
+lint: tidy golangci-lint
 	$(GOLANGCI_LINT) run
 
 .PHONY: lint-fix
-lint-fix: golangci-lint tidy
+lint-fix: tidy golangci-lint
 	$(GOLANGCI_LINT) run --fix
 
 .PHONY: test
