@@ -106,6 +106,7 @@ $(OUT_DIR)/$(CLI_NAME).image: $(CLI_SRCS)
 	@mkdir -p $(OUT_DIR)
 	@touch $(OUT_DIR)/$(CLI_NAME).image
 
+.PHONY: lint
 lint: tidy golangci-lint
 	$(GOLANGCI_LINT) run
 
@@ -177,7 +178,7 @@ $(GOLANGCI_LINT): $(LOCALBIN)
 	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint,$(GOLANGCI_LINT_VERSION))
 
 .PHONY: mockgen
-mockgen: $(MOCKGEN) ## Download mockery locally if necessary.
+mockgen: $(MOCKGEN) ## Download mockgen locally if necessary.
 $(MOCKGEN):
 	$(call go-install-tool,$(MOCKGEN),github.com/golang/mock/mockgen,$(MOCKGEN_VERSION))
 
