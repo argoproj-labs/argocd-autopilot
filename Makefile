@@ -106,18 +106,19 @@ $(OUT_DIR)/$(CLI_NAME).image: $(CLI_SRCS)
 	@mkdir -p $(OUT_DIR)
 	@touch $(OUT_DIR)/$(CLI_NAME).image
 
-.PHONY: lint
-lint: $(GOBIN)/golangci-lint tidy
-	@golangci-lint version
-	@echo linting go code...
-	@golangci-lint run --fix --timeout 10m
+lint: golangci-lint
+	$(GOLANGCI_LINT) run
+
+.PHONY: lint-fix
+lint-fix: golangci-lint tidy
+	$(GOLANGCI_LINT) run --fix
 
 .PHONY: test
 test:
 	./hack/test.sh
 
 .PHONY: codegen
-codegen: $(GOBIN)/mockgen
+codegen: mockgen
 	rm -f docs/commands/*
 	go generate ./...
 
@@ -156,11 +157,42 @@ tidy:
 check-worktree:
 	@./hack/check_worktree.sh
 
-$(GOBIN)/mockgen:
-	@go install github.com/golang/mock/mockgen@v1.6.0
-	@mockgen -version
+## copied binary dependencies handling from kubebuilder generated code
+## Location to install dependencies to
+LOCALBIN ?= $(shell pwd)/bin
+$(LOCALBIN):
+	mkdir -p $(LOCALBIN)
 
-$(GOBIN)/golangci-lint:
-	@mkdir dist || true
-	@echo installing: golangci-lint
-	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(GOBIN) v1.62.0
+## Tool Binaries
+GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
+MOCKGEN = ${LOCALBIN}/mockgen
+
+## Tool Versions
+MOCKGEN_VERSION ?= v1.6.0
+GOLANGCI_LINT_VERSION ?= v1.62.2
+
+.PHONY: golangci-lint
+golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
+$(GOLANGCI_LINT): $(LOCALBIN)
+	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint,$(GOLANGCI_LINT_VERSION))
+
+.PHONY: mockgen
+mockgen: $(MOCKGEN) ## Download mockery locally if necessary.
+$(MOCKGEN):
+	$(call go-install-tool,$(MOCKGEN),github.com/golang/mock/mockgen,$(MOCKGEN_VERSION))
+
+# go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
+# $1 - target path with name of binary
+# $2 - package url which can be installed
+# $3 - specific version of package
+define go-install-tool
+@[ -f "$(1)-$(3)" ] || { \
+set -e; \
+package=$(2)@$(3) ;\
+echo "Downloading $${package}" ;\
+rm -f $(1) || true ;\
+GOBIN=$(LOCALBIN) go install $${package} ;\
+mv $(1) $(1)-$(3) ;\
+} ;\
+ln -sf $(1)-$(3) $(1)
+endef

@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
-	gl "github.com/xanzy/go-gitlab"
+	gl "gitlab.com/gitlab-org/api/client-go"
 )
 
 //go:generate mockgen -destination=./gitlab/mocks/client.go -package=mocks -source=./provider_gitlab.go GitlabClient
