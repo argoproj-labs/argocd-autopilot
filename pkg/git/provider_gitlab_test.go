@@ -9,7 +9,7 @@ import (
 	glmocks "github.com/argoproj-labs/argocd-autopilot/pkg/git/gitlab/mocks"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	gl "github.com/xanzy/go-gitlab"
+	gl "gitlab.com/gitlab-org/api/client-go"
 )
 
 func Test_gitlab_CreateRepository(t *testing.T) {
