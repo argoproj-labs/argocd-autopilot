@@ -121,7 +121,7 @@ test:
 .PHONY: codegen
 codegen: mockgen
 	rm -f docs/commands/*
-	go generate ./...
+	@PATH=$(LOCALBIN):$(PATH) go generate ./...
 
 .PHONY: pre-commit
 pre-commit: lint
