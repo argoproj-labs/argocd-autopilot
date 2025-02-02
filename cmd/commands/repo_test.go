@@ -666,7 +666,7 @@ func TestRunRepoUninstall(t *testing.T) {
 			},
 		},
 		"Should fail if Wait fails": {
-			wantErr: "some error",
+			wantErr: "failed syncing 'autopilot-bootstrap' application: some error",
 			beforeFn: func(r *gitmocks.MockRepository, f *kubemocks.MockFactory) {
 				r.EXPECT().Persist(gomock.Any(), &git.PushOptions{CommitMsg: "Autopilot Uninstall"}).
 					Return("revision", nil)

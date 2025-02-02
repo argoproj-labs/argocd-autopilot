@@ -40,6 +40,7 @@ argocd-autopilot repo uninstall [flags]
 ### Options
 
 ```
+      --clusterOnly              If true, will uninstall directly from cluster, without touching the git repository
       --context string           The name of the kubeconfig context to use
       --force                    If true, will try to complete the uninstallation even if one or more of the uninstallation steps failed
       --git-server-crt string    Git Server certificate file
