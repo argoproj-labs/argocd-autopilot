@@ -5,7 +5,7 @@ go 1.23
 require (
 	code.gitea.io/sdk/gitea v0.19.0
 	github.com/argoproj/argo-cd/v2 v2.13.4
-	github.com/briandowns/spinner v1.23.1
+	github.com/briandowns/spinner v1.23.2
 	github.com/go-git/go-billy/v5 v5.6.2
 	github.com/go-git/go-git/v5 v5.13.2
 	github.com/golang/mock v1.6.0
