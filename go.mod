@@ -3,7 +3,7 @@ module github.com/argoproj-labs/argocd-autopilot
 go 1.23
 
 require (
-	code.gitea.io/sdk/gitea v0.19.0
+	code.gitea.io/sdk/gitea v0.20.0
 	github.com/argoproj/argo-cd/v2 v2.13.4
 	github.com/briandowns/spinner v1.23.1
 	github.com/go-git/go-billy/v5 v5.6.2
@@ -31,6 +31,7 @@ require (
 require (
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	dario.cat/mergo v1.0.1 // indirect
+	github.com/42wim/httpsig v1.2.1 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
