@@ -358,21 +358,23 @@ func NewRepoUninstallCommand() *cobra.Command {
 
 	<BIN> repo uninstall --repo https://github.com/example/repo --force
 `),
-		PreRun: func(_ *cobra.Command, _ []string) {
+		PreRunE: func(_ *cobra.Command, _ []string) error{
 			if !clusterOnly {
 				cloneOpts.Parse()
-			}
-		},
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			kubeContextName, err := cmd.Flags().GetString("context")
-			if err != nil {
-				return fmt.Errorf("failed to get kube context name: %w", err)
 			}
 
 			if !clusterOnly {
 				if cloneOpts.Repo == "" || cloneOpts.Auth.Password == "" {
 					return fmt.Errorf("both --repo and --git-token flags are required")
 				}
+			}
+
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			kubeContextName, err := cmd.Flags().GetString("context")
+			if err != nil {
+				return fmt.Errorf("failed to get kube context name: %w", err)
 			}
 
 			return RunRepoUninstall(cmd.Context(), &RepoUninstallOptions{
@@ -431,13 +433,15 @@ func RunRepoUninstall(ctx context.Context, opts *RepoUninstallOptions) error {
 			log.G().Warnf("Continuing uninstall, even though failed getting repo: %v", err)
 		}
 
-		revision, err = removeFromRepo(ctx, r, repofs)
-		if err != nil {
-			if !opts.Force {
-				return err
-			}
+		if r != nil && repofs != nil {
+			revision, err = removeFromRepo(ctx, r, repofs)
+			if err != nil {
+				if !opts.Force {
+					return err
+				}
 
-			log.G().Warnf("Continuing uninstall, even though failed uninstalling from repo: %v", err)
+				log.G().Warnf("Continuing uninstall, even though failed uninstalling from repo: %v", err)
+			}
 		}
 	}
 
