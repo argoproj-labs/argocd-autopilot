@@ -65,6 +65,20 @@ func (mr *MockFactoryMockRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockFactory)(nil).Delete), arg0, arg1)
 }
 
+// DeleteResource mocks base method.
+func (m *MockFactory) DeleteResource(arg0 context.Context, arg1 *kube.DeleteResourceOptions) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteResource", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteResource indicates an expected call of DeleteResource.
+func (mr *MockFactoryMockRecorder) DeleteResource(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteResource", reflect.TypeOf((*MockFactory)(nil).DeleteResource), arg0, arg1)
+}
+
 // KubernetesClientSet mocks base method.
 func (m *MockFactory) KubernetesClientSet() (kubernetes.Interface, error) {
 	m.ctrl.T.Helper()
