@@ -2,8 +2,6 @@ module github.com/argoproj-labs/argocd-autopilot
 
 go 1.24
 
-toolchain go1.24.1
-
 require (
 	code.gitea.io/sdk/gitea v0.19.0
 	github.com/argoproj/argo-cd/v2 v2.13.4
@@ -19,7 +17,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.19.0
 	github.com/stretchr/testify v1.10.0
-	gitlab.com/gitlab-org/api/client-go v0.121.0
+	gitlab.com/gitlab-org/api/client-go v0.127.0
 	k8s.io/api v0.31.0
 	k8s.io/apimachinery v0.31.0
 	k8s.io/cli-runtime v0.31.0
@@ -242,7 +240,7 @@ require (
 	golang.org/x/sys v0.31.0 // indirect
 	golang.org/x/term v0.30.0 // indirect
 	golang.org/x/text v0.23.0 // indirect
-	golang.org/x/time v0.8.0 // indirect
+	golang.org/x/time v0.10.0 // indirect
 	golang.org/x/tools v0.24.0 // indirect
 	gomodules.xyz/envconfig v1.3.1-0.20190308184047-426f31af0d45 // indirect
 	gomodules.xyz/notify v0.1.1 // indirect
