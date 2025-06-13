@@ -83,6 +83,7 @@ type (
 		clusterResConfig       []byte
 		argocdApp              []byte
 		repoCreds              []byte
+		argocdRepoCreds        []byte
 		applyManifests         []byte
 		bootstrapKustomization []byte
 		namespace              []byte
@@ -227,6 +228,7 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 			manifests.namespace,
 			manifests.applyManifests,
 			manifests.repoCreds,
+			manifests.argocdRepoCreds,
 			manifests.bootstrapApp,
 			manifests.argocdApp,
 			manifests.rootApp,
@@ -256,6 +258,12 @@ func RunRepoBootstrap(ctx context.Context, opts *RepoBootstrapOptions) error {
 	log.G(ctx).Infof("applying bootstrap manifests to cluster...")
 	if err = opts.KubeFactory.Apply(ctx, util.JoinManifests(manifests.namespace, manifests.applyManifests, manifests.repoCreds)); err != nil {
 		return fmt.Errorf("failed to apply bootstrap manifests to cluster: %w", err)
+	}
+
+	// ALWAYS apply ArgoCD repo credentials secret (for both bootstrap and recovery)
+	log.G(ctx).Infof("applying argocd repository credentials...")
+	if err = opts.KubeFactory.Apply(ctx, manifests.argocdRepoCreds); err != nil {
+		return fmt.Errorf("failed to apply argocd repository credentials: %w", err)
 	}
 
 	if !opts.Recover {
@@ -358,7 +366,7 @@ func NewRepoUninstallCommand() *cobra.Command {
 
 	<BIN> repo uninstall --repo https://github.com/example/repo --force
 `),
-		PreRunE: func(_ *cobra.Command, _ []string) error{
+		PreRunE: func(_ *cobra.Command, _ []string) error {
 			if !clusterOnly {
 				cloneOpts.Parse()
 			}
@@ -552,6 +560,32 @@ func getRepoCredsSecret(username, token, namespace string) ([]byte, error) {
 	})
 }
 
+func getArgoCDRepoCredsSecret(username, token, namespace, repoURL string) ([]byte, error) {
+	host, _, _, _, _, _, _ := util.ParseGitUrl(repoURL)
+
+	return yaml.Marshal(&v1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Secret",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "argocd-repo-creds",
+			Namespace: namespace,
+			Labels: map[string]string{
+				"argocd.argoproj.io/secret-type":   "repo-creds",
+				store.Default.LabelKeyAppManagedBy: store.Default.LabelValueManagedBy,
+			},
+		},
+		Type: v1.SecretTypeOpaque,
+		StringData: map[string]string{
+			"type":     "git",
+			"url":      host,
+			"username": username,
+			"password": token,
+		},
+	})
+}
+
 func getInitialPassword(ctx context.Context, f kube.Factory, namespace string) (string, error) {
 	cs := f.KubernetesClientSetOrDie()
 	secret, err := cs.CoreV1().Secrets(namespace).Get(ctx, "argocd-initial-admin-secret", metav1.GetOptions{})
@@ -671,6 +705,11 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 	}
 
 	manifests.repoCreds, err = getRepoCredsSecret(cloneOpts.Auth.Username, cloneOpts.Auth.Password, namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	manifests.argocdRepoCreds, err = getArgoCDRepoCredsSecret(cloneOpts.Auth.Username, cloneOpts.Auth.Password, namespace, cloneOpts.URL())
 	if err != nil {
 		return nil, err
 	}

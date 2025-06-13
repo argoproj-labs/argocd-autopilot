@@ -204,6 +204,17 @@ func Test_buildBootstrapManifests(t *testing.T) {
 				assert.Equal(t, "foo", creds.ObjectMeta.Namespace)
 				assert.Equal(t, []byte("test"), creds.Data["git_token"])
 				assert.Equal(t, []byte(store.Default.GitHubUsername), creds.Data["git_username"])
+
+				argocdCreds := &v1.Secret{}
+				assert.NoError(t, yaml.Unmarshal(b.argocdRepoCreds, &argocdCreds))
+				assert.Equal(t, "argocd-repo-creds", argocdCreds.ObjectMeta.Name)
+				assert.Equal(t, "foo", argocdCreds.ObjectMeta.Namespace)
+				assert.Equal(t, "repo-creds", argocdCreds.ObjectMeta.Labels["argocd.argoproj.io/secret-type"])
+				assert.Equal(t, store.Default.LabelValueManagedBy, argocdCreds.ObjectMeta.Labels[store.Default.LabelKeyAppManagedBy])
+				assert.Equal(t, "git", argocdCreds.StringData["type"])
+				assert.Equal(t, "https://github.com/", argocdCreds.StringData["url"])
+				assert.Equal(t, "test", argocdCreds.StringData["password"])
+				assert.Equal(t, store.Default.GitHubUsername, argocdCreds.StringData["username"])
 			},
 		},
 	}
@@ -277,7 +288,7 @@ func TestRunRepoBootstrap(t *testing.T) {
 				})
 				r.EXPECT().Persist(gomock.Any(), gomock.Any()).Return("revision", nil)
 				f.EXPECT().Apply(gomock.Any(), gomock.Any()).
-					Times(2).
+					Times(3).
 					Return(nil)
 				f.EXPECT().Wait(gomock.Any(), gomock.Any()).Return(nil)
 				f.EXPECT().KubernetesClientSetOrDie().Return(mockCS)
@@ -335,7 +346,7 @@ func TestRunRepoBootstrap(t *testing.T) {
 				})
 				r.EXPECT().Persist(gomock.Any(), &git.PushOptions{CommitMsg: "Autopilot Bootstrap"}).Return("revision", nil)
 				f.EXPECT().Apply(gomock.Any(), gomock.Any()).
-					Times(2).
+					Times(3).
 					Return(nil)
 				f.EXPECT().Wait(gomock.Any(), gomock.Any()).Return(nil)
 				f.EXPECT().KubernetesClientSetOrDie().Return(mockCS)
@@ -405,6 +416,61 @@ func TestRunRepoBootstrap(t *testing.T) {
 	}
 }
 
+func Test_getArgoCDRepoCredsSecret(t *testing.T) {
+	tests := map[string]struct {
+		username  string
+		token     string
+		namespace string
+		repoURL   string
+		assertFn  func(t *testing.T, secret []byte, err error)
+	}{
+		"Basic GitHub": {
+			username:  "testuser",
+			token:     "testtoken",
+			namespace: "argocd",
+			repoURL:   "https://github.com/owner/repo.git",
+			assertFn: func(t *testing.T, secretBytes []byte, err error) {
+				assert.NoError(t, err)
+
+				secret := &v1.Secret{}
+				assert.NoError(t, yaml.Unmarshal(secretBytes, secret))
+				assert.Equal(t, "argocd-repo-creds", secret.ObjectMeta.Name)
+				assert.Equal(t, "argocd", secret.ObjectMeta.Namespace)
+				assert.Equal(t, "repo-creds", secret.ObjectMeta.Labels["argocd.argoproj.io/secret-type"])
+				assert.Equal(t, store.Default.LabelValueManagedBy, secret.ObjectMeta.Labels[store.Default.LabelKeyAppManagedBy])
+				assert.Equal(t, "git", secret.StringData["type"])
+				assert.Equal(t, "https://github.com/", secret.StringData["url"])
+				assert.Equal(t, "testuser", secret.StringData["username"])
+				assert.Equal(t, "testtoken", secret.StringData["password"])
+			},
+		},
+		"GitLab": {
+			username:  "gitlabuser",
+			token:     "glpat-xxxx",
+			namespace: "custom-ns",
+			repoURL:   "https://gitlab.com/group/project.git",
+			assertFn: func(t *testing.T, secretBytes []byte, err error) {
+				assert.NoError(t, err)
+
+				secret := &v1.Secret{}
+				assert.NoError(t, yaml.Unmarshal(secretBytes, secret))
+				assert.Equal(t, "argocd-repo-creds", secret.ObjectMeta.Name)
+				assert.Equal(t, "custom-ns", secret.ObjectMeta.Namespace)
+				assert.Equal(t, "https://gitlab.com/", secret.StringData["url"])
+				assert.Equal(t, "gitlabuser", secret.StringData["username"])
+				assert.Equal(t, "glpat-xxxx", secret.StringData["password"])
+			},
+		},
+	}
+
+	for tname, tt := range tests {
+		t.Run(tname, func(t *testing.T) {
+			secret, err := getArgoCDRepoCredsSecret(tt.username, tt.token, tt.namespace, tt.repoURL)
+			tt.assertFn(t, secret, err)
+		})
+	}
+}
+
 func TestRunRepoBootstrapRecovery(t *testing.T) {
 	exitCalled := false
 	tests := map[string]struct {
@@ -434,7 +500,7 @@ func TestRunRepoBootstrapRecovery(t *testing.T) {
 				})
 				r.EXPECT().Persist(gomock.Any(), &git.PushOptions{CommitMsg: "Autopilot Bootstrap"}).Times(0)
 				f.EXPECT().Apply(gomock.Any(), gomock.Any()).
-					Times(2).
+					Times(3).
 					Return(nil)
 				f.EXPECT().Wait(gomock.Any(), gomock.Any()).Return(nil)
 				f.EXPECT().KubernetesClientSetOrDie().Return(mockCS)
