@@ -23,7 +23,6 @@ import (
 
 	argocdcommon "github.com/argoproj/argo-cd/v2/common"
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
-	argocdsettings "github.com/argoproj/argo-cd/v2/util/settings"
 	"github.com/go-git/go-billy/v5/memfs"
 	billyUtils "github.com/go-git/go-billy/v5/util"
 	"github.com/spf13/cobra"
@@ -358,7 +357,7 @@ func NewRepoUninstallCommand() *cobra.Command {
 
 	<BIN> repo uninstall --repo https://github.com/example/repo --force
 `),
-		PreRunE: func(_ *cobra.Command, _ []string) error{
+		PreRunE: func(_ *cobra.Command, _ []string) error {
 			if !clusterOnly {
 				cloneOpts.Parse()
 			}
@@ -532,22 +531,28 @@ func waitClusterReady(ctx context.Context, f kube.Factory, timeout time.Duration
 	})
 }
 
-func getRepoCredsSecret(username, token, namespace string) ([]byte, error) {
+func getRepoCredsSecret(username, token, namespace, repoURL string) ([]byte, error) {
+	host, _, _, _, _, _, _ := util.ParseGitUrl(repoURL)
+
 	return yaml.Marshal(&v1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
 			Kind:       "Secret",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      store.Default.RepoCredsSecretName,
+			Name:      "argocd-repo-creds",
 			Namespace: namespace,
 			Labels: map[string]string{
+				"argocd.argoproj.io/secret-type":   "repo-creds",
 				store.Default.LabelKeyAppManagedBy: store.Default.LabelValueManagedBy,
 			},
 		},
-		Data: map[string][]byte{
-			"git_username": []byte(username),
-			"git_token":    []byte(token),
+		Type: v1.SecretTypeOpaque,
+		StringData: map[string]string{
+			"type":     "git",
+			"url":      host,
+			"username": username,
+			"password": token,
 		},
 	})
 }
@@ -670,7 +675,7 @@ func buildBootstrapManifests(namespace, appSpecifier string, cloneOpts *git.Clon
 		return nil, err
 	}
 
-	manifests.repoCreds, err = getRepoCredsSecret(cloneOpts.Auth.Username, cloneOpts.Auth.Password, namespace)
+	manifests.repoCreds, err = getRepoCredsSecret(cloneOpts.Auth.Username, cloneOpts.Auth.Password, namespace, cloneOpts.URL())
 	if err != nil {
 		return nil, err
 	}
@@ -720,11 +725,6 @@ func writeManifestsToRepo(repoFS fs.FS, manifests *bootstrapManifests, installat
 }
 
 func createBootstrapKustomization(namespace, appSpecifier string, cloneOpts *git.CloneOptions) (*kusttypes.Kustomization, error) {
-	credsYAML, err := createCreds(cloneOpts.URL())
-	if err != nil {
-		return nil, err
-	}
-
 	k := &kusttypes.Kustomization{
 		Resources: []string{
 			appSpecifier,
@@ -732,19 +732,6 @@ func createBootstrapKustomization(namespace, appSpecifier string, cloneOpts *git
 		TypeMeta: kusttypes.TypeMeta{
 			APIVersion: kusttypes.KustomizationVersion,
 			Kind:       kusttypes.KustomizationKind,
-		},
-		ConfigMapGenerator: []kusttypes.ConfigMapArgs{
-			{
-				GeneratorArgs: kusttypes.GeneratorArgs{
-					Name:     "argocd-cm",
-					Behavior: kusttypes.BehaviorMerge.String(),
-					KvPairSources: kusttypes.KvPairSources{
-						LiteralSources: []string{
-							"repository.credentials=" + string(credsYAML),
-						},
-					},
-				},
-			},
 		},
 		Namespace: namespace,
 	}
@@ -787,29 +774,6 @@ func createBootstrapKustomization(namespace, appSpecifier string, cloneOpts *git
 	}
 
 	return k, nil
-}
-
-func createCreds(repoUrl string) ([]byte, error) {
-	host, _, _, _, _, _, _ := util.ParseGitUrl(repoUrl)
-	creds := []argocdsettings.RepositoryCredentials{
-		{
-			URL: host,
-			UsernameSecret: &v1.SecretKeySelector{
-				LocalObjectReference: v1.LocalObjectReference{
-					Name: store.Default.RepoCredsSecretName,
-				},
-				Key: "git_username",
-			},
-			PasswordSecret: &v1.SecretKeySelector{
-				LocalObjectReference: v1.LocalObjectReference{
-					Name: store.Default.RepoCredsSecretName,
-				},
-				Key: "git_token",
-			},
-		},
-	}
-
-	return yaml.Marshal(creds)
 }
 
 func setUninstallOptsDefaults(opts RepoUninstallOptions) (*RepoUninstallOptions, error) {

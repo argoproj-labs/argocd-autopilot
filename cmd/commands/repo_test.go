@@ -200,10 +200,14 @@ func Test_buildBootstrapManifests(t *testing.T) {
 
 				creds := &v1.Secret{}
 				assert.NoError(t, yaml.Unmarshal(b.repoCreds, &creds))
-				assert.Equal(t, store.Default.RepoCredsSecretName, creds.ObjectMeta.Name)
+				assert.Equal(t, "argocd-repo-creds", creds.ObjectMeta.Name)
 				assert.Equal(t, "foo", creds.ObjectMeta.Namespace)
-				assert.Equal(t, []byte("test"), creds.Data["git_token"])
-				assert.Equal(t, []byte(store.Default.GitHubUsername), creds.Data["git_username"])
+				assert.Equal(t, "repo-creds", creds.ObjectMeta.Labels["argocd.argoproj.io/secret-type"])
+				assert.Equal(t, store.Default.LabelValueManagedBy, creds.ObjectMeta.Labels[store.Default.LabelKeyAppManagedBy])
+				assert.Equal(t, "git", creds.StringData["type"])
+				assert.Equal(t, "https://github.com/", creds.StringData["url"])
+				assert.Equal(t, "test", creds.StringData["password"])
+				assert.Equal(t, store.Default.GitHubUsername, creds.StringData["username"])
 			},
 		},
 	}
@@ -401,6 +405,61 @@ func TestRunRepoBootstrap(t *testing.T) {
 
 			err := RunRepoBootstrap(context.Background(), tt.opts)
 			tt.assertFn(t, repofs, err)
+		})
+	}
+}
+
+func Test_getRepoCredsSecret(t *testing.T) {
+	tests := map[string]struct {
+		username  string
+		token     string
+		namespace string
+		repoURL   string
+		assertFn  func(t *testing.T, secret []byte, err error)
+	}{
+		"Basic GitHub": {
+			username:  "testuser",
+			token:     "testtoken",
+			namespace: "argocd",
+			repoURL:   "https://github.com/owner/repo.git",
+			assertFn: func(t *testing.T, secretBytes []byte, err error) {
+				assert.NoError(t, err)
+
+				secret := &v1.Secret{}
+				assert.NoError(t, yaml.Unmarshal(secretBytes, secret))
+				assert.Equal(t, "argocd-repo-creds", secret.ObjectMeta.Name)
+				assert.Equal(t, "argocd", secret.ObjectMeta.Namespace)
+				assert.Equal(t, "repo-creds", secret.ObjectMeta.Labels["argocd.argoproj.io/secret-type"])
+				assert.Equal(t, store.Default.LabelValueManagedBy, secret.ObjectMeta.Labels[store.Default.LabelKeyAppManagedBy])
+				assert.Equal(t, "git", secret.StringData["type"])
+				assert.Equal(t, "https://github.com/", secret.StringData["url"])
+				assert.Equal(t, "testuser", secret.StringData["username"])
+				assert.Equal(t, "testtoken", secret.StringData["password"])
+			},
+		},
+		"GitLab": {
+			username:  "gitlabuser",
+			token:     "glpat-xxxx",
+			namespace: "custom-ns",
+			repoURL:   "https://gitlab.com/group/project.git",
+			assertFn: func(t *testing.T, secretBytes []byte, err error) {
+				assert.NoError(t, err)
+
+				secret := &v1.Secret{}
+				assert.NoError(t, yaml.Unmarshal(secretBytes, secret))
+				assert.Equal(t, "argocd-repo-creds", secret.ObjectMeta.Name)
+				assert.Equal(t, "custom-ns", secret.ObjectMeta.Namespace)
+				assert.Equal(t, "https://gitlab.com/", secret.StringData["url"])
+				assert.Equal(t, "gitlabuser", secret.StringData["username"])
+				assert.Equal(t, "glpat-xxxx", secret.StringData["password"])
+			},
+		},
+	}
+
+	for tname, tt := range tests {
+		t.Run(tname, func(t *testing.T) {
+			secret, err := getRepoCredsSecret(tt.username, tt.token, tt.namespace, tt.repoURL)
+			tt.assertFn(t, secret, err)
 		})
 	}
 }
