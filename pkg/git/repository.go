@@ -228,8 +228,8 @@ func (o *CloneOptions) GetRepo(ctx context.Context) (Repository, fs.FS, error) {
 
 	r, err := clone(ctx, o)
 	if err != nil {
-		switch err {
-		case transport.ErrRepositoryNotFound:
+		switch {
+		case errors.Is(err, transport.ErrRepositoryNotFound):
 			if !o.CreateIfNotExist {
 				return nil, nil, err
 			}
@@ -241,7 +241,7 @@ func (o *CloneOptions) GetRepo(ctx context.Context) (Repository, fs.FS, error) {
 			}
 
 			fallthrough // a new repo will always start as empty - we need to init it locally
-		case transport.ErrEmptyRemoteRepository:
+		case errors.Is(err, transport.ErrEmptyRemoteRepository):
 			log.G(ctx).Info("empty repository, initializing a new one with specified remote")
 			r, err = initRepo(ctx, o, defaultBranch)
 			if err != nil {
