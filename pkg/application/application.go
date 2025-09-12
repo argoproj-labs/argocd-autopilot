@@ -328,7 +328,7 @@ func kustCreateFiles(app *kustApp, repofs fs.FS, appsfs fs.FS, projectName strin
 	} else if appsfs != repofs && repofs.ExistsOrDie(appPath) {
 		appRepo, err := getAppRepo(repofs, app.Name())
 		if err != nil {
-			return fmt.Errorf("Failed getting app repo: %w", err)
+			return fmt.Errorf("failed getting app repo: %w", err)
 		}
 
 		return fmt.Errorf("an application with the same name already exists in '%s', consider choosing a different name", appRepo)

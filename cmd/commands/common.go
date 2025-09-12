@@ -139,11 +139,11 @@ func createApp(opts *createAppOptions) ([]byte, error) {
 		},
 	}
 	if opts.noFinalizer {
-		app.ObjectMeta.Finalizers = []string{}
+		app.Finalizers = []string{}
 	}
 	if len(opts.labels) > 0 {
 		for k, v := range opts.labels {
-			app.ObjectMeta.Labels[k] = v
+			app.Labels[k] = v
 		}
 	}
 

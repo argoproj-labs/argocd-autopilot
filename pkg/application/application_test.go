@@ -110,7 +110,7 @@ func Test_newKustApp(t *testing.T) {
 				assert.Equal(t, []byte("foo"), a.manifests)
 				assert.Equal(t, 1, len(a.overlay.Resources))
 				assert.Equal(t, "../../base", a.overlay.Resources[0])
-				assert.Equal(t, "namespace", a.namespace.ObjectMeta.Name)
+				assert.Equal(t, "namespace", a.namespace.Name)
 				assert.True(t, reflect.DeepEqual(&Config{
 					AppName:           "name",
 					UserGivenName:     "name",
