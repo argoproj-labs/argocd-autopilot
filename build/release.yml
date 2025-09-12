@@ -20,7 +20,7 @@ steps:
   check_version: &deps
     stage: Prepare
     title: check version
-    image: quay.io/codefresh/golang-ci-helper:1.24.1
+    image: quay.io/codefresh/golang-ci-helper:1.25
     commands:
     - cf_export GO111MODULE=on
     - cf_export GOCACHE=/codefresh/volume/gocache # change gopath to codefresh shared volume
