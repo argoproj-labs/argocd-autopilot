@@ -3,7 +3,7 @@ package log
 import (
 	"fmt"
 
-	cmdutil "github.com/argoproj/argo-cd/v2/cmd/util"
+	cmdutil "github.com/argoproj/argo-cd/v3/cmd/util"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
