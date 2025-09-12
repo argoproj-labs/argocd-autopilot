@@ -1,16 +1,11 @@
 ### Changes
 
-- [chore] update github.com/argoproj/argo-cd/v2 v2.13.1 to v2.13.4 [#635](https://github.com/argoproj-labs/argocd-autopilot/pull/635)
-- [chore] update github.com/go-git/go-billy/v5 v5.5.0 to v5.6.2 [#635](https://github.com/argoproj-labs/argocd-autopilot/pull/635)
-- [chore] update github.com/go-git/go-git/v5 v5.12.0 to v5.13.2 [#635](https://github.com/argoproj-labs/argocd-autopilot/pull/635)
-- [chore] replace github.com/xanzy/go-gitlab v0.91.1 with gitlab.com/gitlab-org/api/client-go v0.121.0 [#635](https://github.com/argoproj-labs/argocd-autopilot/pull/635)
-- [chore] update sigs.k8s.io/kustomize/api v0.17.2 to v0.19.0 [#635](https://github.com/argoproj-labs/argocd-autopilot/pull/635)
-- [chore] update sigs.k8s.io/kustomize/kyaml v0.17.1 to v0.19.0 [#635](https://github.com/argoproj-labs/argocd-autopilot/pull/635)
-- [chore] update golang to 1.24 [#634](https://github.com/argoproj-labs/argocd-autopilot/pull/634)
-- [feat] add cluster-only uninstall option and resource deletion handling [#634](https://github.com/argoproj-labs/argocd-autopilot/pull/634)
+- [fix] Fix ArgoCD 3.0.0+ compatibility by replacing legacy repo credentials with proper repo-creds secret [#674](https://github.com/argoproj-labs/argocd-autopilot/pull/674)
+- [fix] repo bootstrap fails when repository does not exist in the git provider [#675](https://github.com/argoproj-labs/argocd-autopilot/issues/675)
 
 ### Contributors:
 
+- Aron Reis ([@aronreisx](https://github.com/aronreisx))
 - Noam Gal ([@ATGardner](https://github.com/ATGardner))
 
 ## Installation:
@@ -54,7 +49,7 @@ argocd-autopilot version
 
 ```bash
 # download and extract the binary
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.19/argocd-autopilot-linux-amd64.tar.gz | tar zx
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.20/argocd-autopilot-linux-amd64.tar.gz | tar zx
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot
@@ -67,7 +62,7 @@ argocd-autopilot version
 
 ```bash
 # download and extract the binary
-curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.19/argocd-autopilot-darwin-amd64.tar.gz | tar zx
+curl -L --output - https://github.com/argoproj-labs/argocd-autopilot/releases/download/v0.4.20/argocd-autopilot-darwin-amd64.tar.gz | tar zx
 
 # move the binary to your $PATH
 mv ./argocd-autopilot-* /usr/local/bin/argocd-autopilot

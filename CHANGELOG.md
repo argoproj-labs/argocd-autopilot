@@ -1,5 +1,9 @@
 # Changelog:
 
+# v0.4.20
+- [fix] Fix ArgoCD 3.0.0+ compatibility by replacing legacy repo credentials with proper repo-creds secret [#674](https://github.com/argoproj-labs/argocd-autopilot/pull/674)
+- [fix] repo bootstrap fails when repository does not exist in the git provider [#675](https://github.com/argoproj-labs/argocd-autopilot/issues/675)
+
 # v0.4.19
 - [chore] update github.com/argoproj/argo-cd/v2 v2.13.1 to v2.13.4 [#635](https://github.com/argoproj-labs/argocd-autopilot/pull/635)
 - [chore] update github.com/go-git/go-billy/v5 v5.5.0 to v5.6.2 [#635](https://github.com/argoproj-labs/argocd-autopilot/pull/635)
