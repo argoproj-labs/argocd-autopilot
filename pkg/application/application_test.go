@@ -293,7 +293,6 @@ func Test_writeFile(t *testing.T) {
 
 func Test_kustCreateFiles(t *testing.T) {
 	tests := map[string]struct {
-		run      bool
 		beforeFn func() (app *kustApp, repofs fs.FS, appsfs fs.FS, projectName string)
 		assertFn func(t *testing.T, repofs fs.FS, appsfs fs.FS, err error)
 	}{
@@ -479,7 +478,6 @@ func Test_kustCreateFiles(t *testing.T) {
 			},
 		},
 		"Should fail when failing to find original appRepo": {
-			run: true,
 			beforeFn: func() (*kustApp, fs.FS, fs.FS, string) {
 				app := &kustApp{
 					baseApp: baseApp{
@@ -521,9 +519,6 @@ func Test_kustCreateFiles(t *testing.T) {
 		},
 	}
 	for tname, tt := range tests {
-		if !tt.run {
-			continue
-		}
 		t.Run(tname, func(t *testing.T) {
 			app, repofs, appsfs, projectName := tt.beforeFn()
 			err := app.CreateFiles(repofs, appsfs, projectName)
