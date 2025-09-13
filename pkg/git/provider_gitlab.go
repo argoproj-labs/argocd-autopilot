@@ -20,9 +20,9 @@ type (
 	}
 
 	clientImpl struct {
-		gl.ProjectsService
-		gl.UsersService
-		gl.GroupsService
+		gl.ProjectsServiceInterface
+		gl.UsersServiceInterface
+		gl.GroupsServiceInterface
 	}
 
 	gitlab struct {
@@ -52,9 +52,9 @@ func newGitlab(opts *ProviderOptions) (Provider, error) {
 	g := &gitlab{
 		opts: opts,
 		client: &clientImpl{
-			ProjectsService: *c.Projects,
-			UsersService:    *c.Users,
-			GroupsService:   *c.Groups,
+			ProjectsServiceInterface: c.Projects,
+			UsersServiceInterface:    c.Users,
+			GroupsServiceInterface:   c.Groups,
 		},
 	}
 

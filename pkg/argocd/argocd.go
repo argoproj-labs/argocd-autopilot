@@ -9,9 +9,9 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/log"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 
-	"github.com/argoproj/argo-cd/v2/cmd/argocd/commands"
-	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
-	argocdcs "github.com/argoproj/argo-cd/v2/pkg/client/clientset/versioned"
+	"github.com/argoproj/argo-cd/v3/cmd/argocd/commands"
+	"github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
+	argocdcs "github.com/argoproj/argo-cd/v3/pkg/client/clientset/versioned"
 	"github.com/spf13/cobra"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

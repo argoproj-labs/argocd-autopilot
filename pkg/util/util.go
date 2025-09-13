@@ -61,11 +61,11 @@ func KubeContextToServer(contextName string) (string, error) {
 	}
 	ctx := conf.Contexts[contextName]
 	if ctx == nil {
-		return "", fmt.Errorf("Context %s does not exist in kubeconfig", contextName)
+		return "", fmt.Errorf("context %s does not exist in kubeconfig", contextName)
 	}
 	cluster := conf.Clusters[ctx.Cluster]
 	if cluster == nil {
-		return "", fmt.Errorf("Cluster %s does not exist in kubeconfig", ctx.Cluster)
+		return "", fmt.Errorf("cluster %s does not exist in kubeconfig", ctx.Cluster)
 	}
 
 	return cluster.Server, nil

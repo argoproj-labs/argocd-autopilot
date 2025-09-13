@@ -32,7 +32,7 @@ func newBitbucket(opts *ProviderOptions) (Provider, error) {
 	var err error
 	c := bb.NewBasicAuth(opts.Auth.Username, opts.Auth.Password)
 	if c == nil {
-		return nil, errors.New("Authentication info is invalid")
+		return nil, errors.New("authentication info is invalid")
 	}
 
 	c.HttpClient.Transport, err = DefaultTransportWithCa(opts.Auth.CertFile)

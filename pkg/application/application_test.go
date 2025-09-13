@@ -110,7 +110,7 @@ func Test_newKustApp(t *testing.T) {
 				assert.Equal(t, []byte("foo"), a.manifests)
 				assert.Equal(t, 1, len(a.overlay.Resources))
 				assert.Equal(t, "../../base", a.overlay.Resources[0])
-				assert.Equal(t, "namespace", a.namespace.ObjectMeta.Name)
+				assert.Equal(t, "namespace", a.namespace.Name)
 				assert.True(t, reflect.DeepEqual(&Config{
 					AppName:           "name",
 					UserGivenName:     "name",
@@ -492,7 +492,7 @@ func Test_kustCreateFiles(t *testing.T) {
 				return app, repofs, appsfs, "project"
 			},
 			assertFn: func(t *testing.T, _ fs.FS, _ fs.FS, err error) {
-				assert.EqualError(t, err, "Failed getting app repo: Application 'app' has no overlays")
+				assert.EqualError(t, err, "failed getting app repo: Application 'app' has no overlays")
 			},
 		},
 		"Should fail when app exists on another repo": {

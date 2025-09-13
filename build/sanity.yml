@@ -18,7 +18,7 @@ steps:
   prep: &deps
     stage: "prepare"
     title: "prepare env vars"
-    image: quay.io/codefresh/golang-ci-helper:1.24.1
+    image: quay.io/codefresh/golang-ci-helper:1.25
     commands:
     - cf_export GO111MODULE=on
     - cf_export NAMESPACE=${{KUBE_NAMESPACE}}-$(date "+%M-%S")

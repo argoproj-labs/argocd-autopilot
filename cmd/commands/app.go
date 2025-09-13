@@ -17,7 +17,7 @@ import (
 	"github.com/argoproj-labs/argocd-autopilot/pkg/store"
 	"github.com/argoproj-labs/argocd-autopilot/pkg/util"
 
-	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
+	argocdv1alpha1 "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/go-git/go-billy/v5/osfs"
 	billyUtils "github.com/go-git/go-billy/v5/util"
@@ -264,7 +264,7 @@ var setAppOptsDefaults = func(ctx context.Context, repofs fs.FS, opts *AppCreate
 	if opts.AppOpts.Labels == nil {
 		opts.AppOpts.Labels = opts.Labels
 	}
-	
+
 	if opts.AppOpts.Annotations == nil {
 		opts.AppOpts.Annotations = opts.Annotations
 	}
@@ -282,10 +282,10 @@ var setAppOptsDefaults = func(ctx context.Context, repofs fs.FS, opts *AppCreate
 		url := host + orgRepo + suffix
 		log.G(ctx).Infof("cloning repo: '%s', to infer app type from path '%s'", url, p)
 		cloneOpts := &git.CloneOptions{
-			Repo: opts.AppOpts.AppSpecifier,
-			Auth: opts.CloneOpts.Auth,
+			Repo:     opts.AppOpts.AppSpecifier,
+			Auth:     opts.CloneOpts.Auth,
 			Provider: opts.CloneOpts.Provider,
-			FS:   fs.Create(memfs.New()),
+			FS:       fs.Create(memfs.New()),
 		}
 		cloneOpts.Parse()
 		_, fsys, err = getRepo(ctx, cloneOpts)
