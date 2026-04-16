@@ -81,7 +81,7 @@ type (
 
 		// WaitFunc will be called to check if the resources is ready. Should return (true, nil)
 		// if the resources is ready, (false, nil) if the resource is not ready yet, or (false, err)
-		// if some error occured (in that case the `Wait` will fail with that error).
+		// if some error occurred (in that case the `Wait` will fail with that error).
 		WaitFunc WaitFunc
 	}
 
