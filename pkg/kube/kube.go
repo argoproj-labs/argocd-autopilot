@@ -220,7 +220,7 @@ func (f *factory) Apply(ctx context.Context, manifests []byte) error {
 	cmd.SilenceErrors = true
 	cmd.SilenceUsage = true
 
-	args := []string{"-f", "-", "--overwrite"}
+	args := []string{"-f", "-", "--server-side", "--force-conflicts"}
 
 	cmd.SetArgs(args)
 
